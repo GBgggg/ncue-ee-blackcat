@@ -81,7 +81,6 @@
                         <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
                             <i data-lucide="gamepad-2" class="w-5 h-5 text-emerald-500"></i> 喵的挑戰擂台 (Kahoot)
                         </h3>
-                        <!-- 只有巫醫以上(Level >= 4)才能看到新增按鈕 -->
                         <button id="openCreateKahootBtn" class="hidden text-sm font-bold bg-emerald-100 text-emerald-600 px-4 py-2 rounded-full hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
                             + 新增測驗
                         </button>
@@ -100,7 +99,6 @@
                         </h3>
                     </div>
                     <div class="space-y-6">
-                        <!-- 戰士階級寶藏 -->
                         <div class="bg-rose-50/50 p-4 rounded-3xl border border-rose-100">
                             <h4 class="text-sm font-black text-rose-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
                                 <i data-lucide="sword" class="w-4 h-4"></i> 戰士寶藏庫
@@ -108,7 +106,6 @@
                             <div id="warriorMaterialsList" class="grid grid-cols-1 gap-3"></div>
                         </div>
 
-                        <!-- 族長階級寶藏 -->
                         <div class="bg-amber-50/50 p-4 rounded-3xl border border-amber-100">
                             <h4 class="text-sm font-black text-amber-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
                                 <i data-lucide="crown" class="w-4 h-4"></i> 族長秘寶
@@ -136,7 +133,6 @@
             <div class="lg:col-span-4">
                 <div class="sticky top-28 space-y-6">
                     
-                    <!-- ⭐️ 評價精靈 UI 開始 -->
                     <div class="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden min-h-[460px] flex flex-col">
                         <div class="absolute -top-6 -right-6 bg-emerald-50 w-24 h-24 rounded-full flex items-center justify-center pt-6 pr-6 pointer-events-none z-0">
                              <i data-lucide="pen-tool" class="text-emerald-300 w-8 h-8"></i>
@@ -149,14 +145,11 @@
                             <span id="reviewStepIndicator" class="text-xs font-black bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full hidden">1 / 5</span>
                         </div>
                         
-                        <!-- 動態闖關容器 -->
                         <div id="reviewWizardBody" class="flex-1 flex flex-col justify-center relative z-10">
                             <div class="text-center text-slate-400 font-bold">載入中...</div>
                         </div>
                     </div>
-                    <!-- ⭐️ 評價精靈 UI 結束 -->
 
-                    <!-- 擴充寶藏庫 (僅巫醫以上顯示) -->
                     <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
                         <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white">
                             <i data-lucide="upload" class="w-5 h-5"></i> 擴充寶藏庫
@@ -166,7 +159,6 @@
                                 <option value="" disabled selected>選擇關聯課程...</option>
                             </select>
                             
-                            <!-- 階級可見度選擇 -->
                             <select id="materialLevelSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
                                 <option value="2" selected>🛡️ 戰士寶藏 (戰士以上可見)</option>
                                 <option value="3">👑 族長秘寶 (族長以上可見)</option>
@@ -197,7 +189,6 @@
         </div>
     </main>
 
-    <!-- Modal 區域 -->
     <div id="courseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">幫小黑貓紀錄新課程</h3>
@@ -357,7 +348,6 @@
         let courses = [], reviews = [], materials = [], kahoots = [];
         let allUsers = []; 
         
-        // ⭐️ 巫醫地位超然，權限調升為 Level 4，族長為 Level 3
         const ROLE_LEVELS = {
             '星族': 5,
             '巫醫': 4,
@@ -371,6 +361,10 @@
         let currentUserRole = "訪客"; 
         let currentUserLevel = 0; 
         let isRegisterMode = false;
+        
+        // 防連點鎖定狀態
+        let isWizardTransitioning = false;
+        let isKahootTransitioning = false;
         
         const ROLE_COLORS = {
             '星族': 'bg-fuchsia-500 text-white border-fuchsia-600',
@@ -386,7 +380,6 @@
         let searchQuery = "";
         let selectedFilterCourseId = null;
 
-        // --- 評價闖關精靈 狀態變數 ---
         let reviewWizardStep = 0;
         let reviewWizardData = { courseId: "", courseDiff: 0, examDiff: 0, hwAmount: 0, learned: 0, comment: "" };
 
@@ -442,19 +435,22 @@
             return Array(5).fill().map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i < (value || 0) ? colorClass : 'bg-slate-200'}"></div>`).join('');
         };
 
-        // --- 事件委派監聽器 ---
         document.addEventListener('click', (e) => {
-            const toggleCourseTarget = e.target.closest('[data-action="toggle-course"]');
-            if (toggleCourseTarget) { toggleCourseFilter(toggleCourseTarget.dataset.id, toggleCourseTarget.dataset.name); return; }
-
             const deleteTarget = e.target.closest('[data-action="delete"]');
             if (deleteTarget) { e.stopPropagation(); confirmDeleteUI(deleteTarget.dataset.type, deleteTarget.dataset.id); return; }
+
+            const toggleCourseTarget = e.target.closest('[data-action="toggle-course"]');
+            if (toggleCourseTarget) { toggleCourseFilter(toggleCourseTarget.dataset.id, toggleCourseTarget.dataset.name); return; }
 
             const startKahootTarget = e.target.closest('[data-action="start-kahoot"]');
             if (startKahootTarget) { startKahoot(startKahootTarget.dataset.id); return; }
 
             const submitKahootTarget = e.target.closest('[data-action="submit-kahoot"]');
-            if (submitKahootTarget) { submitKahootAnswer(parseInt(submitKahootTarget.dataset.index)); return; }
+            if (submitKahootTarget) { 
+                if (isKahootTransitioning) return; 
+                submitKahootAnswer(parseInt(submitKahootTarget.dataset.index)); 
+                return; 
+            }
 
             const removeDraftQTarget = e.target.closest('[data-action="remove-draft-q"]');
             if (removeDraftQTarget) { removeDraftQ(parseInt(removeDraftQTarget.dataset.index)); return; }
@@ -473,6 +469,9 @@
 
             const setReviewScoreTarget = e.target.closest('[data-action="set-review-score"]');
             if (setReviewScoreTarget) {
+                if (isWizardTransitioning) return; 
+                isWizardTransitioning = true;      
+
                 const score = parseInt(setReviewScoreTarget.dataset.score);
                 const q = reviewQuestions[reviewWizardStep - 1];
                 reviewWizardData[q.id] = score;
@@ -480,6 +479,7 @@
                 setTimeout(() => {
                     reviewWizardStep++;
                     renderReviewWizard();
+                    isWizardTransitioning = false; 
                 }, 150);
                 return;
             }
@@ -505,6 +505,8 @@
 
             const openAddCourseTarget = e.target.closest('[data-action="open-add-course"]');
             if (openAddCourseTarget) {
+                // ⭐️ 雙重防護：點擊時檢查權限
+                if (currentUserLevel < 4) return showToast("喵，你的階位還不夠新增課程喔！"); 
                 document.getElementById('courseModal').classList.remove('hidden');
                 return;
             }
@@ -532,7 +534,7 @@
                     }
                     
                     currentUserLevel = ROLE_LEVELS[currentUserRole] || 1;
-                    isAdmin = (currentUserLevel === 5); // 只有星族有刪除特權
+                    isAdmin = (currentUserLevel === 5);
                     
                     showToast(`歡迎回來，${currentUserRole} 🐾`);
                 } else {
@@ -575,7 +577,6 @@
             });
         };
 
-        // --- 渲染評價闖關精靈 ---
         function renderReviewWizard() {
             const container = document.getElementById('reviewWizardBody');
             const indicator = document.getElementById('reviewStepIndicator');
@@ -597,9 +598,13 @@
                                 ${courses.map(c => `<option value="${c.id}" ${reviewWizardData.courseId === c.id ? 'selected' : ''}>${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('')}
                             </select>
                         </div>
+                        
+                        ${currentUserLevel >= 4 ? `
                         <button data-action="open-add-course" class="w-full py-2 text-xs font-bold text-emerald-600 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors border border-emerald-100">
                             找不到？點我新增課程
                         </button>
+                        ` : ''}
+
                         <button data-action="next-review-step" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-all flex justify-center items-center gap-2">
                             開始評價 <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
                         </button>
@@ -716,7 +721,6 @@
         function renderKahoots() {
             const list = document.getElementById('kahootList');
             
-            // ⭐️ 權限判斷：戰士 (Level 2) 以上才能看到挑戰擂台
             if (currentUserLevel < 2) {
                 list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖挑戰擂台！</div>`;
                 lucide.createIcons();
@@ -830,11 +834,9 @@
                 return matchSearch && matchCourseFilter;
             });
 
-            // ⭐️ 戰士寶藏庫 (要求權限 Level 2，戰士(含)以上可見)
             if (currentUserLevel < 2) {
                 wList.innerHTML = `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 text-rose-300"></i> 升級為【戰士】後解鎖戰士寶藏庫喵</div>`;
             } else {
-                // 顯示未標記階級需求，或是需求為 Level 2 的資源
                 const wMaterials = filteredMaterials.filter(m => !m.requiredRole || m.requiredRole <= 2);
                 if (wMaterials.length === 0) {
                     wList.innerHTML = `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">戰士區目前沒有寶藏喵。</div>`;
@@ -843,11 +845,9 @@
                 }
             }
 
-            // ⭐️ 族長秘寶 (要求權限 Level 3，族長、巫醫、星族 可見)
             if (currentUserLevel < 3) {
                 lList.innerHTML = `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 text-amber-300"></i> 升級為【族長】後解鎖族長專屬秘寶喵</div>`;
             } else {
-                // 顯示需求為 Level 3 (含) 以上的資源
                 const lMaterials = filteredMaterials.filter(m => m.requiredRole && m.requiredRole >= 3);
                 if (lMaterials.length === 0) {
                     lList.innerHTML = `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">族長區目前沒有秘寶喵。</div>`;
@@ -924,18 +924,15 @@
                 const roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest ${badgeStyle} shadow-sm border">${currentUserRole}</span>`;
 
                 if (isAdmin) {
-                    // 星族 UI
                     adminBtn.innerHTML = `${roleBadge} <span class="truncate max-w-[80px]">管理員</span> <i data-lucide="log-out" class="w-4 h-4 ml-1"></i>`;
                     adminBtn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-800 text-white shadow-md hover:bg-slate-700 transition-colors border border-slate-600';
                     starclanSection.classList.remove('hidden'); 
                 } else {
-                    // 一般有登入者 UI
                     adminBtn.innerHTML = `${roleBadge} <span class="truncate max-w-[80px]">${user.email.split('@')[0]}</span> <i data-lucide="log-out" class="w-4 h-4 ml-1"></i>`;
                     adminBtn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-sm hover:bg-slate-800 transition-colors';
                     starclanSection.classList.add('hidden'); 
                 }
                 
-                // ⭐️ 權限判斷：巫醫 (Level 4) 以上才能擴充寶藏與發起挑戰
                 if (currentUserLevel >= 4) {
                     uploadSection.classList.remove('hidden'); 
                     openCreateKahootBtn.classList.remove('hidden'); 
@@ -945,7 +942,6 @@
                 }
                 
             } else {
-                // 訪客 UI
                 adminBtn.innerHTML = '<i data-lucide="user" class="w-4 h-4"></i><span>登入 / 註冊</span>';
                 adminBtn.className = 'flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold bg-slate-900 text-white';
                 uploadSection.classList.add('hidden'); 
@@ -958,6 +954,9 @@
             renderReviews(); 
             renderMaterials(); 
             renderKahoots();
+            
+            // ⭐️ 當權限變更時，如果在第一步，就重繪精靈以更新按鈕顯示
+            if (reviewWizardStep === 0) renderReviewWizard();
             
             if (isAdmin) {
                 renderStarclanPanel();
@@ -1091,6 +1090,40 @@
             document.getElementById('courseModal').classList.add('hidden');
         };
 
+        document.getElementById('confirmAddCourse').onclick = async () => {
+            // ⭐️ 雙重防護：送出時檢查權限
+            if (currentUserLevel < 4) return showToast("喵，權限不足喔！");
+            
+            const name = document.getElementById('newCourseName').value.trim();
+            const instructor = document.getElementById('newInstructor').value.trim();
+            
+            if (!name || !instructor) return showToast("喵，課程名稱與教授姓名都要填寫喔！");
+            
+            const btn = document.getElementById('confirmAddCourse');
+            btn.disabled = true;
+            btn.textContent = "新增中...";
+            
+            try {
+                const newDocRef = doc(collection(db, COURSES_PATH));
+                await setDoc(newDocRef, {
+                    name: name,
+                    instructor: instructor,
+                    createdAt: Date.now()
+                });
+                
+                showToast("太棒了，小黑貓已經把新課程記下來了 🐾");
+                document.getElementById('newCourseName').value = '';
+                document.getElementById('newInstructor').value = '';
+                document.getElementById('courseModal').classList.add('hidden');
+            } catch (err) {
+                showToast("新增失敗喵...");
+                console.error(err);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = "新增這門課";
+            }
+        };
+
         document.getElementById('closeDeleteModal').onclick = () => {
             document.getElementById('deleteModal').classList.add('hidden');
         };
@@ -1124,7 +1157,6 @@
             renderKahoots(); 
         }, 300);
         
-        // --- Kahoot 功能 ---
         document.getElementById('openCreateKahootBtn').onclick = () => { 
             draftQuestions = []; 
             document.getElementById('kahootTitle').value = ''; 
@@ -1263,6 +1295,8 @@
         }
         
         function submitKahootAnswer(selectedIdx) {
+            isKahootTransitioning = true; 
+
             const qData = activeKahoot.questions[currentQIndex];
             if (selectedIdx === qData.correctIdx) { 
                 currentScore++; 
@@ -1273,6 +1307,7 @@
             currentQIndex++; 
             setTimeout(() => { 
                 renderPlayQuestion(); 
+                isKahootTransitioning = false; 
             }, 600);
         }
         
