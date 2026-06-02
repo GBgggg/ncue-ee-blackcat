@@ -222,7 +222,7 @@
             <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-red-100">
                 <i data-lucide="trash-2" class="w-10 h-10 text-red-500"></i>
             </div>
-            <h3 class="text-2xl font-bold text-slate-900 mb-2">確定要抹除<span id="deleteItemName" class="text-red-500 mx-1">這筆</span>痕跡？</h3>
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">確定要抹除痕跡？</h3>
             <p class="text-slate-500 mb-8 text-sm font-medium">喵，這個動作是不能復原的喔！</p>
             <div class="flex gap-4">
                 <button id="closeDeleteModal" class="flex-1 py-4 font-bold text-slate-400">取消</button>
@@ -259,10 +259,10 @@
                 <h4 class="font-bold text-emerald-800 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題</h4>
                 <input type="text" id="qText" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-red-500 cursor-pointer"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-red-500 cursor-pointer"><input type="text" id="opt0" placeholder="選項 A (紅)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-blue-500 cursor-pointer"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-blue-500 cursor-pointer"><input type="text" id="opt1" placeholder="選項 B (藍)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-amber-500 cursor-pointer"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-amber-500 cursor-pointer"><input type="text" id="opt2" placeholder="選項 C (黃)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-emerald-500 cursor-pointer"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" placeholder="選項 D (綠)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-red-500"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-red-500"><input type="text" id="opt0" placeholder="選項 A (紅)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></div>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-blue-500"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-blue-500"><input type="text" id="opt1" placeholder="選項 B (藍)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></div>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-amber-500"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-amber-500"><input type="text" id="opt2" placeholder="選項 C (黃)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></div>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-emerald-500"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500"><input type="text" id="opt3" placeholder="選項 D (綠)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></div>
                 </div>
                 <button id="addDraftQuestionBtn" class="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm">將此題加入測驗</button>
             </div>
@@ -362,9 +362,9 @@
         let currentUserLevel = 0; 
         let isRegisterMode = false;
         
+        // 防連點鎖定狀態
         let isWizardTransitioning = false;
         let isKahootTransitioning = false;
-        let toastTimeout; // 全域宣告計時器以防連點重疊
         
         const ROLE_COLORS = {
             '星族': 'bg-fuchsia-500 text-white border-fuchsia-600',
@@ -422,11 +422,6 @@
             if (!str) return "";
             return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
         }
-        
-        const formatDate = (timestamp) => {
-            const d = new Date(timestamp);
-            return `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
-        };
 
         function debounce(func, wait) {
             let timeout;
@@ -440,23 +435,9 @@
             return Array(5).fill().map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i < (value || 0) ? colorClass : 'bg-slate-200'}"></div>`).join('');
         };
 
-        document.getElementById('adminPassword').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') {
-                document.getElementById('confirmAdminLogin').click();
-            }
-        });
-
-        // 加入快捷鍵支援
-        document.getElementById('newInstructor').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') document.getElementById('confirmAddCourse').click();
-        });
-        document.getElementById('opt3').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') document.getElementById('addDraftQuestionBtn').click();
-        });
-
         document.addEventListener('click', (e) => {
             const deleteTarget = e.target.closest('[data-action="delete"]');
-            if (deleteTarget) { e.stopPropagation(); confirmDeleteUI(deleteTarget.dataset.type, deleteTarget.dataset.id, deleteTarget.dataset.name); return; }
+            if (deleteTarget) { e.stopPropagation(); confirmDeleteUI(deleteTarget.dataset.type, deleteTarget.dataset.id); return; }
 
             const toggleCourseTarget = e.target.closest('[data-action="toggle-course"]');
             if (toggleCourseTarget) { toggleCourseFilter(toggleCourseTarget.dataset.id, toggleCourseTarget.dataset.name); return; }
@@ -489,7 +470,7 @@
             const setReviewScoreTarget = e.target.closest('[data-action="set-review-score"]');
             if (setReviewScoreTarget) {
                 if (isWizardTransitioning) return; 
-                isWizardTransitioning = true;     
+                isWizardTransitioning = true;      
 
                 const score = parseInt(setReviewScoreTarget.dataset.score);
                 const q = reviewQuestions[reviewWizardStep - 1];
@@ -524,6 +505,7 @@
 
             const openAddCourseTarget = e.target.closest('[data-action="open-add-course"]');
             if (openAddCourseTarget) {
+                // ⭐️ 雙重防護：點擊時檢查權限
                 if (currentUserLevel < 4) return showToast("喵，你的階位還不夠新增課程喔！"); 
                 document.getElementById('courseModal').classList.remove('hidden');
                 return;
@@ -566,13 +548,9 @@
 
             onSnapshot(collection(db, COURSES_PATH), (snapshot) => {
                 courses = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                if (selectedFilterCourseId && !courses.find(c => c.id === selectedFilterCourseId)) {
-                    resetCourseFilter();
-                } else {
-                    renderCourseSelect(); 
-                    renderCourseGrid(); 
-                    if (reviewWizardStep === 0) renderReviewWizard(); 
-                }
+                renderCourseSelect(); 
+                renderCourseGrid(); 
+                if (reviewWizardStep === 0) renderReviewWizard(); 
             });
 
             onSnapshot(collection(db, REVIEWS_PATH), (snapshot) => {
@@ -710,6 +688,7 @@
                     hwAmount: reviewWizardData.hwAmount,
                     learned: reviewWizardData.learned,
                     comment: comment,
+                    date: new Date().toLocaleDateString(),
                     createdAt: Date.now()
                 });
 
@@ -764,7 +743,7 @@
                     <div>
                         <div class="flex justify-between items-start mb-2">
                             <h4 class="text-xl font-black text-slate-900">${escapeHTML(k.title)}</h4>
-                            ${isAdmin ? `<button data-action="delete" data-type="kahoot" data-id="${k.id}" data-name="${escapeHTML(k.title)}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                            ${isAdmin ? `<button data-action="delete" data-type="kahoot" data-id="${k.id}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
                         </div>
                         <p class="text-sm text-emerald-600 font-bold mb-4 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName)}</p>
                         <p class="text-xs text-slate-400 font-medium mb-4">共 ${k.questions ? k.questions.length : 0} 題</p>
@@ -812,7 +791,7 @@
                         </div>
                         <div class="flex items-center gap-2">
                             <div class="text-slate-400 font-bold text-[10px] bg-slate-50 px-3 py-1 rounded-full uppercase pointer-events-none">${reviewCount} 貓評</div>
-                            ${isAdmin ? `<button data-action="delete" data-type="course" data-id="${course.id}" data-name="${escapeHTML(course.name)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
+                            ${isAdmin ? `<button data-action="delete" data-type="course" data-id="${course.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
                         </div>
                     </div>
                     <div class="grid grid-cols-2 gap-3 text-xs font-bold bg-slate-50 p-3 rounded-2xl pointer-events-none">
@@ -839,7 +818,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <a href="${m.url}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
-                        ${isAdmin ? `<button data-action="delete" data-type="material" data-id="${m.id}" data-name="${escapeHTML(m.title)}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4"></i></button>` : ''}
+                        ${isAdmin ? `<button data-action="delete" data-type="material" data-id="${m.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4"></i></button>` : ''}
                     </div>
                 </div>
             `;
@@ -880,13 +859,12 @@
             lucide.createIcons();
         }
 
-        // 防止 XSS 攻擊
         function toggleCourseFilter(courseId, courseName) {
             if (selectedFilterCourseId === courseId) { 
                 resetCourseFilter(); 
             } else {
                 selectedFilterCourseId = courseId;
-                document.getElementById('reviewsSectionTitle').innerHTML = `<i data-lucide="filter" class="w-5 h-5 text-emerald-500"></i> ${escapeHTML(courseName)} 的悄悄話`;
+                document.getElementById('reviewsSectionTitle').innerHTML = `<i data-lucide="filter" class="w-5 h-5 text-emerald-500"></i> ${courseName} 的悄悄話`;
                 document.getElementById('resetFilterBtn').classList.remove('hidden');
                 renderCourseGrid(); renderReviews(); renderMaterials(); renderKahoots();
                 document.getElementById('reviewsSectionTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -918,9 +896,9 @@
                     <div class="flex justify-between items-start mb-5">
                         <div>
                             <h4 class="text-xl font-black text-slate-900">${escapeHTML(r.courseName)}</h4>
-                            <p class="text-xs text-emerald-600 font-bold mt-1 flex items-center gap-2"><span>@${escapeHTML(r.instructor)}</span><span class="text-slate-300">|</span><span class="text-slate-400">${escapeHTML(formatDate(r.createdAt))}</span></p>
+                            <p class="text-xs text-emerald-600 font-bold mt-1 flex items-center gap-2"><span>@${escapeHTML(r.instructor)}</span><span class="text-slate-300">|</span><span class="text-slate-400">${escapeHTML(r.date || '')}</span></p>
                         </div>
-                        ${isAdmin ? `<button data-action="delete" data-type="review" data-id="${r.id}" data-name="${escapeHTML(r.courseName)} 的評價" class="p-2 text-red-200 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
+                        ${isAdmin ? `<button data-action="delete" data-type="review" data-id="${r.id}" class="p-2 text-red-200 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 bg-slate-50 rounded-2xl">
                         <div class="flex flex-col gap-1.5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">課程難度</span><div class="flex gap-1">${drawMetricDots(r.courseDiff, 'bg-emerald-500')}</div></div>
@@ -977,6 +955,7 @@
             renderMaterials(); 
             renderKahoots();
             
+            // ⭐️ 當權限變更時，如果在第一步，就重繪精靈以更新按鈕顯示
             if (reviewWizardStep === 0) renderReviewWizard();
             
             if (isAdmin) {
@@ -986,37 +965,31 @@
 
         function renderStarclanPanel() {
             const container = document.getElementById('usersListContainer');
-            if (!container) return;
-            const scrollPos = container.scrollTop;
-
             if (allUsers.length === 0) {
                 container.innerHTML = '<div class="text-center py-10 text-slate-400">目前沒有其他貓咪...</div>';
                 return;
             }
 
             container.innerHTML = allUsers.map(u => {
-                const currentRole = u.role || '見習生'; // 修正：加入預設值判斷
                 return `
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
                     <div class="flex flex-col">
                         <span class="font-bold text-slate-800 text-sm">${escapeHTML(u.email)}</span>
-                        <span class="text-xs text-slate-400">${formatDate(u.createdAt)} 加入</span>
+                        <span class="text-xs text-slate-400">${new Date(u.createdAt).toLocaleDateString()} 加入</span>
                     </div>
                     <div>
                         <select data-action="change-role" data-uid="${u.uid}" 
                                 class="px-3 py-1.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-fuchsia-400 transition-colors">
-                            <option value="星族" ${currentRole === '星族' ? 'selected' : ''}>星族</option>
-                            <option value="巫醫" ${currentRole === '巫醫' ? 'selected' : ''}>巫醫</option>
-                            <option value="族長" ${currentRole === '族長' ? 'selected' : ''}>族長</option>
-                            <option value="戰士" ${currentRole === '戰士' ? 'selected' : ''}>戰士</option>
-                            <option value="見習生" ${currentRole === '見習生' ? 'selected' : ''}>見習生</option>
+                            <option value="星族" ${u.role === '星族' ? 'selected' : ''}>星族</option>
+                            <option value="巫醫" ${u.role === '巫醫' ? 'selected' : ''}>巫醫</option>
+                            <option value="族長" ${u.role === '族長' ? 'selected' : ''}>族長</option>
+                            <option value="戰士" ${u.role === '戰士' ? 'selected' : ''}>戰士</option>
+                            <option value="見習生" ${u.role === '見習生' ? 'selected' : ''}>見習生</option>
                         </select>
                     </div>
                 </div>
                 `;
             }).join('');
-            
-            container.scrollTop = scrollPos;
         }
 
         async function changeUserRole(uid, newRole) {
@@ -1037,39 +1010,25 @@
             document.getElementById('starclanModal').classList.add('hidden');
         };
 
-        // 修正：清除先前的 timeout 並強制重繪以確保動畫每次都執行
         function showToast(msg) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
-            
-            toast.classList.remove('hidden', 'toast-animate');
-            void toast.offsetWidth; // 強制重繪
+            toast.classList.remove('hidden'); 
             toast.classList.add('toast-animate');
-            
-            clearTimeout(toastTimeout);
-            toastTimeout = setTimeout(() => toast.classList.add('hidden'), 3000);
+            setTimeout(() => toast.classList.add('hidden'), 3000);
         }
 
-        // 加上防連點設定
         document.getElementById('forgotPasswordBtn').onclick = async () => {
             const email = document.getElementById('adminEmail').value.trim();
             if (!email) {
                 return showToast("喵，請先在上方輸入你的信箱，再點擊這個按鈕喔！");
             }
-            
-            const btn = document.getElementById('forgotPasswordBtn');
-            btn.style.pointerEvents = 'none';
-            btn.classList.add('opacity-50');
-
             try {
                 await sendPasswordResetEmail(auth, email);
                 showToast("重置密碼信件已寄出，請去信箱收信喵！ 🐾");
                 document.getElementById('adminModal').classList.add('hidden'); 
             } catch (error) {
                 showToast("錯誤：找不到這個信箱，或是輸入格式不對喵...");
-            } finally {
-                btn.style.pointerEvents = 'auto';
-                btn.classList.remove('opacity-50');
             }
         };
 
@@ -1132,16 +1091,13 @@
         };
 
         document.getElementById('confirmAddCourse').onclick = async () => {
+            // ⭐️ 雙重防護：送出時檢查權限
             if (currentUserLevel < 4) return showToast("喵，權限不足喔！");
             
             const name = document.getElementById('newCourseName').value.trim();
             const instructor = document.getElementById('newInstructor').value.trim();
             
             if (!name || !instructor) return showToast("喵，課程名稱與教授姓名都要填寫喔！");
-
-            // 修正：檢查是否為重複課程
-            const isDuplicate = courses.some(c => c.name === name && c.instructor === instructor);
-            if (isDuplicate) return showToast("喵，這門課已經在清單裡囉！");
             
             const btn = document.getElementById('confirmAddCourse');
             btn.disabled = true;
@@ -1205,15 +1161,6 @@
             draftQuestions = []; 
             document.getElementById('kahootTitle').value = ''; 
             document.getElementById('kahootCourseSelect').value = ''; 
-            
-            document.getElementById('qText').value = '';
-            document.getElementById('opt0').value = '';
-            document.getElementById('opt1').value = '';
-            document.getElementById('opt2').value = '';
-            document.getElementById('opt3').value = '';
-            const correctRadio = document.querySelector('input[name="correctOpt"]:checked');
-            if (correctRadio) correctRadio.checked = false;
-
             renderDraftQuestions(); 
             document.getElementById('createKahootModal').classList.remove('hidden'); 
         };
@@ -1317,11 +1264,9 @@
             renderPlayQuestion();
         }
         
-        // 退出時清空狀態
         document.getElementById('quitKahootBtn').onclick = () => { 
             document.getElementById('playKahootModal').classList.add('hidden'); 
             document.getElementById('playKahootModal').classList.remove('flex'); 
-            activeKahoot = null;
         };
         
         function renderPlayQuestion() {
@@ -1371,14 +1316,9 @@
             document.getElementById('kahootResultModal').classList.remove('flex'); 
         };
 
-        // 接受刪除項目名稱參數以動態顯示防呆提示
-        function confirmDeleteUI(type, id, name) { 
+        function confirmDeleteUI(type, id) { 
             currentDeleteType = type; 
             currentDeleteId = id; 
-            
-            const itemNameElement = document.getElementById('deleteItemName');
-            itemNameElement.textContent = name ? `「${name}」的` : '這筆';
-            
             document.getElementById('deleteModal').classList.remove('hidden'); 
         }
         
