@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>彰師電子小黑貓 - 課程評價與資源系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; }
+        .hidden { display: none !important; }
+        .toast-animate { animation: slideUp 0.3s ease-out; }
+        @keyframes slideUp { from { transform: translate(-50%, 100%); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        
+        /* 黑貓專屬裝飾樣式 */
+        .cat-card:hover .cat-icon { transform: rotate(-10deg) scale(1.1); }
+        .paw-print { opacity: 0.1; position: absolute; z-index: 0; }
+        
+        /* Kahoot 選項按鈕懸浮特效 */
+        .kahoot-btn { transition: all 0.2s; }
+        .kahoot-btn:active { transform: scale(0.95); }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <header class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center gap-3 text-emerald-400">
+                <i data-lucide="cat" class="w-10 h-10 transition-transform hover:scale-110"></i>
+                <div class="flex flex-col">
+                    <h1 class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">彰師電子小黑貓</h1>
+                    <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">NCUE EE Black Cat</span>
+                </div>
+            </div>
+            <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
+                <i data-lucide="log-in" class="w-4 h-4"></i>
+                <span>登入 / 註冊</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 py-8">
+        <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+            <i data-lucide="paw-print" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+            <i data-lucide="paw-print" class="paw-print w-20 h-20 bottom-10 left-10 -rotate-12"></i>
+            
+            <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div class="flex-1">
+                    <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">
+                        喵！這是一塊電子系的秘密基地 <span class="animate-bounce">🐾</span>
+                    </h2>
+                    <p class="text-slate-400 mb-8 font-medium italic">所有的課程評價與考古題資源，都由小黑貓幫你好好珍藏。</p>
+                    <div class="relative max-w-xl">
+                        <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5"></i>
+                        <input type="text" id="searchInput" placeholder="搜尋課程、教授或是悄悄話..." 
+                            class="w-full pl-12 pr-4 py-4 rounded-3xl bg-slate-800 text-white border-2 border-slate-700 focus:outline-none focus:border-emerald-500 shadow-inner text-lg transition-all placeholder:text-slate-500">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-8">
+                
+                <div class="mb-10">
+                    <div class="flex items-center justify-between px-2 mb-4">
+                        <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                            <i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500"></i> 課程地圖
+                        </h3>
+                    </div>
+                    <div id="courseGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                            小黑貓正在檔案室翻找中... 🐾
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <div class="flex items-center justify-between px-2 mb-4">
+                        <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                            <i data-lucide="gamepad-2" class="w-5 h-5 text-emerald-500"></i> 喵的挑戰擂台 (Kahoot)
+                        </h3>
+                        <button id="openCreateKahootBtn" class="text-sm font-bold bg-emerald-100 text-emerald-600 px-4 py-2 rounded-full hover:bg-emerald-500 hover:text-white transition-all shadow-sm">
+                            + 新增測驗
+                        </button>
+                    </div>
+                    <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">
+                            目前還沒有挑戰，來當第一個出題者吧喵！
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mb-10">
+                    <div class="flex items-center justify-between px-2 mb-4">
+                        <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                            <i data-lucide="folder-kanban" class="w-5 h-5 text-emerald-500"></i> 喵的寶藏庫 (考古題/講義)
+                        </h3>
+                    </div>
+                    <div id="materialsList" class="grid grid-cols-1 gap-4">
+                        <div class="text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">
+                            目前寶藏庫空空的，喵。
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="flex items-center justify-between px-2 border-b-2 border-slate-200 pb-3">
+                        <h3 id="reviewsSectionTitle" class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                            <i data-lucide="message-circle" class="w-5 h-5 text-emerald-500"></i> 貓咪碎碎念 (評價)
+                        </h3>
+                        <button id="resetFilterBtn" class="hidden text-sm font-bold text-emerald-600 hover:bg-emerald-50 px-4 py-1.5 rounded-full transition-colors border border-emerald-100">
+                            看全部
+                        </button>
+                    </div>
+                    <div id="reviewsList" class="space-y-6">
+                        <div class="text-center py-20 text-slate-400 font-medium">還沒有貓咪在這裡留下足跡。</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lg:col-span-4">
+                <div class="sticky top-28 space-y-6">
+                    
+                    <div class="bg-white rounded-[2rem] p-6 shadow-xl shadow-slate-200/50 border border-slate-100 relative overflow-hidden">
+                        <div class="absolute -top-6 -right-6 bg-emerald-50 w-24 h-24 rounded-full flex items-center justify-center pt-6 pr-6">
+                             <i data-lucide="pen-tool" class="text-emerald-300 w-8 h-8"></i>
+                        </div>
+                        
+                        <h3 class="text-lg font-bold mb-6 flex items-center gap-2 text-slate-900">
+                             留下你的評價
+                        </h3>
+                        
+                        <div class="space-y-5">
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <label class="text-xs font-black text-slate-400 uppercase tracking-widest">課程選擇</label>
+                                    <button id="openCourseModal" class="hidden text-xs font-bold text-emerald-600 flex items-center gap-1 hover:underline">
+                                        <i data-lucide="plus" class="w-3 h-3"></i> 新增課程
+                                    </button>
+                                </div>
+                                <select id="courseSelect" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 font-medium appearance-none transition-all">
+                                    <option value="" disabled selected>請選擇課程...</option>
+                                </select>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-[10px] font-black text-slate-400 uppercase block mb-1">課程難度</span>
+                                    <div class="star-group flex gap-1 text-slate-200" data-type="courseDiff" data-color="text-emerald-500">
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="1"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="2"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="3"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="4"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="5"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-black text-slate-400 uppercase block mb-1">考試難度</span>
+                                    <div class="star-group flex gap-1 text-slate-200" data-type="examDiff" data-color="text-rose-500">
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="1"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="2"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="3"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="4"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="5"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-black text-slate-400 uppercase block mb-1">作業多寡</span>
+                                    <div class="star-group flex gap-1 text-slate-200" data-type="hwAmount" data-color="text-amber-500">
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="1"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="2"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="3"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="4"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="5"></i>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span class="text-[10px] font-black text-slate-400 uppercase block mb-1">學到多少</span>
+                                    <div class="star-group flex gap-1 text-slate-200" data-type="learned" data-color="text-blue-500">
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="1"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="2"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="3"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="4"></i>
+                                        <i data-lucide="star" class="w-4 h-4 cursor-pointer" data-value="5"></i>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="text-xs font-black text-slate-400 uppercase block mb-1">修課心得</label>
+                                <textarea id="commentText" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-2 border-transparent focus:border-emerald-500 h-28 resize-none transition-all" placeholder="喵，分享一下這門課的有趣（或是痛苦）之處吧..."></textarea>
+                            </div>
+
+                            <button id="submitReview" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-all transform active:scale-95 disabled:bg-slate-300">
+                                送出心得 🐾
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white">
+                            <i data-lucide="upload" class="w-5 h-5"></i> 擴充寶藏庫
+                        </h3>
+                        <div class="space-y-4">
+                            <select id="uploadCourseSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
+                                <option value="" disabled selected>選擇關聯課程...</option>
+                            </select>
+                            <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm">
+                            <input type="text" id="pdfTitleInput" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium">
+                            <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">
+                                確認存檔 🐾
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div id="starclanSection" class="bg-fuchsia-600 rounded-[2rem] p-6 shadow-xl border-4 border-fuchsia-400 hidden">
+                        <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white">
+                            <i data-lucide="sparkles" class="w-5 h-5"></i> 星族專屬
+                        </h3>
+                        <p class="text-fuchsia-100 text-xs font-medium mb-5">
+                            管理所有貓咪的階位與權限，為部族指派新任務。
+                        </p>
+                        <button id="openStarclanBtn" class="w-full py-3 bg-white text-fuchsia-700 rounded-xl font-black shadow-lg hover:bg-fuchsia-50 transition-all flex items-center justify-center gap-2">
+                            召開星族大會
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="courseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900">幫小黑貓紀錄新課程</h3>
+            <div class="space-y-4">
+                <input type="text" id="newCourseName" placeholder="課程名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
+                <input type="text" id="newInstructor" placeholder="教授姓名" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
+                <div class="flex gap-4 pt-4">
+                    <button id="closeCourseModal" class="flex-1 py-4 font-bold text-slate-400">算了</button>
+                    <button id="confirmAddCourse" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200">新增這門課</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="adminModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl text-center">
+             <i data-lucide="cat" class="w-16 h-16 text-emerald-500 mx-auto mb-4"></i>
+            <h3 id="modalTitle" class="text-2xl font-bold mb-2">身分認證</h3>
+            <p class="text-slate-400 text-xs mb-6">歡迎來到黑貓的領地</p>
+            
+            <input type="email" id="adminEmail" placeholder="電子信箱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-3">
+            <input type="password" id="adminPassword" placeholder="密碼" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-6">
+            
+            <button id="confirmAdminLogin" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">登入</button>
+            <p id="toggleAuthMode" class="text-sm font-bold text-emerald-600 mt-6 cursor-pointer hover:underline">沒有帳號？註冊一個</p>
+            
+            <p id="forgotPasswordBtn" class="text-sm font-bold text-slate-400 mt-4 cursor-pointer hover:underline hover:text-emerald-500">忘記密碼 / 變更密碼？</p>
+            
+            <button id="closeAdminModal" class="mt-6 text-xs font-bold text-slate-400">關閉視窗</button>
+        </div>
+    </div>
+
+    <div id="deleteModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 text-center shadow-2xl">
+            <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-red-100">
+                <i data-lucide="trash-2" class="w-10 h-10 text-red-500"></i>
+            </div>
+            <h3 class="text-2xl font-bold text-slate-900 mb-2">確定要抹除痕跡？</h3>
+            <p class="text-slate-500 mb-8 text-sm font-medium">喵，這個動作是不能復原的喔！</p>
+            <div class="flex gap-4">
+                <button id="closeDeleteModal" class="flex-1 py-4 font-bold text-slate-400">取消</button>
+                <button id="confirmDelete" class="flex-1 py-4 bg-red-500 text-white rounded-2xl font-bold shadow-lg shadow-red-200">確定刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="createKahootModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-3xl p-8 shadow-2xl my-8">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="gamepad-2" class="text-emerald-500 w-6 h-6"></i> 創建新測驗
+                </h3>
+                <button id="closeKahootModalBtn" class="text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label class="text-xs font-black text-slate-400 uppercase mb-1 block">測驗主題</label>
+                    <input type="text" id="kahootTitle" placeholder="例如：微積分期中考大挑戰" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                </div>
+                <div>
+                    <label class="text-xs font-black text-slate-400 uppercase mb-1 block">關聯課程</label>
+                    <select id="kahootCourseSelect" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
+                        <option value="" disabled selected>請選擇課程...</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-6 p-4 bg-slate-50 rounded-2xl border border-slate-200 min-h-[100px]">
+                <h4 class="text-sm font-bold text-slate-700 mb-3">已新增的題目清單 (<span id="draftQCount">0</span> 題)</h4>
+                <div id="draftQuestionsList" class="space-y-2 max-h-40 overflow-y-auto text-sm text-slate-600 font-medium">
+                    還沒有題目，請在下方新增。
+                </div>
+            </div>
+
+            <div class="bg-emerald-50 rounded-2xl p-6 border-2 border-emerald-100 mb-6">
+                <h4 class="font-bold text-emerald-800 mb-4 flex items-center gap-2">
+                    <i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題
+                </h4>
+                <input type="text" id="qText" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-red-500">
+                        <input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-red-500">
+                        <input type="text" id="opt0" placeholder="選項 A (紅)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium">
+                    </div>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-blue-500">
+                        <input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-blue-500">
+                        <input type="text" id="opt1" placeholder="選項 B (藍)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium">
+                    </div>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-amber-500">
+                        <input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-amber-500">
+                        <input type="text" id="opt2" placeholder="選項 C (黃)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium">
+                    </div>
+                    <div class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-emerald-500">
+                        <input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500">
+                        <input type="text" id="opt3" placeholder="選項 D (綠)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium">
+                    </div>
+                </div>
+                <button id="addDraftQuestionBtn" class="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm">
+                    將此題加入測驗
+                </button>
+            </div>
+
+            <button id="saveKahootBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-all">
+                確認發布這份測驗 🚀
+            </button>
+        </div>
+    </div>
+
+    <div id="playKahootModal" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-center p-4">
+        <button id="quitKahootBtn" class="absolute top-6 left-6 text-slate-400 hover:text-white font-bold flex items-center gap-2">
+            <i data-lucide="arrow-left" class="w-5 h-5"></i> 退出測驗
+        </button>
+        
+        <div class="text-center w-full max-w-4xl">
+            <div class="flex justify-between items-center mb-8 text-slate-300 font-bold px-4">
+                <span id="kahootProgress" class="text-lg bg-slate-800 px-4 py-2 rounded-full">1 / 5</span>
+                <span id="kahootScoreDisplay" class="text-lg bg-slate-800 px-4 py-2 rounded-full text-emerald-400">分數: 0</span>
+            </div>
+            <div class="bg-white rounded-[2rem] p-8 md:p-12 shadow-2xl mb-8 min-h-[200px] flex items-center justify-center mx-4">
+                <h2 id="kahootQuestionDisplay" class="text-3xl md:text-5xl font-black text-slate-900 leading-tight">載入中...</h2>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mx-4">
+                <button data-action="submit-kahoot" data-index="0" id="playOpt0" class="kahoot-btn py-8 md:py-12 bg-red-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-red-700 hover:bg-red-400 flex items-center justify-center gap-4">
+                    <div class="w-8 h-8 rounded-full bg-white/20 pointer-events-none"></div> <span id="textOpt0" class="pointer-events-none"></span>
+                </button>
+                <button data-action="submit-kahoot" data-index="1" id="playOpt1" class="kahoot-btn py-8 md:py-12 bg-blue-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-blue-700 hover:bg-blue-400 flex items-center justify-center gap-4">
+                    <div class="w-8 h-8 rotate-45 bg-white/20 pointer-events-none"></div> <span id="textOpt1" class="pointer-events-none"></span>
+                </button>
+                <button data-action="submit-kahoot" data-index="2" id="playOpt2" class="kahoot-btn py-8 md:py-12 bg-amber-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-amber-700 hover:bg-amber-400 flex items-center justify-center gap-4">
+                    <div class="w-8 h-8 rounded-full bg-white/20 pointer-events-none"></div> <span id="textOpt2" class="pointer-events-none"></span>
+                </button>
+                <button data-action="submit-kahoot" data-index="3" id="playOpt3" class="kahoot-btn py-8 md:py-12 bg-emerald-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-emerald-700 hover:bg-emerald-400 flex items-center justify-center gap-4">
+                    <div class="w-8 h-8 rounded bg-white/20 pointer-events-none"></div> <span id="textOpt3" class="pointer-events-none"></span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4">
+        <div class="bg-white rounded-[3rem] p-10 text-center max-w-md w-full shadow-2xl relative overflow-hidden">
+            <i data-lucide="award" class="w-24 h-24 text-amber-400 mx-auto mb-6 animate-bounce"></i>
+            <h2 class="text-4xl font-black text-slate-900 mb-2">測驗結束！</h2>
+            <p class="text-slate-500 font-medium mb-6">太棒了，來看看你的成績吧喵 🐾</p>
+            <div class="bg-slate-50 rounded-3xl p-6 mb-8 border-2 border-slate-100">
+                <span class="block text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">最終得分</span>
+                <span id="finalScoreDisplay" class="text-6xl font-black text-emerald-500">0</span>
+                <span id="finalTotalDisplay" class="text-xl font-bold text-slate-400">/ 0</span>
+            </div>
+            <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">
+                回到大廳
+            </button>
+        </div>
+    </div>
+
+    <div id="starclanModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 shadow-2xl max-h-[85vh] flex flex-col border-t-8 border-fuchsia-500">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <i data-lucide="sparkles" class="text-fuchsia-500 w-7 h-7"></i> 星族大會
+                </h3>
+                <button id="closeStarclanBtn" class="text-slate-400 hover:text-slate-700">
+                    <i data-lucide="x" class="w-6 h-6"></i>
+                </button>
+            </div>
+            <p class="text-sm font-medium text-slate-500 mb-6 border-b-2 border-slate-100 pb-4">
+                只有星族可以管理部族。為小黑貓的夥伴們指派合適的階位吧喵！
+            </p>
+            
+            <div class="overflow-y-auto flex-1 pr-2 space-y-3" id="usersListContainer">
+                <div class="text-center py-10 text-slate-400 font-medium">名冊載入中...</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-10 py-4 rounded-full shadow-2xl font-bold text-sm hidden"></div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyD9uIEAe3InKxHs86QhWHjuMSuimxrhdkQ",
+            authDomain: "eeblackcat-c605d.firebaseapp.com",
+            projectId: "eeblackcat-c605d",
+            storageBucket: "eeblackcat-c605d.firebasestorage.app",
+            messagingSenderId: "1012329411307",
+            appId: "1:1012329411307:web:63b87debbbc3e4778044ae"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        const appId = "eeblackcat-c605d"; 
+        const COURSES_PATH = `artifacts/${appId}/public/data/courses`;
+        const REVIEWS_PATH = `artifacts/${appId}/public/data/reviews`;
+        const MATERIALS_PATH = `artifacts/${appId}/public/data/materials`;
+        const KAHOOTS_PATH = `artifacts/${appId}/public/data/kahoots`;
+        const USERS_PATH = `artifacts/${appId}/public/data/users`;
+        
+        let courses = [], reviews = [], materials = [], kahoots = [];
+        let allUsers = []; 
+        
+        let isAdmin = false; 
+        let currentUserRole = "見習生"; 
+        let isRegisterMode = false;
+        
+        const ROLE_COLORS = {
+            '星族': 'bg-fuchsia-500 text-white border-fuchsia-600',
+            '巫醫': 'bg-emerald-500 text-white border-emerald-600',
+            '族長': 'bg-amber-500 text-white border-amber-600',
+            '戰士': 'bg-rose-500 text-white border-rose-600',
+            '見習生': 'bg-slate-400 text-white border-slate-500'
+        };
+
+        let ratingsData = { courseDiff: 0, examDiff: 0, hwAmount: 0, learned: 0 };
+        let currentDeleteId = null;
+        let currentDeleteType = null;
+        let searchQuery = "";
+        let selectedFilterCourseId = null;
+
+        let draftQuestions = []; 
+        let activeKahoot = null;
+        let currentQIndex = 0;
+        let currentScore = 0;
+
+        function escapeHTML(str) {
+            if (!str) return "";
+            return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+
+        function debounce(func, wait) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), wait);
+            };
+        }
+
+        const drawMetricDots = (value, colorClass) => {
+            return Array(5).fill().map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i < (value || 0) ? colorClass : 'bg-slate-200'}"></div>`).join('');
+        };
+
+        // 事件委派機制 (Event Delegation)：統一監聽動態按鈕
+        document.addEventListener('click', (e) => {
+            const toggleCourseTarget = e.target.closest('[data-action="toggle-course"]');
+            if (toggleCourseTarget) {
+                toggleCourseFilter(toggleCourseTarget.dataset.id, toggleCourseTarget.dataset.name);
+                return;
+            }
+
+            const deleteTarget = e.target.closest('[data-action="delete"]');
+            if (deleteTarget) {
+                e.stopPropagation(); // 避免點擊刪除按鈕時觸發卡片過濾
+                confirmDeleteUI(deleteTarget.dataset.type, deleteTarget.dataset.id);
+                return;
+            }
+
+            const startKahootTarget = e.target.closest('[data-action="start-kahoot"]');
+            if (startKahootTarget) {
+                startKahoot(startKahootTarget.dataset.id);
+                return;
+            }
+
+            const submitKahootTarget = e.target.closest('[data-action="submit-kahoot"]');
+            if (submitKahootTarget) {
+                submitKahootAnswer(parseInt(submitKahootTarget.dataset.index));
+                return;
+            }
+
+            const removeDraftQTarget = e.target.closest('[data-action="remove-draft-q"]');
+            if (removeDraftQTarget) {
+                removeDraftQ(parseInt(removeDraftQTarget.dataset.index));
+                return;
+            }
+        });
+
+        document.addEventListener('change', (e) => {
+            if (e.target.dataset.action === 'change-role') {
+                changeUserRole(e.target.dataset.uid, e.target.value);
+            }
+        });
+
+        window.onload = async () => {
+            lucide.createIcons();
+
+            onAuthStateChanged(auth, async (user) => {
+                if (user && !user.isAnonymous) {
+                    const userRef = doc(db, USERS_PATH, user.uid);
+                    const userSnap = await getDoc(userRef);
+                    
+                    if (!userSnap.exists()) {
+                        // 修正：不再寫死特定 Email 給予管理員權限，新加入皆為預設「見習生」
+                        await setDoc(userRef, { email: user.email, role: '見習生', createdAt: Date.now() });
+                        currentUserRole = '見習生';
+                    } else {
+                        currentUserRole = userSnap.data().role || '見習生';
+                    }
+                    
+                    isAdmin = (currentUserRole === '星族');
+                    showToast(`歡迎回來，${currentUserRole} 🐾`);
+                } else {
+                    isAdmin = false;
+                    currentUserRole = "見習生";
+                    if (!user) {
+                        signInAnonymously(auth).catch(e => console.error(e));
+                    }
+                }
+                updateAdminUI();
+            });
+
+            onSnapshot(collection(db, COURSES_PATH), (snapshot) => {
+                courses = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                renderCourseSelect(); renderCourseGrid(); 
+            });
+
+            onSnapshot(collection(db, REVIEWS_PATH), (snapshot) => {
+                reviews = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                reviews.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderReviews(); renderCourseGrid(); 
+            });
+
+            onSnapshot(collection(db, MATERIALS_PATH), (snapshot) => {
+                materials = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                materials.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderMaterials();
+            });
+
+            onSnapshot(collection(db, KAHOOTS_PATH), (snapshot) => {
+                kahoots = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                kahoots.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderKahoots();
+            });
+
+            onSnapshot(collection(db, USERS_PATH), (snapshot) => {
+                allUsers = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
+                if (isAdmin) renderStarclanPanel();
+            });
+        };
+
+        function renderCourseSelect() {
+            const selects = [document.getElementById('courseSelect'), document.getElementById('uploadCourseSelect'), document.getElementById('kahootCourseSelect')];
+            selects.forEach(select => {
+                const currentVal = select.value;
+                select.innerHTML = '<option value="" disabled selected>請選擇課程...</option>';
+                courses.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.id;
+                    opt.textContent = `${c.name} (${c.instructor})`;
+                    select.appendChild(opt);
+                });
+                if (currentVal) select.value = currentVal;
+            });
+        }
+
+        function renderKahoots() {
+            const list = document.getElementById('kahootList');
+            const filtered = kahoots.filter(k => {
+                const matchSearch = (k.title || "").toLowerCase().includes(searchQuery.toLowerCase()) || (k.courseName || "").toLowerCase().includes(searchQuery.toLowerCase());
+                const matchCourseFilter = selectedFilterCourseId ? (k.courseId === selectedFilterCourseId) : true;
+                return matchSearch && matchCourseFilter;
+            });
+
+            if (filtered.length === 0) { 
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">目前沒有相關挑戰，自己做一個吧！</div>`; 
+                return; 
+            }
+            
+            list.innerHTML = filtered.map(k => `
+                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-all flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2">
+                            <h4 class="text-xl font-black text-slate-900">${escapeHTML(k.title)}</h4>
+                            ${isAdmin ? `<button data-action="delete" data-type="kahoot" data-id="${k.id}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4"></i></button>` : ''}
+                        </div>
+                        <p class="text-sm text-emerald-600 font-bold mb-4 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName)}</p>
+                        <p class="text-xs text-slate-400 font-medium mb-4">共 ${k.questions ? k.questions.length : 0} 題</p>
+                    </div>
+                    <button data-action="start-kahoot" data-id="${k.id}" class="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-400 transition-colors flex justify-center items-center gap-2">
+                        <i data-lucide="play" class="w-4 h-4 fill-white pointer-events-none"></i> 開始測驗
+                    </button>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderCourseGrid() {
+            const grid = document.getElementById('courseGrid');
+            if (courses.length === 0) { 
+                grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 bg-white rounded-3xl border border-slate-100">小黑貓還在抓老鼠，目前沒有課程喔。</div>'; 
+                return; 
+            }
+            
+            const filteredCourses = courses.filter(c => (c.name || "").toLowerCase().includes(searchQuery.toLowerCase()) || (c.instructor || "").toLowerCase().includes(searchQuery.toLowerCase()) );
+            if (filteredCourses.length === 0) { 
+                grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 bg-white rounded-3xl border border-slate-100">找不到這門課，是不是貓咪記錯了？</div>'; 
+                return; 
+            }
+
+            grid.innerHTML = filteredCourses.map(course => {
+                const courseReviews = reviews.filter(r => r.courseId === course.id);
+                const reviewCount = courseReviews.length;
+                let avgCD = "-", avgED = "-", avgHW = "-", avgLN = "-";
+                
+                if (reviewCount > 0) {
+                    avgCD = (courseReviews.reduce((sum, r) => sum + (r.courseDiff || 0), 0) / reviewCount).toFixed(1);
+                    avgED = (courseReviews.reduce((sum, r) => sum + (r.examDiff || 0), 0) / reviewCount).toFixed(1);
+                    avgHW = (courseReviews.reduce((sum, r) => sum + (r.hwAmount || 0), 0) / reviewCount).toFixed(1);
+                    avgLN = (courseReviews.reduce((sum, r) => sum + (r.learned || 0), 0) / reviewCount).toFixed(1);
+                }
+                const isSelected = selectedFilterCourseId === course.id;
+
+                return `
+                <div data-action="toggle-course" data-id="${course.id}" data-name="${escapeHTML(course.name)}" class="cat-card cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 transition-all hover:shadow-xl ${isSelected ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100 hover:border-emerald-300'}">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="overflow-hidden pointer-events-none">
+                            <h4 class="text-lg font-black text-slate-900 truncate">${escapeHTML(course.name)}</h4>
+                            <p class="text-sm text-emerald-600 font-bold flex items-center gap-1"><i data-lucide="user" class="w-3 h-3"></i> ${escapeHTML(course.instructor)}</p>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="text-slate-400 font-bold text-[10px] bg-slate-50 px-3 py-1 rounded-full uppercase pointer-events-none">${reviewCount} 貓評</div>
+                            ${isAdmin ? `<button data-action="delete" data-type="course" data-id="${course.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 text-xs font-bold bg-slate-50 p-3 rounded-2xl pointer-events-none">
+                        <div class="flex justify-between items-center text-slate-500"><span class="flex items-center gap-1"><i data-lucide="book-open" class="w-3 h-3 text-emerald-500"></i> 課程難度</span><span class="text-slate-700">${avgCD}</span></div>
+                        <div class="flex justify-between items-center text-slate-500"><span class="flex items-center gap-1"><i data-lucide="pen-tool" class="w-3 h-3 text-rose-500"></i> 考試難度</span><span class="text-slate-700">${avgED}</span></div>
+                        <div class="flex justify-between items-center text-slate-500"><span class="flex items-center gap-1"><i data-lucide="layers" class="w-3 h-3 text-amber-500"></i> 作業多寡</span><span class="text-slate-700">${avgHW}</span></div>
+                        <div class="flex justify-between items-center text-slate-500"><span class="flex items-center gap-1"><i data-lucide="brain" class="w-3 h-3 text-blue-500"></i> 學到多少</span><span class="text-slate-700">${avgLN}</span></div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+            lucide.createIcons();
+        }
+
+        function renderMaterials() {
+            const list = document.getElementById('materialsList');
+            const filteredMaterials = materials.filter(m => {
+                const matchSearch = (m.courseName || "").toLowerCase().includes(searchQuery.toLowerCase()) || (m.title || "").toLowerCase().includes(searchQuery.toLowerCase());
+                const matchCourseFilter = selectedFilterCourseId ? (m.courseId === selectedFilterCourseId) : true;
+                return matchSearch && matchCourseFilter;
+            });
+            if (filteredMaterials.length === 0) { 
+                list.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這區沒有東西，貓咪也沒轍。</div>`; 
+                return; 
+            }
+            list.innerHTML = filteredMaterials.map(m => `
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center hover:border-emerald-200 transition-all">
+                    <div class="flex items-center gap-4">
+                        <div class="bg-emerald-50 text-emerald-500 p-3 rounded-2xl"><i data-lucide="link-2" class="w-6 h-6"></i></div>
+                        <div>
+                            <h4 class="font-bold text-slate-900">${escapeHTML(m.title)}</h4>
+                            <p class="text-xs text-slate-500 font-medium tracking-tight">${escapeHTML(m.courseName)}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a href="${m.url}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
+                        ${isAdmin ? `<button data-action="delete" data-type="material" data-id="${m.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4"></i></button>` : ''}
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function toggleCourseFilter(courseId, courseName) {
+            if (selectedFilterCourseId === courseId) { 
+                resetCourseFilter(); 
+            } else {
+                selectedFilterCourseId = courseId;
+                document.getElementById('reviewsSectionTitle').innerHTML = `<i data-lucide="filter" class="w-5 h-5 text-emerald-500"></i> ${courseName} 的悄悄話`;
+                document.getElementById('resetFilterBtn').classList.remove('hidden');
+                renderCourseGrid(); renderReviews(); renderMaterials(); renderKahoots();
+                document.getElementById('reviewsSectionTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        function resetCourseFilter() {
+            selectedFilterCourseId = null;
+            document.getElementById('reviewsSectionTitle').innerHTML = '<i data-lucide="message-circle" class="w-5 h-5 text-emerald-500"></i> 貓咪碎碎念 (評價)';
+            document.getElementById('resetFilterBtn').classList.add('hidden');
+            renderCourseGrid(); renderReviews(); renderMaterials(); renderKahoots();
+        }
+
+        document.getElementById('resetFilterBtn').onclick = resetCourseFilter;
+
+        function renderReviews() {
+            const list = document.getElementById('reviewsList');
+            const filtered = reviews.filter(r => {
+                const matchSearch = (r.courseName || "").toLowerCase().includes(searchQuery.toLowerCase()) || (r.instructor || "").toLowerCase().includes(searchQuery.toLowerCase()) || (r.comment || "").toLowerCase().includes(searchQuery.toLowerCase());
+                const matchCourseFilter = selectedFilterCourseId ? (r.courseId === selectedFilterCourseId) : true;
+                return matchSearch && matchCourseFilter;
+            });
+            if (filtered.length === 0) { 
+                list.innerHTML = `<div class="text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">目前安靜地像一隻正在睡覺的貓。</div>`; 
+                return; 
+            }
+            list.innerHTML = filtered.map(r => `
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+                    <div class="flex justify-between items-start mb-5">
+                        <div>
+                            <h4 class="text-xl font-black text-slate-900">${escapeHTML(r.courseName)}</h4>
+                            <p class="text-xs text-emerald-600 font-bold mt-1 flex items-center gap-2"><span>@${escapeHTML(r.instructor)}</span><span class="text-slate-300">|</span><span class="text-slate-400">${escapeHTML(r.date || '')}</span></p>
+                        </div>
+                        ${isAdmin ? `<button data-action="delete" data-type="review" data-id="${r.id}" class="p-2 text-red-200 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
+                    </div>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 bg-slate-50 rounded-2xl">
+                        <div class="flex flex-col gap-1.5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">課程難度</span><div class="flex gap-1">${drawMetricDots(r.courseDiff, 'bg-emerald-500')}</div></div>
+                        <div class="flex flex-col gap-1.5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">考試難度</span><div class="flex gap-1">${drawMetricDots(r.examDiff, 'bg-rose-500')}</div></div>
+                        <div class="flex flex-col gap-1.5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">作業多寡</span><div class="flex gap-1">${drawMetricDots(r.hwAmount, 'bg-amber-500')}</div></div>
+                        <div class="flex flex-col gap-1.5"><span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">學到多少</span><div class="flex gap-1">${drawMetricDots(r.learned, 'bg-blue-500')}</div></div>
+                    </div>
+                    <div class="text-slate-700 leading-relaxed font-medium italic relative"><i data-lucide="paw-print" class="absolute -left-2 -top-2 w-6 h-6 text-slate-200 opacity-30"></i>「${escapeHTML(r.comment)}」</div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function updateAdminUI() {
+            const adminBtn = document.getElementById('adminBtn');
+            const uploadSection = document.getElementById('adminUploadSection');
+            const starclanSection = document.getElementById('starclanSection');
+            const addCourseBtn = document.getElementById('openCourseModal');
+            const user = auth.currentUser;
+
+            if (user && !user.isAnonymous) {
+                const badgeStyle = ROLE_COLORS[currentUserRole] || ROLE_COLORS['見習生'];
+                const roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest ${badgeStyle} shadow-sm border">${currentUserRole}</span>`;
+
+                if (isAdmin) {
+                    adminBtn.innerHTML = `${roleBadge} <span class="truncate max-w-[80px]">管理員</span> <i data-lucide="log-out" class="w-4 h-4 ml-1"></i>`;
+                    adminBtn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-800 text-white shadow-md hover:bg-slate-700 transition-colors border border-slate-600';
+                    uploadSection.classList.remove('hidden'); 
+                    starclanSection.classList.remove('hidden'); 
+                    addCourseBtn.classList.remove('hidden'); 
+                } else {
+                    adminBtn.innerHTML = `${roleBadge} <span class="truncate max-w-[80px]">${user.email.split('@')[0]}</span> <i data-lucide="log-out" class="w-4 h-4 ml-1"></i>`;
+                    adminBtn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-sm hover:bg-slate-800 transition-colors';
+                    uploadSection.classList.add('hidden'); 
+                    starclanSection.classList.add('hidden'); 
+                    addCourseBtn.classList.add('hidden'); 
+                }
+            } else {
+                adminBtn.innerHTML = '<i data-lucide="user" class="w-4 h-4"></i><span>登入 / 註冊</span>';
+                adminBtn.className = 'flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold bg-slate-900 text-white';
+                uploadSection.classList.add('hidden'); 
+                starclanSection.classList.add('hidden'); 
+                addCourseBtn.classList.add('hidden'); 
+            }
+            
+            lucide.createIcons();
+            renderCourseGrid(); 
+            renderReviews(); 
+            renderMaterials(); 
+            renderKahoots();
+            
+            if (isAdmin) {
+                renderStarclanPanel();
+            }
+        }
+
+        function renderStarclanPanel() {
+            const container = document.getElementById('usersListContainer');
+            if (allUsers.length === 0) {
+                container.innerHTML = '<div class="text-center py-10 text-slate-400">目前沒有其他貓咪...</div>';
+                return;
+            }
+
+            container.innerHTML = allUsers.map(u => {
+                return `
+                <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div class="flex flex-col">
+                        <span class="font-bold text-slate-800 text-sm">${escapeHTML(u.email)}</span>
+                        <span class="text-xs text-slate-400">${new Date(u.createdAt).toLocaleDateString()} 加入</span>
+                    </div>
+                    <div>
+                        <select data-action="change-role" data-uid="${u.uid}" 
+                                class="px-3 py-1.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-fuchsia-400 transition-colors">
+                            <option value="星族" ${u.role === '星族' ? 'selected' : ''}>星族</option>
+                            <option value="巫醫" ${u.role === '巫醫' ? 'selected' : ''}>巫醫</option>
+                            <option value="族長" ${u.role === '族長' ? 'selected' : ''}>族長</option>
+                            <option value="戰士" ${u.role === '戰士' ? 'selected' : ''}>戰士</option>
+                            <option value="見習生" ${u.role === '見習生' ? 'selected' : ''}>見習生</option>
+                        </select>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        async function changeUserRole(uid, newRole) {
+            try {
+                await updateDoc(doc(db, USERS_PATH, uid), { role: newRole });
+                showToast(`已成功將階位更新為「${newRole}」🐾`);
+            } catch (err) {
+                showToast("權限不足或更新失敗喵...");
+            }
+        }
+
+        document.getElementById('openStarclanBtn').onclick = () => {
+            renderStarclanPanel();
+            document.getElementById('starclanModal').classList.remove('hidden');
+        };
+        
+        document.getElementById('closeStarclanBtn').onclick = () => {
+            document.getElementById('starclanModal').classList.add('hidden');
+        };
+
+        function showToast(msg) {
+            const toast = document.getElementById('toast');
+            toast.textContent = msg;
+            toast.classList.remove('hidden'); 
+            toast.classList.add('toast-animate');
+            setTimeout(() => toast.classList.add('hidden'), 3000);
+        }
+
+        document.getElementById('forgotPasswordBtn').onclick = async () => {
+            const email = document.getElementById('adminEmail').value.trim();
+            
+            if (!email) {
+                return showToast("喵，請先在上方輸入你的信箱，再點擊這個按鈕喔！");
+            }
+
+            try {
+                await sendPasswordResetEmail(auth, email);
+                showToast("重置密碼信件已寄出，請去信箱收信喵！ 🐾");
+                document.getElementById('adminModal').classList.add('hidden'); 
+            } catch (error) {
+                showToast("錯誤：找不到這個信箱，或是輸入格式不對喵...");
+            }
+        };
+
+        document.getElementById('toggleAuthMode').onclick = () => {
+            isRegisterMode = !isRegisterMode;
+            const title = document.getElementById('modalTitle');
+            const submitBtn = document.getElementById('confirmAdminLogin');
+            const toggleText = document.getElementById('toggleAuthMode');
+            if (isRegisterMode) { 
+                title.textContent = "註冊部族帳號"; 
+                submitBtn.textContent = "確認註冊🐾"; 
+                toggleText.textContent = "已有帳號？登入"; 
+            } else { 
+                title.textContent = "部族登入"; 
+                submitBtn.textContent = "進入領地🐾"; 
+                toggleText.textContent = "沒有帳號？註冊"; 
+            }
+        };
+
+        document.getElementById('confirmAdminLogin').onclick = async () => {
+            const email = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value.trim();
+            const submitBtn = document.getElementById('confirmAdminLogin');
+            
+            if (!email || !password) return showToast("喵，請輸入帳密喔！");
+            
+            submitBtn.disabled = true;
+            try {
+                if (isRegisterMode) { 
+                    await createUserWithEmailAndPassword(auth, email, password); 
+                    showToast("註冊成功喵！"); 
+                } else { 
+                    await signInWithEmailAndPassword(auth, email, password); 
+                }
+                document.getElementById('adminEmail').value = ''; 
+                document.getElementById('adminPassword').value = '';
+                document.getElementById('adminModal').classList.add('hidden');
+            } catch (error) { 
+                showToast("錯誤：帳密不對或是信箱已被用過"); 
+            } finally { 
+                submitBtn.disabled = false; 
+            }
+        };
+
+        document.getElementById('adminBtn').onclick = async () => {
+            if (auth.currentUser && !auth.currentUser.isAnonymous) { 
+                await signOut(auth); 
+                showToast("掰掰，期待再見到你喵！"); 
+            } else { 
+                document.getElementById('adminModal').classList.remove('hidden'); 
+            }
+        };
+
+        document.getElementById('closeAdminModal').onclick = () => {
+            document.getElementById('adminModal').classList.add('hidden');
+        };
+
+        document.getElementById('closeCourseModal').onclick = () => {
+            document.getElementById('courseModal').classList.add('hidden');
+        };
+
+        document.getElementById('closeDeleteModal').onclick = () => {
+            document.getElementById('deleteModal').classList.add('hidden');
+        };
+
+        document.getElementById('uploadPdfBtn').onclick = async () => {
+            const courseId = document.getElementById('uploadCourseSelect').value;
+            const urlInput = document.getElementById('pdfUrlInput').value.trim();
+            const titleInput = document.getElementById('pdfTitleInput').value.trim();
+            
+            if (!courseId || !urlInput || !titleInput) return showToast("喵，請填寫完整喔！");
+            
+            try {
+                const course = courses.find(c => c.id === courseId);
+                const newDoc = doc(collection(db, MATERIALS_PATH));
+                await setDoc(newDoc, { courseId, courseName: course.name, title: titleInput, url: urlInput, createdAt: Date.now() });
+                showToast("考題連結存入寶藏庫了 🐾");
+                document.getElementById('pdfUrlInput').value = ''; 
+                document.getElementById('pdfTitleInput').value = '';
+            } catch (err) { 
+                showToast("失敗喵..."); 
+            }
+        };
+
+        document.querySelectorAll('.star-group').forEach(group => {
+            group.addEventListener('click', (e) => {
+                const icon = e.target.closest('svg'); 
+                if (!icon) return;
+                
+                const value = parseInt(icon.dataset.value);
+                const type = group.dataset.type;
+                const activeColor = group.dataset.color; 
+                
+                if (type === 'courseDiff') ratingsData.courseDiff = value;
+                if (type === 'examDiff') ratingsData.examDiff = value;
+                if (type === 'hwAmount') ratingsData.hwAmount = value;
+                if (type === 'learned') ratingsData.learned = value;
+                
+                group.querySelectorAll('svg').forEach((s, i) => {
+                    s.classList.remove('text-emerald-500', 'text-rose-500', 'text-amber-500', 'text-blue-500', 'text-slate-200');
+                    if (i < value) { 
+                        s.classList.add(activeColor); 
+                    } else { 
+                        s.classList.add('text-slate-200'); 
+                    }
+                });
+            });
+        });
+
+        document.getElementById('searchInput').oninput = debounce((e) => { 
+            searchQuery = e.target.value; 
+            renderCourseGrid(); 
+            renderReviews(); 
+            renderMaterials(); 
+            renderKahoots(); 
+        }, 300);
+
+        document.getElementById('openCourseModal').onclick = () => {
+            document.getElementById('courseModal').classList.remove('hidden');
+        };
+        
+        document.getElementById('confirmAddCourse').onclick = async () => {
+            const name = document.getElementById('newCourseName').value.trim();
+            const instructor = document.getElementById('newInstructor').value.trim();
+            
+            if (!name || !instructor) return showToast("喵，資訊不全喔！");
+            
+            try {
+                const newDoc = doc(collection(db, COURSES_PATH));
+                await setDoc(newDoc, { name, instructor, createdAt: Date.now() });
+                document.getElementById('newCourseName').value = ''; 
+                document.getElementById('newInstructor').value = '';
+                document.getElementById('courseModal').classList.add('hidden');
+                showToast("新課程紀錄完成 🐾");
+            } catch (err) { 
+                showToast("失敗喵..."); 
+            }
+        };
+
+        document.getElementById('submitReview').onclick = async () => {
+            const courseId = document.getElementById('courseSelect').value;
+            const comment = document.getElementById('commentText').value.trim();
+            
+            if (!courseId || !comment || Object.values(ratingsData).some(v => v === 0)) {
+                return showToast("喵，四項指標跟心得都要完整填寫才能送出喔！");
+            }
+            
+            try {
+                const course = courses.find(c => c.id === courseId);
+                const newDoc = doc(collection(db, REVIEWS_PATH));
+                
+                await setDoc(newDoc, { 
+                    courseId, 
+                    courseName: course.name, 
+                    instructor: course.instructor, 
+                    semester: "未提供學期", 
+                    courseDiff: ratingsData.courseDiff, 
+                    examDiff: ratingsData.examDiff, 
+                    hwAmount: ratingsData.hwAmount, 
+                    learned: ratingsData.learned, 
+                    comment, 
+                    date: new Date().toLocaleDateString(), 
+                    createdAt: Date.now() 
+                });
+                
+                document.getElementById('commentText').value = '';
+                ratingsData = { courseDiff: 0, examDiff: 0, hwAmount: 0, learned: 0 };
+                
+                document.querySelectorAll('.star-group svg').forEach(s => { 
+                    s.classList.remove('text-emerald-500', 'text-rose-500', 'text-amber-500', 'text-blue-500'); 
+                    s.classList.add('text-slate-200'); 
+                });
+                
+                showToast("評價送出啦 🐾");
+            } catch (err) { 
+                showToast("失敗喵..."); 
+            }
+        };
+
+        // --- Kahoot 功能 ---
+        document.getElementById('openCreateKahootBtn').onclick = () => { 
+            draftQuestions = []; 
+            document.getElementById('kahootTitle').value = ''; 
+            document.getElementById('kahootCourseSelect').value = ''; 
+            renderDraftQuestions(); 
+            document.getElementById('createKahootModal').classList.remove('hidden'); 
+        };
+        
+        document.getElementById('closeKahootModalBtn').onclick = () => { 
+            document.getElementById('createKahootModal').classList.add('hidden'); 
+        };
+        
+        document.getElementById('addDraftQuestionBtn').onclick = () => {
+            const qText = document.getElementById('qText').value.trim();
+            const opts = [
+                document.getElementById('opt0').value.trim(), 
+                document.getElementById('opt1').value.trim(), 
+                document.getElementById('opt2').value.trim(), 
+                document.getElementById('opt3').value.trim()
+            ];
+            const correctRadio = document.querySelector('input[name="correctOpt"]:checked');
+            
+            if (!qText || opts.some(o => o === "") || !correctRadio) {
+                return showToast("請確認題目、四個選項與正確答案都填寫完畢喔！");
+            }
+            
+            draftQuestions.push({ q: qText, options: opts, correctIdx: parseInt(correctRadio.value) });
+            
+            document.getElementById('qText').value = ''; 
+            document.getElementById('opt0').value = ''; 
+            document.getElementById('opt1').value = ''; 
+            document.getElementById('opt2').value = ''; 
+            document.getElementById('opt3').value = ''; 
+            correctRadio.checked = false;
+            
+            renderDraftQuestions(); 
+            showToast("題目加入成功 🐾");
+        };
+        
+        function renderDraftQuestions() {
+            const list = document.getElementById('draftQuestionsList'); 
+            document.getElementById('draftQCount').textContent = draftQuestions.length;
+            
+            if (draftQuestions.length === 0) { 
+                list.innerHTML = "還沒有題目，請在下方新增。"; 
+                return; 
+            }
+            
+            list.innerHTML = draftQuestions.map((item, idx) => `
+                <div class="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm">
+                    <span class="truncate">Q${idx + 1}: ${escapeHTML(item.q)}</span>
+                    <button data-action="remove-draft-q" data-index="${idx}" class="text-red-400 hover:text-red-600">
+                        <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i>
+                    </button>
+                </div>
+            `).join('');
+            
+            lucide.createIcons();
+        }
+        
+        function removeDraftQ(idx) { 
+            draftQuestions.splice(idx, 1); 
+            renderDraftQuestions(); 
+        }
+        
+        document.getElementById('saveKahootBtn').onclick = async () => {
+            const title = document.getElementById('kahootTitle').value.trim(); 
+            const courseId = document.getElementById('kahootCourseSelect').value;
+            
+            if (!title || !courseId) return showToast("請輸入測驗主題並選擇關聯課程！"); 
+            if (draftQuestions.length === 0) return showToast("至少要新增一題才能發布喔！");
+            
+            // 【安全提醒】實務上正確答案(correctIdx)不應直接在前端打包上傳並讓所有人讀取
+            // 應將答案獨立存放在只有後端可見的結構化資料表內。
+            try {
+                const course = courses.find(c => c.id === courseId); 
+                const newDoc = doc(collection(db, KAHOOTS_PATH));
+                
+                await setDoc(newDoc, { 
+                    title, 
+                    courseId, 
+                    courseName: course.name, 
+                    questions: draftQuestions, 
+                    createdAt: Date.now() 
+                });
+                
+                document.getElementById('createKahootModal').classList.add('hidden'); 
+                showToast("測驗建立成功，大家可以開始挑戰了 🐾");
+            } catch (err) { 
+                showToast("建立失敗喵..."); 
+            }
+        };
+
+        function startKahoot(kahootId) {
+            const kahoot = kahoots.find(k => k.id === kahootId); 
+            
+            if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) {
+                return showToast("找不到測驗內容喵...");
+            }
+            
+            activeKahoot = kahoot; 
+            currentQIndex = 0; 
+            currentScore = 0;
+            
+            document.getElementById('playKahootModal').classList.remove('hidden'); 
+            document.getElementById('playKahootModal').classList.add('flex'); 
+            renderPlayQuestion();
+        }
+        
+        document.getElementById('quitKahootBtn').onclick = () => { 
+            document.getElementById('playKahootModal').classList.add('hidden'); 
+            document.getElementById('playKahootModal').classList.remove('flex'); 
+        };
+        
+        function renderPlayQuestion() {
+            if (!activeKahoot || currentQIndex >= activeKahoot.questions.length) {
+                document.getElementById('playKahootModal').classList.add('hidden'); 
+                document.getElementById('playKahootModal').classList.remove('flex');
+                
+                document.getElementById('finalScoreDisplay').textContent = currentScore; 
+                document.getElementById('finalTotalDisplay').textContent = `/ ${activeKahoot.questions.length}`;
+                
+                document.getElementById('kahootResultModal').classList.remove('hidden'); 
+                document.getElementById('kahootResultModal').classList.add('flex'); 
+                return;
+            }
+            
+            const qData = activeKahoot.questions[currentQIndex];
+            
+            document.getElementById('kahootProgress').textContent = `${currentQIndex + 1} / ${activeKahoot.questions.length}`; 
+            document.getElementById('kahootScoreDisplay').textContent = `分數: ${currentScore}`;
+            
+            document.getElementById('kahootQuestionDisplay').textContent = qData.q; 
+            document.getElementById('textOpt0').textContent = qData.options[0]; 
+            document.getElementById('textOpt1').textContent = qData.options[1]; 
+            document.getElementById('textOpt2').textContent = qData.options[2]; 
+            document.getElementById('textOpt3').textContent = qData.options[3];
+        }
+        
+        function submitKahootAnswer(selectedIdx) {
+            const qData = activeKahoot.questions[currentQIndex];
+            
+            // 【安全提醒】前端比對解答易遭受有心人士偷看。
+            // 建議改為發送所選答案給後端 API (如 Cloud Functions)，由後端判定對錯並返回分數。
+            if (selectedIdx === qData.correctIdx) { 
+                currentScore++; 
+                showToast("答對了！喵 🐾"); 
+            } else { 
+                showToast("哎呀，答錯囉！"); 
+            }
+            
+            currentQIndex++; 
+            setTimeout(() => { 
+                renderPlayQuestion(); 
+            }, 600);
+        }
+        
+        document.getElementById('closeResultBtn').onclick = () => { 
+            document.getElementById('kahootResultModal').classList.add('hidden'); 
+            document.getElementById('kahootResultModal').classList.remove('flex'); 
+        };
+
+        function confirmDeleteUI(type, id) { 
+            currentDeleteType = type; 
+            currentDeleteId = id; 
+            document.getElementById('deleteModal').classList.remove('hidden'); 
+        }
+        
+        document.getElementById('confirmDelete').onclick = async () => {
+            try {
+                if (currentDeleteType === 'course') {
+                    // 【安全提醒】在前端執行 Cascade Delete（連鎖刪除）風險較大。
+                    // 理想解法：在 Cloud Functions 設定觸發器 (onDelete)，只要課程被刪，伺服器便自動清除下方附屬資料。
+                    const qR = query(collection(db, REVIEWS_PATH), where("courseId", "==", currentDeleteId)); 
+                    const qM = query(collection(db, MATERIALS_PATH), where("courseId", "==", currentDeleteId)); 
+                    const qK = query(collection(db, KAHOOTS_PATH), where("courseId", "==", currentDeleteId));
+                    const batch = writeBatch(db);
+                    
+                    const sR = await getDocs(qR); 
+                    const sM = await getDocs(qM); 
+                    const sK = await getDocs(qK);
+                    
+                    sR.forEach(d => batch.delete(d.ref)); 
+                    sM.forEach(d => batch.delete(d.ref)); 
+                    sK.forEach(d => batch.delete(d.ref));
+                    
+                    batch.delete(doc(db, COURSES_PATH, currentDeleteId)); 
+                    await batch.commit();
+                    
+                    if (currentDeleteId === selectedFilterCourseId) resetCourseFilter();
+                } else {
+                    let path;
+                    if (currentDeleteType === 'review') path = REVIEWS_PATH; 
+                    else if (currentDeleteType === 'material') path = MATERIALS_PATH; 
+                    else if (currentDeleteType === 'kahoot') path = KAHOOTS_PATH;
+                    
+                    await deleteDoc(doc(db, path, currentDeleteId));
+                }
+                showToast("已成功抹除 🐾"); 
+                document.getElementById('deleteModal').classList.add('hidden');
+            } catch (err) { 
+                showToast("失敗喵..."); 
+            }
+        };
+
+    </script>
+</body>
+</html>
