@@ -58,7 +58,7 @@
     <main class="max-w-6xl mx-auto px-4 py-8">
         
         <div id="page-evaluation" class="page-section animate-[slideUp_0.3s_ease-out]">
-            <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+            <div id="evaluationHero" class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 transition-all duration-300">
                 <i data-lucide="paw-print" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <i data-lucide="paw-print" class="paw-print w-20 h-20 bottom-10 left-10 -rotate-12"></i>
                 
@@ -124,10 +124,11 @@
                             <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回課程地圖
                         </button>
 
-                        <div class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500">
+                        <div id="detailCourseTitleBlock" class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500 scroll-mt-24">
                             <div class="relative z-10">
                                 <h2 id="detailCourseTitle" class="text-3xl font-black mb-2"></h2>
-                                <p id="detailCourseInstructor" class="text-emerald-400 font-bold text-sm flex items-center gap-2"></p>
+                                <p id="detailCourseInstructor" class="text-emerald-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
+                                <div id="detailCourseFeatures" class="flex flex-wrap gap-2"></div>
                             </div>
                         </div>
 
@@ -364,6 +365,24 @@
                         <option value="2">下學期</option>
                     </select>
                 </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+                    <select id="newCourseRemote" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                        <option value="" disabled selected>是否遠距？</option>
+                        <option value="是">遠距：是</option>
+                        <option value="否">遠距：否</option>
+                    </select>
+                    <select id="newCourseRollCall" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                        <option value="" disabled selected>是否點名？</option>
+                        <option value="是">點名：是</option>
+                        <option value="否">點名：否</option>
+                    </select>
+                    <select id="newCourseGroup" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                        <option value="" disabled selected>分組活動？</option>
+                        <option value="老師分組">老師分組</option>
+                        <option value="自由分組">自由分組</option>
+                        <option value="否">無分組</option>
+                    </select>
+                </div>
                 <div class="flex gap-4 pt-4">
                     <button id="closeCourseModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">算了</button>
                     <button id="confirmAddCourse" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200">新增這門課</button>
@@ -524,6 +543,7 @@
             </div>
         </div>
     </div>
+
     <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-[3rem] p-10 text-center max-w-md w-full shadow-2xl relative overflow-hidden">
             <i data-lucide="award" class="w-24 h-24 text-amber-400 mx-auto mb-6 animate-bounce"></i>
@@ -586,9 +606,9 @@
                 }
 
                 if (target === 'evaluation') {
-                    // 切換回評價(首頁)時預設顯示課程總覽列表
                     document.getElementById('course-detail-view').classList.add('hidden');
                     document.getElementById('course-list-view').classList.remove('hidden');
+                    document.getElementById('evaluationHero').classList.remove('hidden'); // 顯示搜尋列
                     selectedFilterCourseId = null;
                 }
 
@@ -639,6 +659,7 @@
         let isWizardTransitioning = false;
         let isKahootTransitioning = false;
         let currentViewSSCourseId = null;
+        let editingDraftQIndex = null; // 追蹤目前正在編輯的題目索引
         
         const ROLE_COLORS = {
             '星族': 'bg-fuchsia-500 text-white border-fuchsia-600',
@@ -718,7 +739,11 @@
             if (deleteTarget) { e.stopPropagation(); confirmDeleteUI(deleteTarget.dataset.type, deleteTarget.dataset.id); return; }
 
             const toggleCourseTarget = e.target.closest('[data-action="toggle-course"]');
-            if (toggleCourseTarget) { openCourseDetails(toggleCourseTarget.dataset.id); return; }
+            // 排除 SELECT 以免點擊下拉選單觸發展開課程
+            if (toggleCourseTarget && e.target.tagName !== 'SELECT' && e.target.tagName !== 'OPTION') { 
+                openCourseDetails(toggleCourseTarget.dataset.id); 
+                return; 
+            }
 
             const startKahootTarget = e.target.closest('[data-action="start-kahoot"]');
             if (startKahootTarget) { startKahoot(startKahootTarget.dataset.id); return; }
@@ -739,6 +764,9 @@
 
             const removeDraftQTarget = e.target.closest('[data-action="remove-draft-q"]');
             if (removeDraftQTarget) { removeDraftQ(parseInt(removeDraftQTarget.dataset.index)); return; }
+
+            const editDraftQTarget = e.target.closest('[data-action="edit-draft-q"]');
+            if (editDraftQTarget) { editDraftQ(parseInt(editDraftQTarget.dataset.index)); return; }
 
             const nextReviewStepTarget = e.target.closest('[data-action="next-review-step"]');
             if (nextReviewStepTarget) {
@@ -838,38 +866,60 @@
             if (editSSUnitTarget) { e.stopPropagation(); openSSUnitModal(editSSUnitTarget.dataset.id); return; }
         });
 
-        // 綁定課程詳情頁的返回按鈕
+        document.addEventListener('change', (e) => {
+            if (e.target.dataset.action === 'change-role') {
+                changeUserRole(e.target.dataset.uid, e.target.value);
+            }
+            if (e.target.dataset.action === 'update-course-feature') {
+                const courseId = e.target.dataset.id;
+                const field = e.target.dataset.field;
+                const value = e.target.value;
+                updateDoc(doc(db, COURSES_PATH, courseId), { [field]: value }).then(() => {
+                    showToast("課程特性更新成功 🐾");
+                }).catch(err => {
+                    showToast("更新失敗喵...");
+                    console.error(err);
+                });
+            }
+        });
+
         document.getElementById('backToCoursesBtn').onclick = () => {
             selectedFilterCourseId = null;
             document.getElementById('course-detail-view').classList.add('hidden');
             document.getElementById('course-list-view').classList.remove('hidden');
+            document.getElementById('evaluationHero').classList.remove('hidden'); // 返回時顯示搜尋列
         };
 
-        // 開啟課程詳細畫面的函數
         function openCourseDetails(courseId) {
             selectedFilterCourseId = courseId;
             const course = courses.find(c => c.id === courseId);
             if (!course) return;
 
             document.getElementById('course-list-view').classList.add('hidden');
+            document.getElementById('evaluationHero').classList.add('hidden'); // 隱藏搜尋列
             document.getElementById('course-detail-view').classList.remove('hidden');
 
             document.getElementById('detailCourseTitle').textContent = course.name;
             document.getElementById('detailCourseInstructor').innerHTML = `<i data-lucide="user" class="w-4 h-4"></i> ${escapeHTML(course.instructor)}`;
 
+            const remoteVal = course.isRemote || '未設定';
+            const rollCallVal = course.isRollCall || '未設定';
+            const groupVal = course.groupActivity || '未設定';
+            document.getElementById('detailCourseFeatures').innerHTML = `
+                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-blue-300">是否遠距：${remoteVal}</span>
+                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-amber-300">是否點名：${rollCallVal}</span>
+                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-fuchsia-300">分組活動：${groupVal}</span>
+            `;
+
             renderReviews(); 
             renderMaterials();
             lucide.createIcons();
             
-            // 將畫面平滑捲動到詳細畫面的頂端
-            document.getElementById('course-detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
+            // 將原本的 scrollIntoView 改為回到網頁頂部
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 50);
         }
-
-        document.addEventListener('change', (e) => {
-            if (e.target.dataset.action === 'change-role') {
-                changeUserRole(e.target.dataset.uid, e.target.value);
-            }
-        });
 
         window.onload = async () => {
             lucide.createIcons();
@@ -1110,26 +1160,6 @@
             lucide.createIcons();
         }
 
-        function openSelfStudyDetails(courseId) {
-            currentViewSSCourseId = courseId;
-            const course = ssCourses.find(c => c.id === courseId);
-            if (!course) return;
-
-            document.getElementById('page-self-study-main').classList.add('hidden');
-            document.getElementById('page-self-study-details').classList.remove('hidden');
-            
-            document.getElementById('ssDetailsTitle').textContent = course.title;
-            document.getElementById('ssDetailsLinkedCourse').textContent = course.linkedCourseName;
-            
-            renderSelfStudyUnits();
-        }
-
-        document.getElementById('backToSSCoursesBtn').onclick = () => {
-            currentViewSSCourseId = null;
-            document.getElementById('page-self-study-details').classList.add('hidden');
-            document.getElementById('page-self-study-main').classList.remove('hidden');
-        };
-
         function renderSelfStudyUnits() {
             const list = document.getElementById('ssUnitList');
             if (!currentViewSSCourseId) return;
@@ -1295,7 +1325,6 @@
                     if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
                 }
                 
-                // 階級4以上可看見管理分頁與擴充寶藏庫
                 if (currentUserLevel >= 4) {
                     navManagementTab.classList.remove('hidden');
                     uploadSection.classList.remove('hidden'); 
@@ -1305,7 +1334,6 @@
                     uploadSection.classList.add('hidden'); 
                     openCreateKahootBtn.classList.add('hidden'); 
                     
-                    // 如果被降級且剛好在管理頁，自動跳回評價頁
                     if(!document.getElementById('page-management').classList.contains('hidden')) {
                         document.querySelector('[data-tab="evaluation"]').click();
                     }
@@ -1322,7 +1350,6 @@
                 if(addSSCourseBtn) addSSCourseBtn.classList.add('hidden');
                 if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
                 
-                // 登出時，若在管理頁則跳回評價頁
                 if(!document.getElementById('page-management').classList.contains('hidden')) {
                     document.querySelector('[data-tab="evaluation"]').click();
                 }
@@ -1383,19 +1410,56 @@
                 else if (course.year === 'other') tagText = '其他';
                 else if (course.year && course.semester) tagText = `${yearMap[course.year]} ${semMap[course.semester]}`;
 
+                const remoteVal = course.isRemote || '未設定';
+                const rollCallVal = course.isRollCall || '未設定';
+                const groupVal = course.groupActivity || '未設定';
+
+                let featureSection = '';
+                if (isAdmin) {
+                    featureSection = `
+                        <div class="mt-3 flex flex-wrap gap-2">
+                            <select data-action="update-course-feature" data-id="${course.id}" data-field="isRemote" class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
+                                <option value="是" ${remoteVal === '是' ? 'selected' : ''}>遠距: 是</option>
+                                <option value="否" ${remoteVal === '否' ? 'selected' : ''}>遠距: 否</option>
+                                <option value="未設定" ${remoteVal === '未設定' ? 'selected' : ''}>遠距: 未定</option>
+                            </select>
+                            <select data-action="update-course-feature" data-id="${course.id}" data-field="isRollCall" class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
+                                <option value="是" ${rollCallVal === '是' ? 'selected' : ''}>點名: 是</option>
+                                <option value="否" ${rollCallVal === '否' ? 'selected' : ''}>點名: 否</option>
+                                <option value="未設定" ${rollCallVal === '未設定' ? 'selected' : ''}>點名: 未定</option>
+                            </select>
+                            <select data-action="update-course-feature" data-id="${course.id}" data-field="groupActivity" class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
+                                <option value="老師分組" ${groupVal === '老師分組' ? 'selected' : ''}>分組: 老師</option>
+                                <option value="自由分組" ${groupVal === '自由分組' ? 'selected' : ''}>分組: 自由</option>
+                                <option value="否" ${groupVal === '否' ? 'selected' : ''}>分組: 無</option>
+                                <option value="未設定" ${groupVal === '未設定' ? 'selected' : ''}>分組: 未定</option>
+                            </select>
+                        </div>
+                    `;
+                } else {
+                    featureSection = `
+                        <div class="mt-3 flex flex-wrap gap-2 text-[10px] uppercase font-black tracking-widest pointer-events-none">
+                            <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">遠距: ${remoteVal}</span>
+                            <span class="px-2 py-1 bg-amber-50 text-amber-600 rounded-md border border-amber-100">點名: ${rollCallVal}</span>
+                            <span class="px-2 py-1 bg-fuchsia-50 text-fuchsia-600 rounded-md border border-fuchsia-100">分組: ${groupVal}</span>
+                        </div>
+                    `;
+                }
+
                 return `
                 <div data-action="toggle-course" data-id="${course.id}" data-name="${escapeHTML(course.name)}" class="cat-card cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 transition-all hover:shadow-xl flex flex-col border-slate-100 hover:border-emerald-300">
-                    <div class="mb-3">
+                    <div class="mb-3 flex justify-between items-start">
                         <span class="inline-block text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded border border-emerald-200 pointer-events-none">${tagText}</span>
-                    </div>
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="overflow-hidden pointer-events-none">
-                            <h4 class="text-lg font-black text-slate-900 truncate">${escapeHTML(course.name)}</h4>
-                            <p class="text-sm text-emerald-600 font-bold flex items-center gap-1 mt-1"><i data-lucide="user" class="w-3 h-3"></i> ${escapeHTML(course.instructor)}</p>
-                        </div>
                         <div class="flex items-center gap-2">
                             <div class="text-slate-400 font-bold text-[10px] bg-slate-50 px-3 py-1 rounded-full uppercase pointer-events-none whitespace-nowrap">${reviewCount} 貓評</div>
                             ${isAdmin ? `<button data-action="delete" data-type="course" data-id="${course.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` : ''}
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="overflow-hidden pointer-events-none w-full">
+                            <h4 class="text-lg font-black text-slate-900 truncate w-full">${escapeHTML(course.name)}</h4>
+                            <p class="text-sm text-emerald-600 font-bold flex items-center gap-1 mt-1"><i data-lucide="user" class="w-3 h-3"></i> ${escapeHTML(course.instructor)}</p>
+                            ${featureSection}
                         </div>
                     </div>
                     <div class="mt-auto grid grid-cols-2 gap-3 text-xs font-bold bg-slate-50 p-3 rounded-2xl pointer-events-none">
@@ -1621,6 +1685,10 @@
             const year = document.getElementById('newCourseYear').value;
             const semester = document.getElementById('newCourseSemester').value || "";
             
+            const isRemote = document.getElementById('newCourseRemote').value || "未設定";
+            const isRollCall = document.getElementById('newCourseRollCall').value || "未設定";
+            const groupActivity = document.getElementById('newCourseGroup').value || "未設定";
+            
             if (!name || !instructor || !year || (!['elective', 'other'].includes(year) && !semester)) {
                 return showToast("喵，一般課程的年級與學期都要填寫喔！(系選修/其他可免填學期)");
             }
@@ -1631,12 +1699,15 @@
             
             try {
                 const newDocRef = doc(collection(db, COURSES_PATH));
-                await setDoc(newDocRef, { name, instructor, year, semester, createdAt: Date.now() });
+                await setDoc(newDocRef, { name, instructor, year, semester, isRemote, isRollCall, groupActivity, createdAt: Date.now() });
                 showToast("太棒了，小黑貓已經把新課程記下來了 🐾");
                 document.getElementById('newCourseName').value = '';
                 document.getElementById('newInstructor').value = '';
                 document.getElementById('newCourseYear').value = '';
                 document.getElementById('newCourseSemester').value = '';
+                document.getElementById('newCourseRemote').value = '';
+                document.getElementById('newCourseRollCall').value = '';
+                document.getElementById('newCourseGroup').value = '';
                 document.getElementById('courseModal').classList.add('hidden');
             } catch (err) {
                 showToast("新增失敗喵...");
@@ -1703,6 +1774,7 @@
                         selectedFilterCourseId = null;
                         document.getElementById('course-detail-view').classList.add('hidden');
                         document.getElementById('course-list-view').classList.remove('hidden');
+                        document.getElementById('evaluationHero').classList.remove('hidden');
                     }
                 } else if (currentDeleteType === 'ssCourse') {
                     const qUnits = query(collection(db, SS_UNITS_PATH), where("courseId", "==", currentDeleteId));
@@ -1773,7 +1845,6 @@
             lucide.createIcons();
         }
 
-        // 開啟編輯 Kahoot Modal 函式
         function openEditKahootModal(kahootId) {
             const kahoot = kahoots.find(k => k.id === kahootId);
             if (!kahoot) return;
@@ -1782,10 +1853,13 @@
             document.getElementById('kahootTitle').value = kahoot.title;
             document.getElementById('kahootCourseSelect').value = kahoot.courseId;
 
-            // 將舊題目深拷貝載入編輯暫存區
             draftQuestions = JSON.parse(JSON.stringify(kahoot.questions || []));
 
-            // 清空輸入框狀態
+            editingDraftQIndex = null;
+            const btn = document.getElementById('addDraftQuestionBtn');
+            btn.textContent = "將此題加入測驗";
+            btn.className = "w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm";
+
             document.getElementById('qText').value = '';
             document.getElementById('opt0').value = '';
             document.getElementById('opt1').value = '';
@@ -1804,7 +1878,11 @@
             document.getElementById('kahootTitle').value = ''; 
             document.getElementById('kahootCourseSelect').value = ''; 
             
-            // 清空輸入框狀態
+            editingDraftQIndex = null;
+            const btn = document.getElementById('addDraftQuestionBtn');
+            btn.textContent = "將此題加入測驗";
+            btn.className = "w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm";
+
             document.getElementById('qText').value = '';
             document.getElementById('opt0').value = '';
             document.getElementById('opt1').value = '';
@@ -1819,6 +1897,22 @@
         
         document.getElementById('closeKahootModalBtn').onclick = () => document.getElementById('createKahootModal').classList.add('hidden'); 
         
+        function editDraftQ(idx) {
+            const q = draftQuestions[idx];
+            document.getElementById('qText').value = q.q;
+            document.getElementById('opt0').value = q.options[0];
+            document.getElementById('opt1').value = q.options[1];
+            document.getElementById('opt2').value = q.options[2];
+            document.getElementById('opt3').value = q.options[3];
+            const correctRadio = document.querySelector(`input[name="correctOpt"][value="${q.correctIdx}"]`);
+            if (correctRadio) correctRadio.checked = true;
+
+            editingDraftQIndex = idx;
+            const btn = document.getElementById('addDraftQuestionBtn');
+            btn.textContent = "更新此題目";
+            btn.className = "w-full py-2 bg-blue-500 text-white rounded-xl font-bold shadow-md hover:bg-blue-600 transition-colors text-sm";
+        }
+
         document.getElementById('addDraftQuestionBtn').onclick = () => {
             const qText = document.getElementById('qText').value.trim();
             const opts = [
@@ -1833,7 +1927,17 @@
                 return showToast("請確認題目、四個選項與正確答案都填寫完畢喔！");
             }
             
-            draftQuestions.push({ q: qText, options: opts, correctIdx: parseInt(correctRadio.value) });
+            if (editingDraftQIndex !== null) {
+                draftQuestions[editingDraftQIndex] = { q: qText, options: opts, correctIdx: parseInt(correctRadio.value) };
+                editingDraftQIndex = null;
+                const btn = document.getElementById('addDraftQuestionBtn');
+                btn.textContent = "將此題加入測驗";
+                btn.className = "w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm";
+                showToast("題目更新成功 🐾");
+            } else {
+                draftQuestions.push({ q: qText, options: opts, correctIdx: parseInt(correctRadio.value) });
+                showToast("題目加入成功 🐾");
+            }
             
             document.getElementById('qText').value = ''; 
             document.getElementById('opt0').value = ''; 
@@ -1843,7 +1947,6 @@
             correctRadio.checked = false;
             
             renderDraftQuestions(); 
-            showToast("題目加入成功 🐾");
         };
         
         function renderDraftQuestions() {
@@ -1855,10 +1958,15 @@
             }
             list.innerHTML = draftQuestions.map((item, idx) => `
                 <div class="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm">
-                    <span class="truncate">Q${idx + 1}: ${escapeHTML(item.q)}</span>
-                    <button data-action="remove-draft-q" data-index="${idx}" class="text-red-400 hover:text-red-600">
-                        <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i>
-                    </button>
+                    <span class="truncate pr-2">Q${idx + 1}: ${escapeHTML(item.q)}</span>
+                    <div class="flex shrink-0">
+                        <button data-action="edit-draft-q" data-index="${idx}" class="text-blue-400 hover:text-blue-600 mr-3">
+                            <i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i>
+                        </button>
+                        <button data-action="remove-draft-q" data-index="${idx}" class="text-red-400 hover:text-red-600">
+                            <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i>
+                        </button>
+                    </div>
                 </div>
             `).join('');
             lucide.createIcons();
@@ -1866,6 +1974,21 @@
         
         function removeDraftQ(idx) { 
             draftQuestions.splice(idx, 1); 
+            if (editingDraftQIndex === idx) {
+                editingDraftQIndex = null;
+                const btn = document.getElementById('addDraftQuestionBtn');
+                btn.textContent = "將此題加入測驗";
+                btn.className = "w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm";
+                document.getElementById('qText').value = ''; 
+                document.getElementById('opt0').value = ''; 
+                document.getElementById('opt1').value = ''; 
+                document.getElementById('opt2').value = ''; 
+                document.getElementById('opt3').value = ''; 
+                const checkedRadio = document.querySelector('input[name="correctOpt"]:checked');
+                if (checkedRadio) checkedRadio.checked = false;
+            } else if (editingDraftQIndex !== null && editingDraftQIndex > idx) {
+                editingDraftQIndex--;
+            }
             renderDraftQuestions(); 
         }
         
