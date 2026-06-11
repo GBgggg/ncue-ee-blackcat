@@ -39,10 +39,11 @@
             </div>
 
             <nav class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
-                <button data-tab="home" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 text-white shadow-md transition-all">首頁</button>
+                <button data-tab="evaluation" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 text-white shadow-md transition-all">評價</button>
                 <button data-tab="self-study" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">課程自學</button>
                 <button data-tab="quiz" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">測驗</button>
                 <button data-tab="about" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">關於黑貓</button>
+                <button data-tab="management" id="navManagementTab" class="tab-btn hidden whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">管理</button>
             </nav>
 
             <div class="order-2 md:order-none">
@@ -56,7 +57,7 @@
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         
-        <div id="page-home" class="page-section animate-[slideUp_0.3s_ease-out]">
+        <div id="page-evaluation" class="page-section animate-[slideUp_0.3s_ease-out]">
             <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="paw-print" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <i data-lucide="paw-print" class="paw-print w-20 h-20 bottom-10 left-10 -rotate-12"></i>
@@ -77,79 +78,91 @@
             </div>
 
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                <div class="lg:col-span-8">
+                <div class="lg:col-span-8 relative">
                     
-                    <div class="mb-10">
-                        <div class="flex items-center justify-between px-2 mb-4">
-                            <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
-                                <i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500"></i> 課程地圖
-                            </h3>
-                        </div>
-                        
-                        <div id="courseFilterContainer" class="relative px-2 mb-4 z-20">
-                            <button id="courseFilterToggle" class="flex items-center justify-between w-48 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm transition-all bg-slate-200 text-slate-700 hover:bg-slate-300">
-                                <span id="currentFilterText" class="flex items-center gap-2">
-                                    <i data-lucide="filter" class="w-4 h-4"></i> 分類：全部
-                                </span>
-                                <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" id="filterChevron"></i>
-                            </button>
+                    <div id="course-list-view" class="animate-[slideUp_0.3s_ease-out]">
+                        <div class="mb-10">
+                            <div class="flex items-center justify-between px-2 mb-4">
+                                <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                                    <i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500"></i> 課程地圖
+                                </h3>
+                            </div>
                             
-                            <div id="courseFilterDropdown" class="hidden absolute top-full left-2 mt-2 w-48 bg-white rounded-2xl shadow-xl border-2 border-slate-100 py-2 max-h-64 overflow-y-auto origin-top transition-all">
-                                <button data-filter-tag="all" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">全部</button>
-                                <button data-filter-tag="1-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">一上</button>
-                                <button data-filter-tag="1-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">一下</button>
-                                <button data-filter-tag="2-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">二上</button>
-                                <button data-filter-tag="2-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">二下</button>
-                                <button data-filter-tag="3-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">三上</button>
-                                <button data-filter-tag="3-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">三下</button>
-                                <button data-filter-tag="4-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">四上</button>
-                                <button data-filter-tag="4-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">四下</button>
-                                <button data-filter-tag="elective" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">系選修</button>
-                                <button data-filter-tag="other" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">其他</button>
+                            <div id="courseFilterContainer" class="relative px-2 mb-4 z-20">
+                                <button id="courseFilterToggle" class="flex items-center justify-between w-48 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm transition-all bg-slate-200 text-slate-700 hover:bg-slate-300">
+                                    <span id="currentFilterText" class="flex items-center gap-2">
+                                        <i data-lucide="filter" class="w-4 h-4"></i> 分類：全部
+                                    </span>
+                                    <i data-lucide="chevron-down" class="w-4 h-4 transition-transform duration-200" id="filterChevron"></i>
+                                </button>
+                                
+                                <div id="courseFilterDropdown" class="hidden absolute top-full left-2 mt-2 w-48 bg-white rounded-2xl shadow-xl border-2 border-slate-100 py-2 max-h-64 overflow-y-auto origin-top transition-all">
+                                    <button data-filter-tag="all" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors">全部</button>
+                                    <button data-filter-tag="1-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">一上</button>
+                                    <button data-filter-tag="1-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">一下</button>
+                                    <button data-filter-tag="2-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">二上</button>
+                                    <button data-filter-tag="2-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">二下</button>
+                                    <button data-filter-tag="3-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">三上</button>
+                                    <button data-filter-tag="3-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">三下</button>
+                                    <button data-filter-tag="4-1" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">四上</button>
+                                    <button data-filter-tag="4-2" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">四下</button>
+                                    <button data-filter-tag="elective" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">系選修</button>
+                                    <button data-filter-tag="other" class="filter-dropdown-btn w-full text-left px-4 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 hover:text-emerald-500 transition-colors">其他</button>
+                                </div>
                             </div>
-                        </div>
 
-                        <div id="courseGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border-2 border-dashed border-slate-200">
-                                小黑貓正在翻箱倒櫃中... 🐾
+                            <div id="courseGrid" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border-2 border-dashed border-slate-200">
+                                    小黑貓正在翻箱倒櫃中... 🐾
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="mb-10" id="materialsSection">
-                        <div class="flex items-center justify-between px-2 mb-4">
-                            <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
-                                <i data-lucide="folder-kanban" class="w-5 h-5 text-emerald-500"></i> 喵的寶藏庫
-                            </h3>
+                    <div id="course-detail-view" class="hidden animate-[slideUp_0.3s_ease-out]">
+                        <button id="backToCoursesBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                            <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回課程地圖
+                        </button>
+
+                        <div class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500">
+                            <div class="relative z-10">
+                                <h2 id="detailCourseTitle" class="text-3xl font-black mb-2"></h2>
+                                <p id="detailCourseInstructor" class="text-emerald-400 font-bold text-sm flex items-center gap-2"></p>
+                            </div>
                         </div>
+
+                        <div class="mb-10" id="materialsSection">
+                            <div class="flex items-center justify-between px-2 mb-4">
+                                <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                                    <i data-lucide="folder-kanban" class="w-5 h-5 text-emerald-500"></i> 喵的寶藏庫
+                                </h3>
+                            </div>
+                            <div class="space-y-6">
+                                <div class="bg-rose-50/50 p-4 rounded-3xl border border-rose-100">
+                                    <h4 class="text-sm font-black text-rose-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                                        <i data-lucide="sword" class="w-4 h-4"></i> 戰士寶藏庫
+                                    </h4>
+                                    <div id="warriorMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                                </div>
+
+                                <div class="bg-amber-50/50 p-4 rounded-3xl border border-amber-100">
+                                    <h4 class="text-sm font-black text-amber-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                                        <i data-lucide="crown" class="w-4 h-4"></i> 族長秘寶
+                                    </h4>
+                                    <div id="leaderMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div class="space-y-6">
-                            <div class="bg-rose-50/50 p-4 rounded-3xl border border-rose-100">
-                                <h4 class="text-sm font-black text-rose-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
-                                    <i data-lucide="sword" class="w-4 h-4"></i> 戰士寶藏庫
-                                </h4>
-                                <div id="warriorMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                            <div class="flex items-center justify-between px-2 border-b-2 border-slate-200 pb-3">
+                                <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
+                                    <i data-lucide="message-circle" class="w-5 h-5 text-emerald-500"></i> 貓咪碎碎念 (評價)
+                                </h3>
                             </div>
-
-                            <div class="bg-amber-50/50 p-4 rounded-3xl border border-amber-100">
-                                <h4 class="text-sm font-black text-amber-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
-                                    <i data-lucide="crown" class="w-4 h-4"></i> 族長秘寶
-                                </h4>
-                                <div id="leaderMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                            <div id="reviewsList" class="space-y-6">
+                                <div class="text-center py-20 text-slate-400 font-medium">還沒有貓咪在這裡留下足跡。</div>
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="space-y-6">
-                        <div class="flex items-center justify-between px-2 border-b-2 border-slate-200 pb-3">
-                            <h3 id="reviewsSectionTitle" class="text-xl font-bold flex items-center gap-2 text-slate-700">
-                                <i data-lucide="message-circle" class="w-5 h-5 text-emerald-500"></i> 貓咪碎碎念 (評價)
-                            </h3>
-                            <button id="resetFilterBtn" class="hidden text-sm font-bold text-emerald-600 hover:bg-emerald-50 px-4 py-1.5 rounded-full transition-colors border border-emerald-100">
-                                關閉評論
-                            </button>
-                        </div>
-                        <div id="reviewsList" class="space-y-6">
-                            <div class="text-center py-20 text-slate-400 font-medium">還沒有貓咪在這裡留下足跡。</div>
                         </div>
                     </div>
                 </div>
@@ -174,41 +187,55 @@
                             </div>
                         </div>
 
-                        <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
-                            <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white">
-                                <i data-lucide="upload" class="w-5 h-5"></i> 擴充寶藏庫
-                            </h3>
-                            <div class="space-y-4">
-                                <select id="uploadCourseSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
-                                    <option value="" disabled selected>選擇關聯課程...</option>
-                                </select>
-                                
-                                <select id="materialLevelSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
-                                    <option value="2" selected>🛡️ 戰士寶藏 (戰士以上可見)</option>
-                                    <option value="3">👑 族長秘寶 (族長以上可見)</option>
-                                </select>
-
-                                <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm">
-                                <input type="text" id="pdfTitleInput" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium">
-                                <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">
-                                    確認存檔 🐾
-                                </button>
-                            </div>
-                        </div>
-                        
-                        <div id="starclanSection" class="bg-fuchsia-600 rounded-[2rem] p-6 shadow-xl border-4 border-fuchsia-400 hidden">
-                            <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white">
-                                <i data-lucide="sparkles" class="w-5 h-5"></i> 星族專屬
-                            </h3>
-                            <p class="text-fuchsia-100 text-xs font-medium mb-5">
-                                管理所有貓咪的階位與權限，為部族指派新任務。
-                            </p>
-                            <button id="openStarclanBtn" class="w-full py-3 bg-white text-fuchsia-700 rounded-xl font-black shadow-lg hover:bg-fuchsia-50 transition-all flex items-center justify-center gap-2">
-                                召開星族大會
-                            </button>
-                        </div>
-
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-management" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
+            <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                <div class="relative z-10">
+                    <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">
+                        喵的後台管理 <span class="animate-bounce">🛠️</span>
+                    </h2>
+                    <p class="text-slate-400 font-medium italic">這裡是高級貓咪的專屬空間，可以擴充寶藏庫以及管理部族。</p>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
+                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white">
+                        <i data-lucide="upload" class="w-5 h-5"></i> 擴充寶藏庫
+                    </h3>
+                    <div class="space-y-4">
+                        <select id="uploadCourseSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
+                            <option value="" disabled selected>選擇關聯課程...</option>
+                        </select>
+                        
+                        <select id="materialLevelSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
+                            <option value="2" selected>🛡️ 戰士寶藏 (戰士以上可見)</option>
+                            <option value="3">👑 族長秘寶 (族長以上可見)</option>
+                        </select>
+
+                        <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm">
+                        <input type="text" id="pdfTitleInput" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium">
+                        <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">
+                            確認存檔 🐾
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="starclanSection" class="bg-fuchsia-600 rounded-[2rem] p-6 shadow-xl border-4 border-fuchsia-400 hidden">
+                    <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white">
+                        <i data-lucide="sparkles" class="w-5 h-5"></i> 星族專屬
+                    </h3>
+                    <p class="text-fuchsia-100 text-sm font-medium mb-5">
+                        管理所有貓咪的階位與權限，為部族指派新任務。
+                    </p>
+                    <button id="openStarclanBtn" class="w-full py-3 bg-white text-fuchsia-700 rounded-xl font-black shadow-lg hover:bg-fuchsia-50 transition-all flex items-center justify-center gap-2">
+                        召開星族大會
+                    </button>
                 </div>
             </div>
         </div>
@@ -462,28 +489,41 @@
         </div>
     </div>
 
-    <div id="playKahootModal" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-center p-4">
-        <button id="quitKahootBtn" class="absolute top-4 left-4 md:top-6 md:left-6 w-12 h-12 bg-red-500 text-white rounded-full flex items-center justify-center transition-all shadow-lg hover:bg-red-600 z-50 border-2 border-red-700">
-            <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
+    <div id="playKahootModal" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-start md:justify-center p-4 overflow-y-auto pt-20 md:pt-4">
+        <button id="quitKahootBtn" class="absolute top-4 left-4 md:top-6 md:left-6 w-10 h-10 md:w-12 md:h-12 bg-red-500 text-white rounded-full flex items-center justify-center transition-all shadow-lg hover:bg-red-600 z-50 border-2 border-red-700">
+            <i data-lucide="x" class="w-5 h-5 md:w-6 md:h-6 pointer-events-none"></i>
         </button>
         
-        <div class="text-center w-full max-w-4xl">
-            <div class="flex justify-between items-center mb-8 text-slate-300 font-bold px-4">
-                <span id="kahootProgress" class="text-lg bg-slate-800 px-4 py-2 rounded-full">1 / 5</span>
-                <span id="kahootScoreDisplay" class="text-lg bg-slate-800 px-4 py-2 rounded-full text-emerald-400">分數: 0</span>
+        <div class="w-full max-w-4xl flex flex-col my-auto h-auto min-h-min pb-8">
+            <div class="flex justify-between items-center mb-4 md:mb-8 text-slate-300 font-bold px-2 md:px-4">
+                <span id="kahootProgress" class="text-sm md:text-lg bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full">1 / 5</span>
+                <span id="kahootScoreDisplay" class="text-sm md:text-lg bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-emerald-400">分數: 0</span>
             </div>
-            <div class="bg-white rounded-[2rem] p-8 md:p-12 shadow-2xl mb-8 min-h-[200px] flex items-center justify-center mx-4">
-                <h2 id="kahootQuestionDisplay" class="text-3xl md:text-5xl font-black text-slate-900 leading-tight">載入中...</h2>
+            
+            <div class="bg-white rounded-[2rem] p-6 sm:p-8 md:p-12 shadow-2xl mb-4 md:mb-8 min-h-[140px] md:min-h-[200px] flex items-center justify-center mx-2 md:mx-4 shrink-0">
+                <h2 id="kahootQuestionDisplay" class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 leading-tight text-center break-words w-full">載入中...</h2>
             </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mx-4">
-                <button data-action="submit-kahoot" data-index="0" id="playOpt0" class="kahoot-btn py-8 md:py-12 bg-red-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-red-700 hover:bg-red-400 flex items-center justify-center gap-4 transition-all"><div class="w-8 h-8 rounded-full bg-white/20 pointer-events-none"></div> <span id="textOpt0" class="pointer-events-none"></span></button>
-                <button data-action="submit-kahoot" data-index="1" id="playOpt1" class="kahoot-btn py-8 md:py-12 bg-blue-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-blue-700 hover:bg-blue-400 flex items-center justify-center gap-4 transition-all"><div class="w-8 h-8 rotate-45 bg-white/20 pointer-events-none"></div> <span id="textOpt1" class="pointer-events-none"></span></button>
-                <button data-action="submit-kahoot" data-index="2" id="playOpt2" class="kahoot-btn py-8 md:py-12 bg-amber-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-amber-700 hover:bg-amber-400 flex items-center justify-center gap-4 transition-all"><div class="w-8 h-8 rounded-full bg-white/20 pointer-events-none"></div> <span id="textOpt2" class="pointer-events-none"></span></button>
-                <button data-action="submit-kahoot" data-index="3" id="playOpt3" class="kahoot-btn py-8 md:py-12 bg-emerald-500 text-white rounded-2xl font-black text-xl md:text-3xl shadow-lg border-b-8 border-emerald-700 hover:bg-emerald-400 flex items-center justify-center gap-4 transition-all"><div class="w-8 h-8 rounded bg-white/20 pointer-events-none"></div> <span id="textOpt3" class="pointer-events-none"></span></button>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mx-2 md:mx-4">
+                <button data-action="submit-kahoot" data-index="0" id="playOpt0" class="kahoot-btn p-4 md:py-10 bg-red-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-red-700 hover:bg-red-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
+                    <div class="w-6 h-6 md:w-8 md:h-8 shrink-0 rounded-full bg-white/20 pointer-events-none"></div> 
+                    <span id="textOpt0" class="pointer-events-none text-left flex-1 break-words leading-tight"></span>
+                </button>
+                <button data-action="submit-kahoot" data-index="1" id="playOpt1" class="kahoot-btn p-4 md:py-10 bg-blue-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-blue-700 hover:bg-blue-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
+                    <div class="w-6 h-6 md:w-8 md:h-8 shrink-0 rotate-45 bg-white/20 pointer-events-none"></div> 
+                    <span id="textOpt1" class="pointer-events-none text-left flex-1 break-words leading-tight"></span>
+                </button>
+                <button data-action="submit-kahoot" data-index="2" id="playOpt2" class="kahoot-btn p-4 md:py-10 bg-amber-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-amber-700 hover:bg-amber-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
+                    <div class="w-6 h-6 md:w-8 md:h-8 shrink-0 rounded-full bg-white/20 pointer-events-none"></div> 
+                    <span id="textOpt2" class="pointer-events-none text-left flex-1 break-words leading-tight"></span>
+                </button>
+                <button data-action="submit-kahoot" data-index="3" id="playOpt3" class="kahoot-btn p-4 md:py-10 bg-emerald-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-emerald-700 hover:bg-emerald-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
+                    <div class="w-6 h-6 md:w-8 md:h-8 shrink-0 rounded bg-white/20 pointer-events-none"></div> 
+                    <span id="textOpt3" class="pointer-events-none text-left flex-1 break-words leading-tight"></span>
+                </button>
             </div>
         </div>
     </div>
-
     <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4">
         <div class="bg-white rounded-[3rem] p-10 text-center max-w-md w-full shadow-2xl relative overflow-hidden">
             <i data-lucide="award" class="w-24 h-24 text-amber-400 mx-auto mb-6 animate-bounce"></i>
@@ -543,6 +583,13 @@
                     renderReviews(); 
                     renderMaterials(); 
                     renderKahoots();
+                }
+
+                if (target === 'evaluation') {
+                    // 切換回評價(首頁)時預設顯示課程總覽列表
+                    document.getElementById('course-detail-view').classList.add('hidden');
+                    document.getElementById('course-list-view').classList.remove('hidden');
+                    selectedFilterCourseId = null;
                 }
 
                 if (target === 'self-study') {
@@ -671,12 +718,11 @@
             if (deleteTarget) { e.stopPropagation(); confirmDeleteUI(deleteTarget.dataset.type, deleteTarget.dataset.id); return; }
 
             const toggleCourseTarget = e.target.closest('[data-action="toggle-course"]');
-            if (toggleCourseTarget) { toggleCourseFilter(toggleCourseTarget.dataset.id, toggleCourseTarget.dataset.name); return; }
+            if (toggleCourseTarget) { openCourseDetails(toggleCourseTarget.dataset.id); return; }
 
             const startKahootTarget = e.target.closest('[data-action="start-kahoot"]');
             if (startKahootTarget) { startKahoot(startKahootTarget.dataset.id); return; }
             
-            // 監聽 Kahoot 編輯按鈕
             const editKahootTarget = e.target.closest('[data-action="edit-kahoot"]');
             if (editKahootTarget) {
                 if (currentUserLevel !== 5) return showToast("只有星族可以編輯測驗喵！");
@@ -791,6 +837,33 @@
             const editSSUnitTarget = e.target.closest('[data-action="edit-ss-unit"]');
             if (editSSUnitTarget) { e.stopPropagation(); openSSUnitModal(editSSUnitTarget.dataset.id); return; }
         });
+
+        // 綁定課程詳情頁的返回按鈕
+        document.getElementById('backToCoursesBtn').onclick = () => {
+            selectedFilterCourseId = null;
+            document.getElementById('course-detail-view').classList.add('hidden');
+            document.getElementById('course-list-view').classList.remove('hidden');
+        };
+
+        // 開啟課程詳細畫面的函數
+        function openCourseDetails(courseId) {
+            selectedFilterCourseId = courseId;
+            const course = courses.find(c => c.id === courseId);
+            if (!course) return;
+
+            document.getElementById('course-list-view').classList.add('hidden');
+            document.getElementById('course-detail-view').classList.remove('hidden');
+
+            document.getElementById('detailCourseTitle').textContent = course.name;
+            document.getElementById('detailCourseInstructor').innerHTML = `<i data-lucide="user" class="w-4 h-4"></i> ${escapeHTML(course.instructor)}`;
+
+            renderReviews(); 
+            renderMaterials();
+            lucide.createIcons();
+            
+            // 將畫面平滑捲動到詳細畫面的頂端
+            document.getElementById('course-detail-view').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
 
         document.addEventListener('change', (e) => {
             if (e.target.dataset.action === 'change-role') {
@@ -1198,6 +1271,7 @@
             
             const addSSCourseBtn = document.getElementById('addSelfStudyCourseBtn');
             const addSSUnitBtn = document.getElementById('addSelfStudyUnitBtn');
+            const navManagementTab = document.getElementById('navManagementTab');
             
             const user = auth.currentUser;
 
@@ -1221,23 +1295,37 @@
                     if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
                 }
                 
+                // 階級4以上可看見管理分頁與擴充寶藏庫
                 if (currentUserLevel >= 4) {
+                    navManagementTab.classList.remove('hidden');
                     uploadSection.classList.remove('hidden'); 
                     openCreateKahootBtn.classList.remove('hidden'); 
                 } else {
+                    navManagementTab.classList.add('hidden');
                     uploadSection.classList.add('hidden'); 
                     openCreateKahootBtn.classList.add('hidden'); 
+                    
+                    // 如果被降級且剛好在管理頁，自動跳回評價頁
+                    if(!document.getElementById('page-management').classList.contains('hidden')) {
+                        document.querySelector('[data-tab="evaluation"]').click();
+                    }
                 }
                 
             } else {
                 adminBtn.innerHTML = '<i data-lucide="user" class="w-4 h-4"></i><span>登入 / 註冊</span>';
                 adminBtn.className = 'flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold bg-slate-900 text-white';
+                navManagementTab.classList.add('hidden');
                 uploadSection.classList.add('hidden'); 
                 starclanSection.classList.add('hidden'); 
                 openCreateKahootBtn.classList.add('hidden'); 
                 
                 if(addSSCourseBtn) addSSCourseBtn.classList.add('hidden');
                 if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
+                
+                // 登出時，若在管理頁則跳回評價頁
+                if(!document.getElementById('page-management').classList.contains('hidden')) {
+                    document.querySelector('[data-tab="evaluation"]').click();
+                }
             }
             
             lucide.createIcons();
@@ -1290,14 +1378,13 @@
                     avgLN = (courseReviews.reduce((sum, r) => sum + (r.learned || 0), 0) / reviewCount).toFixed(1);
                 }
                 
-                const isSelected = selectedFilterCourseId === course.id;
                 let tagText = '未分類';
                 if (course.year === 'elective') tagText = '系選修';
                 else if (course.year === 'other') tagText = '其他';
                 else if (course.year && course.semester) tagText = `${yearMap[course.year]} ${semMap[course.semester]}`;
 
                 return `
-                <div data-action="toggle-course" data-id="${course.id}" data-name="${escapeHTML(course.name)}" class="cat-card cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 transition-all hover:shadow-xl flex flex-col ${isSelected ? 'border-emerald-500 ring-4 ring-emerald-50' : 'border-slate-100 hover:border-emerald-300'}">
+                <div data-action="toggle-course" data-id="${course.id}" data-name="${escapeHTML(course.name)}" class="cat-card cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 transition-all hover:shadow-xl flex flex-col border-slate-100 hover:border-emerald-300">
                     <div class="mb-3">
                         <span class="inline-block text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded border border-emerald-200 pointer-events-none">${tagText}</span>
                     </div>
@@ -1374,33 +1461,8 @@
             lucide.createIcons();
         }
 
-        function toggleCourseFilter(courseId, courseName) {
-            if (selectedFilterCourseId === courseId) { 
-                resetCourseFilter(); 
-            } else {
-                selectedFilterCourseId = courseId;
-                document.getElementById('reviewsSectionTitle').innerHTML = `<i data-lucide="filter" class="w-5 h-5 text-emerald-500"></i> ${courseName} 的悄悄話`;
-                document.getElementById('resetFilterBtn').classList.remove('hidden');
-                renderCourseGrid(); renderReviews(); renderMaterials();
-                document.getElementById('reviewsSectionTitle').scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-        }
-
-        function resetCourseFilter() {
-            selectedFilterCourseId = null;
-            document.getElementById('reviewsSectionTitle').innerHTML = '<i data-lucide="message-circle" class="w-5 h-5 text-emerald-500"></i> 貓咪碎碎念 (評價)';
-            document.getElementById('resetFilterBtn').classList.add('hidden');
-            renderCourseGrid(); renderReviews(); renderMaterials();
-        }
-
-        document.getElementById('resetFilterBtn').onclick = resetCourseFilter;
-
         function renderReviews() {
             const list = document.getElementById('reviewsList');
-            if (!selectedFilterCourseId) {
-                list.innerHTML = `<div class="text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-dashed border-slate-200">請先點擊上方課程，才能查看該課程的專屬評價喵 🐾</div>`;
-                return;
-            }
 
             const filtered = reviews.filter(r => {
                 const matchSearch = (r.courseName || "").toLowerCase().includes(searchQuery.toLowerCase()) || (r.instructor || "").toLowerCase().includes(searchQuery.toLowerCase()) || (r.comment || "").toLowerCase().includes(searchQuery.toLowerCase());
@@ -1637,7 +1699,11 @@
                     batch.delete(doc(db, COURSES_PATH, currentDeleteId)); 
                     await batch.commit();
                     
-                    if (currentDeleteId === selectedFilterCourseId) resetCourseFilter();
+                    if (currentDeleteId === selectedFilterCourseId) {
+                        selectedFilterCourseId = null;
+                        document.getElementById('course-detail-view').classList.add('hidden');
+                        document.getElementById('course-list-view').classList.remove('hidden');
+                    }
                 } else if (currentDeleteType === 'ssCourse') {
                     const qUnits = query(collection(db, SS_UNITS_PATH), where("courseId", "==", currentDeleteId));
                     const batch = writeBatch(db);
