@@ -921,6 +921,44 @@
             }, 50);
         }
 
+        // =====================================================================
+        // 修復區域：補上自學資源列表的事件綁定以及切換頁面的邏輯
+        // =====================================================================
+
+        document.getElementById('backToSSCoursesBtn').onclick = () => {
+            currentViewSSCourseId = null;
+            document.getElementById('page-self-study-details').classList.add('hidden');
+            document.getElementById('page-self-study-main').classList.remove('hidden');
+        };
+
+        function openSelfStudyDetails(ssCourseId) {
+            // 紀錄當前正在查看的自學課程 ID
+            currentViewSSCourseId = ssCourseId;
+            
+            // 從陣列中找出該門課程
+            const c = ssCourses.find(x => x.id === ssCourseId);
+            if (!c) return;
+
+            // 切換畫面顯示：隱藏主列表，顯示詳細頁面
+            document.getElementById('page-self-study-main').classList.add('hidden');
+            document.getElementById('page-self-study-details').classList.remove('hidden');
+
+            // 填入課程標題與關聯課程
+            document.getElementById('ssDetailsTitle').textContent = c.title;
+            document.getElementById('ssDetailsLinkedCourse').textContent = c.linkedCourseName || "未連結學校課程";
+
+            // 渲染該課程的單元並重新生成圖標
+            renderSelfStudyUnits();
+            lucide.createIcons();
+            
+            // 讓視窗平滑滾動到最上方，方便閱讀
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 50);
+        }
+
+        // =====================================================================
+
         window.onload = async () => {
             lucide.createIcons();
             renderReviewWizard();
