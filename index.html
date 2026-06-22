@@ -42,6 +42,7 @@
             <nav class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
                 <button data-tab="evaluation" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 text-white shadow-md transition-all">評價</button>
                 <button data-tab="self-study" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">課程自學</button>
+                <button data-tab="vocabulary" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">單字庫</button>
                 <button data-tab="quiz" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">測驗</button>
                 <button data-tab="about" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">關於黑貓</button>
                 <button data-tab="management" id="navManagementTab" class="tab-btn hidden whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">管理</button>
@@ -179,7 +180,7 @@
                             
                             <div class="relative z-10 flex justify-between items-center mb-6">
                                 <h3 class="text-lg font-bold flex items-center gap-2 text-slate-900">
-                                      喵的評價站
+                                     喵的評價站
                                 </h3>
                                 <span id="reviewStepIndicator" class="text-xs font-black bg-emerald-100 text-emerald-600 px-3 py-1 rounded-full hidden">1 / 5</span>
                             </div>
@@ -287,6 +288,54 @@
             </div>
         </div>
 
+        <div id="page-vocabulary" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
+            <div id="page-vocabulary-main">
+                <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                    <i data-lucide="library" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div class="flex-1">
+                            <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">
+                                專屬單字庫 <span class="animate-bounce">📖</span>
+                            </h2>
+                            <p class="text-slate-400 font-medium italic">在這裡建立並收納你的專業字彙，包含英譯英與字根字首，準備好就能直接進行擂台測驗喵！</p>
+                        </div>
+                        <button id="addVocabBookBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i> 創建單字冊
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="vocabBookGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">
+                        小黑貓正在整理單字冊喵...
+                    </div>
+                </div>
+            </div>
+
+            <div id="page-vocabulary-details" class="hidden animate-[slideUp_0.3s_ease-out]">
+                <button id="backToVocabBooksBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
+                    <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回單字庫
+                </button>
+                <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-blue-500">
+                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                        <div class="flex-1">
+                            <h2 id="vocabDetailsTitle" class="text-3xl font-black mb-2"></h2>
+                            <p id="vocabDetailsSubtitle" class="text-blue-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
+                            <button id="startVocabQuizBtn" class="px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2">
+                                <i data-lucide="gamepad-2" class="w-5 h-5"></i> 進入單字擂台挑戰
+                            </button>
+                        </div>
+                        <button id="addVocabWordBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增單字
+                        </button>
+                    </div>
+                </div>
+                <div id="vocabWordList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個單字冊還是空的，等巫醫來補充喵 🐾</div>
+                </div>
+            </div>
+        </div>
+
         <div id="page-quiz" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
@@ -297,7 +346,7 @@
                         </h2>
                         <p class="text-slate-400 font-medium italic">來測試看看你的期中考實力，或是親自為同學們設計幾題魔鬼挑戰！</p>
                     </div>
-                    <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2">
+                    <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
                         <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增測驗
                     </button>
                 </div>
@@ -344,6 +393,61 @@
 
     </main>
 
+    <div id="vocabBookModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-blue-500">
+            <h3 id="vocabBookModalTitle" class="text-2xl font-bold mb-6 text-slate-900">創建單字冊</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editVocabBookId" value="">
+                <input type="text" id="vocabBookTitle" maxlength="80" placeholder="單字冊名稱 (如: 專業電子學字彙)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
+                <textarea id="vocabBookDescription" maxlength="200" placeholder="簡單描述這本單字冊..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[100px]"></textarea>
+                <div class="flex gap-4 pt-4">
+                    <button id="closeVocabBookModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveVocabBook" class="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-600 transition-colors">儲存單字冊</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="vocabWordModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 shadow-2xl border-t-8 border-blue-500 my-8">
+            <h3 id="vocabWordModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增單字</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editVocabWordId" value="">
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英文單字 <span class="text-red-400">*</span></label>
+                        <input type="text" id="vocabWordEnglish" maxlength="100" placeholder="例如: Impedance" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg text-blue-700">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英譯英 (定義) <span class="text-red-400">*</span></label>
+                        <input type="text" id="vocabWordEngDef" maxlength="200" placeholder="The effective resistance of an electric circuit..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">中文解釋 (選填)</label>
+                        <input type="text" id="vocabWordChinese" maxlength="100" placeholder="例如: 阻抗" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">字根 / 字首 / 字尾 (選填)</label>
+                        <input type="text" id="vocabWordRootPrefix" maxlength="100" placeholder="例如: im- (in) + ped (foot)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-fuchsia-600">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">例句 (選填)</label>
+                    <textarea id="vocabWordExample" maxlength="300" placeholder="寫個句子幫助記憶喵..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[80px]"></textarea>
+                </div>
+
+                <div class="flex gap-4 pt-4">
+                    <button id="closeVocabWordModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveVocabWord" class="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-600 transition-colors">儲存單字</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="courseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">幫小黑貓紀錄新課程</h3>
@@ -589,7 +693,6 @@
         import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // --- 整個 Header 的滑動隱藏/顯示邏輯 (考量手機版橡皮筋效應) ---
         let lastScrollY = window.scrollY;
         const mainHeader = document.getElementById('mainHeader');
 
@@ -608,9 +711,7 @@
             }
             lastScrollY = currentScrollY;
         }, { passive: true });
-        // --------------------------------------------------------
 
-        // --- 🛡️ 小黑貓資料防護罩工具 ---
         function isValidText(text, maxLength = 100, minLength = 1) {
             if (text === null || text === undefined) return false;
             const str = String(text).trim();
@@ -630,7 +731,6 @@
         }
 
         const MAX_KAHOOT_QUESTIONS = 50; 
-        // --------------------------------------------------------
 
         const tabBtns = document.querySelectorAll('.tab-btn');
         const pageSections = document.querySelectorAll('.page-section');
@@ -655,6 +755,7 @@
                     renderReviews(); 
                     renderMaterials(); 
                     renderKahoots();
+                    renderVocabBooks();
                 }
 
                 if (target === 'evaluation') {
@@ -668,6 +769,12 @@
                     document.getElementById('page-self-study-main').classList.remove('hidden');
                     document.getElementById('page-self-study-details').classList.add('hidden');
                     currentViewSSCourseId = null;
+                }
+
+                if (target === 'vocabulary') {
+                    document.getElementById('page-vocabulary-main').classList.remove('hidden');
+                    document.getElementById('page-vocabulary-details').classList.add('hidden');
+                    currentViewVocabBookId = null;
                 }
                 lucide.createIcons();
             });
@@ -694,10 +801,13 @@
         const USERS_PATH = `artifacts/${appId}/public/data/users`;
         const SS_COURSES_PATH = `artifacts/${appId}/public/data/selfStudyCourses`;
         const SS_UNITS_PATH = `artifacts/${appId}/public/data/selfStudyUnits`;
+        const VOCAB_BOOKS_PATH = `artifacts/${appId}/public/data/vocabBooks`;
+        const VOCAB_WORDS_PATH = `artifacts/${appId}/public/data/vocabWords`;
         
         let courses = [], reviews = [], materials = [], kahoots = [];
         let allUsers = []; 
         let ssCourses = [], ssUnits = [];
+        let vocabBooks = [], vocabWords = [];
         let usersUnsubscribe = null;
         
         const ROLE_LEVELS = {
@@ -712,6 +822,7 @@
         let isWizardTransitioning = false;
         let isKahootTransitioning = false;
         let currentViewSSCourseId = null;
+        let currentViewVocabBookId = null;
         let editingDraftQIndex = null; 
         
         const ROLE_COLORS = {
@@ -770,6 +881,7 @@
         let currentQIndex = 0;
         let currentScore = 0;
 
+        // 🐾 只在將資料「印出到畫面上」的時候使用這個函數！
         function escapeHTML(str) {
             if (!str) return "";
             return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -916,6 +1028,15 @@
 
             const editSSUnitTarget = e.target.closest('[data-action="edit-ss-unit"]');
             if (editSSUnitTarget) { e.stopPropagation(); openSSUnitModal(editSSUnitTarget.dataset.id); return; }
+
+            const openVocabBookTarget = e.target.closest('[data-action="open-vocab-book"]');
+            if (openVocabBookTarget) { openVocabBookDetails(openVocabBookTarget.dataset.id); return; }
+
+            const editVocabBookTarget = e.target.closest('[data-action="edit-vocab-book"]');
+            if (editVocabBookTarget) { e.stopPropagation(); openVocabBookModal(editVocabBookTarget.dataset.id); return; }
+
+            const editVocabWordTarget = e.target.closest('[data-action="edit-vocab-word"]');
+            if (editVocabWordTarget) { e.stopPropagation(); openVocabWordModal(editVocabWordTarget.dataset.id); return; }
         });
 
         document.addEventListener('change', (e) => {
@@ -998,6 +1119,32 @@
             }, 50);
         }
 
+        document.getElementById('backToVocabBooksBtn').onclick = () => {
+            currentViewVocabBookId = null;
+            document.getElementById('page-vocabulary-details').classList.add('hidden');
+            document.getElementById('page-vocabulary-main').classList.remove('hidden');
+        };
+
+        function openVocabBookDetails(bookId) {
+            currentViewVocabBookId = bookId;
+            
+            const b = vocabBooks.find(x => x.id === bookId);
+            if (!b) return;
+
+            document.getElementById('page-vocabulary-main').classList.add('hidden');
+            document.getElementById('page-vocabulary-details').classList.remove('hidden');
+
+            document.getElementById('vocabDetailsTitle').textContent = b.title;
+            document.getElementById('vocabDetailsSubtitle').innerHTML = `<i data-lucide="info" class="w-4 h-4"></i> ${escapeHTML(b.description || '無描述')}`;
+
+            renderVocabWords();
+            lucide.createIcons();
+            
+            setTimeout(() => {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }, 50);
+        }
+
         window.onload = async () => {
             lucide.createIcons();
             renderReviewWizard();
@@ -1061,6 +1208,18 @@
                 ssUnits = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                 ssUnits.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
                 if (currentViewSSCourseId) renderSelfStudyUnits();
+            });
+
+            onSnapshot(collection(db, VOCAB_BOOKS_PATH), (snapshot) => {
+                vocabBooks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                vocabBooks.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                renderVocabBooks();
+            });
+
+            onSnapshot(collection(db, VOCAB_WORDS_PATH), (snapshot) => {
+                vocabWords = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                vocabWords.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                if (currentViewVocabBookId) renderVocabWords();
             });
         };
 
@@ -1176,7 +1335,7 @@
                     examDiff: reviewWizardData.examDiff,
                     hwAmount: reviewWizardData.hwAmount,
                     learned: reviewWizardData.learned,
-                    comment: escapeHTML(comment),
+                    comment: comment, 
                     date: new Date().toLocaleDateString(),
                     createdAt: Date.now()
                 });
@@ -1194,8 +1353,7 @@
         function renderCourseSelect() {
             const selects = [
                 document.getElementById('uploadCourseSelect'), 
-                document.getElementById('kahootCourseSelect'),
-                document.getElementById('ssCourseSelect')
+                document.getElementById('kahootCourseSelect')
             ];
             selects.forEach(select => {
                 if(!select) return;
@@ -1260,15 +1418,224 @@
                     ${u.description ? `<p class="text-slate-600 text-sm font-medium mb-5 bg-slate-50 p-4 rounded-2xl whitespace-pre-line leading-relaxed">${escapeHTML(u.description)}</p>` : ''}
                     
                     <div class="flex flex-wrap gap-3">
-                        ${u.ytUrl ? `<a href="${u.ytUrl}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition border border-red-100 text-sm"><i data-lucide="youtube" class="w-4 h-4"></i> 觀看影片</a>` : ''}
-                        ${u.driveUrl ? `<a href="${u.driveUrl}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 transition border border-blue-100 text-sm"><i data-lucide="hard-drive" class="w-4 h-4"></i> 雲端筆記</a>` : ''}
-                        ${u.hwUrl ? `<a href="${u.hwUrl}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 font-bold rounded-xl hover:bg-amber-100 transition border border-amber-100 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i> 課程作業</a>` : ''}
-                        ${u.ansUrl ? `<a href="${u.ansUrl}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-100 transition border border-indigo-100 text-sm"><i data-lucide="check-circle" class="w-4 h-4"></i> 作業解答</a>` : ''}
+                        ${u.ytUrl ? `<a href="${escapeHTML(u.ytUrl)}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition border border-red-100 text-sm"><i data-lucide="youtube" class="w-4 h-4"></i> 觀看影片</a>` : ''}
+                        ${u.driveUrl ? `<a href="${escapeHTML(u.driveUrl)}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-600 font-bold rounded-xl hover:bg-blue-100 transition border border-blue-100 text-sm"><i data-lucide="hard-drive" class="w-4 h-4"></i> 雲端筆記</a>` : ''}
+                        ${u.hwUrl ? `<a href="${escapeHTML(u.hwUrl)}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-600 font-bold rounded-xl hover:bg-amber-100 transition border border-amber-100 text-sm"><i data-lucide="file-text" class="w-4 h-4"></i> 課程作業</a>` : ''}
+                        ${u.ansUrl ? `<a href="${escapeHTML(u.ansUrl)}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 font-bold rounded-xl hover:bg-indigo-100 transition border border-indigo-100 text-sm"><i data-lucide="check-circle" class="w-4 h-4"></i> 作業解答</a>` : ''}
                     </div>
                 </div>
             `).join('');
             lucide.createIcons();
         }
+
+        function renderVocabBooks() {
+            const grid = document.getElementById('vocabBookGrid');
+            if (vocabBooks.length === 0) {
+                grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">目前還沒有單字冊喵。</div>';
+                return;
+            }
+
+            grid.innerHTML = vocabBooks.map(b => `
+                <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-all flex flex-col group relative">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="book-type" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 mb-2 truncate">${escapeHTML(b.title)}</h3>
+                    <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(b.description || '無描述')}</p>
+                    
+                    ${currentUserLevel >= 4 ? `
+                    <div class="absolute top-4 right-4 flex gap-2">
+                        <button data-action="edit-vocab-book" data-id="${b.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabBook" data-id="${b.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>` : ''}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderVocabWords() {
+            const list = document.getElementById('vocabWordList');
+            if (!currentViewVocabBookId) return;
+
+            const words = vocabWords.filter(w => w.bookId === currentViewVocabBookId);
+            
+            if (words.length === 0) {
+                list.innerHTML = '<div class="col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個單字冊還是空的，等巫醫來補充喵 🐾</div>';
+                return;
+            }
+
+            list.innerHTML = words.map(w => `
+                <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-slate-100 hover:shadow-md transition-all relative flex flex-col justify-center">
+                    ${currentUserLevel >= 4 ? `
+                    <div class="absolute top-4 right-4 flex gap-2">
+                        <button data-action="edit-vocab-word" data-id="${w.id}" class="p-2 text-slate-300 hover:text-emerald-500 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabWord" data-id="${w.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>` : ''}
+
+                    <h4 class="text-2xl font-black text-blue-700 mb-1 pr-14 break-words">${escapeHTML(w.english)}</h4>
+                    <p class="text-slate-700 font-bold mb-3 text-sm leading-relaxed">${escapeHTML(w.engDef)}</p>
+                    
+                    ${w.chinese ? `<p class="text-sm text-slate-600 mb-1"><span class="font-bold mr-2 text-slate-400">中文</span>${escapeHTML(w.chinese)}</p>` : ''}
+                    ${w.rootPrefix ? `<p class="text-sm text-slate-600 mb-1"><span class="font-bold mr-2 text-slate-400">字首根</span><span class="text-fuchsia-600 font-bold">${escapeHTML(w.rootPrefix)}</span></p>` : ''}
+                    ${w.example ? `<div class="text-sm text-slate-500 mt-3 p-3 bg-slate-50 rounded-xl italic font-medium">"${escapeHTML(w.example)}"</div>` : ''}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        document.getElementById('startVocabQuizBtn').onclick = () => {
+            if (!currentViewVocabBookId) return;
+            const words = vocabWords.filter(w => w.bookId === currentViewVocabBookId);
+            
+            if (words.length < 4) {
+                return showToast("喵，單字本裡至少要有 4 個單字才能進行自動出題測驗喔！");
+            }
+
+            const questions = words.map(targetWord => {
+                const askEng = Math.random() > 0.5;
+                let qText = askEng ? `「${targetWord.english}」的解釋是？` : `「${targetWord.engDef}」是哪個單字？`;
+                let correctOptText = askEng ? targetWord.engDef : targetWord.english;
+
+                let wrongWords = words.filter(w => w.id !== targetWord.id).sort(() => 0.5 - Math.random()).slice(0, 3);
+                
+                while(wrongWords.length < 3) { wrongWords.push(targetWord); }
+
+                let wrongOptions = wrongWords.map(w => askEng ? w.engDef : w.english);
+                let options = [...wrongOptions];
+                
+                const correctIdx = Math.floor(Math.random() * 4);
+                options.splice(correctIdx, 0, correctOptText);
+
+                return {
+                    q: qText,
+                    options: options,
+                    correctIdx: correctIdx
+                };
+            }).sort(() => 0.5 - Math.random()).slice(0, 20); 
+
+            activeKahoot = {
+                title: "單字挑戰擂台",
+                questions: questions
+            };
+            currentQIndex = 0;
+            currentScore = 0;
+            document.getElementById('playKahootModal').classList.remove('hidden');
+            document.getElementById('playKahootModal').classList.add('flex');
+            renderPlayQuestion();
+        };
+
+        document.getElementById('addVocabBookBtn').onclick = () => openVocabBookModal();
+        function openVocabBookModal(id = null) {
+            document.getElementById('editVocabBookId').value = id || '';
+            if (id) {
+                const b = vocabBooks.find(x => x.id === id);
+                document.getElementById('vocabBookModalTitle').textContent = "編輯單字冊";
+                document.getElementById('vocabBookTitle').value = b.title;
+                document.getElementById('vocabBookDescription').value = b.description || '';
+            } else {
+                document.getElementById('vocabBookModalTitle').textContent = "創建單字冊";
+                document.getElementById('vocabBookTitle').value = '';
+                document.getElementById('vocabBookDescription').value = '';
+            }
+            document.getElementById('vocabBookModal').classList.remove('hidden');
+        }
+
+        document.getElementById('closeVocabBookModal').onclick = () => {
+            document.getElementById('vocabBookModal').classList.add('hidden');
+        };
+
+        document.getElementById('confirmSaveVocabBook').onclick = async () => {
+            const id = document.getElementById('editVocabBookId').value;
+            const title = document.getElementById('vocabBookTitle').value.trim();
+            const description = document.getElementById('vocabBookDescription').value.trim();
+            
+            if (!isValidText(title, 80)) return showToast("喵，單字冊名稱不要太長喔！");
+            
+            const btn = document.getElementById('confirmSaveVocabBook');
+            btn.disabled = true;
+
+            try {
+                if (id) {
+                    await updateDoc(doc(db, VOCAB_BOOKS_PATH, id), { title: title, description: description }); 
+                    showToast("單字冊更新成功 🐾");
+                } else {
+                    const newDoc = doc(collection(db, VOCAB_BOOKS_PATH));
+                    await setDoc(newDoc, { title: title, description: description, createdAt: Date.now() }); 
+                    showToast("單字冊創建成功 🐾");
+                }
+                document.getElementById('vocabBookModal').classList.add('hidden');
+            } catch (err) {
+                showToast("儲存失敗喵...");
+            } finally {
+                btn.disabled = false;
+            }
+        };
+
+        document.getElementById('addVocabWordBtn').onclick = () => openVocabWordModal();
+        function openVocabWordModal(id = null) {
+            document.getElementById('editVocabWordId').value = id || '';
+            if (id) {
+                const w = vocabWords.find(x => x.id === id);
+                document.getElementById('vocabWordModalTitle').textContent = "編輯單字";
+                document.getElementById('vocabWordEnglish').value = w.english;
+                document.getElementById('vocabWordEngDef').value = w.engDef;
+                document.getElementById('vocabWordChinese').value = w.chinese || '';
+                document.getElementById('vocabWordRootPrefix').value = w.rootPrefix || '';
+                document.getElementById('vocabWordExample').value = w.example || '';
+            } else {
+                document.getElementById('vocabWordModalTitle').textContent = "新增單字";
+                document.getElementById('vocabWordEnglish').value = '';
+                document.getElementById('vocabWordEngDef').value = '';
+                document.getElementById('vocabWordChinese').value = '';
+                document.getElementById('vocabWordRootPrefix').value = '';
+                document.getElementById('vocabWordExample').value = '';
+            }
+            document.getElementById('vocabWordModal').classList.remove('hidden');
+        }
+
+        document.getElementById('closeVocabWordModal').onclick = () => {
+            document.getElementById('vocabWordModal').classList.add('hidden');
+        };
+
+        document.getElementById('confirmSaveVocabWord').onclick = async () => {
+            const id = document.getElementById('editVocabWordId').value;
+            const english = document.getElementById('vocabWordEnglish').value.trim();
+            const engDef = document.getElementById('vocabWordEngDef').value.trim();
+            const chinese = document.getElementById('vocabWordChinese').value.trim();
+            const rootPrefix = document.getElementById('vocabWordRootPrefix').value.trim();
+            const example = document.getElementById('vocabWordExample').value.trim();
+            
+            if (!isValidText(english, 100)) return showToast("喵，英文單字必填喔！");
+            if (!isValidText(engDef, 200)) return showToast("喵，英譯英定義也是必填的喔！");
+            
+            const btn = document.getElementById('confirmSaveVocabWord');
+            btn.disabled = true;
+
+            try {
+                const payload = { 
+                    english: english, 
+                    engDef: engDef, 
+                    chinese: chinese, 
+                    rootPrefix: rootPrefix, 
+                    example: example
+                };
+
+                if (id) {
+                    await updateDoc(doc(db, VOCAB_WORDS_PATH, id), payload);
+                    showToast("單字更新成功 🐾");
+                } else {
+                    payload.bookId = currentViewVocabBookId;
+                    payload.createdAt = Date.now();
+                    await setDoc(doc(collection(db, VOCAB_WORDS_PATH)), payload);
+                    showToast("新增單字成功 🐾");
+                }
+                document.getElementById('vocabWordModal').classList.add('hidden');
+            } catch (err) {
+                showToast("儲存失敗喵...");
+            } finally {
+                btn.disabled = false;
+            }
+        };
 
         document.getElementById('addSelfStudyCourseBtn').onclick = () => openSSCourseModal();
         function openSSCourseModal(id = null) {
@@ -1277,11 +1644,9 @@
                 const c = ssCourses.find(x => x.id === id);
                 document.getElementById('ssCourseModalTitle').textContent = "編輯自學課程";
                 document.getElementById('ssCourseTitle').value = c.title;
-                document.getElementById('ssCourseSelect').value = c.linkedCourseId;
             } else {
                 document.getElementById('ssCourseModalTitle').textContent = "新增自學課程";
                 document.getElementById('ssCourseTitle').value = '';
-                document.getElementById('ssCourseSelect').value = '';
             }
             document.getElementById('ssCourseModal').classList.remove('hidden');
         }
@@ -1304,11 +1669,11 @@
 
             try {
                 if (id) {
-                    await updateDoc(doc(db, SS_COURSES_PATH, id), { title: escapeHTML(title), linkedCourseId, linkedCourseName: linkedCourse.name });
+                    await updateDoc(doc(db, SS_COURSES_PATH, id), { title: title, linkedCourseId, linkedCourseName: linkedCourse.name }); 
                     showToast("自學課程更新成功 🐾");
                 } else {
                     const newDoc = doc(collection(db, SS_COURSES_PATH));
-                    await setDoc(newDoc, { title: escapeHTML(title), linkedCourseId, linkedCourseName: linkedCourse.name, createdAt: Date.now() });
+                    await setDoc(newDoc, { title: title, linkedCourseId, linkedCourseName: linkedCourse.name, createdAt: Date.now() }); 
                     showToast("新增自學課程成功 🐾");
                 }
                 document.getElementById('ssCourseModal').classList.add('hidden');
@@ -1368,9 +1733,9 @@
 
             try {
                 const payload = { 
-                    title: escapeHTML(title), 
+                    title: title, 
                     ytUrl, driveUrl, hwUrl, ansUrl, 
-                    description: escapeHTML(description) 
+                    description: description 
                 };
 
                 if (id) {
@@ -1398,6 +1763,10 @@
             
             const addSSCourseBtn = document.getElementById('addSelfStudyCourseBtn');
             const addSSUnitBtn = document.getElementById('addSelfStudyUnitBtn');
+            
+            const addVocabBookBtn = document.getElementById('addVocabBookBtn');
+            const addVocabWordBtn = document.getElementById('addVocabWordBtn');
+            
             const navManagementTab = document.getElementById('navManagementTab');
             
             const user = auth.currentUser;
@@ -1411,9 +1780,6 @@
                     adminBtn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-800 text-white shadow-md hover:bg-slate-700 transition-colors border border-slate-600';
                     starclanSection.classList.remove('hidden'); 
                     
-                    if(addSSCourseBtn) addSSCourseBtn.classList.remove('hidden');
-                    if(addSSUnitBtn) addSSUnitBtn.classList.remove('hidden');
-
                     if (!usersUnsubscribe) {
                         usersUnsubscribe = onSnapshot(collection(db, USERS_PATH), (snapshot) => {
                             allUsers = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
@@ -1426,9 +1792,6 @@
                     adminBtn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-sm hover:bg-slate-800 transition-colors';
                     starclanSection.classList.add('hidden'); 
                     
-                    if(addSSCourseBtn) addSSCourseBtn.classList.add('hidden');
-                    if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
-
                     if (usersUnsubscribe) {
                         usersUnsubscribe();
                         usersUnsubscribe = null;
@@ -1440,10 +1803,21 @@
                     navManagementTab.classList.remove('hidden');
                     uploadSection.classList.remove('hidden'); 
                     openCreateKahootBtn.classList.remove('hidden'); 
+                    
+                    if(addSSCourseBtn) addSSCourseBtn.classList.remove('hidden');
+                    if(addSSUnitBtn) addSSUnitBtn.classList.remove('hidden');
+                    if(addVocabBookBtn) addVocabBookBtn.classList.remove('hidden');
+                    if(addVocabWordBtn) addVocabWordBtn.classList.remove('hidden');
+                    
                 } else {
                     navManagementTab.classList.add('hidden');
                     uploadSection.classList.add('hidden'); 
                     openCreateKahootBtn.classList.add('hidden'); 
+                    
+                    if(addSSCourseBtn) addSSCourseBtn.classList.add('hidden');
+                    if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
+                    if(addVocabBookBtn) addVocabBookBtn.classList.add('hidden');
+                    if(addVocabWordBtn) addVocabWordBtn.classList.add('hidden');
                     
                     if(!document.getElementById('page-management').classList.contains('hidden')) {
                         document.querySelector('[data-tab="evaluation"]').click();
@@ -1460,6 +1834,8 @@
                 
                 if(addSSCourseBtn) addSSCourseBtn.classList.add('hidden');
                 if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
+                if(addVocabBookBtn) addVocabBookBtn.classList.add('hidden');
+                if(addVocabWordBtn) addVocabWordBtn.classList.add('hidden');
                 
                 if (usersUnsubscribe) {
                     usersUnsubscribe();
@@ -1478,7 +1854,9 @@
             renderMaterials(); 
             renderKahoots();
             renderSelfStudyCourses();
+            renderVocabBooks();
             if (currentViewSSCourseId) renderSelfStudyUnits();
+            if (currentViewVocabBookId) renderVocabWords();
             
             if (reviewWizardStep === 0) renderReviewWizard();
         }
@@ -1600,7 +1978,7 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="${m.url}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
+                        <a href="${escapeHTML(m.url)}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
                         ${isAdmin ? `<button data-action="delete" data-type="material" data-id="${m.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4"></i></button>` : ''}
                     </div>
                 </div>
@@ -1819,8 +2197,8 @@
             try {
                 const newDocRef = doc(collection(db, COURSES_PATH));
                 await setDoc(newDocRef, { 
-                    name: escapeHTML(name), 
-                    instructor: escapeHTML(instructor), 
+                    name: name, 
+                    instructor: instructor, 
                     year, semester, isRemote, isRollCall, groupActivity, 
                     createdAt: Date.now() 
                 });
@@ -1854,7 +2232,7 @@
             try {
                 const course = courses.find(c => c.id === courseId);
                 const newDoc = doc(collection(db, MATERIALS_PATH));
-                await setDoc(newDoc, { courseId, courseName: course.name, title: escapeHTML(titleInput), url: escapeHTML(urlInput), requiredRole: requiredRole, createdAt: Date.now() });
+                await setDoc(newDoc, { courseId, courseName: course.name, title: titleInput, url: urlInput, requiredRole: requiredRole, createdAt: Date.now() }); 
                 showToast(`考題已存入${requiredRole === 3 ? '族長' : '戰士'}寶藏庫 🐾`);
                 document.getElementById('pdfUrlInput').value = ''; 
                 document.getElementById('pdfTitleInput').value = '';
@@ -1867,6 +2245,7 @@
             renderReviews(); 
             renderMaterials(); 
             renderKahoots(); 
+            renderVocabBooks();
         }, 300);
 
         function confirmDeleteUI(type, id) { 
@@ -1913,12 +2292,26 @@
                         document.getElementById('page-self-study-details').classList.add('hidden');
                         document.getElementById('page-self-study-main').classList.remove('hidden');
                     }
+                } else if (currentDeleteType === 'vocabBook') {
+                    const qWords = query(collection(db, VOCAB_WORDS_PATH), where("bookId", "==", currentDeleteId));
+                    const batch = writeBatch(db);
+                    const sWords = await getDocs(qWords);
+                    sWords.forEach(d => batch.delete(d.ref));
+                    batch.delete(doc(db, VOCAB_BOOKS_PATH, currentDeleteId));
+                    await batch.commit();
+                    
+                    if (currentViewVocabBookId === currentDeleteId) {
+                        currentViewVocabBookId = null;
+                        document.getElementById('page-vocabulary-details').classList.add('hidden');
+                        document.getElementById('page-vocabulary-main').classList.remove('hidden');
+                    }
                 } else {
                     let path;
                     if (currentDeleteType === 'review') path = REVIEWS_PATH; 
                     else if (currentDeleteType === 'material') path = MATERIALS_PATH; 
                     else if (currentDeleteType === 'kahoot') path = KAHOOTS_PATH;
                     else if (currentDeleteType === 'ssUnit') path = SS_UNITS_PATH;
+                    else if (currentDeleteType === 'vocabWord') path = VOCAB_WORDS_PATH;
                     
                     await deleteDoc(doc(db, path, currentDeleteId));
                 }
@@ -2056,8 +2449,8 @@
             if (!correctRadio) return showToast("請選擇一個正確答案！");
             
             const questionPayload = { 
-                q: escapeHTML(qText), 
-                options: opts.map(o => escapeHTML(o)), 
+                q: qText, 
+                options: opts, 
                 correctIdx: parseInt(correctRadio.value) 
             };
 
@@ -2140,7 +2533,7 @@
 
                 if (id) {
                     await updateDoc(doc(db, KAHOOTS_PATH, id), { 
-                        title: escapeHTML(title), 
+                        title: title, 
                         courseId, 
                         courseName: course.name, 
                         questions: draftQuestions 
@@ -2149,7 +2542,7 @@
                 } else {
                     const newDoc = doc(collection(db, KAHOOTS_PATH));
                     await setDoc(newDoc, { 
-                        title: escapeHTML(title), 
+                        title: title, 
                         courseId, 
                         courseName: course.name, 
                         questions: draftQuestions, 
