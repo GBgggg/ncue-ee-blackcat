@@ -31,8 +31,8 @@
     <header id="mainHeader" class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30 transition-transform duration-300 ease-in-out transform translate-y-0">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
             
-            <div class="flex items-center gap-3 text-emerald-400 w-full md:w-auto">
-                <img src="image.png" alt="彰師電子小黑貓 Logo" class="w-10 h-10 rounded-full object-cover transition-transform hover:scale-110 border border-emerald-500/50 shadow-sm">
+            <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 w-full md:w-auto cursor-pointer group">
+                <img src="image.png" alt="彰師電子小黑貓 Logo" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
                 <div class="flex flex-col">
                     <h1 class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">彰師電子小黑貓</h1>
                     <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">NCUE EE Black Cat</span>
@@ -40,7 +40,8 @@
             </div>
 
             <nav class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
-                <button data-tab="evaluation" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 text-white shadow-md transition-all">評價</button>
+                <button data-tab="home" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold bg-emerald-500 text-white shadow-md transition-all">首頁</button>
+                <button data-tab="evaluation" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">評價</button>
                 <button data-tab="self-study" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">課程自學</button>
                 <button data-tab="vocabulary" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">單字庫</button>
                 <button data-tab="quiz" class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold text-slate-400 hover:text-emerald-400 hover:bg-slate-800 transition-all">測驗</button>
@@ -59,7 +60,97 @@
 
     <main class="max-w-6xl mx-auto px-4 py-8">
         
-        <div id="page-evaluation" class="page-section animate-[slideUp_0.3s_ease-out]">
+        <!-- 首頁 -->
+        <div id="page-home" class="page-section animate-[slideUp_0.3s_ease-out]">
+            
+            <!-- Hero 區塊：未登入時顯示 -->
+            <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
+                <i data-lucide="home" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                <div class="relative z-10">
+                    <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">
+                        喵！歡迎來到小黑貓的領地 <span class="animate-bounce">🐾</span>
+                    </h2>
+                    <p class="text-slate-400 font-medium italic">登入後即可解鎖專屬的自編課表功能！在下方可以查看最新的部族公告與連結。</p>
+                </div>
+            </div>
+
+            <!-- Hero 區塊：已登入時顯示 -->
+            <div id="home-user-hero" class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500 hidden">
+                <i data-lucide="calendar-days" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                    <div>
+                        <h2 class="text-3xl font-black mb-2 flex items-center gap-3">
+                            歡迎回來，<span id="displayUserName" class="text-emerald-400">無名小貓</span> <span class="animate-bounce">🐾</span>
+                            <button id="editNameBtn" class="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
+                        </h2>
+                        <p class="text-slate-400 font-medium italic">這是你的專屬課表，小黑貓會幫你隨時留意現在該上什麼課喵！</p>
+                    </div>
+                    <div class="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700 shadow-inner flex flex-col items-center shrink-0">
+                        <span class="text-xs text-slate-400 font-bold uppercase">現在時間</span>
+                        <span id="currentTimeDisplay" class="text-lg font-black text-emerald-400">--:--</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 專屬課表區塊 (已登入顯示) -->
+            <div id="home-user-schedule" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 overflow-x-auto scrollbar-hide mb-8 hidden">
+                <table class="w-full min-w-[700px] border-separate border-spacing-2 table-fixed">
+                    <thead>
+                        <tr>
+                            <th class="w-24 bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">節</th>
+                            <th class="bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">一</th>
+                            <th class="bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">二</th>
+                            <th class="bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">三</th>
+                            <th class="bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">四</th>
+                            <th class="bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">五</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scheduleBody">
+                        <!-- JS 動態生成課表 -->
+                    </tbody>
+                </table>
+                <div class="mt-6 text-center text-sm font-bold text-slate-400 flex items-center justify-center gap-2">
+                    <img src="image.png" class="w-6 h-6 rounded-full opacity-50 border border-slate-200"> 
+                    本學期自編課表
+                </div>
+            </div>
+
+            <!-- 共用區塊：最新消息與常用連結 (不論登入狀態皆顯示) -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- 最新消息區塊 -->
+                <div class="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-black text-slate-800 flex items-center gap-2"><i data-lucide="bell" class="w-5 h-5 text-emerald-500"></i> 最新消息</h3>
+                        <button id="addNewsBtn" class="hidden px-3 py-1.5 bg-emerald-50 text-emerald-600 font-bold rounded-lg hover:bg-emerald-100 transition text-sm">新增消息</button>
+                    </div>
+                    <div class="flex gap-2 mb-4 border-b-2 border-slate-100 pb-2 overflow-x-auto scrollbar-hide">
+                        <button data-news-tab="共同" class="news-tab-btn px-4 py-1.5 rounded-full text-sm font-bold bg-slate-800 text-white whitespace-nowrap">共同</button>
+                        <button data-news-tab="新生" class="news-tab-btn px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 hover:bg-slate-100 whitespace-nowrap">新生</button>
+                        <button data-news-tab="舊生" class="news-tab-btn px-4 py-1.5 rounded-full text-sm font-bold text-slate-400 hover:bg-slate-100 whitespace-nowrap">舊生</button>
+                    </div>
+                    <div id="newsList" class="space-y-3 min-h-[200px]">
+                        <!-- 最新消息列表 -->
+                        <div class="text-center py-10 text-slate-400 font-medium">載入中...</div>
+                    </div>
+                </div>
+
+                <!-- 常用連結區塊 -->
+                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-black text-slate-800 flex items-center gap-2"><i data-lucide="external-link" class="w-5 h-5 text-blue-500"></i> 常用連結</h3>
+                        <button id="addLinkBtn" class="hidden px-3 py-1.5 bg-blue-50 text-blue-600 font-bold rounded-lg hover:bg-blue-100 transition text-sm">新增連結</button>
+                    </div>
+                    <div id="quickLinksList" class="space-y-3">
+                        <!-- 常用連結列表 -->
+                        <div class="text-center py-10 text-slate-400 font-medium">載入中...</div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 評價頁面 -->
+        <div id="page-evaluation" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div id="evaluationHero" class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 transition-all duration-300">
                 <i data-lucide="paw-print" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <i data-lucide="paw-print" class="paw-print w-20 h-20 bottom-10 left-10 -rotate-12"></i>
@@ -195,6 +286,7 @@
             </div>
         </div>
 
+        <!-- 管理頁面 -->
         <div id="page-management" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
@@ -243,6 +335,7 @@
             </div>
         </div>
 
+        <!-- 課程自學頁面 -->
         <div id="page-self-study" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div id="page-self-study-main">
                 <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
@@ -288,6 +381,7 @@
             </div>
         </div>
 
+        <!-- 單字庫頁面 -->
         <div id="page-vocabulary" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div id="page-vocabulary-main">
                 <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
@@ -336,6 +430,7 @@
             </div>
         </div>
 
+        <!-- 測驗頁面 -->
         <div id="page-quiz" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
@@ -359,6 +454,7 @@
             </div>
         </div>
 
+        <!-- 關於頁面 -->
         <div id="page-about" class="page-section hidden animate-[slideUp_0.3s_ease-out]">
             <div class="bg-white rounded-[3rem] p-8 md:p-16 shadow-2xl border-2 border-slate-100 max-w-4xl mx-auto text-center mt-6 relative overflow-hidden">
                 <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-50 rounded-full mix-blend-multiply opacity-70"></div>
@@ -393,6 +489,73 @@
 
     </main>
 
+    <!-- Modal 區塊開始 -->
+    <!-- 編輯課表 Modal -->
+    <div id="scheduleModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border-t-8 border-teal-400 text-center">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900">編輯這節課</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editScheduleCellId">
+                <input type="text" id="editScheduleCourse" maxlength="20" placeholder="課程名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-lg text-center">
+                <input type="text" id="editScheduleLocation" maxlength="20" placeholder="上課地點" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500">
+                <div class="flex gap-4 pt-4">
+                    <button id="closeScheduleModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                    <button id="confirmSaveSchedule" class="flex-1 py-3 bg-teal-400 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-500 transition-colors">儲存課表</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 修改個人名稱 Modal -->
+    <div id="nameModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border-t-8 border-emerald-400 text-center">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900">設定你的貓咪名稱</h3>
+            <div class="space-y-4">
+                <input type="text" id="editDisplayName" maxlength="15" placeholder="例如：橘貓學長" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 font-bold text-lg text-center">
+                <div class="flex gap-4 pt-4">
+                    <button id="closeNameModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                    <button id="confirmSaveName" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors">儲存名稱</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增最新消息 Modal -->
+    <div id="newsModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900">發布最新消息</h3>
+            <div class="space-y-4">
+                <select id="newsCategory" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none font-bold text-lg outline-none focus:ring-2 focus:ring-emerald-500">
+                    <option value="共同">公告分類：共同</option>
+                    <option value="新生">公告分類：新生</option>
+                    <option value="舊生">公告分類：舊生</option>
+                </select>
+                <input type="text" id="newsTitle" maxlength="50" placeholder="公告標題" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
+                <input type="url" id="newsUrl" placeholder="相關連結 (選填)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm">
+                <div class="flex gap-4 pt-4">
+                    <button id="closeNewsModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveNews" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200">發布公告</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增常用連結 Modal -->
+    <div id="linkModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-blue-500">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900">新增常用連結</h3>
+            <div class="space-y-4">
+                <input type="text" id="linkTitle" maxlength="30" placeholder="連結標題 (例如：校務行政系統)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
+                <input type="url" id="linkUrl" placeholder="網址 (https://...)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm">
+                <div class="flex gap-4 pt-4">
+                    <button id="closeLinkModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveLink" class="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">新增連結</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 其餘所有 Modal 保留 -->
     <div id="vocabBookModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-blue-500">
             <h3 id="vocabBookModalTitle" class="text-2xl font-bold mb-6 text-slate-900">創建單字冊</h3>
@@ -413,7 +576,6 @@
             <h3 id="vocabWordModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增單字</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editVocabWordId" value="">
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英文單字 <span class="text-red-400">*</span></label>
@@ -424,7 +586,6 @@
                         <input type="text" id="vocabWordEngDef" maxlength="200" placeholder="The effective resistance of an electric circuit..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
                     </div>
                 </div>
-
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">中文解釋 (選填)</label>
@@ -435,12 +596,10 @@
                         <input type="text" id="vocabWordRootPrefix" maxlength="100" placeholder="例如: im- (in) + ped (foot)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-fuchsia-600">
                     </div>
                 </div>
-
                 <div>
                     <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">例句 (選填)</label>
                     <textarea id="vocabWordExample" maxlength="300" placeholder="寫個句子幫助記憶喵..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[80px]"></textarea>
                 </div>
-
                 <div class="flex gap-4 pt-4">
                     <button id="closeVocabWordModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                     <button id="confirmSaveVocabWord" class="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-600 transition-colors">儲存單字</button>
@@ -448,6 +607,7 @@
             </div>
         </div>
     </div>
+
     <div id="courseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">幫小黑貓紀錄新課程</h3>
@@ -520,7 +680,6 @@
                 <input type="hidden" id="editSSUnitId" value="">
                 <label class="block text-sm font-bold text-slate-500 ml-2">單元名稱</label>
                 <input type="text" id="ssUnitTitle" maxlength="80" placeholder="如: 第一週 - 變數與資料型態" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
-                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">YouTube 連結</label>
@@ -539,10 +698,8 @@
                         <input type="url" id="ssUnitAnsUrl" placeholder="https://drive.google.com/..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                     </div>
                 </div>
-
                 <label class="block text-sm font-bold text-slate-500 ml-2 pt-2">單元介紹</label>
                 <textarea id="ssUnitDescription" maxlength="1000" placeholder="簡短介紹這個單元會學到什麼喵..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium min-h-[120px] resize-none"></textarea>
-
                 <div class="flex gap-4 pt-4">
                     <button id="closeSSUnitModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                     <button id="confirmSaveSSUnit" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200">儲存單元</button>
@@ -587,9 +744,7 @@
                 </h3>
                 <button id="closeKahootModalBtn" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-6 h-6"></i></button>
             </div>
-            
             <input type="hidden" id="editKahootId" value="">
-
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <label class="text-xs font-black text-slate-400 uppercase mb-1 block">測驗主題</label>
@@ -625,17 +780,14 @@
         <button id="quitKahootBtn" class="absolute top-4 left-4 md:top-6 md:left-6 w-10 h-10 md:w-12 md:h-12 bg-red-500 text-white rounded-full flex items-center justify-center transition-all shadow-lg hover:bg-red-600 z-50 border-2 border-red-700">
             <i data-lucide="x" class="w-5 h-5 md:w-6 md:h-6 pointer-events-none"></i>
         </button>
-        
         <div class="w-full max-w-4xl flex flex-col my-auto h-auto min-h-min pb-8">
             <div class="flex justify-between items-center mb-4 md:mb-8 text-slate-300 font-bold px-2 md:px-4">
                 <span id="kahootProgress" class="text-sm md:text-lg bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full">1 / 5</span>
                 <span id="kahootScoreDisplay" class="text-sm md:text-lg bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-emerald-400">分數: 0</span>
             </div>
-            
             <div class="bg-white rounded-[2rem] p-6 sm:p-8 md:p-12 shadow-2xl mb-4 md:mb-8 min-h-[140px] md:min-h-[200px] flex items-center justify-center mx-2 md:mx-4 shrink-0">
                 <h2 id="kahootQuestionDisplay" class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 leading-tight text-center break-words w-full">載入中...</h2>
             </div>
-            
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mx-2 md:mx-4">
                 <button data-action="submit-kahoot" data-index="0" id="playOpt0" class="kahoot-btn p-4 md:py-10 bg-red-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-red-700 hover:bg-red-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
                     <div class="w-6 h-6 md:w-8 md:h-8 shrink-0 rounded-full bg-white/20 pointer-events-none"></div> 
@@ -735,6 +887,10 @@
         const tabBtns = document.querySelectorAll('.tab-btn');
         const pageSections = document.querySelectorAll('.page-section');
 
+        document.getElementById('logoBtn').addEventListener('click', () => {
+            document.querySelector('[data-tab="home"]').click();
+        });
+
         tabBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 tabBtns.forEach(b => {
@@ -756,6 +912,10 @@
                     renderMaterials(); 
                     renderKahoots();
                     renderVocabBooks();
+                }
+
+                if (target === 'home') {
+                    highlightCurrentClass();
                 }
 
                 if (target === 'evaluation') {
@@ -804,10 +964,18 @@
         const VOCAB_BOOKS_PATH = `artifacts/${appId}/public/data/vocabBooks`;
         const VOCAB_WORDS_PATH = `artifacts/${appId}/public/data/vocabWords`;
         
+        const NEWS_PATH = `artifacts/${appId}/public/data/news`;
+        const LINKS_PATH = `artifacts/${appId}/public/data/quickLinks`;
+        
         let courses = [], reviews = [], materials = [], kahoots = [];
         let allUsers = []; 
         let ssCourses = [], ssUnits = [];
         let vocabBooks = [], vocabWords = [];
+        let newsList = [], quickLinks = [];
+        let userSchedule = {};
+        let userDisplayName = "無名小貓";
+
+        let currentActiveNewsTab = '共同';
         let usersUnsubscribe = null;
         
         const ROLE_LEVELS = {
@@ -881,7 +1049,6 @@
         let currentQIndex = 0;
         let currentScore = 0;
 
-        // 🐾 只在將資料「印出到畫面上」的時候使用這個函數！
         function escapeHTML(str) {
             if (!str) return "";
             return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
@@ -898,6 +1065,42 @@
         const drawMetricDots = (value, colorClass) => {
             return Array(5).fill().map((_, i) => `<div class="w-1.5 h-1.5 rounded-full ${i < (value || 0) ? colorClass : 'bg-slate-200'}"></div>`).join('');
         };
+
+        const timeSlots = [
+            { id: 1, label: '1', timeStr: '08:10-<br>09:00', start: 8*60+10, end: 9*60+0 },
+            { id: 2, label: '2', timeStr: '09:05-<br>09:55', start: 9*60+5, end: 9*60+55 },
+            { id: 3, label: '3', timeStr: '10:15-<br>11:05', start: 10*60+15, end: 11*60+5 },
+            { id: 4, label: '4', timeStr: '11:10-<br>12:00', start: 11*60+10, end: 12*60+0 },
+            { id: 'noon', label: '中午', timeStr: '12:05-<br>12:55', start: 12*60+5, end: 12*60+55 },
+            { id: 5, label: '5', timeStr: '13:10-<br>14:00', start: 13*60+10, end: 14*60+0 },
+            { id: 6, label: '6', timeStr: '14:05-<br>14:55', start: 14*60+5, end: 14*60+55 },
+            { id: 7, label: '7', timeStr: '15:15-<br>16:05', start: 15*60+15, end: 16*60+5 },
+            { id: 8, label: '8', timeStr: '16:10-<br>17:00', start: 16*60+10, end: 17*60+0 },
+            { id: 9, label: '9', timeStr: '17:10-<br>18:00', start: 17*60+10, end: 18*60+0 }
+        ];
+
+        function highlightCurrentClass() {
+            if(!auth.currentUser || auth.currentUser.isAnonymous) return;
+            const now = new Date();
+            const day = now.getDay(); 
+            const mins = now.getHours() * 60 + now.getMinutes();
+
+            document.getElementById('currentTimeDisplay').textContent = 
+                `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+            document.querySelectorAll('.schedule-cell').forEach(el => {
+                el.classList.remove('ring-4', 'ring-emerald-400', 'bg-emerald-50', 'transform', 'scale-105', 'z-10');
+            });
+
+            if (day >= 1 && day <= 5) {
+                const slot = timeSlots.find(s => mins >= s.start && mins <= s.end);
+                if (slot) {
+                    const cell = document.getElementById(`cell-${day}-${slot.id}`);
+                    if (cell) cell.classList.add('ring-4', 'ring-emerald-400', 'bg-emerald-50', 'transform', 'scale-105', 'z-10');
+                }
+            }
+        }
+        setInterval(highlightCurrentClass, 60000);
 
         document.addEventListener('click', (e) => {
             const deleteTarget = e.target.closest('[data-action="delete"]');
@@ -981,6 +1184,19 @@
             if (openAddCourseTarget) {
                 if (currentUserLevel < 4) return showToast("喵，你的階位還不夠新增課程喔！"); 
                 document.getElementById('courseModal').classList.remove('hidden');
+                return;
+            }
+
+            const newsTabBtn = e.target.closest('.news-tab-btn');
+            if (newsTabBtn) {
+                document.querySelectorAll('.news-tab-btn').forEach(btn => {
+                    btn.classList.remove('bg-slate-800', 'text-white');
+                    btn.classList.add('text-slate-400');
+                });
+                newsTabBtn.classList.remove('text-slate-400');
+                newsTabBtn.classList.add('bg-slate-800', 'text-white');
+                currentActiveNewsTab = newsTabBtn.dataset.newsTab;
+                renderNews();
                 return;
             }
 
@@ -1101,7 +1317,6 @@
 
         function openSelfStudyDetails(ssCourseId) {
             currentViewSSCourseId = ssCourseId;
-            
             const c = ssCourses.find(x => x.id === ssCourseId);
             if (!c) return;
 
@@ -1113,10 +1328,7 @@
 
             renderSelfStudyUnits();
             lucide.createIcons();
-            
-            setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 50);
+            setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 50);
         }
 
         document.getElementById('backToVocabBooksBtn').onclick = () => {
@@ -1127,7 +1339,6 @@
 
         function openVocabBookDetails(bookId) {
             currentViewVocabBookId = bookId;
-            
             const b = vocabBooks.find(x => x.id === bookId);
             if (!b) return;
 
@@ -1139,10 +1350,7 @@
 
             renderVocabWords();
             lucide.createIcons();
-            
-            setTimeout(() => {
-                window.scrollTo({ top: 0, behavior: 'smooth' });
-            }, 50);
+            setTimeout(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, 50);
         }
 
         window.onload = async () => {
@@ -1154,23 +1362,55 @@
                     const userRef = doc(db, USERS_PATH, user.uid);
                     const userSnap = await getDoc(userRef);
                     if (!userSnap.exists()) {
-                        await setDoc(userRef, { email: user.email, role: '見習生', createdAt: Date.now() });
+                        await setDoc(userRef, { email: user.email, role: '見習生', displayName: '無名小貓', schedule: {}, createdAt: Date.now() });
                         currentUserRole = '見習生';
+                        userDisplayName = '無名小貓';
+                        userSchedule = {};
                     } else {
-                        currentUserRole = userSnap.data().role || '見習生';
+                        const data = userSnap.data();
+                        currentUserRole = data.role || '見習生';
+                        userDisplayName = data.displayName || '無名小貓';
+                        userSchedule = data.schedule || {};
                     }
                     
                     currentUserLevel = ROLE_LEVELS[currentUserRole] || 1;
                     isAdmin = (currentUserLevel === 5);
                     
-                    showToast(`歡迎回來，${currentUserRole} 🐾`);
+                    document.getElementById('home-guest-hero').classList.add('hidden');
+                    document.getElementById('home-user-hero').classList.remove('hidden');
+                    document.getElementById('home-user-schedule').classList.remove('hidden');
+                    
+                    document.getElementById('displayUserName').textContent = userDisplayName;
+                    
+                    renderSchedule();
+                    highlightCurrentClass();
+                    showToast(`歡迎回來，${currentUserRole} ${userDisplayName} 🐾`);
                 } else {
                     isAdmin = false;
                     currentUserRole = "訪客";
                     currentUserLevel = 0;
+                    userDisplayName = "無名小貓";
+                    userSchedule = {};
+                    
+                    document.getElementById('home-guest-hero').classList.remove('hidden');
+                    document.getElementById('home-user-hero').classList.add('hidden');
+                    document.getElementById('home-user-schedule').classList.add('hidden');
+                    
                     if (!user) { signInAnonymously(auth).catch(e => console.error(e)); }
                 }
                 updateAdminUI();
+            });
+
+            onSnapshot(collection(db, NEWS_PATH), (snapshot) => {
+                newsList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                newsList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderNews();
+            });
+
+            onSnapshot(collection(db, LINKS_PATH), (snapshot) => {
+                quickLinks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                quickLinks.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                renderQuickLinks();
             });
 
             onSnapshot(collection(db, COURSES_PATH), (snapshot) => {
@@ -1221,6 +1461,173 @@
                 vocabWords.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
                 if (currentViewVocabBookId) renderVocabWords();
             });
+        };
+
+        function renderNews() {
+            const list = document.getElementById('newsList');
+            if(!list) return;
+
+            const filtered = newsList.filter(n => n.category === currentActiveNewsTab);
+            if(filtered.length === 0) {
+                list.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium bg-slate-50 rounded-2xl border border-slate-100">這個分類目前沒有最新消息喵！</div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(n => `
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="bell-ring" class="w-4 h-4 text-emerald-400 shrink-0"></i>
+                        <a ${n.url ? `href="${escapeHTML(n.url)}" target="_blank" class="font-bold text-slate-800 hover:text-emerald-600 hover:underline"` : `class="font-bold text-slate-800"`}>
+                            ${escapeHTML(n.title)}
+                        </a>
+                    </div>
+                    ${currentUserLevel >= 4 ? `<button data-action="delete" data-type="news" data-id="${n.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderQuickLinks() {
+            const list = document.getElementById('quickLinksList');
+            if(!list) return;
+
+            if(quickLinks.length === 0) {
+                list.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium bg-slate-50 rounded-2xl border border-slate-100">還沒有常用連結喵！</div>`;
+                return;
+            }
+
+            list.innerHTML = quickLinks.map(l => `
+                <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition border border-slate-100">
+                    <div class="flex items-center gap-3">
+                        <i data-lucide="link" class="w-4 h-4 text-blue-400 shrink-0"></i>
+                        <a href="${escapeHTML(l.url)}" target="_blank" class="font-bold text-slate-800 hover:text-blue-600 hover:underline">
+                            ${escapeHTML(l.title)}
+                        </a>
+                    </div>
+                    ${currentUserLevel >= 4 ? `<button data-action="delete" data-type="quickLink" data-id="${l.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        document.getElementById('addNewsBtn').onclick = () => { document.getElementById('newsModal').classList.remove('hidden'); };
+        document.getElementById('closeNewsModal').onclick = () => { document.getElementById('newsModal').classList.add('hidden'); };
+        document.getElementById('confirmSaveNews').onclick = async () => {
+            const category = document.getElementById('newsCategory').value;
+            const title = document.getElementById('newsTitle').value.trim();
+            const url = document.getElementById('newsUrl').value.trim();
+
+            if(!isValidText(title, 50)) return showToast("喵，標題請在 50 字以內喔！");
+            if(url && !isValidUrl(url)) return showToast("連結格式錯誤！");
+
+            try {
+                await setDoc(doc(collection(db, NEWS_PATH)), { category, title, url, createdAt: Date.now() });
+                showToast("最新消息發布成功 🐾");
+                document.getElementById('newsTitle').value = '';
+                document.getElementById('newsUrl').value = '';
+                document.getElementById('newsModal').classList.add('hidden');
+            } catch(e) { showToast("發布失敗喵..."); }
+        };
+
+        document.getElementById('addLinkBtn').onclick = () => { document.getElementById('linkModal').classList.remove('hidden'); };
+        document.getElementById('closeLinkModal').onclick = () => { document.getElementById('linkModal').classList.add('hidden'); };
+        document.getElementById('confirmSaveLink').onclick = async () => {
+            const title = document.getElementById('linkTitle').value.trim();
+            const url = document.getElementById('linkUrl').value.trim();
+
+            if(!isValidText(title, 30)) return showToast("喵，標題請在 30 字以內喔！");
+            if(!isValidUrl(url)) return showToast("連結格式錯誤！(必需包含 http/https)");
+
+            try {
+                await setDoc(doc(collection(db, LINKS_PATH)), { title, url, createdAt: Date.now() });
+                showToast("常用連結新增成功 🐾");
+                document.getElementById('linkTitle').value = '';
+                document.getElementById('linkUrl').value = '';
+                document.getElementById('linkModal').classList.add('hidden');
+            } catch(e) { showToast("新增失敗喵..."); }
+        };
+
+        document.getElementById('editNameBtn').onclick = () => {
+            document.getElementById('editDisplayName').value = userDisplayName;
+            document.getElementById('nameModal').classList.remove('hidden');
+        };
+        document.getElementById('closeNameModal').onclick = () => { document.getElementById('nameModal').classList.add('hidden'); };
+        document.getElementById('confirmSaveName').onclick = async () => {
+            const newName = document.getElementById('editDisplayName').value.trim();
+            if(!isValidText(newName, 15)) return showToast("喵，名字請在 1 到 15 個字以內！");
+            
+            try {
+                await updateDoc(doc(db, USERS_PATH, auth.currentUser.uid), { displayName: newName });
+                userDisplayName = newName;
+                document.getElementById('displayUserName').textContent = userDisplayName;
+                document.getElementById('nameModal').classList.add('hidden');
+                showToast("名稱修改成功 🐾");
+            } catch(e) { showToast("儲存失敗喵..."); }
+        };
+
+        function renderSchedule() {
+            const tbody = document.getElementById('scheduleBody');
+            if(!tbody) return;
+
+            let html = '';
+            timeSlots.forEach(p => {
+                html += `<tr>`;
+                html += `<td class="bg-teal-400/90 text-white rounded-xl p-1 md:p-2 text-center align-middle shadow-sm border border-teal-500 w-16 md:w-24">
+                            <div class="flex flex-col items-center justify-center leading-tight">
+                                <span class="font-black text-sm md:text-xl">${p.label}</span>
+                                <span class="opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter">${p.timeStr}</span>
+                            </div>
+                         </td>`;
+
+                for(let day=1; day<=5; day++) {
+                    if(p.id === 'noon') {
+                        html += `<td id="cell-${day}-noon" class="schedule-cell bg-slate-50/50 rounded-xl p-1 text-center transition-all border border-slate-100"></td>`;
+                    } else {
+                        const cellData = userSchedule[`${day}-${p.id}`] || { courseName: '', location: '' };
+                        const hasData = cellData.courseName || cellData.location;
+                        html += `<td id="cell-${day}-${p.id}" onclick="window.openScheduleModal(${day}, ${p.id})" class="schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-all hover:bg-teal-50 hover:shadow-md border-2 border-slate-100 relative group min-w-[100px] h-16 md:h-24 shadow-sm align-middle">`;
+                        if(hasData) {
+                            html += `<div class="font-black text-slate-800 text-xs md:text-sm mb-1 break-words leading-tight">${escapeHTML(cellData.courseName)}</div>`;
+                            if(cellData.location) html += `<div class="text-[10px] md:text-xs text-slate-500 font-bold bg-slate-100 rounded-md inline-block px-1.5 py-0.5">@ ${escapeHTML(cellData.location)}</div>`;
+                        } else {
+                            html += `<div class="text-[10px] md:text-xs text-slate-300 font-medium opacity-0 group-hover:opacity-100 transition-opacity">點擊編輯</div>`;
+                        }
+                        html += `</td>`;
+                    }
+                }
+                html += `</tr>`;
+            });
+            tbody.innerHTML = html;
+            highlightCurrentClass();
+        }
+
+        window.openScheduleModal = function(day, period) {
+            const cellId = `${day}-${period}`;
+            document.getElementById('editScheduleCellId').value = cellId;
+            const data = userSchedule[cellId] || { courseName: '', location: '' };
+            document.getElementById('editScheduleCourse').value = data.courseName;
+            document.getElementById('editScheduleLocation').value = data.location;
+            document.getElementById('scheduleModal').classList.remove('hidden');
+        };
+
+        document.getElementById('closeScheduleModal').onclick = () => { document.getElementById('scheduleModal').classList.add('hidden'); };
+        
+        document.getElementById('confirmSaveSchedule').onclick = async () => {
+            const cellId = document.getElementById('editScheduleCellId').value;
+            const courseName = document.getElementById('editScheduleCourse').value.trim();
+            const location = document.getElementById('editScheduleLocation').value.trim();
+
+            const newSchedule = { ...userSchedule };
+            newSchedule[cellId] = { courseName, location };
+
+            try {
+                await updateDoc(doc(db, USERS_PATH, auth.currentUser.uid), { schedule: newSchedule });
+                userSchedule = newSchedule;
+                renderSchedule();
+                document.getElementById('scheduleModal').classList.add('hidden');
+            } catch(e) {
+                showToast("儲存失敗喵...");
+            }
         };
 
         function renderReviewWizard() {
@@ -1483,278 +1890,6 @@
             lucide.createIcons();
         }
 
-        document.getElementById('startVocabQuizBtn').onclick = () => {
-            if (!currentViewVocabBookId) return;
-            const words = vocabWords.filter(w => w.bookId === currentViewVocabBookId);
-            
-            if (words.length < 4) {
-                return showToast("喵，單字本裡至少要有 4 個單字才能進行自動出題測驗喔！");
-            }
-
-            const questions = words.map(targetWord => {
-                const askEng = Math.random() > 0.5;
-                let qText = askEng ? `「${targetWord.english}」的解釋是？` : `「${targetWord.engDef}」是哪個單字？`;
-                let correctOptText = askEng ? targetWord.engDef : targetWord.english;
-
-                let wrongWords = words.filter(w => w.id !== targetWord.id).sort(() => 0.5 - Math.random()).slice(0, 3);
-                
-                while(wrongWords.length < 3) { wrongWords.push(targetWord); }
-
-                let wrongOptions = wrongWords.map(w => askEng ? w.engDef : w.english);
-                let options = [...wrongOptions];
-                
-                const correctIdx = Math.floor(Math.random() * 4);
-                options.splice(correctIdx, 0, correctOptText);
-
-                return {
-                    q: qText,
-                    options: options,
-                    correctIdx: correctIdx
-                };
-            }).sort(() => 0.5 - Math.random()).slice(0, 20); 
-
-            activeKahoot = {
-                title: "單字挑戰擂台",
-                questions: questions
-            };
-            currentQIndex = 0;
-            currentScore = 0;
-            document.getElementById('playKahootModal').classList.remove('hidden');
-            document.getElementById('playKahootModal').classList.add('flex');
-            renderPlayQuestion();
-        };
-
-        document.getElementById('addVocabBookBtn').onclick = () => openVocabBookModal();
-        function openVocabBookModal(id = null) {
-            document.getElementById('editVocabBookId').value = id || '';
-            if (id) {
-                const b = vocabBooks.find(x => x.id === id);
-                document.getElementById('vocabBookModalTitle').textContent = "編輯單字冊";
-                document.getElementById('vocabBookTitle').value = b.title;
-                document.getElementById('vocabBookDescription').value = b.description || '';
-            } else {
-                document.getElementById('vocabBookModalTitle').textContent = "創建單字冊";
-                document.getElementById('vocabBookTitle').value = '';
-                document.getElementById('vocabBookDescription').value = '';
-            }
-            document.getElementById('vocabBookModal').classList.remove('hidden');
-        }
-
-        document.getElementById('closeVocabBookModal').onclick = () => {
-            document.getElementById('vocabBookModal').classList.add('hidden');
-        };
-
-        document.getElementById('confirmSaveVocabBook').onclick = async () => {
-            const id = document.getElementById('editVocabBookId').value;
-            const title = document.getElementById('vocabBookTitle').value.trim();
-            const description = document.getElementById('vocabBookDescription').value.trim();
-            
-            if (!isValidText(title, 80)) return showToast("喵，單字冊名稱不要太長喔！");
-            
-            const btn = document.getElementById('confirmSaveVocabBook');
-            btn.disabled = true;
-
-            try {
-                if (id) {
-                    await updateDoc(doc(db, VOCAB_BOOKS_PATH, id), { title: title, description: description }); 
-                    showToast("單字冊更新成功 🐾");
-                } else {
-                    const newDoc = doc(collection(db, VOCAB_BOOKS_PATH));
-                    await setDoc(newDoc, { title: title, description: description, createdAt: Date.now() }); 
-                    showToast("單字冊創建成功 🐾");
-                }
-                document.getElementById('vocabBookModal').classList.add('hidden');
-            } catch (err) {
-                showToast("儲存失敗喵...");
-            } finally {
-                btn.disabled = false;
-            }
-        };
-
-        document.getElementById('addVocabWordBtn').onclick = () => openVocabWordModal();
-        function openVocabWordModal(id = null) {
-            document.getElementById('editVocabWordId').value = id || '';
-            if (id) {
-                const w = vocabWords.find(x => x.id === id);
-                document.getElementById('vocabWordModalTitle').textContent = "編輯單字";
-                document.getElementById('vocabWordEnglish').value = w.english;
-                document.getElementById('vocabWordEngDef').value = w.engDef;
-                document.getElementById('vocabWordChinese').value = w.chinese || '';
-                document.getElementById('vocabWordRootPrefix').value = w.rootPrefix || '';
-                document.getElementById('vocabWordExample').value = w.example || '';
-            } else {
-                document.getElementById('vocabWordModalTitle').textContent = "新增單字";
-                document.getElementById('vocabWordEnglish').value = '';
-                document.getElementById('vocabWordEngDef').value = '';
-                document.getElementById('vocabWordChinese').value = '';
-                document.getElementById('vocabWordRootPrefix').value = '';
-                document.getElementById('vocabWordExample').value = '';
-            }
-            document.getElementById('vocabWordModal').classList.remove('hidden');
-        }
-
-        document.getElementById('closeVocabWordModal').onclick = () => {
-            document.getElementById('vocabWordModal').classList.add('hidden');
-        };
-
-        document.getElementById('confirmSaveVocabWord').onclick = async () => {
-            const id = document.getElementById('editVocabWordId').value;
-            const english = document.getElementById('vocabWordEnglish').value.trim();
-            const engDef = document.getElementById('vocabWordEngDef').value.trim();
-            const chinese = document.getElementById('vocabWordChinese').value.trim();
-            const rootPrefix = document.getElementById('vocabWordRootPrefix').value.trim();
-            const example = document.getElementById('vocabWordExample').value.trim();
-            
-            if (!isValidText(english, 100)) return showToast("喵，英文單字必填喔！");
-            if (!isValidText(engDef, 200)) return showToast("喵，英譯英定義也是必填的喔！");
-            
-            const btn = document.getElementById('confirmSaveVocabWord');
-            btn.disabled = true;
-
-            try {
-                const payload = { 
-                    english: english, 
-                    engDef: engDef, 
-                    chinese: chinese, 
-                    rootPrefix: rootPrefix, 
-                    example: example
-                };
-
-                if (id) {
-                    await updateDoc(doc(db, VOCAB_WORDS_PATH, id), payload);
-                    showToast("單字更新成功 🐾");
-                } else {
-                    payload.bookId = currentViewVocabBookId;
-                    payload.createdAt = Date.now();
-                    await setDoc(doc(collection(db, VOCAB_WORDS_PATH)), payload);
-                    showToast("新增單字成功 🐾");
-                }
-                document.getElementById('vocabWordModal').classList.add('hidden');
-            } catch (err) {
-                showToast("儲存失敗喵...");
-            } finally {
-                btn.disabled = false;
-            }
-        };
-
-        document.getElementById('addSelfStudyCourseBtn').onclick = () => openSSCourseModal();
-        function openSSCourseModal(id = null) {
-            document.getElementById('editSSCourseId').value = id || '';
-            if (id) {
-                const c = ssCourses.find(x => x.id === id);
-                document.getElementById('ssCourseModalTitle').textContent = "編輯自學課程";
-                document.getElementById('ssCourseTitle').value = c.title;
-            } else {
-                document.getElementById('ssCourseModalTitle').textContent = "新增自學課程";
-                document.getElementById('ssCourseTitle').value = '';
-            }
-            document.getElementById('ssCourseModal').classList.remove('hidden');
-        }
-
-        document.getElementById('closeSSCourseModal').onclick = () => {
-            document.getElementById('ssCourseModal').classList.add('hidden');
-        };
-
-        document.getElementById('confirmSaveSSCourse').onclick = async () => {
-            const id = document.getElementById('editSSCourseId').value;
-            const title = document.getElementById('ssCourseTitle').value.trim();
-            const linkedCourseId = document.getElementById('ssCourseSelect').value;
-            
-            if (!isValidText(title, 80)) return showToast("喵，自學課程名稱請勿超過 80 字喔！");
-            if (!linkedCourseId) return showToast("喵，請填寫完整喔！");
-            
-            const linkedCourse = courses.find(c => c.id === linkedCourseId);
-            const btn = document.getElementById('confirmSaveSSCourse');
-            btn.disabled = true;
-
-            try {
-                if (id) {
-                    await updateDoc(doc(db, SS_COURSES_PATH, id), { title: title, linkedCourseId, linkedCourseName: linkedCourse.name }); 
-                    showToast("自學課程更新成功 🐾");
-                } else {
-                    const newDoc = doc(collection(db, SS_COURSES_PATH));
-                    await setDoc(newDoc, { title: title, linkedCourseId, linkedCourseName: linkedCourse.name, createdAt: Date.now() }); 
-                    showToast("新增自學課程成功 🐾");
-                }
-                document.getElementById('ssCourseModal').classList.add('hidden');
-            } catch (err) {
-                showToast("儲存失敗喵...");
-            } finally {
-                btn.disabled = false;
-            }
-        };
-
-        document.getElementById('addSelfStudyUnitBtn').onclick = () => openSSUnitModal();
-        function openSSUnitModal(id = null) {
-            document.getElementById('editSSUnitId').value = id || '';
-            if (id) {
-                const u = ssUnits.find(x => x.id === id);
-                document.getElementById('ssUnitModalTitle').textContent = "編輯自學單元";
-                document.getElementById('ssUnitTitle').value = u.title;
-                document.getElementById('ssUnitYtUrl').value = u.ytUrl || '';
-                document.getElementById('ssUnitDriveUrl').value = u.driveUrl || '';
-                document.getElementById('ssUnitHwUrl').value = u.hwUrl || '';
-                document.getElementById('ssUnitAnsUrl').value = u.ansUrl || '';
-                document.getElementById('ssUnitDescription').value = u.description || '';
-            } else {
-                document.getElementById('ssUnitModalTitle').textContent = "新增自學單元";
-                document.getElementById('ssUnitTitle').value = '';
-                document.getElementById('ssUnitYtUrl').value = '';
-                document.getElementById('ssUnitDriveUrl').value = '';
-                document.getElementById('ssUnitHwUrl').value = '';
-                document.getElementById('ssUnitAnsUrl').value = '';
-                document.getElementById('ssUnitDescription').value = '';
-            }
-            document.getElementById('ssUnitModal').classList.remove('hidden');
-        }
-
-        document.getElementById('closeSSUnitModal').onclick = () => {
-            document.getElementById('ssUnitModal').classList.add('hidden');
-        };
-
-        document.getElementById('confirmSaveSSUnit').onclick = async () => {
-            const id = document.getElementById('editSSUnitId').value;
-            const title = document.getElementById('ssUnitTitle').value.trim();
-            const ytUrl = document.getElementById('ssUnitYtUrl').value.trim();
-            const driveUrl = document.getElementById('ssUnitDriveUrl').value.trim();
-            const hwUrl = document.getElementById('ssUnitHwUrl').value.trim();
-            const ansUrl = document.getElementById('ssUnitAnsUrl').value.trim();
-            const description = document.getElementById('ssUnitDescription').value.trim();
-            
-            if (!isValidText(title, 80)) return showToast("喵，單元名稱長度不對喔！(最多80字)");
-            if (description && !isValidText(description, 1000)) return showToast("介紹文字太長了喵！(最多1000字)");
-            
-            if (!isValidUrl(ytUrl) || !isValidUrl(driveUrl) || !isValidUrl(hwUrl) || !isValidUrl(ansUrl)) {
-                return showToast("喵！請確認連結是否為正常的網址 (需包含 http 或 https)！");
-            }
-            
-            const btn = document.getElementById('confirmSaveSSUnit');
-            btn.disabled = true;
-
-            try {
-                const payload = { 
-                    title: title, 
-                    ytUrl, driveUrl, hwUrl, ansUrl, 
-                    description: description 
-                };
-
-                if (id) {
-                    await updateDoc(doc(db, SS_UNITS_PATH, id), payload);
-                    showToast("單元更新成功 🐾");
-                } else {
-                    payload.courseId = currentViewSSCourseId;
-                    payload.createdAt = Date.now();
-                    await setDoc(doc(collection(db, SS_UNITS_PATH)), payload);
-                    showToast("新增單元成功 🐾");
-                }
-                document.getElementById('ssUnitModal').classList.add('hidden');
-            } catch (err) {
-                showToast("儲存失敗喵...");
-            } finally {
-                btn.disabled = false;
-            }
-        };
-
         function updateAdminUI() {
             const adminBtn = document.getElementById('adminBtn');
             const uploadSection = document.getElementById('adminUploadSection');
@@ -1766,6 +1901,9 @@
             
             const addVocabBookBtn = document.getElementById('addVocabBookBtn');
             const addVocabWordBtn = document.getElementById('addVocabWordBtn');
+
+            const addNewsBtn = document.getElementById('addNewsBtn');
+            const addLinkBtn = document.getElementById('addLinkBtn');
             
             const navManagementTab = document.getElementById('navManagementTab');
             
@@ -1808,6 +1946,8 @@
                     if(addSSUnitBtn) addSSUnitBtn.classList.remove('hidden');
                     if(addVocabBookBtn) addVocabBookBtn.classList.remove('hidden');
                     if(addVocabWordBtn) addVocabWordBtn.classList.remove('hidden');
+                    if(addNewsBtn) addNewsBtn.classList.remove('hidden');
+                    if(addLinkBtn) addLinkBtn.classList.remove('hidden');
                     
                 } else {
                     navManagementTab.classList.add('hidden');
@@ -1818,9 +1958,11 @@
                     if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
                     if(addVocabBookBtn) addVocabBookBtn.classList.add('hidden');
                     if(addVocabWordBtn) addVocabWordBtn.classList.add('hidden');
+                    if(addNewsBtn) addNewsBtn.classList.add('hidden');
+                    if(addLinkBtn) addLinkBtn.classList.add('hidden');
                     
                     if(!document.getElementById('page-management').classList.contains('hidden')) {
-                        document.querySelector('[data-tab="evaluation"]').click();
+                        document.querySelector('[data-tab="home"]').click();
                     }
                 }
                 
@@ -1836,6 +1978,8 @@
                 if(addSSUnitBtn) addSSUnitBtn.classList.add('hidden');
                 if(addVocabBookBtn) addVocabBookBtn.classList.add('hidden');
                 if(addVocabWordBtn) addVocabWordBtn.classList.add('hidden');
+                if(addNewsBtn) addNewsBtn.classList.add('hidden');
+                if(addLinkBtn) addLinkBtn.classList.add('hidden');
                 
                 if (usersUnsubscribe) {
                     usersUnsubscribe();
@@ -1844,7 +1988,7 @@
                 allUsers = [];
                 
                 if(!document.getElementById('page-management').classList.contains('hidden')) {
-                    document.querySelector('[data-tab="evaluation"]').click();
+                    document.querySelector('[data-tab="home"]').click();
                 }
             }
             
@@ -1855,6 +1999,8 @@
             renderKahoots();
             renderSelfStudyCourses();
             renderVocabBooks();
+            renderNews();
+            renderQuickLinks();
             if (currentViewSSCourseId) renderSelfStudyUnits();
             if (currentViewVocabBookId) renderVocabWords();
             
@@ -2089,15 +2235,6 @@
             }
         }
 
-        document.getElementById('openStarclanBtn').onclick = () => {
-            renderStarclanPanel();
-            document.getElementById('starclanModal').classList.remove('hidden');
-        };
-        
-        document.getElementById('closeStarclanBtn').onclick = () => {
-            document.getElementById('starclanModal').classList.add('hidden');
-        };
-
         function showToast(msg) {
             const toast = document.getElementById('toast');
             toast.textContent = msg;
@@ -2105,6 +2242,12 @@
             toast.classList.add('toast-animate');
             setTimeout(() => toast.classList.add('hidden'), 3000);
         }
+
+        document.getElementById('openStarclanBtn').onclick = () => {
+            renderStarclanPanel();
+            document.getElementById('starclanModal').classList.remove('hidden');
+        };
+        document.getElementById('closeStarclanBtn').onclick = () => { document.getElementById('starclanModal').classList.add('hidden'); };
 
         document.getElementById('forgotPasswordBtn').onclick = async () => {
             const email = document.getElementById('adminEmail').value.trim();
@@ -2219,41 +2362,13 @@
             }
         };
 
-        document.getElementById('closeDeleteModal').onclick = () => document.getElementById('deleteModal').classList.add('hidden');
-
-        document.getElementById('uploadPdfBtn').onclick = async () => {
-            const courseId = document.getElementById('uploadCourseSelect').value;
-            const urlInput = document.getElementById('pdfUrlInput').value.trim();
-            const titleInput = document.getElementById('pdfTitleInput').value.trim();
-            const requiredRole = parseInt(document.getElementById('materialLevelSelect').value);
-            
-            if (!courseId || !urlInput || !titleInput) return showToast("喵，請填寫完整喔！");
-            
-            try {
-                const course = courses.find(c => c.id === courseId);
-                const newDoc = doc(collection(db, MATERIALS_PATH));
-                await setDoc(newDoc, { courseId, courseName: course.name, title: titleInput, url: urlInput, requiredRole: requiredRole, createdAt: Date.now() }); 
-                showToast(`考題已存入${requiredRole === 3 ? '族長' : '戰士'}寶藏庫 🐾`);
-                document.getElementById('pdfUrlInput').value = ''; 
-                document.getElementById('pdfTitleInput').value = '';
-            } catch (err) { showToast("失敗喵..."); }
-        };
-
-        document.getElementById('searchInput').oninput = debounce((e) => { 
-            searchQuery = e.target.value; 
-            renderCourseGrid(); 
-            renderReviews(); 
-            renderMaterials(); 
-            renderKahoots(); 
-            renderVocabBooks();
-        }, 300);
-
         function confirmDeleteUI(type, id) { 
             currentDeleteType = type; 
             currentDeleteId = id; 
             document.getElementById('deleteModal').classList.remove('hidden'); 
         }
         
+        document.getElementById('closeDeleteModal').onclick = () => document.getElementById('deleteModal').classList.add('hidden');
         document.getElementById('confirmDelete').onclick = async () => {
             try {
                 if (currentDeleteType === 'course') {
@@ -2312,6 +2427,8 @@
                     else if (currentDeleteType === 'kahoot') path = KAHOOTS_PATH;
                     else if (currentDeleteType === 'ssUnit') path = SS_UNITS_PATH;
                     else if (currentDeleteType === 'vocabWord') path = VOCAB_WORDS_PATH;
+                    else if (currentDeleteType === 'news') path = NEWS_PATH;
+                    else if (currentDeleteType === 'quickLink') path = LINKS_PATH;
                     
                     await deleteDoc(doc(db, path, currentDeleteId));
                 }
@@ -2321,6 +2438,33 @@
                 showToast("失敗喵..."); 
             }
         };
+
+        document.getElementById('uploadPdfBtn').onclick = async () => {
+            const courseId = document.getElementById('uploadCourseSelect').value;
+            const urlInput = document.getElementById('pdfUrlInput').value.trim();
+            const titleInput = document.getElementById('pdfTitleInput').value.trim();
+            const requiredRole = parseInt(document.getElementById('materialLevelSelect').value);
+            
+            if (!courseId || !urlInput || !titleInput) return showToast("喵，請填寫完整喔！");
+            
+            try {
+                const course = courses.find(c => c.id === courseId);
+                const newDoc = doc(collection(db, MATERIALS_PATH));
+                await setDoc(newDoc, { courseId, courseName: course.name, title: titleInput, url: urlInput, requiredRole: requiredRole, createdAt: Date.now() }); 
+                showToast(`考題已存入${requiredRole === 3 ? '族長' : '戰士'}寶藏庫 🐾`);
+                document.getElementById('pdfUrlInput').value = ''; 
+                document.getElementById('pdfTitleInput').value = '';
+            } catch (err) { showToast("失敗喵..."); }
+        };
+
+        document.getElementById('searchInput').oninput = debounce((e) => { 
+            searchQuery = e.target.value; 
+            renderCourseGrid(); 
+            renderReviews(); 
+            renderMaterials(); 
+            renderKahoots(); 
+            renderVocabBooks();
+        }, 300);
 
         function renderKahoots() {
             const list = document.getElementById('kahootList');
