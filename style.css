@@ -1,0 +1,48 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap');
+
+body {
+    font-family: 'Noto Sans TC', sans-serif;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.toast-animate {
+    animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+    from { transform: translate(-50%, 10%); opacity: 0; }
+    to { transform: translate(0, 0); opacity: 1; }
+}
+
+/* 黑貓專屬裝飾樣式 */
+.cat-card:hover .cat-icon {
+    transform: rotate(-10deg) scale(1.1);
+}
+
+.paw-print {
+    opacity: 0.1;
+    position: absolute;
+    z-index: 0;
+}
+
+/* Kahoot 選項按鈕懸浮特效 */
+.kahoot-btn {
+    transition: all 0.2s;
+}
+
+.kahoot-btn:active {
+    transform: scale(0.95);
+}
+
+/* 隱藏捲軸但保留滑動功能 */
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
+.scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
