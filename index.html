@@ -66,6 +66,23 @@
         html.dark .shadow-sm, html.dark .shadow-md, html.dark .shadow-xl, html.dark .shadow-2xl { box-shadow: 0 6px 20px rgba(0,0,0,0.45) !important; }
         html.dark .bg-teal-50 { background-color: #123a33 !important; }
         html.dark .bg-teal-50 .text-slate-800 { color: #eafff8 !important; }
+        /* 深色模式：寶藏庫面板改用暗調紅/琥珀，與整體更協調 */
+        html.dark .bg-rose-50\/50 { background-color: rgba(120,30,55,0.22) !important; border-color: rgba(190,70,100,0.38) !important; }
+        html.dark .bg-rose-50\/50 h4 { color: #fda4af !important; }
+        html.dark .bg-amber-50\/50 { background-color: rgba(110,60,18,0.22) !important; border-color: rgba(190,130,45,0.38) !important; }
+        html.dark .bg-amber-50\/50 h4 { color: #fcd34d !important; }
+        html.dark .bg-emerald-50 { background-color: rgba(16,90,70,0.35) !important; }
+
+        /* 閱讀模式手機版：整週(一~五)塞進一個畫面，免左右滑 */
+        @media (max-width: 767px) {
+            #scheduleTable.sched-compact { min-width: 0 !important; width: 100% !important; border-spacing: 3px !important; }
+            .sched-compact td { min-width: 0 !important; }
+            .sched-compact .schedule-cell { min-width: 0 !important; height: auto !important; min-height: 3.2rem !important; padding: 2px !important; }
+            .sched-compact .sched-name { font-size: 9px !important; line-height: 1.05 !important; margin-bottom: 1px !important; }
+            .sched-compact .sched-loc { font-size: 8px !important; line-height: 1.05 !important; padding: 0 !important; border: none !important; background: transparent !important; display: block !important; margin-top: 0 !important; }
+            .sched-compact thead th { padding: 4px 0 !important; }
+            .sched-compact .sched-period-time { display: none !important; }
+        }
 
         /* 手機版分頁列左右淡出，暗示還能水平捲動 */
         @media (max-width: 767px) {
@@ -124,26 +141,24 @@
         <div id="page-home" class="page-section page-enter">
 
             <!-- Hero：未登入 -->
-            <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
+            <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
                 <i data-lucide="home" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
-                    <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">
+                    <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">
                         喵！歡迎來到小黑貓的領地 <span class="animate-bounce">🐾</span>
                     </h2>
-                    <p class="text-slate-400 font-medium italic">登入後即可解鎖專屬的自編課表功能！在下方可以查看最新的部族公告與連結。</p>
                 </div>
             </div>
 
             <!-- Hero：已登入 -->
-            <div id="home-user-hero" class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500 hidden">
+            <div id="home-user-hero" class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500 hidden">
                 <i data-lucide="calendar-days" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h2 class="text-2xl md:text-3xl font-black mb-2 flex items-center gap-3">
+                        <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">
                             歡迎回來，<span id="displayUserName" class="text-emerald-400">無名小貓</span> <span class="animate-bounce">🐾</span>
                             <button id="editNameBtn" class="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
                         </h2>
-                        <p class="text-slate-400 font-medium italic">這是你的專屬課表，小黑貓會幫你隨時留意現在該上什麼課喵！</p>
                     </div>
                     <div class="bg-slate-800 px-4 py-2 rounded-xl border border-slate-700 shadow-inner flex flex-col items-center shrink-0">
                         <span class="text-xs text-slate-400 font-bold uppercase">現在時間</span>
@@ -154,9 +169,15 @@
 
             <!-- 專屬課表 (已登入顯示) -->
             <div id="home-user-schedule" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8 hidden">
-                <div id="scheduleNowNext" class="mb-4 rounded-2xl px-4 py-3 bg-teal-50 border border-teal-100 text-sm font-bold text-slate-600 flex items-center gap-2"></div>
+                <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+                    <div id="scheduleNowNext" class="flex-1 rounded-2xl px-4 py-3 bg-teal-50 border border-teal-100 text-sm font-bold text-slate-600 flex items-center gap-2"></div>
+                    <div class="flex gap-1 bg-slate-100 rounded-xl p-1 shrink-0 self-start sm:self-auto">
+                        <button data-action="set-schedule-mode" data-mode="read" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> 閱讀</button>
+                        <button data-action="set-schedule-mode" data-mode="edit" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5 pointer-events-none"></i> 編輯</button>
+                    </div>
+                </div>
                 <div class="overflow-x-auto scrollbar-hide schedule-scroll">
-                <table class="w-full min-w-[700px] border-separate border-spacing-2 table-fixed">
+                <table id="scheduleTable" class="w-full min-w-[700px] border-separate border-spacing-2 table-fixed">
                     <thead>
                         <tr id="scheduleHeadRow"><!-- JS 動態生成 --></tr>
                     </thead>
@@ -198,7 +219,7 @@
 
         <!-- ======================== 評價頁面 ======================== -->
         <div id="page-evaluation" class="page-section hidden">
-            <div id="evaluationHero" class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 shadow-2xl relative overflow-hidden border-4 border-slate-800 transition-all duration-300">
+            <div id="evaluationHero" class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 shadow-2xl relative overflow-hidden border-4 border-slate-800 transition-all duration-300">
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5"></i>
                     <input type="text" id="searchInput" placeholder="搜尋課程、教授或是悄悄話..."
@@ -246,7 +267,7 @@
                             <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回課程地圖
                         </button>
 
-                        <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-8 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500 scroll-mt-24">
+                        <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500 scroll-mt-24">
                             <div class="relative z-10">
                                 <h2 id="detailCourseTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                                 <p id="detailCourseInstructor" class="text-emerald-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
@@ -310,11 +331,10 @@
 
         <!-- ======================== 管理頁面 ======================== -->
         <div id="page-management" class="page-section hidden">
-            <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+            <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
-                    <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">喵的後台管理 <span class="animate-bounce">🛠️</span></h2>
-                    <p class="text-slate-400 font-medium italic">這裡是高級貓咪的專屬空間，可以擴充寶藏庫以及管理部族。</p>
+                    <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">喵的後台管理 <span class="animate-bounce">🛠️</span></h2>
                 </div>
             </div>
 
@@ -353,12 +373,11 @@
         <!-- ======================== 課程自學頁面 ======================== -->
         <div id="page-self-study" class="page-section hidden">
             <div id="page-self-study-main">
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <i data-lucide="book-open" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
-                            <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">課程自學資源 <span class="animate-bounce">📖</span></h2>
-                            <p class="text-slate-400 font-medium italic">這裡為你整理了滿滿的學習乾貨，包含程式語言與電子電路的核心概念，自己動手豐衣足食喵！</p>
+                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">課程自學資源 <span class="animate-bounce">📖</span></h2>
                         </div>
                         <button id="addSelfStudyCourseBtn" class="hidden px-6 py-3 font-bold bg-fuchsia-500 text-white rounded-2xl hover:bg-fuchsia-400 transition-all shadow-lg flex items-center gap-2">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增自學課程
@@ -374,7 +393,7 @@
                 <button id="backToSSCoursesBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回自學列表
                 </button>
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500">
                      <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
                             <h2 id="ssDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
@@ -392,14 +411,35 @@
         </div>
 
         <!-- ======================== 單字庫頁面 ======================== -->
-        <div id="page-vocabulary" class="page-section hidden">
+        <!-- ======================== 測驗頁面 ======================== -->
+        <div id="page-quiz" class="page-section hidden">
+            <div class="flex gap-2 mb-6">
+                <button data-action="set-quiz-sub" data-sub="kahoot" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="gamepad-2" class="w-4 h-4 pointer-events-none"></i> 挑戰擂台</button>
+                <button data-action="set-quiz-sub" data-sub="vocab" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4 pointer-events-none"></i> 單字庫</button>
+            </div>
+            <div id="quiz-sub-kahoot">
+            <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
+                    <div class="flex-1">
+                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">喵的挑戰擂台 <span class="animate-bounce">🎮</span></h2>
+                    </div>
+                    <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增測驗
+                    </button>
+                </div>
+            </div>
+            <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">小黑貓正在睡覺喵...</div>
+            </div>
+            </div>
+            <div id="quiz-sub-vocab" class="hidden">
             <div id="page-vocabulary-main">
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <i data-lucide="library" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
-                            <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">專屬單字庫 <span class="animate-bounce">📖</span></h2>
-                            <p class="text-slate-400 font-medium italic">在這裡建立並收納你的專業字彙，包含英譯英與字根字首，準備好就能直接進行擂台測驗喵！</p>
+                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">專屬單字庫 <span class="animate-bounce">📖</span></h2>
                         </div>
                         <button id="addVocabBookBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 創建單字冊
@@ -415,7 +455,7 @@
                 <button id="backToVocabBooksBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回單字庫
                 </button>
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-blue-500">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-xl relative overflow-hidden border-4 border-blue-500">
                      <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
                             <h2 id="vocabDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
@@ -433,24 +473,6 @@
                     <div class="col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個單字冊還是空的，等巫醫來補充喵 🐾</div>
                 </div>
             </div>
-        </div>
-
-        <!-- ======================== 測驗頁面 ======================== -->
-        <div id="page-quiz" class="page-section hidden">
-            <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
-                <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
-                    <div class="flex-1">
-                        <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">喵的挑戰擂台 <span class="animate-bounce">🎮</span></h2>
-                        <p class="text-slate-400 font-medium italic">來測試看看你的期中考實力，或是親自為同學們設計幾題魔鬼挑戰！</p>
-                    </div>
-                    <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
-                        <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增測驗
-                    </button>
-                </div>
-            </div>
-            <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">小黑貓正在睡覺喵...</div>
             </div>
         </div>
 
@@ -940,7 +962,7 @@
 
         const TABS = [
             ['home', '首頁'], ['evaluation', '課程'], ['self-study', '自學'],
-            ['vocabulary', '單字庫'], ['quiz', '測驗'], ['about', '關於黑貓'], ['management', '管理']
+            ['quiz', '測驗'], ['about', '關於黑貓'], ['management', '管理']
         ];
         const NEWS_CATEGORIES = ['共同', '新生', '舊生'];
         const FILTERS = [
@@ -1191,7 +1213,7 @@
                 selectedFilterCourseId = null;
             }
             if (tab === 'self-study') { closeModalView('page-self-study-details', 'page-self-study-main'); currentViewSSCourseId = null; }
-            if (tab === 'vocabulary') { closeModalView('page-vocabulary-details', 'page-vocabulary-main'); currentViewVocabBookId = null; }
+            if (tab === 'quiz') switchQuizSub(quizSub);
             icons();
         }
 
@@ -1242,6 +1264,18 @@
         /* ==========================================================
          * 9. 首頁：自編課表
          * ========================================================== */
+        let scheduleEditMode = false; // 課表模式：false=閱讀（純檢視）, true=編輯
+
+        function updateScheduleModeUI() {
+            document.querySelectorAll('.sched-mode-opt').forEach(btn => {
+                const on = (btn.dataset.mode === 'edit') === scheduleEditMode;
+                btn.classList.toggle('bg-white', on);
+                btn.classList.toggle('text-teal-600', on);
+                btn.classList.toggle('shadow-sm', on);
+                btn.classList.toggle('text-slate-400', !on);
+            });
+        }
+
         // 兩節是否為「同一堂課」（用來自動連動合併）
         const sameScheduleEntry = (a, b) => a && b && (a.courseName || a.location) &&
             a.courseName === b.courseName && (a.location || '') === (b.location || '') && (a.courseId || '') === (b.courseId || '');
@@ -1279,8 +1313,8 @@
             tbody.innerHTML = timeSlots.map(p => {
                 const head = `<td class="bg-teal-400/90 text-white rounded-xl p-1 md:p-2 text-center align-middle shadow-sm border border-teal-500 w-16 md:w-24">
                         <div class="flex flex-col items-center justify-center leading-tight">
-                            <span class="font-black text-sm md:text-xl">${p.label}</span>
-                            <span class="opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter">${p.timeStr}</span>
+                            <span class="sched-period-label font-black text-sm md:text-xl">${p.label}</span>
+                            <span class="sched-period-time opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter">${p.timeStr}</span>
                         </div></td>`;
 
                 const cells = [1, 2, 3, 4, 5].map(day => {
@@ -1302,20 +1336,31 @@
                         const linked = state.courses.find(x => x.id === cell.courseId);
                         if (linked) loc = courseLocation(linked);
                     }
+                    const editable = scheduleEditMode;
                     const body = hasContent
-                        ? `<div class="font-black text-slate-800 text-xs md:text-sm mb-1 break-words leading-tight">${escapeHTML(cell.courseName)}</div>` +
-                          (loc ? `<div class="text-[10px] md:text-xs text-teal-700 font-bold bg-white/80 border border-teal-200 rounded-md inline-block px-1.5 py-0.5">@ ${escapeHTML(loc)}</div>` : '')
-                        : `<div class="text-slate-200 group-hover:text-teal-400 text-lg font-black transition-colors pointer-events-none">＋</div>`;
-                    const tdClass = hasContent
-                        ? 'schedule-cell cursor-pointer bg-teal-50 rounded-xl p-1.5 md:p-2 text-center transition-all hover:bg-teal-100 hover:shadow-lg border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 relative group min-w-[100px] h-16 md:h-24 align-middle'
-                        : 'schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-all hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] h-16 md:h-24 align-middle';
-                    return `<td id="cell-${cellId}" data-action="edit-schedule" data-cell="${cellId}" ${span > 1 ? `rowspan="${span}"` : ''}
+                        ? `<div class="sched-name font-black text-slate-800 text-xs md:text-sm mb-1 break-words leading-tight">${escapeHTML(cell.courseName)}</div>` +
+                          (loc ? `<div class="sched-loc text-[10px] md:text-xs text-teal-700 font-bold bg-white/80 border border-teal-200 rounded-md inline-block px-1.5 py-0.5">@ ${escapeHTML(loc)}</div>` : '')
+                        : (editable ? `<div class="text-slate-200 group-hover:text-teal-400 text-lg font-black transition-colors pointer-events-none">＋</div>` : '');
+                    let tdClass;
+                    if (hasContent) {
+                        tdClass = editable
+                            ? 'schedule-cell cursor-pointer bg-teal-50 rounded-xl p-1.5 md:p-2 text-center transition-all hover:bg-teal-100 hover:shadow-lg border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 relative group min-w-[100px] h-16 md:h-24 align-middle'
+                            : 'schedule-cell bg-teal-50 rounded-xl p-1.5 md:p-2 text-center border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 min-w-[100px] h-16 md:h-24 align-middle';
+                    } else {
+                        tdClass = editable
+                            ? 'schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-all hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] h-16 md:h-24 align-middle'
+                            : 'schedule-cell bg-slate-50/40 rounded-xl p-1 md:p-2 text-center border border-slate-100 min-w-[100px] h-16 md:h-24 align-middle';
+                    }
+                    const action = editable ? `data-action="edit-schedule" data-cell="${cellId}"` : '';
+                    return `<td id="cell-${cellId}" ${action} ${span > 1 ? `rowspan="${span}"` : ''}
                         class="${tdClass}">${body}</td>`;
                 }).join('');
 
                 return `<tr>${head}${cells}</tr>`;
             }).join('');
             highlightCurrentClass();
+            updateScheduleModeUI();
+            $('scheduleTable').classList.toggle('sched-compact', !scheduleEditMode);
         }
 
         const WEEKDAY_NAMES = ['日', '一', '二', '三', '四', '五', '六'];
@@ -1409,7 +1454,12 @@
                     class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
                     ${options.map(([v, l]) => `<option value="${v}" ${current === v ? 'selected' : ''}>${l}</option>`).join('')}
                 </select>`;
+            const catOpts = [
+                ['1', '分類: 一年級'], ['2', '分類: 二年級'], ['3', '分類: 三年級'], ['4', '分類: 四年級'],
+                ...CATEGORIES.map(([v, l]) => [v, '分類: ' + l])
+            ];
             return `<div class="mt-3 flex flex-wrap gap-2">
+                    ${sel('year', course.year, catOpts)}
                     ${sel('isRemote', remote, [['是', '遠距: 是'], ['否', '遠距: 否'], ['未設定', '遠距: 未定']])}
                     ${sel('isRollCall', rollCall, [['是', '點名: 是'], ['否', '點名: 否'], ['未設定', '點名: 未定']])}
                     ${sel('groupActivity', group, [['老師分組', '分組: 老師'], ['自由分組', '分組: 自由'], ['否', '分組: 無'], ['未設定', '分組: 未定']])}
@@ -1813,8 +1863,36 @@
         }
 
         /* ==========================================================
-         * 14. 單字庫
+         * 14. 測驗頁子分頁（挑戰擂台 / 單字庫）
          * ========================================================== */
+        let quizSub = 'kahoot'; // 測驗頁目前子分頁
+
+        function updateQuizSubUI() {
+            document.querySelectorAll('.quiz-sub-opt').forEach(btn => {
+                const on = btn.dataset.sub === quizSub;
+                btn.classList.toggle('bg-emerald-500', on);
+                btn.classList.toggle('text-white', on);
+                btn.classList.toggle('shadow-md', on);
+                btn.classList.toggle('bg-slate-100', !on);
+                btn.classList.toggle('text-slate-500', !on);
+            });
+        }
+
+        function switchQuizSub(sub) {
+            quizSub = (sub === 'vocab') ? 'vocab' : 'kahoot';
+            $('quiz-sub-kahoot').classList.toggle('hidden', quizSub !== 'kahoot');
+            $('quiz-sub-vocab').classList.toggle('hidden', quizSub !== 'vocab');
+            if (quizSub === 'vocab') {
+                closeModalView('page-vocabulary-details', 'page-vocabulary-main');
+                currentViewVocabBookId = null;
+                renderVocabBooks();
+            } else {
+                renderKahoots();
+            }
+            updateQuizSubUI();
+            icons();
+        }
+
         function renderVocabBooks() {
             const grid = $('vocabBookGrid');
             if (state.vocabBooks.length === 0) {
@@ -2716,6 +2794,8 @@
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
             },
             'set-theme': (t) => setTheme(t.dataset.theme),
+            'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode === 'edit'); renderSchedule(); },
+            'set-quiz-sub': (t) => switchQuizSub(t.dataset.sub),
             'account-logout': async () => {
                 $('accountMenu').classList.add('hidden');
                 await signOut(auth);
@@ -2996,8 +3076,7 @@
             'evaluation': ['courses', 'reviews', 'materials'],
             // 自學課程與測驗的管理表單會關聯「學校課程」，故需一併載入 courses
             'self-study': ['ssCourses', 'ssUnits', 'courses'],
-            'vocabulary': ['vocabBooks', 'vocabWords'],
-            'quiz':       ['kahoots', 'courses'],
+            'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords'],
             'about':      [],
             // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
             'management': ['news', 'links', 'courses', 'reviews', 'materials', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
