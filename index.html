@@ -32,6 +32,41 @@
         @keyframes pageFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .page-enter { animation: pageFade 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
 
+        /* 課程卡 / 評價卡進場：純淡入、不位移，快速即時出現 */
+        @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
+        .list-enter { animation: cardEnter 0.2s ease-out both; }
+
+        /* ===== 品牌化中性色：避免純黑白，中性色向青綠(主色)微調 ===== */
+        /* 深色品牌表面(頁首/Hero)：兩種模式皆用「青碳色」，取代藍黑 */
+        .bg-slate-900 { background-color: #101f1b !important; }
+        .bg-slate-800 { background-color: #17302a !important; }
+        .border-slate-800 { border-color: #142520 !important; }
+        .border-slate-700 { border-color: #234840 !important; }
+
+        /* 淺色模式：底色帶一絲青綠(冷白→柔綠灰)，文字用深墨綠而非純黑 */
+        html:not(.dark) body,
+        html:not(.dark) .bg-slate-50,
+        html:not(.dark) .bg-slate-50\/50,
+        html:not(.dark) .bg-slate-50\/40 { background-color: #edf3f1 !important; }
+        html:not(.dark) .bg-white { background-color: #fbfdfc !important; }
+        html:not(.dark) .bg-slate-100 { background-color: #e2ece8 !important; }
+        html:not(.dark) .text-slate-900,
+        html:not(.dark) .text-slate-800 { color: #182420 !important; }
+
+        /* 深色模式：青碳色系、分層表面、柔米白字(非純白，降眩光) */
+        html.dark body { background-color: #0c1613; color: #dce8e3; }
+        html.dark .bg-white { background-color: #15241f !important; }
+        html.dark .bg-slate-50, html.dark .bg-slate-50\/50, html.dark .bg-slate-50\/40 { background-color: #0c1613 !important; }
+        html.dark .bg-slate-100 { background-color: #203630 !important; }
+        html.dark .bg-slate-200 { background-color: #2b453d !important; }
+        html.dark .text-slate-900, html.dark .text-slate-800 { color: #eaf3ef !important; }
+        html.dark .text-slate-700, html.dark .text-slate-600 { color: #b6c9c2 !important; }
+        html.dark .text-slate-500, html.dark .text-slate-400 { color: #7f958e !important; }
+        html.dark .border-slate-100, html.dark .border-slate-200 { border-color: #26403a !important; }
+        html.dark .shadow-sm, html.dark .shadow-md, html.dark .shadow-xl, html.dark .shadow-2xl { box-shadow: 0 6px 20px rgba(0,0,0,0.45) !important; }
+        html.dark .bg-teal-50 { background-color: #123a33 !important; }
+        html.dark .bg-teal-50 .text-slate-800 { color: #eafff8 !important; }
+
         /* 手機版分頁列左右淡出，暗示還能水平捲動 */
         @media (max-width: 767px) {
             #mainNav {
@@ -40,6 +75,10 @@
             }
         }
     </style>
+    <script>
+        // 開站前先套用上次使用者選的顯示模式，避免閃爍
+        try { if (localStorage.getItem('eeblackcat-theme') === 'dark') document.documentElement.classList.add('dark'); } catch (e) {}
+    </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
 
@@ -58,11 +97,23 @@
                 <!-- JS 動態生成分頁按鈕 -->
             </nav>
 
-            <div class="order-2 md:order-none">
+            <div class="relative order-2 md:order-none">
                 <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
                     <i data-lucide="log-in" class="w-4 h-4"></i>
                     <span>登入 / 註冊</span>
                 </button>
+                <!-- 已登入帳號選單 -->
+                <div id="accountMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border-2 border-slate-100 py-2 z-50 text-slate-700">
+                    <div class="px-4 pt-1 pb-2 text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">帳號</div>
+                    <div class="px-4 py-3">
+                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">顯示模式</div>
+                        <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
+                            <button data-action="set-theme" data-theme="light" class="theme-opt flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1"><i data-lucide="sun" class="w-3.5 h-3.5 pointer-events-none"></i> 淺色</button>
+                            <button data-action="set-theme" data-theme="dark" class="theme-opt flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1"><i data-lucide="moon" class="w-3.5 h-3.5 pointer-events-none"></i> 深色</button>
+                        </div>
+                    </div>
+                    <button data-action="account-logout" class="w-full text-left px-4 py-2.5 text-sm font-black text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-slate-100"><i data-lucide="log-out" class="w-4 h-4 pointer-events-none"></i> 登出</button>
+                </div>
             </div>
         </div>
     </header>
@@ -73,10 +124,10 @@
         <div id="page-home" class="page-section page-enter">
 
             <!-- Hero：未登入 -->
-            <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
+            <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
                 <i data-lucide="home" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
-                    <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">
+                    <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">
                         喵！歡迎來到小黑貓的領地 <span class="animate-bounce">🐾</span>
                     </h2>
                     <p class="text-slate-400 font-medium italic">登入後即可解鎖專屬的自編課表功能！在下方可以查看最新的部族公告與連結。</p>
@@ -84,11 +135,11 @@
             </div>
 
             <!-- Hero：已登入 -->
-            <div id="home-user-hero" class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500 hidden">
+            <div id="home-user-hero" class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-8 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500 hidden">
                 <i data-lucide="calendar-days" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
-                        <h2 class="text-3xl font-black mb-2 flex items-center gap-3">
+                        <h2 class="text-2xl md:text-3xl font-black mb-2 flex items-center gap-3">
                             歡迎回來，<span id="displayUserName" class="text-emerald-400">無名小貓</span> <span class="animate-bounce">🐾</span>
                             <button id="editNameBtn" class="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition"><i data-lucide="edit-3" class="w-4 h-4"></i></button>
                         </h2>
@@ -119,7 +170,7 @@
             </div>
 
             <!-- 共用區塊：最新消息與常用連結 -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-8">
                 <div class="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
                     <div class="flex justify-between items-center mb-6">
                         <h3 class="text-xl font-black text-slate-800 flex items-center gap-2"><i data-lucide="bell" class="w-5 h-5 text-emerald-500"></i> 最新消息</h3>
@@ -147,32 +198,21 @@
 
         <!-- ======================== 評價頁面 ======================== -->
         <div id="page-evaluation" class="page-section hidden">
-            <div id="evaluationHero" class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 transition-all duration-300">
-                <i data-lucide="paw-print" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
-                <i data-lucide="paw-print" class="paw-print w-20 h-20 bottom-10 left-10 -rotate-12"></i>
-
-                <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
-                    <div class="flex-1">
-                        <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">
-                            喵！這是電子系的秘密基地 <span class="animate-bounce">🐾</span>
-                        </h2>
-                        <p class="text-slate-400 mb-8 font-medium italic">所有的課程評價與資源，都由小黑貓幫你好好珍藏。</p>
-                        <div class="relative max-w-xl">
-                            <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5"></i>
-                            <input type="text" id="searchInput" placeholder="搜尋課程、教授或是悄悄話..."
-                                class="w-full pl-12 pr-12 py-4 rounded-3xl bg-slate-800 text-white border-2 border-slate-700 focus:outline-none focus:border-emerald-500 shadow-inner text-lg transition-all placeholder:text-slate-500">
-                            <button id="searchClear" data-action="clear-search" class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
-                                <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
-                            </button>
-                        </div>
-                    </div>
+            <div id="evaluationHero" class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 shadow-2xl relative overflow-hidden border-4 border-slate-800 transition-all duration-300">
+                <div class="relative">
+                    <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5"></i>
+                    <input type="text" id="searchInput" placeholder="搜尋課程、教授或是悄悄話..."
+                        class="w-full pl-12 pr-12 py-4 rounded-3xl bg-slate-800 text-white border-2 border-slate-700 focus:outline-none focus:border-emerald-500 shadow-inner text-lg transition-all placeholder:text-slate-500">
+                    <button id="searchClear" data-action="clear-search" class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
+                        <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
+                    </button>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 md:gap-8">
                 <div class="lg:col-span-8 relative">
 
-                    <div id="course-list-view" class="animate-[slideUp_0.3s_ease-out]">
+                    <div id="course-list-view">
                         <div class="mb-10">
                             <div class="flex items-center justify-between px-2 mb-4">
                                 <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
@@ -201,14 +241,14 @@
                         </div>
                     </div>
 
-                    <div id="course-detail-view" class="hidden animate-[slideUp_0.3s_ease-out]">
+                    <div id="course-detail-view" class="hidden">
                         <button id="backToCoursesBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
                             <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回課程地圖
                         </button>
 
-                        <div class="bg-slate-900 rounded-[2rem] p-8 mb-8 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500 scroll-mt-24">
+                        <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-8 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500 scroll-mt-24">
                             <div class="relative z-10">
-                                <h2 id="detailCourseTitle" class="text-3xl font-black mb-2"></h2>
+                                <h2 id="detailCourseTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                                 <p id="detailCourseInstructor" class="text-emerald-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
                                 <div id="detailCourseFeatures" class="flex flex-wrap gap-2"></div>
                             </div>
@@ -270,15 +310,15 @@
 
         <!-- ======================== 管理頁面 ======================== -->
         <div id="page-management" class="page-section hidden">
-            <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+            <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
-                    <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">喵的後台管理 <span class="animate-bounce">🛠️</span></h2>
+                    <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">喵的後台管理 <span class="animate-bounce">🛠️</span></h2>
                     <p class="text-slate-400 font-medium italic">這裡是高級貓咪的專屬空間，可以擴充寶藏庫以及管理部族。</p>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
                 <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
                     <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><i data-lucide="upload" class="w-5 h-5"></i> 擴充寶藏庫</h3>
                     <div class="space-y-4">
@@ -313,11 +353,11 @@
         <!-- ======================== 課程自學頁面 ======================== -->
         <div id="page-self-study" class="page-section hidden">
             <div id="page-self-study-main">
-                <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <i data-lucide="book-open" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
-                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
-                            <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">課程自學資源 <span class="animate-bounce">📖</span></h2>
+                            <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">課程自學資源 <span class="animate-bounce">📖</span></h2>
                             <p class="text-slate-400 font-medium italic">這裡為你整理了滿滿的學習乾貨，包含程式語言與電子電路的核心概念，自己動手豐衣足食喵！</p>
                         </div>
                         <button id="addSelfStudyCourseBtn" class="hidden px-6 py-3 font-bold bg-fuchsia-500 text-white rounded-2xl hover:bg-fuchsia-400 transition-all shadow-lg flex items-center gap-2">
@@ -334,10 +374,10 @@
                 <button id="backToSSCoursesBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回自學列表
                 </button>
-                <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500">
-                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-emerald-500">
+                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
-                            <h2 id="ssDetailsTitle" class="text-3xl font-black mb-2"></h2>
+                            <h2 id="ssDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                             <p class="text-emerald-400 font-bold text-sm flex items-center gap-2"><i data-lucide="link" class="w-4 h-4"></i> <span id="ssDetailsLinkedCourse"></span></p>
                         </div>
                         <button id="addSelfStudyUnitBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2">
@@ -354,11 +394,11 @@
         <!-- ======================== 單字庫頁面 ======================== -->
         <div id="page-vocabulary" class="page-section hidden">
             <div id="page-vocabulary-main">
-                <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <i data-lucide="library" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
-                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                    <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
-                            <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">專屬單字庫 <span class="animate-bounce">📖</span></h2>
+                            <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">專屬單字庫 <span class="animate-bounce">📖</span></h2>
                             <p class="text-slate-400 font-medium italic">在這裡建立並收納你的專業字彙，包含英譯英與字根字首，準備好就能直接進行擂台測驗喵！</p>
                         </div>
                         <button id="addVocabBookBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
@@ -371,14 +411,14 @@
                 </div>
             </div>
 
-            <div id="page-vocabulary-details" class="hidden animate-[slideUp_0.3s_ease-out]">
+            <div id="page-vocabulary-details" class="hidden">
                 <button id="backToVocabBooksBtn" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm">
                     <i data-lucide="arrow-left" class="w-4 h-4"></i> 返回單字庫
                 </button>
-                <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-blue-500">
-                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-xl relative overflow-hidden border-4 border-blue-500">
+                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
-                            <h2 id="vocabDetailsTitle" class="text-3xl font-black mb-2"></h2>
+                            <h2 id="vocabDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                             <p id="vocabDetailsSubtitle" class="text-blue-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
                             <button id="startVocabQuizBtn" class="px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2">
                                 <i data-lucide="gamepad-2" class="w-5 h-5"></i> 進入單字擂台挑戰
@@ -397,11 +437,11 @@
 
         <!-- ======================== 測驗頁面 ======================== -->
         <div id="page-quiz" class="page-section hidden">
-            <div class="bg-slate-900 rounded-[2rem] p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+            <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-10 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
-                <div class="relative z-10 flex flex-col md:flex-row items-center gap-8">
+                <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                     <div class="flex-1">
-                        <h2 class="text-3xl font-bold mb-3 flex items-center gap-3">喵的挑戰擂台 <span class="animate-bounce">🎮</span></h2>
+                        <h2 class="text-2xl md:text-3xl font-bold mb-3 flex items-center gap-3">喵的挑戰擂台 <span class="animate-bounce">🎮</span></h2>
                         <p class="text-slate-400 font-medium italic">來測試看看你的期中考實力，或是親自為同學們設計幾題魔鬼挑戰！</p>
                     </div>
                     <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
@@ -416,33 +456,72 @@
 
         <!-- ======================== 關於頁面 ======================== -->
         <div id="page-about" class="page-section hidden">
-            <div class="bg-white rounded-[3rem] p-8 md:p-16 shadow-2xl border-2 border-slate-100 max-w-4xl mx-auto text-center mt-6 relative overflow-hidden">
-                <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-50 rounded-full mix-blend-multiply opacity-70"></div>
-                <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-rose-50 rounded-full mix-blend-multiply opacity-70"></div>
+            <div class="max-w-4xl mx-auto mt-6 space-y-6 md:space-y-8">
 
-                <img src="image.png" alt="彰師電子小黑貓" class="w-24 h-24 rounded-full object-cover shadow-lg mx-auto mb-6 relative z-10 animate-bounce border-4 border-emerald-500/20">
-                <h2 class="text-4xl font-black text-slate-900 mb-4 relative z-10">關於彰師電子小黑貓</h2>
-                <p class="text-lg text-slate-600 font-medium mb-10 max-w-2xl mx-auto relative z-10 leading-relaxed">
-                    喵！歡迎來到彰化師範大學電子工程學系專屬的秘密基地。<br><br>
-                    這裡是一個專為大家打造的知識聚落，可以輕鬆交流課程評價、分享珍貴的學習資源與考古題庫，也可以利用擂台挑戰準備期中期末考。希望每隻在此駐足的貓咪，都能在龐大的程式碼與艱澀的微積分中順利存活下來！🐾
-                </p>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
-                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 transition-transform hover:-translate-y-2">
-                        <i data-lucide="heart" class="w-10 h-10 text-rose-500 mx-auto mb-4"></i>
-                        <h3 class="text-lg font-bold text-slate-900 mb-2">評價互助</h3>
-                        <p class="text-sm text-slate-500">留下你最真實的修課心得，幫助未來的學弟妹少走彎路。</p>
-                    </div>
-                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 transition-transform hover:-translate-y-2">
-                        <i data-lucide="shield" class="w-10 h-10 text-amber-500 mx-auto mb-4"></i>
-                        <h3 class="text-lg font-bold text-slate-900 mb-2">部族階位</h3>
-                        <p class="text-sm text-slate-500">從見習生到星族，透過註冊並持續登入，逐步解鎖更高階的資源權限。</p>
-                    </div>
-                    <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100 transition-transform hover:-translate-y-2">
-                        <i data-lucide="rocket" class="w-10 h-10 text-blue-500 mx-auto mb-4"></i>
-                        <h3 class="text-lg font-bold text-slate-900 mb-2">共同成長</h3>
-                        <p class="text-sm text-slate-500">除了學校課程，我們也鼓勵大家利用「課程自學」精進實力。</p>
+                <!-- 標題 -->
+                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-xl border-2 border-slate-100 text-center relative overflow-hidden">
+                    <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-50 rounded-full mix-blend-multiply opacity-60"></div>
+                    <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-rose-50 rounded-full mix-blend-multiply opacity-60"></div>
+                    <img src="image.png" alt="彰師電子小黑貓" class="w-20 h-20 rounded-full object-cover shadow-lg mx-auto mb-4 relative z-10 border-4 border-emerald-500/20">
+                    <h2 class="text-2xl md:text-3xl font-black text-slate-900 mb-2 relative z-10">彰師電子小黑貓・使用手冊</h2>
+                    <p class="text-slate-500 font-medium relative z-10">課程評價、學習資源、自編課表，一站幫你搞定 🐾</p>
+                </div>
+
+                <!-- 1. 使用說明 -->
+                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="book-open" class="w-6 h-6 text-emerald-500"></i> 使用說明</h3>
+                    <div class="space-y-4">
+                        <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
+                        <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">首頁：</span>查看最新公告與常用連結；登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。</p></div>
+                        <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
+                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">自學 / 單字庫：</span>使用整理好的自學課程單元與單字冊，單字庫還能開啟測驗自我檢核。</p></div>
+                        <div class="flex gap-3"><i data-lucide="gamepad-2" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">測驗：</span>Kahoot 式的挑戰擂台，適合考前複習（戰士以上解鎖）。</p></div>
+                        <div class="flex gap-3"><i data-lucide="settings-2" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">帳號選單：</span>點右上角已登入的帳號，可切換深色／淺色模式（會依帳號記住）或登出。</p></div>
                     </div>
                 </div>
+
+                <!-- 2. 階級權限說明 -->
+                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-xl font-black text-slate-900 mb-2 flex items-center gap-2"><i data-lucide="shield" class="w-6 h-6 text-amber-500"></i> 階級權限說明</h3>
+                    <p class="text-sm text-slate-500 mb-5">部族階位由星族（管理員）指派，階位越高、解鎖的資源越多。以下為一般成員的階位：</p>
+                    <div class="space-y-3">
+                        <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                            <span class="px-3 py-1 rounded-lg text-xs font-black bg-slate-400 text-white border border-slate-500 shrink-0 mt-0.5">見習生</span>
+                            <p class="text-sm text-slate-600 leading-relaxed">註冊登入即成為見習生。可解鎖 <span class="font-bold text-slate-800">自編課表</span>，並保存個人設定與階位。（瀏覽課程、發表評價人人皆可，免登入）</p>
+                        </div>
+                        <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                            <span class="px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white border border-rose-600 shrink-0 mt-0.5">戰士</span>
+                            <p class="text-sm text-slate-600 leading-relaxed">見習生的全部功能，再加上 <span class="font-bold text-slate-800">戰士寶藏庫</span>（共享資源與考古題）與 <span class="font-bold text-slate-800">測驗挑戰擂台</span>。</p>
+                        </div>
+                        <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
+                            <span class="px-3 py-1 rounded-lg text-xs font-black bg-amber-500 text-white border border-amber-600 shrink-0 mt-0.5">族長</span>
+                            <p class="text-sm text-slate-600 leading-relaxed">戰士的全部權限，再解鎖 <span class="font-bold text-slate-800">族長專屬秘寶</span>——更進階的資源與資料。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 3. 更新內容 -->
+                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-fuchsia-500"></i> 更新內容</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                            <i data-lucide="star" class="w-8 h-8 text-emerald-500 mb-3"></i>
+                            <h4 class="font-black text-slate-900 mb-2">課程與評價</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">匯入電子系課程（115 上 ／ 114 下，含上課教室）；系選修細分為固態／通訊／SOC，並新增通識、校定必修分類；課程卡難度視覺化，搜尋與篩選全面優化。</p>
+                        </div>
+                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                            <i data-lucide="calendar-days" class="w-8 h-8 text-teal-500 mb-3"></i>
+                            <h4 class="font-black text-slate-900 mb-2">自編課表</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">可搜尋課程庫連動評價；同一堂課連堂自動合併成一格；自動顯示上課教室；新增「現在／下一堂」摘要與今日欄位高亮，並支援一鍵清除。</p>
+                        </div>
+                        <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                            <i data-lucide="palette" class="w-8 h-8 text-fuchsia-500 mb-3"></i>
+                            <h4 class="font-black text-slate-900 mb-2">體驗與效能</h4>
+                            <p class="text-xs text-slate-500 leading-relaxed">新增深色／淺色模式（依帳號記住）；手機版排版全面優化；載入加速與骨架屏；介面動畫更順、更即時。</p>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </div>
 
@@ -451,7 +530,7 @@
     <!-- ======================== Modal 區塊 ======================== -->
     <!-- 編輯課表 -->
     <div id="scheduleModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border-t-8 border-teal-400 text-center">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl border-t-8 border-teal-400 text-center">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">編輯這節課</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editScheduleCellId">
@@ -475,7 +554,7 @@
 
     <!-- 修改個人名稱 -->
     <div id="nameModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl border-t-8 border-emerald-400 text-center">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl border-t-8 border-emerald-400 text-center">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">設定你的貓咪名稱</h3>
             <div class="space-y-4">
                 <input type="text" id="editDisplayName" maxlength="15" placeholder="例如：橘貓學長" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 font-bold text-lg text-center">
@@ -489,7 +568,7 @@
 
     <!-- 新增最新消息 -->
     <div id="newsModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">發布最新消息</h3>
             <div class="space-y-4">
                 <select id="newsCategory" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none font-bold text-lg outline-none focus:ring-2 focus:ring-emerald-500">
@@ -509,7 +588,7 @@
 
     <!-- 新增常用連結 -->
     <div id="linkModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-blue-500">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">新增常用連結</h3>
             <div class="space-y-4">
                 <input type="text" id="linkTitle" maxlength="30" placeholder="連結標題 (例如：校務行政系統)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
@@ -524,7 +603,7 @@
 
     <!-- 單字冊 -->
     <div id="vocabBookModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-blue-500">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-500">
             <h3 id="vocabBookModalTitle" class="text-2xl font-bold mb-6 text-slate-900">創建單字冊</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editVocabBookId" value="">
@@ -540,7 +619,7 @@
 
     <!-- 單字 -->
     <div id="vocabWordModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 shadow-2xl border-t-8 border-blue-500 my-8">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-2xl p-6 md:p-8 shadow-2xl border-t-8 border-blue-500 my-8">
             <h3 id="vocabWordModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增單字</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editVocabWordId" value="">
@@ -578,7 +657,7 @@
 
     <!-- 新增課程 -->
     <div id="courseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-emerald-500">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">幫小黑貓紀錄新課程</h3>
             <div class="space-y-4">
                 <input type="text" id="newCourseName" maxlength="50" placeholder="課程名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
@@ -631,7 +710,7 @@
 
     <!-- 自學課程 -->
     <div id="ssCourseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl border-t-8 border-fuchsia-500">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-fuchsia-500">
             <h3 id="ssCourseModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學課程</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editSSCourseId" value="">
@@ -649,7 +728,7 @@
 
     <!-- 自學單元 -->
     <div id="ssUnitModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 shadow-2xl border-t-8 border-emerald-500 my-8">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-2xl p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500 my-8">
             <h3 id="ssUnitModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學單元</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editSSUnitId" value="">
@@ -685,7 +764,7 @@
 
     <!-- 登入 / 註冊 -->
     <div id="adminModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 shadow-2xl text-center">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl text-center">
              <img src="image.png" alt="登入認證" class="w-16 h-16 rounded-full object-cover shadow-md mx-auto mb-4 border-2 border-emerald-500/20">
             <h3 id="modalTitle" class="text-2xl font-bold mb-2">身分認證</h3>
             <p class="text-slate-400 text-xs mb-6">歡迎來到黑貓的領地</p>
@@ -700,7 +779,7 @@
 
     <!-- 刪除確認 -->
     <div id="deleteModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-sm p-8 text-center shadow-2xl">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-8 text-center shadow-2xl">
             <div class="w-20 h-20 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-6 border-4 border-red-100">
                 <i data-lucide="trash-2" class="w-10 h-10 text-red-500"></i>
             </div>
@@ -715,7 +794,7 @@
 
     <!-- 創建 / 編輯測驗 -->
     <div id="createKahootModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-3xl p-8 shadow-2xl my-8">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-3xl p-6 md:p-8 shadow-2xl my-8">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
                     <i data-lucide="gamepad-2" class="text-emerald-500 w-6 h-6"></i> 創建 / 編輯測驗
@@ -790,7 +869,7 @@
 
     <!-- 星族大會 -->
     <div id="starclanModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-w-2xl p-8 shadow-2xl max-h-[85vh] flex flex-col border-t-8 border-fuchsia-500">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-2xl p-6 md:p-8 shadow-2xl max-h-[85vh] flex flex-col border-t-8 border-fuchsia-500">
             <div class="flex justify-between items-center mb-6">
                 <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
                     <i data-lucide="sparkles" class="text-fuchsia-500 w-7 h-7"></i> 星族大會
@@ -1217,12 +1296,21 @@
                         span = scheduleSpanLength(day, p.id);
                         for (let i = 1; i < span; i++) covered.add(`${day}-${p.id + i}`);
                     }
+                    // 地點：優先用手動填的，否則從連動課程的教室對照表自動帶入
+                    let loc = cell.location || '';
+                    if (!loc && cell.courseId) {
+                        const linked = state.courses.find(x => x.id === cell.courseId);
+                        if (linked) loc = courseLocation(linked);
+                    }
                     const body = hasContent
                         ? `<div class="font-black text-slate-800 text-xs md:text-sm mb-1 break-words leading-tight">${escapeHTML(cell.courseName)}</div>` +
-                          (cell.location ? `<div class="text-[10px] md:text-xs text-slate-500 font-bold bg-slate-100 rounded-md inline-block px-1.5 py-0.5">@ ${escapeHTML(cell.location)}</div>` : '')
+                          (loc ? `<div class="text-[10px] md:text-xs text-teal-700 font-bold bg-white/80 border border-teal-200 rounded-md inline-block px-1.5 py-0.5">@ ${escapeHTML(loc)}</div>` : '')
                         : `<div class="text-slate-200 group-hover:text-teal-400 text-lg font-black transition-colors pointer-events-none">＋</div>`;
+                    const tdClass = hasContent
+                        ? 'schedule-cell cursor-pointer bg-teal-50 rounded-xl p-1.5 md:p-2 text-center transition-all hover:bg-teal-100 hover:shadow-lg border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 relative group min-w-[100px] h-16 md:h-24 align-middle'
+                        : 'schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-all hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] h-16 md:h-24 align-middle';
                     return `<td id="cell-${cellId}" data-action="edit-schedule" data-cell="${cellId}" ${span > 1 ? `rowspan="${span}"` : ''}
-                        class="schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-all hover:bg-teal-50 hover:shadow-md border-2 border-slate-100 relative group min-w-[100px] h-16 md:h-24 shadow-sm align-middle">${body}</td>`;
+                        class="${tdClass}">${body}</td>`;
                 }).join('');
 
                 return `<tr>${head}${cells}</tr>`;
@@ -1352,7 +1440,7 @@
                 return;
             }
 
-            grid.innerHTML = filtered.map(course => {
+            grid.innerHTML = filtered.map((course, idx) => {
                 const a = courseAverages(course.id);
                 const metric = (icon, iconColor, label, value) => {
                     const dots = value === '-' ? '' : `<span class="flex gap-0.5">${drawMetricDots(Math.round(parseFloat(value)) || 0, iconColor.replace('text-', 'bg-'))}</span>`;
@@ -1466,8 +1554,8 @@
                     <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">${label}</span>
                     <div class="flex gap-1">${drawMetricDots(value, color)}</div>
                 </div>`;
-            $('reviewsList').innerHTML = filtered.map(r => `
-                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all">
+            $('reviewsList').innerHTML = filtered.map((r) => `
+                <div class="list-enter bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all">
                     <div class="flex justify-between items-start mb-5">
                         <div>
                             <h4 class="text-xl font-black text-slate-900">${escapeHTML(r.courseName)}</h4>
@@ -1498,7 +1586,7 @@
             if (reviewWizardStep === 0) {
                 indicator.classList.add('hidden');
                 container.innerHTML = `
-                    <div class="space-y-6 animate-[slideUp_0.2s_ease-out]">
+                    <div class="space-y-6 list-enter">
                         <div class="text-center">
                             <div class="inline-flex items-center justify-center w-20 h-20 bg-emerald-100 rounded-full mb-3 text-emerald-500 shadow-inner">
                                 <i data-lucide="paw-print" class="w-10 h-10"></i>
@@ -1527,7 +1615,7 @@
                     </button>`;
 
                 container.innerHTML = `
-                    <div class="flex flex-col h-full justify-center animate-[slideUp_0.2s_ease-out]">
+                    <div class="flex flex-col h-full justify-center list-enter">
                         <h4 class="text-2xl font-black text-slate-900 text-center mb-6">${q.title}</h4>
                         <div class="grid grid-cols-2 gap-3 mb-3">${[0, 1, 2, 3].map(i => scoreBtn(i)).join('')}</div>
                         ${scoreBtn(4, 'w-full mb-4')}
@@ -1538,7 +1626,7 @@
             } else {
                 indicator.innerHTML = wizardDots(5);
                 container.innerHTML = `
-                    <div class="flex flex-col h-full animate-[slideUp_0.2s_ease-out]">
+                    <div class="flex flex-col h-full list-enter">
                         <h4 class="text-xl font-black text-slate-900 mb-2">最後一步：修課心得</h4>
                         <p class="text-xs font-medium text-slate-400 mb-4">喵，分享一下這門課的有趣（或是痛苦）之處吧...</p>
                         <textarea id="wizardComment" maxlength="500" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none flex-1 min-h-[160px] resize-none transition-all font-medium mb-5 text-slate-700 placeholder:text-slate-400" placeholder="這門課有什麼特別的嗎？..."></textarea>
@@ -2418,29 +2506,74 @@
             } catch { showToast("錯誤：找不到這個信箱，或是輸入格式不對喵..."); }
         }
 
-        async function handleAdminBtn() {
+        function handleAdminBtn() {
             if (auth.currentUser && !auth.currentUser.isAnonymous) {
-                await signOut(auth);
-                showToast("掰掰，期待再見到你喵！");
+                $('accountMenu').classList.toggle('hidden');
+                updateThemeToggleUI();
             } else {
                 openModal('adminModal');
+            }
+        }
+
+        /* ==========================================================
+         * 顯示模式（深色 / 淺色）
+         * ========================================================== */
+        let currentTheme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+
+        function updateThemeToggleUI() {
+            document.querySelectorAll('.theme-opt').forEach(btn => {
+                const on = btn.dataset.theme === currentTheme;
+                btn.classList.toggle('bg-white', on);
+                btn.classList.toggle('text-emerald-600', on);
+                btn.classList.toggle('shadow-sm', on);
+                btn.classList.toggle('text-slate-400', !on);
+            });
+        }
+
+        function applyTheme(theme) {
+            currentTheme = theme === 'dark' ? 'dark' : 'light';
+            document.documentElement.classList.toggle('dark', currentTheme === 'dark');
+            try { localStorage.setItem('eeblackcat-theme', currentTheme); } catch (e) {}
+            updateThemeToggleUI();
+        }
+
+        async function setTheme(theme) {
+            applyTheme(theme);
+            const u = auth.currentUser;
+            if (u && !u.isAnonymous) {
+                try { await updateDoc(doc(db, PATHS.users, u.uid), { theme: currentTheme }); } catch (e) {}
             }
         }
 
         async function handleAuthState(user) {
             if (user && !user.isAnonymous) {
                 const userRef = doc(db, PATHS.users, user.uid);
-                const userSnap = await getDoc(userRef);
-                if (!userSnap.exists()) {
-                    await setDoc(userRef, { email: user.email, role: '見習生', displayName: '無名小貓', schedule: {}, createdAt: Date.now() });
-                    currentUserRole = '見習生';
-                    userDisplayName = '無名小貓';
-                    userSchedule = {};
-                } else {
-                    const data = userSnap.data();
-                    currentUserRole = data.role || '見習生';
-                    userDisplayName = data.displayName || '無名小貓';
-                    userSchedule = data.schedule || {};
+                let userSnap;
+                try {
+                    userSnap = await getDoc(userRef);
+                } catch (e) {
+                    console.error('讀取使用者資料失敗（可能離線）:', e);
+                    showToast('連線失敗，請確認網路、並用 http(s) 開啟後重新整理喵 🐾');
+                    return;
+                }
+                try {
+                    if (!userSnap.exists()) {
+                        await setDoc(userRef, { email: user.email, role: '見習生', displayName: '無名小貓', schedule: {}, theme: currentTheme, createdAt: Date.now() });
+                        currentUserRole = '見習生';
+                        userDisplayName = '無名小貓';
+                        userSchedule = {};
+                    } else {
+                        const data = userSnap.data();
+                        currentUserRole = data.role || '見習生';
+                        userDisplayName = data.displayName || '無名小貓';
+                        userSchedule = data.schedule || {};
+                        // 套用此帳號上次選擇的顯示模式
+                        if (data.theme) applyTheme(data.theme);
+                    }
+                } catch (e) {
+                    console.error('建立使用者資料失敗:', e);
+                    showToast('資料同步失敗，請稍後再試喵 🐾');
+                    return;
                 }
                 currentUserLevel = ROLE_LEVELS[currentUserRole] || 1;
                 isAdmin = (currentUserLevel === 5);
@@ -2485,7 +2618,11 @@
             'pick-schedule-course': (t) => {
                 const c = state.courses.find(x => x.id === t.dataset.id);
                 if (!c) return;
-                setVals({ editScheduleCourse: c.name, editScheduleCourseId: c.id });
+                const vals = { editScheduleCourse: c.name, editScheduleCourseId: c.id };
+                // 自動帶入爬取到的上課地點（若對照表有、且地點欄目前為空）
+                const loc = courseLocation(c);
+                if (loc && !getVal('editScheduleLocation')) vals.editScheduleLocation = loc;
+                setVals(vals);
                 $('editScheduleCourseResults').classList.add('hidden');
             },
             'start-kahoot':    (t) => startKahoot(t.dataset.id),
@@ -2577,6 +2714,12 @@
             'focus-review-wizard': () => {
                 const el = $('reviewWizardBody');
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            },
+            'set-theme': (t) => setTheme(t.dataset.theme),
+            'account-logout': async () => {
+                $('accountMenu').classList.add('hidden');
+                await signOut(auth);
+                showToast("掰掰，期待再見到你喵！");
             }
         };
 
@@ -2592,6 +2735,12 @@
             const scr = $('editScheduleCourseResults');
             if (scr && !scr.classList.contains('hidden') && !e.target.closest('#editScheduleCourseResults') && e.target.id !== 'editScheduleCourse') {
                 scr.classList.add('hidden');
+            }
+
+            // 點擊帳號選單外部時關閉
+            const am = $('accountMenu');
+            if (am && !am.classList.contains('hidden') && !e.target.closest('#accountMenu') && !e.target.closest('#adminBtn')) {
+                am.classList.add('hidden');
             }
 
             // 通用 Modal 關閉按鈕
@@ -2679,6 +2828,55 @@
             { name: '通訊系統分析與模擬', instructor: '陳', year: '通訊', semester: '2' },
             { name: 'VLSI設計導論', instructor: '陳', year: 'SOC', semester: '2' }
         ];
+
+        // 🐾 課程 → 上課地點對照表（key: 課名|教師姓氏|學期，例如 "電子學(1)|林|1"）
+        // 由排程任務從教務系統爬取教室後自動填入
+        const COURSE_LOCATIONS = {
+            "程式設計|鄭|1": "教學一館 33204",
+            "程式設計|張|1": "力行館 31102",
+            "計算機概論|陳|1": "工學院 E404教室",
+            "計算機概論|黃|1": "工學院 E404教室",
+            "電子工程導論與專業倫理|柯|1": "教學一館 33404",
+            "微積分(1)|陳|1": "教學一館 33404",
+            "普通物理(1)|柯|1": "教學一館 33404",
+            "數位邏輯設計技術|黃|1": "力行館 31102",
+            "工程數學(2)|洪|1": "教學二館 34304",
+            "電路學(2)|張|1": "教學二館 34304",
+            "電子學(1)|林|1": "教學二館 34204",
+            "機率與統計|陳|1": "教學二館 34204",
+            "近代物理|陳|1": "教學二館 34304",
+            "電子技術(1)|林|1": "工學院 EB214",
+            "通訊系統分析與模擬|陳|1": "工學院 E414",
+            "硬體描述語言|黃|1": "工學院 E406",
+            "通訊原理|熊|1": "工學院 E404教室",
+            "計算機組織|張|1": "工學院 E404教室",
+            "電子技術(3)|陳|1": "工學院 EB214",
+            "半導體元件(2)|吳|1": "教學二館 34102",
+            "電磁學(2)|何|1": "教學二館 34204",
+            "電子學(3)|陳|1": "教學一館 33404",
+            "線性代數|陳|2": "教學二館 34303",
+            "數位邏輯|黃|2": "教學二館 34201",
+            "工程數學(1)|洪|2": "教學二館 34101",
+            "電路學(1)|林|2": "教學二館 34303",
+            "電路學(1)|柯|2": "教學二館 34303",
+            "普通物理(2)|柯|2": "教學二館 34204",
+            "微積分(2)|陳|2": "教學二館 34204",
+            "電子學(2)|陳|2": "教學一館 33404",
+            "半導體元件(1)|吳|2": "教學二館 34204",
+            "進階程式設計|張|2": "力行館 31102",
+            "電磁學(1)|何|2": "教學二館 34201",
+            "訊號與系統|洪|2": "教學二館 34303",
+            "電子技術(2)|陳|2": "工學院 EB214",
+            "神經網路加速技術|陳|2": "工學院 E404教室",
+            "系統晶片設計實務專題(1)|陳|2": "工學院 E406",
+            "光電實務專題(1)|陳|2": "工學院 E408電子系會議室",
+            "微波與通訊實務專題(1)|熊|2": "工學院 E414",
+            "數位通訊概論|熊|2": "教學一館 33302教室",
+            "通訊系統分析與模擬|陳|2": "工學院 E414",
+            "VLSI設計導論|陳|2": "工學院 E406",
+        };
+        const courseKey = (c) => `${c.name}|${c.instructor}|${c.semester}`;
+        const courseLocation = (c) => COURSE_LOCATIONS[courseKey(c)] || '';
 
         async function importEECourses() {
             if (currentUserLevel < 4) return showToast("喵，只有巫醫以上才能匯入課程！");
@@ -2782,7 +2980,7 @@
         const SUBSCRIPTIONS = [
             { key: 'news',       path: PATHS.news,       sort: byNewest, render: () => renderNews() },
             { key: 'links',      path: PATHS.links,      sort: byNewest, render: () => renderQuickLinks() },
-            { key: 'courses',    path: PATHS.courses,    sort: null,     render: () => { renderCourseSelect(); renderCourseGrid(); if (reviewWizardStep === 0) renderReviewWizard(); } },
+            { key: 'courses',    path: PATHS.courses,    sort: null,     render: () => { renderCourseSelect(); renderCourseGrid(); if (reviewWizardStep === 0) renderReviewWizard(); if (auth.currentUser && !auth.currentUser.isAnonymous) renderSchedule(); } },
             { key: 'reviews',    path: PATHS.reviews,    sort: byNewest, render: () => { renderReviews(); renderCourseGrid(); } },
             { key: 'materials',  path: PATHS.materials,  sort: byNewest, render: () => renderMaterials() },
             { key: 'kahoots',    path: PATHS.kahoots,    sort: byNewest, render: () => renderKahoots() },
