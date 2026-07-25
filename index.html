@@ -90,6 +90,13 @@
         html.dark .bg-amber-50\/50 h4 { color: #fcd34d !important; }
         html.dark .bg-emerald-50 { background-color: rgba(16,90,70,0.35) !important; }
 
+        /* 過往更新：收合列（拿掉瀏覽器預設三角形，改用自己的箭頭） */
+        details.chg > summary { list-style: none; }
+        details.chg > summary::-webkit-details-marker { display: none; }
+        details.chg[open] .chg-chev { transform: rotate(180deg); }
+        details.chg > summary:hover { background-color: rgba(15, 23, 42, 0.03); }
+        html.dark details.chg > summary:hover { background-color: rgba(255, 255, 255, 0.04); }
+
         /* 閱讀模式手機版：整週(一~五)塞進一個畫面，免左右滑 */
         @media (max-width: 767px) {
             #scheduleTable.sched-compact { min-width: 0 !important; width: 100% !important; border-spacing: 3px !important; }
@@ -649,27 +656,17 @@
                     </div>
                 </div>
 
-                <!-- 3. 最新更新（條列） -->
+                <!-- 3. 最新更新（由 CHANGELOG 自動渲染，不要手動改這裡） -->
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
-                    <h3 class="text-xl font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-fuchsia-500"></i> 最新更新</h3>
-                    <ul class="list-disc pl-5 space-y-2.5 text-sm text-slate-600 leading-relaxed marker:text-emerald-500">
-                        <li><span class="font-bold text-slate-800">英文閱讀 + 查字典：</span>新增「測驗 → 閱讀」子頁,收錄 Global Voices 英文文章;<span class="font-bold text-slate-800">點任一個英文字</span>就跳出英英解釋小卡,連定義裡的字也能點,可一層層往下查,並附劍橋連結。</li>
-                        <li><span class="font-bold text-slate-800">學習三合一：</span>單字庫整併進「測驗」頁,分成「挑戰擂台 / 單字庫 / 閱讀」三個子分頁。</li>
-                        <li><span class="font-bold text-slate-800">可安裝成 App(PWA)：</span>手機與桌面都能「加到主畫面」,像原生 App 一樣開啟,離線也能讀已載入的內容。</li>
-                        <li><span class="font-bold text-slate-800">上課提醒：</span>課表可開啟上課前 10 分鐘的通知(Android／桌面;iOS 需加到主畫面且支援有限)。</li>
-                        <li><span class="font-bold text-slate-800">課表升級：</span>新增「閱讀／編輯」雙模式,手機閱讀模式一頁看完整週;星族可隨時調整課程分類。</li>
-                        <li><span class="font-bold text-slate-800">深色模式優化：</span>寶藏庫等區塊在深色下的配色更協調。</li>
-                    </ul>
+                    <h3 class="text-xl font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-fuchsia-500"></i> 最新更新</h3>
+                    <p id="latestUpdateMeta" class="text-xs font-bold text-slate-400 mb-4 pl-8"></p>
+                    <ul id="latestUpdateList" class="list-disc pl-5 space-y-2.5 text-sm text-slate-600 leading-relaxed marker:text-emerald-500"></ul>
                 </div>
 
-                <!-- 4. 過往更新 -->
-                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                <!-- 4. 過往更新（預設收合，點標題才展開） -->
+                <div id="pastUpdatesCard" class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100 hidden">
                     <h3 class="text-xl font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="history" class="w-6 h-6 text-slate-400"></i> 過往更新</h3>
-                    <ul class="list-disc pl-5 space-y-2.5 text-sm text-slate-600 leading-relaxed marker:text-slate-300">
-                        <li><span class="font-bold text-slate-800">課程與評價：</span>匯入電子系課程（115 上／114 下，含上課教室）；系選修細分為固態／通訊／SOC，並新增通識、校定必修分類；課程卡難度視覺化，搜尋與篩選全面優化。</li>
-                        <li><span class="font-bold text-slate-800">自編課表：</span>可搜尋課程庫連動評價；同一堂課連堂自動合併成一格；自動顯示上課教室；新增「現在／下一堂」摘要與今日欄位高亮，並支援一鍵清除。</li>
-                        <li><span class="font-bold text-slate-800">體驗與效能：</span>新增深色／淺色模式（依帳號記住）；手機版排版全面優化；載入加速與骨架屏；介面動畫更順、更即時。</li>
-                    </ul>
+                    <div id="pastUpdatesList" class="space-y-3"></div>
                 </div>
 
             </div>
@@ -1368,6 +1365,86 @@
                 const btt = $('backToTopBtn'); if (btt) btt.classList.toggle('hidden', y < 400);
             }, { passive: true });
         })();
+
+        /* ==========================================================
+         * 5.5 更新紀錄（關於小黑貓頁）
+         *
+         * 🐾 發布前只要在 CHANGELOG 陣列「最前面」插入一筆就好：
+         *    最新那筆會自動變成「最新更新」，原本的自動落到收合的「過往更新」。
+         *    不要再去動 HTML，那兩區塊都是這裡渲染出來的。
+         *
+         *    格式：{ date: 'YYYY-MM-DD', title: '這次的主題', items: [['標題','說明'], ...] }
+         * ========================================================== */
+        const CHANGELOG = [
+            {
+                date: '2026-07-25',
+                title: '安全性強化與投資報價',
+                items: [
+                    ['分級教材真正上鎖', '戰士寶藏與族長秘寶改由伺服器端把關。先前階級判斷只做在前端，任何登入者用開發者工具就能撈到高階教材；現在階級不足是真的讀不到。'],
+                    ['投資報價', '理財頁新增「更新現價」，台股與美股都能自動帶入參考價。金鑰存在伺服器端，不會外流。報價為延遲資料，僅供記錄參考，不構成投資建議。'],
+                    ['帳號與資料防護', '補上多項後端規則：不能自行提升階級、評價送出後不可竄改、個人理財資料僅本人可讀，連管理員也看不到。']
+                ]
+            },
+            {
+                date: '2026-07-19',
+                title: '英文閱讀與 App 化',
+                items: [
+                    ['英文閱讀 + 查字典', '新增「測驗 → 閱讀」子頁，收錄 Global Voices 英文文章；點任一個英文字就跳出英英解釋小卡，連定義裡的字也能點，可一層層往下查，並附劍橋連結。'],
+                    ['學習三合一', '單字庫整併進「測驗」頁，分成「挑戰擂台 / 單字庫 / 閱讀」三個子分頁。'],
+                    ['可安裝成 App（PWA）', '手機與桌面都能「加到主畫面」，像原生 App 一樣開啟，離線也能讀已載入的內容。'],
+                    ['上課提醒', '課表可開啟上課前 10 分鐘的通知（Android／桌面；iOS 需加到主畫面且支援有限）。'],
+                    ['課表升級', '新增「閱讀／編輯」雙模式，手機閱讀模式一頁看完整週；星族可隨時調整課程分類。'],
+                    ['深色模式優化', '寶藏庫等區塊在深色下的配色更協調。']
+                ]
+            },
+            {
+                date: '2026-06-28',
+                title: '課程、課表與體驗優化',
+                items: [
+                    ['課程與評價', '匯入電子系課程（115 上／114 下，含上課教室）；系選修細分為固態／通訊／SOC，並新增通識、校定必修分類；課程卡難度視覺化，搜尋與篩選全面優化。'],
+                    ['自編課表', '可搜尋課程庫連動評價；同一堂課連堂自動合併成一格；自動顯示上課教室；新增「現在／下一堂」摘要與今日欄位高亮，並支援一鍵清除。'],
+                    ['體驗與效能', '新增深色／淺色模式（依帳號記住）；手機版排版全面優化；載入加速與骨架屏；介面動畫更順、更即時。']
+                ]
+            }
+        ];
+
+        const fmtChangelogDate = (d) => {
+            const [y, m, day] = String(d).split('-');
+            return `${y} 年 ${Number(m)} 月 ${Number(day)} 日`;
+        };
+        const changelogLis = (items) => items.map(([h, t]) =>
+            `<li><span class="font-bold text-slate-800">${escapeHTML(h)}：</span>${escapeHTML(t)}</li>`).join('');
+
+        function renderChangelog() {
+            if (!Array.isArray(CHANGELOG) || CHANGELOG.length === 0) return;
+            const [latest, ...past] = CHANGELOG;
+
+            const meta = $('latestUpdateMeta');
+            if (meta) meta.textContent = `${fmtChangelogDate(latest.date)}・${latest.title}`;
+            const list = $('latestUpdateList');
+            if (list) list.innerHTML = changelogLis(latest.items);
+
+            const card = $('pastUpdatesCard'), wrap = $('pastUpdatesList');
+            if (!card || !wrap) return;
+            // 沒有更舊的紀錄就整張卡片收起來，不要留一個空框
+            card.classList.toggle('hidden', past.length === 0);
+            wrap.innerHTML = past.map(r => `
+                <details class="chg rounded-2xl bg-slate-50 border border-slate-100 overflow-hidden">
+                    <summary class="flex items-center justify-between gap-3 p-4 cursor-pointer select-none transition-colors">
+                        <span class="min-w-0">
+                            <span class="block text-sm font-black text-slate-800">${escapeHTML(r.title)}</span>
+                            <span class="block text-xs font-bold text-slate-400 mt-0.5">${fmtChangelogDate(r.date)}</span>
+                        </span>
+                        <i data-lucide="chevron-down" class="chg-chev w-5 h-5 text-slate-400 shrink-0 transition-transform"></i>
+                    </summary>
+                    <div class="px-4 pb-4 pt-1">
+                        <ul class="list-disc pl-5 space-y-2.5 text-sm text-slate-600 leading-relaxed marker:text-slate-300">
+                            ${changelogLis(r.items)}
+                        </ul>
+                    </div>
+                </details>`).join('');
+            icons();
+        }
 
         /* ==========================================================
          * 6. 靜態 UI 生成（導覽列 / 消息分類 / 課程篩選 / 測驗選項）
@@ -4110,6 +4187,7 @@
             bindStaticButtons();
             icons();
             renderReviewWizard();
+            renderChangelog();
             updateClassReminderUI();
 
             onAuthStateChanged(auth, handleAuthState);
