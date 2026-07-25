@@ -1,5 +1,15 @@
-/* 彰師電子小黑貓 Service Worker：離線可開 App 外殼 */
-const CACHE = 'blackcat-v1';
+/* 彰師電子小黑貓 Service Worker：離線可開 App 外殼
+ *
+ * 快取策略（改過，請勿改回去）：
+ *   - HTML／導覽請求 → 「網路優先」。發布後使用者一開就是新版，
+ *     不需要手動 Ctrl+Shift+R。斷線時才退回快取。
+ *   - 其他同源靜態資源（圖片、manifest）→ 「快取優先 + 背景更新」，開得快。
+ *
+ * 為什麼要改：舊版對所有請求都是 `cached || network`（一律快取優先），
+ * 結果每次發布後，所有人看到的都還是上一版，而且會一直停在那裡，
+ * 因為新版只默默寫進快取、要等下一次開啟才生效。這是刻意修掉的行為。
+ */
+const CACHE = 'blackcat-v2';
 const CORE = ['./', './index.html', './image.png', './manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -16,21 +26,39 @@ self.addEventListener('activate', (e) => {
   );
 });
 
+// 導覽請求，或明確要 HTML 的請求
+const isHTML = (req) =>
+  req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
+
+const putInCache = (req, res) => {
+  if (res && res.status === 200) {
+    const copy = res.clone();
+    caches.open(CACHE).then((c) => c.put(req, copy));
+  }
+  return res;
+};
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
-  // 只快取同源資源（App 外殼）。跨源（Firebase / 字典 API）一律走網路，交給它們自己處理。
+  // 只處理同源資源。跨源（Firebase／報價 Worker／字典 API）一律走網路。
   if (url.origin !== location.origin) return;
+
+  if (isHTML(req)) {
+    // 網路優先：拿到新版順手更新快取；離線才退回快取
+    e.respondWith(
+      fetch(req)
+        .then((res) => putInCache(req, res))
+        .catch(() => caches.match(req).then((c) => c || caches.match('./index.html')))
+    );
+    return;
+  }
+
+  // 靜態資源：快取優先，同時在背景抓新版寫回快取
   e.respondWith(
     caches.match(req).then((cached) => {
-      const network = fetch(req).then((res) => {
-        if (res && res.status === 200) {
-          const copy = res.clone();
-          caches.open(CACHE).then((c) => c.put(req, copy));
-        }
-        return res;
-      }).catch(() => cached);
+      const network = fetch(req).then((res) => putInCache(req, res)).catch(() => cached);
       return cached || network;
     })
   );
