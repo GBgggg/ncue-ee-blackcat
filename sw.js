@@ -9,7 +9,7 @@
  * 結果每次發布後，所有人看到的都還是上一版，而且會一直停在那裡，
  * 因為新版只默默寫進快取、要等下一次開啟才生效。這是刻意修掉的行為。
  */
-const CACHE = 'blackcat-v2';
+const CACHE = 'blackcat-v3';
 const CORE = ['./', './index.html', './image.png', './manifest.json'];
 
 self.addEventListener('install', (e) => {
@@ -46,9 +46,11 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== location.origin) return;
 
   if (isHTML(req)) {
-    // 網路優先：拿到新版順手更新快取；離線才退回快取
+    // 網路優先，且用 cache:'reload' 繞過瀏覽器自己的 HTTP 快取。
+    // 少了這個還是會拿到舊版：GitHub Pages 對 HTML 送 max-age=600，
+    // 光是 fetch(req) 會被瀏覽器用 10 分鐘內的舊副本擋下來。
     e.respondWith(
-      fetch(req)
+      fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin' }))
         .then((res) => putInCache(req, res))
         .catch(() => caches.match(req).then((c) => c || caches.match('./index.html')))
     );
