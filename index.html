@@ -82,6 +82,10 @@
             .sched-compact .sched-loc { font-size: 8px !important; line-height: 1.05 !important; padding: 0 !important; border: none !important; background: transparent !important; display: block !important; margin-top: 0 !important; }
             .sched-compact thead th { padding: 4px 0 !important; }
             .sched-compact .sched-period-time { display: none !important; }
+            /* 節次欄壓到最窄，把空間讓給週一~五 */
+            .sched-compact .sched-period-col { width: 1.6rem !important; min-width: 1.6rem !important; padding: 2px 0 !important; }
+            .sched-compact .sched-period-label { font-size: 10px !important; }
+            .sched-compact th.sched-period-col { font-size: 10px !important; }
         }
 
         /* 手機版分頁列左右淡出，暗示還能水平捲動 */
@@ -1166,7 +1170,7 @@
             `).join('');
 
             $('scheduleHeadRow').innerHTML =
-                `<th class="w-24 bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">節</th>` +
+                `<th class="sched-period-col w-24 bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">節</th>` +
                 ['一', '二', '三', '四', '五'].map((d, i) => `<th data-day="${i + 1}" class="schedule-day-head bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm transition-all">${d}</th>`).join('');
 
             $('kahootOptionsGrid').innerHTML = KAHOOT_OPTS.map((o, i) => `
@@ -1311,7 +1315,7 @@
 
             const covered = new Set(); // 被上方 rowspan 涵蓋、不再輸出的格子
             tbody.innerHTML = timeSlots.map(p => {
-                const head = `<td class="bg-teal-400/90 text-white rounded-xl p-1 md:p-2 text-center align-middle shadow-sm border border-teal-500 w-16 md:w-24">
+                const head = `<td class="sched-period-col bg-teal-400/90 text-white rounded-xl p-1 md:p-2 text-center align-middle shadow-sm border border-teal-500 w-16 md:w-24">
                         <div class="flex flex-col items-center justify-center leading-tight">
                             <span class="sched-period-label font-black text-sm md:text-xl">${p.label}</span>
                             <span class="sched-period-time opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter">${p.timeStr}</span>
