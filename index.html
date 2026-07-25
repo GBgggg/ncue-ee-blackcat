@@ -4,6 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>彰師電子小黑貓 - 課程評價與資源系統</title>
+    <!-- PWA：可安裝 + 離線 -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#101f1b">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="電子小黑貓">
+    <link rel="apple-touch-icon" href="image.png">
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+        }
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -31,6 +43,11 @@
         /* 分頁切換：淡入 + 輕微上滑，每次切換重新播放 */
         @keyframes pageFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .page-enter { animation: pageFade 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+
+        /* 英文閱讀：可點查的單字 */
+        .lw { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background-color .12s; }
+        .lw:hover { background-color: rgba(16, 185, 129, 0.18); }
+        html.dark .lw:hover { background-color: rgba(16, 185, 129, 0.28); }
 
         /* 課程卡 / 評價卡進場：純淡入、不位移，快速即時出現 */
         @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
@@ -175,9 +192,12 @@
             <div id="home-user-schedule" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8 hidden">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                     <div id="scheduleNowNext" class="flex-1 rounded-2xl px-4 py-3 bg-teal-50 border border-teal-100 text-sm font-bold text-slate-600 flex items-center gap-2"></div>
-                    <div class="flex gap-1 bg-slate-100 rounded-xl p-1 shrink-0 self-start sm:self-auto">
-                        <button data-action="set-schedule-mode" data-mode="read" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> 閱讀</button>
-                        <button data-action="set-schedule-mode" data-mode="edit" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5 pointer-events-none"></i> 編輯</button>
+                    <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+                        <button id="classReminderBtn" data-action="toggle-class-reminder" title="上課提醒" class="px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 bg-slate-100 text-slate-500"><i data-lucide="bell" class="w-3.5 h-3.5 pointer-events-none"></i> 提醒</button>
+                        <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
+                            <button data-action="set-schedule-mode" data-mode="read" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> 閱讀</button>
+                            <button data-action="set-schedule-mode" data-mode="edit" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5 pointer-events-none"></i> 編輯</button>
+                        </div>
                     </div>
                 </div>
                 <div class="overflow-x-auto scrollbar-hide schedule-scroll">
@@ -420,6 +440,7 @@
             <div class="flex gap-2 mb-6">
                 <button data-action="set-quiz-sub" data-sub="kahoot" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="gamepad-2" class="w-4 h-4 pointer-events-none"></i> 挑戰擂台</button>
                 <button data-action="set-quiz-sub" data-sub="vocab" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4 pointer-events-none"></i> 單字庫</button>
+                <button data-action="set-quiz-sub" data-sub="reading" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="newspaper" class="w-4 h-4 pointer-events-none"></i> 閱讀</button>
             </div>
             <div id="quiz-sub-kahoot">
             <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
@@ -477,6 +498,35 @@
                     <div class="col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個單字冊還是空的，等巫醫來補充喵 🐾</div>
                 </div>
             </div>
+            </div>
+
+            <!-- 子分頁：英文閱讀 -->
+            <div id="quiz-sub-reading" class="hidden">
+                <div id="reading-list-view">
+                    <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                        <div class="relative z-10">
+                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">英文閱讀 <span class="animate-bounce">📰</span></h2>
+                            <p class="text-slate-400 text-sm mt-2">讀英文新聞、點任一個字直接查劍橋字典。文章來源：Global Voices（CC BY 3.0）。</p>
+                            <div class="mt-4 flex gap-2 max-w-md">
+                                <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500">
+                                <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
+                            </div>
+                            <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-all inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
+                        </div>
+                    </div>
+                    <div id="readingList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+                <div id="reading-reader-view" class="hidden">
+                    <button data-action="reading-back" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm"><i data-lucide="arrow-left" class="w-4 h-4"></i> 返回文章列表</button>
+                    <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                        <div id="readingTopic" class="text-xs text-emerald-600 font-black uppercase tracking-widest mb-2"></div>
+                        <h2 id="readingTitle" class="text-2xl md:text-3xl font-black text-slate-900 mb-2 leading-snug"></h2>
+                        <p id="readingMeta" class="text-sm text-slate-400 mb-1"></p>
+                        <div class="text-xs text-teal-600 font-bold mb-5 pb-4 border-b border-slate-100 flex items-center gap-1"><i data-lucide="hand-pointer" class="w-3.5 h-3.5"></i> 點任一個英文字即可查劍橋字典</div>
+                        <div id="readingBody" class="text-slate-700 text-lg leading-loose space-y-4"></div>
+                        <div id="readingAttribution" class="mt-8 pt-4 border-t border-slate-100 text-xs text-slate-400 leading-relaxed"></div>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -919,7 +969,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
          * 1. 常數與設定
@@ -939,7 +989,8 @@
             kahoots: P('kahoots'),     users: P('users'),
             ssCourses: P('selfStudyCourses'), ssUnits: P('selfStudyUnits'),
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
-            news: P('news'),           links: P('quickLinks')
+            news: P('news'),           links: P('quickLinks'),
+            articles: P('articles')
         };
 
         const ROLE_LEVELS = { '星族': 5, '巫醫': 4, '族長': 3, '戰士': 2, '見習生': 1, '訪客': 0 };
@@ -1029,7 +1080,7 @@
         const state = {
             courses: [], reviews: [], materials: [], kahoots: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [],
-            news: [], links: []
+            news: [], links: [], articles: []
         };
 
         let isAdmin = false, currentUserRole = '訪客', currentUserLevel = 0, isRegisterMode = false;
@@ -1132,6 +1183,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
+        // 離線持久化：讓已載入的文章/課程等資料在離線時仍可讀（多分頁或不支援時會失敗，忽略即可）
+        enableIndexedDbPersistence(db).catch(() => {});
 
         /* ==========================================================
          * 5. Header 自動收合
@@ -1425,6 +1478,69 @@
             icons();
         }
         setInterval(highlightCurrentClass, 60000);
+
+        /* ==========================================================
+         * 上課提醒（Notification API，需 App 開著）
+         * ========================================================== */
+        let classReminderOn = false;
+        try { classReminderOn = localStorage.getItem('eeblackcat-reminder') === '1'; } catch (e) {}
+        const remindedSet = new Set();
+        const REMIND_LEAD = 10; // 上課前幾分鐘提醒
+
+        function updateClassReminderUI() {
+            const btn = $('classReminderBtn');
+            if (!btn) return;
+            const on = classReminderOn && ('Notification' in window) && Notification.permission === 'granted';
+            btn.classList.toggle('bg-emerald-500', on);
+            btn.classList.toggle('text-white', on);
+            btn.classList.toggle('bg-slate-100', !on);
+            btn.classList.toggle('text-slate-500', !on);
+        }
+
+        async function toggleClassReminder() {
+            if (!('Notification' in window)) return showToast("這個瀏覽器不支援通知喵");
+            if (classReminderOn) {
+                classReminderOn = false;
+                try { localStorage.setItem('eeblackcat-reminder', '0'); } catch (e) {}
+                showToast("已關閉上課提醒");
+            } else {
+                let perm = Notification.permission;
+                if (perm !== 'granted') perm = await Notification.requestPermission();
+                if (perm !== 'granted') return showToast("要允許通知權限才能開啟提醒喵");
+                classReminderOn = true;
+                try { localStorage.setItem('eeblackcat-reminder', '1'); } catch (e) {}
+                showToast(`已開啟：上課前 ${REMIND_LEAD} 分鐘提醒（App 需保持開啟）🐾`);
+                checkClassReminder();
+            }
+            updateClassReminderUI();
+        }
+
+        function checkClassReminder() {
+            if (!classReminderOn || !('Notification' in window) || Notification.permission !== 'granted') return;
+            if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+            const now = new Date(); const day = now.getDay();
+            if (day < 1 || day > 5) return;
+            const mins = now.getHours() * 60 + now.getMinutes();
+            for (const s of timeSlots) {
+                if (s.id === 'noon') continue;
+                const cell = userSchedule[`${day}-${s.id}`];
+                if (!cell || !cell.courseName) continue;
+                const diff = s.start - mins;
+                if (diff < 0 || diff > REMIND_LEAD) continue;
+                const key = `${now.toDateString()}|${day}-${s.id}`;
+                if (remindedSet.has(key)) continue;
+                remindedSet.add(key);
+                let loc = cell.location || '';
+                if (!loc && cell.courseId) { const c = state.courses.find(x => x.id === cell.courseId); if (c) loc = courseLocation(c); }
+                try {
+                    new Notification(`${diff <= 0 ? '現在上課' : `${diff} 分鐘後上課`}：${cell.courseName}`, {
+                        body: (loc ? `@ ${loc}\n` : '') + `第 ${s.label} 節 ${s.timeStr.replace(/<br>/g, ' ')}`,
+                        icon: 'image.png', tag: key
+                    });
+                } catch (e) {}
+            }
+        }
+        setInterval(checkClassReminder, 60000);
 
         /* ==========================================================
          * 10. 評價：課程地圖 / 課程詳細
@@ -1883,18 +1999,337 @@
         }
 
         function switchQuizSub(sub) {
-            quizSub = (sub === 'vocab') ? 'vocab' : 'kahoot';
+            quizSub = ['vocab', 'reading'].includes(sub) ? sub : 'kahoot';
             $('quiz-sub-kahoot').classList.toggle('hidden', quizSub !== 'kahoot');
             $('quiz-sub-vocab').classList.toggle('hidden', quizSub !== 'vocab');
+            $('quiz-sub-reading').classList.toggle('hidden', quizSub !== 'reading');
             if (quizSub === 'vocab') {
                 closeModalView('page-vocabulary-details', 'page-vocabulary-main');
                 currentViewVocabBookId = null;
                 renderVocabBooks();
+            } else if (quizSub === 'reading') {
+                $('reading-reader-view').classList.add('hidden');
+                $('reading-list-view').classList.remove('hidden');
+                renderReadingList();
             } else {
                 renderKahoots();
             }
             updateQuizSubUI();
             icons();
+        }
+
+        /* ==========================================================
+         * 14.5 英文閱讀（Global Voices, CC BY 3.0）+ 逐字查劍橋
+         * ========================================================== */
+        // 排程任務會更新此「匯入來源」陣列；管理員按「匯入文章」寫進 Firestore
+        const ARTICLE_IMPORTS = [
+            {
+                "title": "How much will it take to rebuild Venezuela after the earthquakes?",
+                "topic": "Disaster",
+                "source": "Global Voices",
+                "author": "Mario Valdivia",
+                "sourceUrl": "https://globalvoices.org/2026/07/25/how-much-will-it-take-to-rebuild-venezuela-after-the-earthquakes/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-25",
+                "paragraphs": [
+                    "Estimating the economic cost of a reconstruction shaped by massive financing needs and economic fragility",
+                    "Three weeks after the twin earthquakes struck Venezuela’s coastal region, the official death toll has risen to nearly 5,000, while close to 18,000 people remain displaced. As the immediate emergency response gives way to longer-term recovery efforts, attention is increasingly focused on the financial resources required to manage the humanitarian needs of the catastrophe, but also to rebuild the country’s homes, infrastructure, and economy.",
+                    "Initial assessments have largely concentrated on estimating the direct physical damage to buildings, infrastructure, and other tangible assets. These estimates, however, do not capture the indirect economic losses resulting from disruptions to production, trade, employment, and public services. As more comprehensive information becomes available, the estimated total economic impact of the disaster is therefore expected to increase substantially.",
+                    "The internationally recognized standard for estimating the economic impact of disasters is the Disaster Assessment Methodology developed by the Economic Commission for Latin America and the Caribbean (ECLAC), a pioneer in this field. The framework has since been adopted by major international institutions, including the World Bank (WB) and the Inter-American Development Bank (IDB).",
+                    "Its third edition, published in 2014 in collaboration with the Pan American Health Organization (PAHO), provides a comprehensive approach for estimating not only the direct effects of disasters but also their socioeconomic impacts at both the macroeconomic and household levels, as well as the financial resources required for recovery and reconstruction.",
+                    "Under this methodology, disaster impacts are classified into three categories: damage, losses, and additional costs. Damage refers to the destruction of physical assets such as buildings, facilities, machinery, equipment, infrastructure, and inventories. These are valued according to their estimated replacement cost at pre-disaster prices.",
+                    "Losses represent the value of goods and services that are no longer produced or delivered from the moment the disaster occurs until full recovery is achieved. Estimating these losses requires comparing the post-disaster trajectory of economic sectors with a hypothetical scenario in which the disaster had not occurred. As a result, these estimates depend on a range of assumptions and are inherently subject to uncertainty.",
+                    "Additional costs include extraordinary expenditures incurred by governments and the private sector in response to the disaster, such as emergency medical supplies, humanitarian assistance, and other essential goods and services.",
+                    "Finally, the methodology estimates recovery and reconstruction financing needs, which encompass the costs of the public policies and investments required to restore normal economic and social conditions. These include rebuilding basic infrastructure and services, as well as financing food assistance programs, cash transfers, and other forms of support for affected households.",
+                    "We still don’t know the full scale of the destruction. While the Venezuelan government claims that more than 2,000 pieces of infrastructure were severely damaged, satellite images from NASA show that the figure is closer to 30,000.",
+                    "Just two days after the twin earthquakes struck, the United Nations Development Programme (UNDP) released a preliminary assessment of the direct physical damage to housing and other assets, using satellite imagery and artificial intelligence-powered Geographic Information Systems (GIS) through its Rapid Digital Analysis (RAPIDA) methodology. The assessment estimated direct losses to be USD 6.7 billion, with a range of USD 4.7–8.7 billion, equivalent to approximately six percent of Venezuela’s GDP."
+                ]
+            },
+            {
+                "title": "Protecting Pangolins in India: When an armor is not enough",
+                "topic": "Animal Rights",
+                "source": "Global Voices",
+                "author": "Madhumay Mallik",
+                "sourceUrl": "https://globalvoices.org/2026/07/25/protecting-pangolins-in-india-when-an-armor-is-not-enough/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-25",
+                "paragraphs": [
+                    "Pangolins are the most trafficked wild mammals on this planet",
+                    "Every year, between 120 and 240 pangolins on average are seized from trafficking networks across India — and this is just from the trade that gets reported. According to a 2022 factsheet published by the TRAFFIC, an NGO tracking global wildlife trade, nearly 6,000 pangolins were poached from India alone between 2009 and 2017. Between 2019 and 2022, India’s Directorate of Revenue Intelligence reportedly seized close to 337 kilograms of pangolin scales.",
+                    "Globally, there are eight species of pangolins, spread across tropical, subtropical, and savannah regions of Asia and sub-Saharan Africa. India hosts the Indian pangolin (Manis crassicaudata) and the Chinese pangolin (Manis pentadactyla).",
+                    "India’s pangolins are, however, at a critical juncture. Understanding what India must do next also requires understanding how we got here.",
+                    "The earliest record of the use of pangolin scales as traditional medicine dates to the Ming Dynasty and was meticulously documented by Li Shizhen, a naturalist known for the Bencao Gangmu (Compendium of Materia Medica). There is yet to be any scientific backing to this claim.",
+                    "Pangolins today are the most trafficked wild mammals on this planet. Alive pangolins are picked up from the wild to be brutally skinned, and their scales are roasted and ground to “treat” carbuncles, skin infections, lactation deficiency, and even nervousness. The irony is that this trade persists despite modern (and cheaper) medicines that work better against the same ailments that pangolins were killed for by the Ming people. Pangolin scales are composed of keratin, the same protein as human fingernails, and small amounts of moisture (water) and lipids (fats) — none of which have any medicinal value.",
+                    "Still, several sources suggest that one pangolin is taken from the wild, dead or alive, by traffickers every five minutes. A December 2025 CITES Report identifies 2,222 seizures of specimens (across all eight pangolin species) globally, equivalent to 553,042 pangolins, poached from the wild. This data was just for the period between 2016 and 2024. That’s the scale of the ignorance — or should we say, the ego — in our ability to procure a pangolin.",
+                    "Although there’s no formal evidence, several anthropological and ethnographic records suggest the idea of pangolin scales as a medical cure traveled from China to India and Africa. In any case, pangolins in India and Africa have been and still are sought after for their alleged medical properties.",
+                    "“In remote tribal homes in Central India, you might still find a pangolin scale hanging by the front door. There are reports of people burying pangolin scales in the earth before constructing a new house. They believe that the scales bring good fortune. Scales are also turned into amulets by the remote indigenous communities of Central India to ward off evil spirits,” explains Monesh Singh Tomar, a member of the IUCN Pangolin Specialist Group and a project lead for the Wildlife Trust of India in an interview with Global Voices.",
+                    "In India, the two species of pangolins — the Indian pangolin and the Chinese pangolin have been hunted across their range. However, it was only by the 1980s that reports started indicating pangolin scales being exported to East and Southeast Asia. The real surge was in the 21st century, when India became a major supplier to countries like Vietnam and China through organized trafficking syndicates. By then, India had already enacted its Wildlife (Protection) Act, 1972, giving both species of pangolins a Schedule I status — a protection similar to the national animal, the Bengal tiger.",
+                    "According to an IUCN report, at least 74 countries are currently implicated in the global illegal pangolin trade, serviced by 178 unique international trade routes that keep on shifting to evade enforcement action."
+                ]
+            },
+            {
+                "title": "Japanese-Filipino children’s painful quests for filial recognition and citizenship",
+                "topic": "East Asia",
+                "source": "Global Voices",
+                "author": "Jo Carter",
+                "sourceUrl": "https://globalvoices.org/2026/07/24/japanese-filipino-childrens-painful-quests-for-filial-recognition-and-citizenship/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-24",
+                "paragraphs": [
+                    "Born out of wedlock without a Japanese father's recognition, some Japanese-Filipino children are left stateless.",
+                    "Japanese-Filipino Children (JFCs) have historically been in a difficult position in Japanese society, as many of them are born out of wedlock, with a Filipino mother and a Japanese father who fails to legally register their paternal relationship with the children, leaving them effectively stateless.",
+                    "Over 10,000 JFCs are considered stateless due to Japan’s importation of foreign “entertainers” and strict citizenship laws.",
+                    "Driven by the 1980s asset bubble and the expansion of nightlife and hostess clubs, the Japanese government introduced an Entertainer (Kōgyō) Visa to import tens of thousands of performers from low-income Asian countries, most notably the Philippines, as its economy relies heavily on remittances from overseas Filipino workers (OFWs).",
+                    "By the early 1990s, Japan had imported about 64,000 entertainers and about 36,000 Filipino women migrated to Japan as dancers, singers, and hostesses in bars and clubs. Against such a backdrop, most JFCs were born outside of traditional marriages.",
+                    "Although under the Philippines citizenship law, anyone born to at least one parent who is a Filipino citizen is automatically a natural-born citizen, yet quite often the JFCs’ mothers refuse to register their births at the Philippines Embassy, as Japan does not accept dual citizenship and, upon registration, both the mothers and the children would likely be deported back to the Philippines, where they would suffer from discrimination.",
+                    "By 2009, about 200,000 JFCs were thus classified legally as Filipino citizens or left stateless. Living under the stigma of illegitimate children without social and financial support, most of them grew up in severe poverty both in Japan and the Philippines.",
+                    "While the Japanese government amended its Nationality Act in December 2008 to remove the rule that required the parents to marry for the child to gain citizenship after birth, the law still requires the Japanese father to recognize biological paternity through proper registration.",
+                    "However, it is often very difficult for JFCs to locate their fathers given their lack of local knowledge and Japan’s very strict privacy laws. Despite a number of Japanese NGOs, such as the Citizens’ Network for Japanese-Filipino Children (JFC Network) in Tokyo and its Manila branch, sometimes the Japanese fathers and family members refuse to recognize the children; and those who insist the quests for their fathers have to suffer the pain of “endless waiting,” frustrations and anxieties, as highlighted by JFC Network’s campaign to protect human rights for JFCs:",
+                    "If you are abandoned by your father, if you are forsaken by your home country, you may lose your roots, which you should hold on to in this world, or you may lose self-belief, which is most precious in your heart, wondering, ‘Why do I live?’ ‘Who am I?’ We regret to say that a lot of Japanese-Filipino children are struggling with such anxiety today.",
+                    "Below is a news feature produced by ABS-CBN News in the Philippines regarding the financial difficulties and social stigma JFCs face in the Philippines and their quests for reunion with their Japanese fathers:"
+                ]
+            },
+            {
+                "title": "Tickets to nowhere: Haitian refugees fall prey to travel scams",
+                "topic": "Caribbean",
+                "source": "Global Voices",
+                "author": "Jude Pierre Louis",
+                "sourceUrl": "https://globalvoices.org/2026/07/24/tickets-to-nowhere-haitian-refugees-fall-prey-to-travel-scams/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-24",
+                "paragraphs": [
+                    "Desperation continues pushing many Haitians to search for ways out",
+                    "The travel agency business in Haiti has slowly become what many people now describe as a scam industry. Legitimate travel agencies have existed in the country for years, but as Haiti’s social, economic and political crises have become more dire, citizens are seeking ways to leave the country.",
+                    "For young people especially, as armed gangs control entire areas, businesses close, and unemployment increases, the country no longer seems to offer any real future, and this has spurred the proliferation of under-the-table travel shops. Once they have made their profit, many of these establishments disappear as quickly as they appear, feeding off of Haitians’ growing sense of insecurity.",
+                    "A similar reality holds true in the neighbouring Dominican Republic (DR), where a large Haitian community lives, most of them in irregular situations. Because of the Dominican immigration system’s rigidity toward Haitians, many of them cannot work legally or regularize their status. They therefore rely on financial support sent by relatives who live abroad, primarily in the United States. As a result, the Dominican Republic often becomes a temporary stop while they search for opportunities to migrate elsewhere.",
+                    "Since they are undocumented, the vast majority of Haitians ripped off by fake travel agencies in the DR can’t even step into a police station or prosecutor’s office to file a complaint. They are terrified that seeking help will backfire and lead to them being arrested and deported.",
+                    "The situation has created an entire market around migration, with unscrupulous individuals taking advantage of desperate Haitians searching for a better life abroad. Fake travel agencies advertise heavily on Facebook, TikTok and other social media platforms; some even pay influencers or public personalities to promote their services online, in an attempt to make people trust them more easily.",
+                    "From an administrative standpoint, opening a travel agency in Haiti is not a complicated undertaking, as oversight remains weak. While authorised agencies are operating legally in the country, many others exist only to exploit already vulnerable people who are trying to escape gang violence, poverty and instability. Because this demographic usually does not meet the normal financial or administrative requirements needed for official migration programmes, they become easy targets for risky and unregulated travel offers.",
+                    "One of the most discussed recent cases involves Mackenson Dorilas, a well-known spiritual figure who people refer to as “Prophet Mackenson.” He reportedly signed an advertising agreement with a travel agency called Fidélité Tours, appearing in the company’s promotional videos encouraging people to travel to Canada, Mexico and Brazil.",
+                    "During an episode of the popular morning show “Se sa nou vle” (“That is what we want”) on the Team Rudy Officiel YouTube channel, host Rudy Thomas Sanon said he had received complaints from several alleged victims linked to Fidelité Tours.",
+                    "According to testimonies shared during the show, people said they trusted the agency because Prophet Mackenson publicly promoted it. Some victims explained that they went directly to the agency’s office in Pétion-Ville and each paid around USD 4,000 to organise trips out of Haiti.",
+                    "Moun yo di mwen yo peye ajans la 4000 dola ameriken pou vwayaje ak yo Meksik. Ajans la pran 4000 dola ameriken nan men 80 moun, sa ki fè 320,000 dola ameriken, epi li disparèt. Lè moun yo ale nan biwo ajans la, li te fèmen, yo pa jwenn okenn moun.",
+                    "People tell me they paid the agency USD 4,000 to travel to Mexico with them. The agency collected USD 4,000 from 80 people, totalling USD 320,000, and then disappeared. When the people went to the agency’s office, it was closed, and they found no one there."
+                ]
+            },
+            {
+                "title": "From Mexico to Venezuela: A diaspora’s race to save lives",
+                "topic": "Disaster",
+                "source": "Global Voices",
+                "author": "Gabriela Mesones Rojo",
+                "sourceUrl": "https://globalvoices.org/2026/07/23/from-mexico-to-venezuela-a-diasporas-race-to-save-lives/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-23",
+                "paragraphs": [
+                    "Thousands of miles away, Venezuelans built a lifeline for survivors",
+                    "When devastating earthquakes struck Venezuela, the response extended far beyond the country’s borders. Across Latin America and beyond, Venezuelans living abroad mobilized within hours, raising funds, organizing volunteers, and building trusted networks to deliver aid directly to survivors.",
+                    "In Mexico, where decades of earthquake preparedness have fostered a powerful culture of civic solidarity, Venezuelan migrant, producer and anti-racist investigator Mariana Álvarez Castillo helped spearhead a grassroots relief effort alongside the communities of La Pitahaya Vegana, Masala CCS and Levantemos la Casa. Through a rapidly assembled network of volunteers, donors, and trusted local partners, they delivered urgently needed aid directly to those affected.",
+                    "In this interview, Álvarez reflects on the huge efforts of the team, how the Venezuelan diaspora transformed grief into collective action, the challenges of coordinating humanitarian relief across borders, and what this remarkable mobilization reveals about the resilience, solidarity, and evolving identity of Venezuelans around the world.",
+                    "Gabriela Mesones Rojo (GMR): What motivated you to organize so quickly after the earthquakes?",
+                    "Mariana Álvarez Castillo (MÁC): Beyond the obvious shock and grief of knowing that so much irreversible damage had occurred in a matter of seconds, I think living in a seismic country like Mexico has taught us how critical the first hours after a disaster like this are. In the face of an event of this magnitude, the response has to be immediate.",
+                    "Here, the collective memory of the 1985 and 2017 earthquakes is still very much alive. These events are part of Mexico’s recent history, and they led to the development of protocols, early warning systems, drills, and emergency guidelines. Because of that, we quickly understood that the scale of the catastrophe in Venezuela would be devastating.",
+                    "We also know that our country, Venezuela, is not prepared to cope with earthquakes like these.",
+                    "Just a couple of hours after the quake, reports from La Guaira began to emerge, and by the following morning we were already making decisions about how to organize. That same day, we launched our initiative, and within seven hours we had delivered supplies, meals, and clean drinking water to four public hospitals thanks to the overwhelming response from donors. During that same week, we also established a collection center at La Pitahaya Vegana, made possible by an incredible network of volunteers.",
+                    "GMR: What does this mobilization say about the Venezuela that exists beyond its borders?",
+                    "MÁC: Venezuelan migrants are learning how to build community outside our country. Unlike countries such as Mexico, Puerto Rico, or China, whose migration histories span generations and have produced well-established communities abroad—like Mexicans in Chicago or California, or Puerto Ricans in New York—we don’t have a long-standing migrant tradition to draw upon. We’re creating that collective memory now."
+                ]
+            },
+            {
+                "title": "How an AI research tool helped challenge support for police violence in Brazil",
+                "topic": "Brazil",
+                "source": "Global Voices",
+                "author": "Guest Contributor",
+                "sourceUrl": "https://globalvoices.org/2026/07/22/how-an-ai-research-tool-helped-challenge-support-for-police-violence-in-brazil/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-22",
+                "paragraphs": [
+                    "Two organizations used a chatbox interviewer to measure the public pulse on police raids and crime",
+                    "In 2025, as Instituto Fogo Cruzado, Brazil’s leading civil society monitor of armed violence, and UK-based research organisation Future Narratives Lab were finalising a study on messaging around police violence in favelas, we were shaken by a grim turn of events. In a single favela raid in Rio de Janeiro on October 28, 122 people were killed by Brazilian police, the deadliest policing operation in the country’s history. Polls conducted in the days after the raid showed continued broad public support for such action, despite longstanding evidence that the raids have no impact on reducing crime rates.",
+                    "In 2023, Brazil recorded 45,747 intentional violent deaths — among the highest rates in the world. Like many democracies, the country has long grappled with the issue of large-scale public support for state violence, which has contributed to a broader societal sense of fear, fatalism, and desensitisation. Changing this requires understanding what works to challenge certain misconceptions. The broad support for the October 28 raids, despite the casualties, highlighted the critical need for grassroots organisations to discover messaging that resonates with the public, especially in a polarised political environment like Brazil.",
+                    "Civil society organisations working on contentious issues face a problem: many audiences are supportive of policies and actions that run counter to their own interests, yet are difficult and expensive to reach for research, especially in politically uncertain or highly polarised contexts. Such organisations, particularly in the Global South, often lack the funding and resources to carry out the types of in-depth research that Global North-based civil society organisations use. Focus groups and qualitative interviews are the standard route to understanding why people hold the views they do, but they are slow and costly, often putting them out of reach for the smaller organisations doing the most urgent work.",
+                    "What if an artificial intelligence (AI) tool could lower these barriers and allow small, grassroots organisations to understand how their target audiences think? The large-scale adoption of AI tools for everyday use has created greater opportunities to learn research skills and process information. But, as with any technological innovation, there are ethical considerations around the use of such technology, including the implications of using tools created by Big Tech corporations and the environmental consequences of data centres.",
+                    "Clearly, it is not a technology that can be used lightly. As we developed the tool, we had many discussions about how to use AI in a way that was consistent with our overall beliefs and aims. Ultimately, we decided to maintain an approach we saw as capable of contributing to advancing a human rights movement, while taking specific steps to protect user privacy, prioritise open-source software-based solutions, and plan future actions to address further concerns.",
+                    "Before this project, Future Narratives Lab had developed an AI Interviewer tool specifically for civil society organisations looking to understand their audiences. After a successful trial of the tool in a project testing messages on the criminal justice system in the UK, Instituto Fogo Cruzado approached Future Narratives Lab for support using it in a new project on state-sponsored violence in Brazil, funded by the International Resource for Impact and Storytelling (IRIS), as part of their “New Tech, New Rules” programme.",
+                    "The main use of the tool in this project was for primary research, laying the foundations for the development of new message and counter-narrative approaches. Twenty-eight in-depth qualitative interviews were conducted via the chatbot-based AI interviewer, with each participant able to engage in the conversation using their own devices via a supplied URL and participant code.",
+                    "Participants were selected and recruited based on a demographic profile identified in prior desk research as being more likely to support an increase in police violence as a means to reduce crime: those who identified as Christian (Evangelical or Roman Catholic), had not completed higher education, and had a household income of less than 500 BRL (approximately USD 98).",
+                    "The AI interviewer carried out a customised, structured but adaptive conversation with each participant for up to 30 minutes, asking follow-up questions and probing for inconsistencies and reasoning. Each interview was based on an overall brief setting out what the research aimed to achieve and what happened, concurrently, but unique to each participant. To give a sense of how a typical interview went:",
+                    "The process of message development that followed uncovered a range of new insights and potential opportunities for persuasion.",
+                    "The ability to carry out multiple interviews, concurrently and remotely, enables organisations to compress what would normally take weeks of fieldwork into days at a fraction of the cost. For under-resourced civil society organisations across the world, this tool creates a significant shift: it makes in-depth audience research about what would move their audiences viable."
+                ]
+            },
+            {
+                "title": "Sold as brides, lost at sea: The trafficking of stateless Rohingya girls",
+                "topic": "Censorship",
+                "source": "Global Voices",
+                "author": "Zulker Naeen",
+                "sourceUrl": "https://globalvoices.org/2026/07/21/sold-as-brides-lost-at-sea-the-trafficking-of-stateless-rohingya-girls/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-21",
+                "paragraphs": [
+                    "“They disappear from the camp one by one, usually at night.”",
+                    "Mahmudah, a 16-year-old Rohingya girl from Kutupalong camp in Bangladesh, hugged her parents goodbye in a refugee camp in Cox’s Bazar and climbed into a trafficker’s vehicle packed with other children. Her family was destitute and terrified of Myanmar’s military and had accepted payment of roughly 18,000 Malaysian Ringgit (USD 4,395) from a Rohingya laborer already living in Malaysia in exchange for marrying their daughter once she arrived.",
+                    "They called it a “bridal journey.” She left in the dark before dawn, her wedding photos still tucked into a plastic folder her mother kissed before handing it to the broker. The man promised that a boat across the Bay of Bengal would take her to Malaysia, where her husband — already working irregular jobs near Kuala Lumpur — was waiting in a rented room with a borrowed gold ring and plans for a new life.",
+                    "Somewhere between the Bay of Bengal and the Andaman Sea, crammed on an overloaded fishing vessel, she disappeared when the boat capsized.",
+                    "No official record bears her name; her family only has the memory of a farewell and the rumor that, like hundreds of others, she was swallowed by the water on a “marriage voyage” that became a trafficking route.",
+                    "Another girl, Fatema, born in the camps after her parents fled the 2017 violence in Rakhine, had a different hope. At 15, she was already married to a cousin who beat her for talking to neighbors and for refusing to hand over the ration card. With school cut, no work allowed, and community gossip turning against girls who “stayed unmarried too long,” she saw no way out.",
+                    "A local fixer told her that Thailand and Indonesia could offer “work and safety”, that she could escape her husband and send money home.",
+                    "Instead, she was moved from one coastal safe house to another, her documents taken, her phone confiscated, and, once ashore, she was sold into a sex network in southern Thailand.",
+                    "Her story, like many others, ends not with protection but with a new layer of abuse in a foreign country.",
+                    "These are not isolated tragedies. They are emblematic of a pattern in which stateless Rohingya girls in Bangladesh’s refugee camps are pushed from early marriage and gender-based violence into maritime journeys that are framed as family reunification or escape—but in reality, amount to human trafficking.",
+                    "In the camps of Cox’s Bazar, Rohingya girls stand at the intersection of every kind of vulnerability. More than 1.2 million stateless refugees remain fenced into some thirty-three overcrowded settlements, most of them women and children, almost none allowed to take formal work or move freely beyond the perimeter. Daily life is structured by checkpoints and ration cards rather than by school timetables or pay slips."
+                ]
+            },
+            {
+                "title": "Deprivation of nationality in the Gulf: Stories from Kuwait and Bahrain",
+                "topic": "Bahrain",
+                "source": "Global Voices",
+                "author": "Muwatin Media Network",
+                "sourceUrl": "https://globalvoices.org/2026/07/20/deprivation-of-nationality-in-the-gulf-stories-from-kuwait-and-bahrain/",
+                "license": "CC BY 3.0",
+                "date": "2026-07-20",
+                "paragraphs": [
+                    "For Bidoon and stateless Gulf citizens, having no nationality means having no rights at all",
+                    "The denial or revocation of nationality in the Gulf states is a political practice shaped by each state’s internal dynamics and governance style. It reflects the failure to uphold human rights, chief among them, the equal right of every individual to acquire a nationality and never be arbitrarily deprived of it.",
+                    "In 2025, Kuwait passed amendments to its Nationality Law, making it easier to revoke Kuwaiti nationality. In parallel, the country launched a broad campaign to review nationality acquisition. Through the Supreme Committee for Verifying Kuwaiti Nationality, more than 42,000 people have reportedly had their citizenship revoked since 2024 — an unprecedented escalation.",
+                    "The campaign has targeted naturalized citizens, dual nationals, and those accused of acquiring nationality fraudulently. Many affected are women who acquired Kuwaiti nationality through marriage under Article 8 of the law, which has now been repealed. These revocations were carried out without judicial oversight or avenues for appeal, raising serious legal and human rights concerns.",
+                    "Many of those stripped of their nationality are now stateless, deprived of access to essential services like healthcare, education, and employment. Their identity documents and passports are confiscated, effectively curtailing their freedom of movement and participation in public life.",
+                    "Kuwait’s Bidoon population has faced statelessness since the country’s founding, leading to profound economic and social marginalization, with many struggling to access education, healthcare, and employment because of their lack of an official identity.",
+                    "Khadija, a Bidoon woman from Kuwait born into a family of 10, realized early on that her family lacked the privileges others enjoyed. When she was in primary school, she and her sister were forced to stay home because the family could not afford tuition fees, despite public education being free for Kuwaiti citizens.",
+                    "“We stayed home and studied using last year’s textbooks until the time came when my sister and I had to help our struggling family,” Khadija recalls. “We worked to save money for bunk beds like our brothers had, and for school fees the following year. I longed to run, play, and draw like other girls. But our little project irritated a municipal employee, or so he claimed. He threatened us — and that ended our business.”",
+                    "Kuwait is not alone in using nationality revocation to punish political opponents or deny rights to specific groups. Bahrain has taken a similar approach. Between 2012 and 2020, over 1,000 people were stripped of their nationality. The peak came in 2018 and 2019, when about 300 people were subjected to mass trials on terrorism charges, resulting in the revocation of their citizenship. In one case, in May 2018, 115 people were denaturalized. “Bahrain uses nationality revocation as a weapon against political dissidents,” said Human Rights Watch researcher Niku Jafarnia in an interview with Muwatin.",
+                    "In April 2019, King Hamad bin Isa Al Khalifa issued a royal pardon restoring the nationality of 551 of those whose nationality had been stripped, following widespread pressure from human rights organisations and United Nations bodies. However, Jawad Fairooz, director of SALAM for Democracy and Human Rights, notes: “It was only a partial step. The decision did not include all those who had lost their Bahraini nationality. Statistics indicate around 435 cases remain unresolved, primarily due to political and security considerations aimed at limiting the influence of the opposition.”"
+                ]
+            }
+        ];
+
+        // 劍橋英英字典
+        const cambridgeUrl = (w) => 'https://dictionary.cambridge.org/dictionary/english/' + encodeURIComponent((w || '').toLowerCase());
+        function openCambridge(raw) {
+            const w = (raw || '').replace(/[^a-zA-Z'-]/g, '');
+            if (w) window.open(cambridgeUrl(w), '_blank', 'noopener');
+        }
+
+        // 點單字 → 彈出可「堆疊」的英英小卡（Free Dictionary API，支援 CORS、免費）
+        function makeWordPopup() {
+            const el = document.createElement('div');
+            el.className = 'word-popup fixed z-[60] w-72 max-w-[calc(100vw-16px)] bg-white rounded-2xl shadow-2xl border-2 border-slate-100 p-4 text-left';
+            el.innerHTML =
+                `<div class="flex justify-between items-start gap-2">
+                    <div><div class="wp-word text-lg font-black text-slate-900 break-words"></div><div class="wp-phon text-xs text-slate-400"></div></div>
+                    <button class="wp-close text-slate-300 hover:text-slate-600 shrink-0"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+                </div>
+                <div class="wp-body mt-2 text-sm text-slate-600 max-h-52 overflow-y-auto leading-relaxed"></div>
+                <a class="wp-cam mt-3 inline-flex items-center gap-1 text-emerald-600 text-xs font-black hover:underline" target="_blank" rel="noopener"><i data-lucide="external-link" class="w-3.5 h-3.5"></i> 在劍橋看完整解釋</a>`;
+            return el;
+        }
+
+        // 把小卡夾在畫面可視範圍內：下方放不下就翻到字上方
+        function positionPopup(pop, r, inPopup) {
+            const pw = pop.offsetWidth || 288, ph = pop.offsetHeight || 160;
+            const left = Math.max(8, Math.min(r.left + (inPopup ? 14 : 0), window.innerWidth - pw - 8));
+            let top = r.bottom + 6;
+            if (top + ph > window.innerHeight - 8) {
+                const above = r.top - ph - 6;
+                top = above >= 8 ? above : Math.max(8, window.innerHeight - ph - 8);
+            }
+            pop.style.left = left + 'px';
+            pop.style.top = Math.max(8, top) + 'px';
+        }
+
+        async function lookupWord(anchorEl) {
+            const w = (anchorEl.textContent || '').replace(/[^a-zA-Z'-]/g, '').toLowerCase();
+            if (!w) return;
+            const r = anchorEl.getBoundingClientRect();          // 先記下被點字的位置
+            const inPopup = !!anchorEl.closest('.word-popup');
+            const pop = makeWordPopup();
+            document.body.appendChild(pop);
+            // 最多同時 5 張，超過就關掉最舊的
+            const all = document.querySelectorAll('.word-popup');
+            for (let i = 0; i < all.length - 5; i++) all[i].remove();
+            pop.querySelector('.wp-word').textContent = w;
+            pop.querySelector('.wp-cam').href = cambridgeUrl(w);
+            pop.querySelector('.wp-close').addEventListener('click', (e) => { e.stopPropagation(); pop.remove(); });
+            const body = pop.querySelector('.wp-body');
+            body.innerHTML = '<div class="text-slate-400">查詢中…</div>';
+            icons();
+            positionPopup(pop, r, inPopup);
+            try {
+                const res = await fetch('https://api.dictionaryapi.dev/api/v2/entries/en/' + encodeURIComponent(w));
+                if (!res.ok) throw 0;
+                const entry = (await res.json())[0];
+                pop.querySelector('.wp-phon').textContent = entry.phonetic || (entry.phonetics || []).map(p => p.text).find(Boolean) || '';
+                const html = (entry.meanings || []).slice(0, 3).map(m => {
+                    const defs = (m.definitions || []).slice(0, 2).map(d =>
+                        `<div class="mb-1.5">• ${wrapWordsForLookup(d.definition)}${d.example ? `<div class="text-slate-400 italic text-xs mt-0.5">"${wrapWordsForLookup(d.example)}"</div>` : ''}</div>`).join('');
+                    return `<div class="mb-2"><span class="text-[10px] font-black text-emerald-600 uppercase tracking-widest">${escapeHTML(m.partOfSpeech || '')}</span>${defs}</div>`;
+                }).join('');
+                body.innerHTML = html || '<div class="text-slate-400">查無定義，點下方看劍橋。</div>';
+                icons();
+            } catch {
+                body.innerHTML = '<div class="text-slate-400">查無此字或連線失敗，點下方查劍橋。</div>';
+            }
+            positionPopup(pop, r, inPopup);                       // 內容載入後高度改變，重新定位
+        }
+        // 把段落切成可點查的單字
+        const wrapWordsForLookup = (text) =>
+            escapeHTML(text).split(/(\s+)/).map(tok =>
+                /[a-zA-Z]/.test(tok) ? `<span class="lw">${tok}</span>` : tok).join('');
+
+        function renderReadingList() {
+            const el = $('readingList');
+            if (!el) return;
+            if (state.articles.length === 0) {
+                el.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有文章喵${currentUserLevel >= 4 ? '，按上方「匯入文章」加入最新的 Global Voices 文章 🐾' : '，等巫醫匯入文章 🐾'}</div>`;
+                return;
+            }
+            el.innerHTML = state.articles.map(a => `
+                <div data-action="reading-open" data-id="${a.id}" class="cursor-pointer bg-white rounded-2xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all relative">
+                    ${currentUserLevel >= 4 ? `<button data-action="delete" data-type="article" data-id="${a.id}" class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                    <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 pr-6">${escapeHTML(a.topic || '')}</div>
+                    <h4 class="font-black text-slate-900 mb-1 leading-snug break-words pr-6">${escapeHTML(a.title)}</h4>
+                    <p class="text-xs text-slate-400">${escapeHTML(a.source || '')}${a.author ? ' · ' + escapeHTML(a.author) : ''}</p>
+                    <p class="text-sm text-slate-500 mt-2">${escapeHTML(((a.paragraphs && a.paragraphs[0]) || '').slice(0, 90))}…</p>
+                </div>`).join('');
+            icons();
+        }
+
+        async function importArticles() {
+            if (currentUserLevel < 4) return showToast("喵，只有巫醫以上才能匯入文章！");
+            const exists = (a) => state.articles.some(x => (x.sourceUrl && x.sourceUrl === a.sourceUrl) || (x.title === a.title && x.source === a.source));
+            const toAdd = ARTICLE_IMPORTS.filter(a => a.title && (a.paragraphs || []).length && !exists(a));
+            if (toAdd.length === 0) return showToast("目前沒有新文章可匯入喵 🐾");
+            if (!confirm(`即將匯入 ${toAdd.length} 篇文章。確定嗎？`)) return;
+            const btn = $('importArticlesBtn'); const orig = btn.innerHTML; btn.disabled = true;
+            let ok = 0, fail = 0;
+            for (const a of toAdd) {
+                btn.textContent = `匯入中... (${ok + fail + 1}/${toAdd.length})`;
+                try {
+                    await setDoc(doc(collection(db, PATHS.articles)), {
+                        title: a.title, topic: a.topic || 'World', source: a.source || 'Global Voices',
+                        author: a.author || '', sourceUrl: a.sourceUrl || '', license: a.license || 'CC BY 3.0',
+                        date: a.date || '', paragraphs: a.paragraphs, createdAt: Date.now()
+                    });
+                    ok++;
+                } catch (e) { fail++; console.error(e); }
+            }
+            btn.disabled = false; btn.innerHTML = orig; icons();
+            showToast(`匯入完成：成功 ${ok} 篇${fail ? `，失敗 ${fail} 篇` : ''} 🐾`);
+        }
+
+        function openReadingArticle(id) {
+            const a = state.articles.find(x => x.id === id);
+            if (!a) return;
+            $('readingTopic').textContent = a.topic || '';
+            $('readingTitle').innerHTML = wrapWordsForLookup(a.title);
+            $('readingMeta').textContent = [a.author, a.date].filter(Boolean).join(' · ');
+            $('readingBody').innerHTML = (a.paragraphs || []).map(p => `<p>${wrapWordsForLookup(p)}</p>`).join('');
+            $('readingAttribution').innerHTML = a.sourceUrl
+                ? `本文轉載自 <a href="${escapeHTML(a.sourceUrl)}" target="_blank" rel="noopener" class="text-emerald-600 font-bold underline">${escapeHTML(a.source)}</a>${a.author ? '，作者 ' + escapeHTML(a.author) : ''}，依 ${escapeHTML(a.license || 'CC BY')} 授權轉載。`
+                : '這是示範文章；真實文章將由 Global Voices（CC BY 3.0）自動匯入。';
+            $('reading-list-view').classList.add('hidden');
+            $('reading-reader-view').classList.remove('hidden');
+            icons();
+            scrollTopSmooth();
         }
 
         function renderVocabBooks() {
@@ -2237,7 +2672,7 @@
         const LEVEL4_ELEMENT_IDS = [
             'navManagementTab', 'adminUploadSection', 'importCoursesSection', 'openCreateKahootBtn',
             'addSelfStudyCourseBtn', 'addSelfStudyUnitBtn',
-            'addVocabBookBtn', 'addVocabWordBtn', 'addNewsBtn', 'addLinkBtn'
+            'addVocabBookBtn', 'addVocabWordBtn', 'addNewsBtn', 'addLinkBtn', 'importArticlesBtn'
         ];
 
         function updateAdminUI() {
@@ -2335,7 +2770,7 @@
         const SIMPLE_DELETE_PATHS = {
             review: PATHS.reviews, material: PATHS.materials, kahoot: PATHS.kahoots,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
-            news: PATHS.news, quickLink: PATHS.links
+            news: PATHS.news, quickLink: PATHS.links, article: PATHS.articles
         };
 
         function confirmDeleteUI(type, id) {
@@ -2799,7 +3234,11 @@
             },
             'set-theme': (t) => setTheme(t.dataset.theme),
             'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode === 'edit'); renderSchedule(); },
+            'toggle-class-reminder': () => toggleClassReminder(),
             'set-quiz-sub': (t) => switchQuizSub(t.dataset.sub),
+            'reading-open': (t) => openReadingArticle(t.dataset.id),
+            'reading-back': () => { $('reading-reader-view').classList.add('hidden'); $('reading-list-view').classList.remove('hidden'); },
+            'cambridge-quick': () => openCambridge($('cambridgeQuickInput').value),
             'account-logout': async () => {
                 $('accountMenu').classList.add('hidden');
                 await signOut(auth);
@@ -2995,6 +3434,18 @@
         function bindStaticButtons() {
             bind('logoBtn', () => switchTab('home'));
             bind('backToTopBtn', scrollTopSmooth);
+            bind('importArticlesBtn', importArticles);
+            // 點任一單字彈出英英小卡（可堆疊）；點小卡外關閉全部、Esc 關閉最上面那張
+            document.addEventListener('click', (e) => {
+                const w = e.target.closest('.lw');
+                if (w) { lookupWord(w); return; }
+                if (!e.target.closest('.word-popup')) document.querySelectorAll('.word-popup').forEach(p => p.remove());
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { const ps = document.querySelectorAll('.word-popup'); if (ps.length) ps[ps.length - 1].remove(); }
+            });
+            // 快查框：Enter 或按鈕 → 開劍橋英英
+            $('cambridgeQuickInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') openCambridge(e.target.value); });
             bind('adminBtn', handleAdminBtn);
             bind('toggleAuthMode', toggleAuthMode);
             bind('confirmAdminLogin', submitAuth);
@@ -3071,7 +3522,8 @@
             { key: 'ssCourses',  path: PATHS.ssCourses,  sort: byOldest, render: () => renderSelfStudyCourses() },
             { key: 'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key: 'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
-            { key: 'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } }
+            { key: 'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
+            { key: 'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (quizSub === 'reading') renderReadingList(); } }
         ];
 
         // 🐾 每個分頁需要哪些資料集（延遲載入用）
@@ -3080,7 +3532,7 @@
             'evaluation': ['courses', 'reviews', 'materials'],
             // 自學課程與測驗的管理表單會關聯「學校課程」，故需一併載入 courses
             'self-study': ['ssCourses', 'ssUnits', 'courses'],
-            'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords'],
+            'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords', 'articles'],
             'about':      [],
             // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
             'management': ['news', 'links', 'courses', 'reviews', 'materials', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
@@ -3106,6 +3558,7 @@
             bindStaticButtons();
             icons();
             renderReviewWizard();
+            updateClassReminderUI();
 
             onAuthStateChanged(auth, handleAuthState);
 
