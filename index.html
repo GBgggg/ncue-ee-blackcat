@@ -536,6 +536,73 @@
 
         </div>
 
+        <!-- ======================== 理財頁面 ======================== -->
+        <div id="page-finance" class="page-section hidden">
+            <div id="financeLoginHint" class="bg-white rounded-[2rem] p-8 text-center text-slate-400 font-medium border-2 border-dashed border-slate-200 hidden">
+                <i data-lucide="lock" class="w-8 h-8 mx-auto mb-3 text-slate-300"></i>
+                登入後才能使用理財功能喵，資料只有你自己看得到 🐾
+            </div>
+            <div id="financeContent" class="hidden">
+                <div class="flex gap-2 mb-6">
+                    <button data-action="set-finance-sub" data-sub="expense" class="finance-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="wallet" class="w-4 h-4 pointer-events-none"></i> 記帳</button>
+                    <button data-action="set-finance-sub" data-sub="invest" class="finance-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="trending-up" class="w-4 h-4 pointer-events-none"></i> 投資</button>
+                </div>
+
+                <!-- 記帳 -->
+                <div id="finance-sub-expense">
+                    <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                        <i data-lucide="wallet" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                        <div class="relative z-10">
+                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">記帳本 <span class="animate-bounce">💰</span></h2>
+                            <div class="grid grid-cols-3 gap-3 mt-4 max-w-lg">
+                                <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">本月收入</div><div id="expIncome" class="text-lg font-black text-emerald-400">$0</div></div>
+                                <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">本月支出</div><div id="expExpense" class="text-lg font-black text-rose-400">$0</div></div>
+                                <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">結餘</div><div id="expBalance" class="text-lg font-black text-white">$0</div></div>
+                            </div>
+                            <button data-action="open-expense-modal" class="mt-4 px-5 py-2.5 bg-emerald-500 text-white rounded-2xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增一筆</button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
+                        <h3 class="font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i> 本月支出分類</h3>
+                        <div id="expenseByCategory" class="space-y-2"></div>
+                    </div>
+                    <div id="expenseList" class="space-y-3"></div>
+                </div>
+
+                <!-- 投資 -->
+                <div id="finance-sub-invest" class="hidden">
+                    <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                        <i data-lucide="trending-up" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                        <div class="relative z-10">
+                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">投資追蹤 <span class="animate-bounce">📈</span></h2>
+                            <div class="grid grid-cols-3 gap-3 mt-4 max-w-lg">
+                                <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">總成本</div><div id="invCost" class="text-lg font-black text-white">$0</div></div>
+                                <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">現值</div><div id="invValue" class="text-lg font-black text-white">$0</div></div>
+                                <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">損益</div><div id="invPnl" class="text-lg font-black text-white">$0</div></div>
+                            </div>
+                            <div class="mt-4 flex flex-wrap gap-2">
+                                <button data-action="open-holding-modal" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增持倉</button>
+                                <button data-action="open-trade-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="repeat" class="w-4 h-4 pointer-events-none"></i> 記錄交易</button>
+                                <button data-action="open-watch-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i> 新增筆記</button>
+                                <button id="refreshPricesBtn" data-action="refresh-prices" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> 更新現價</button>
+                            </div>
+                            <p class="text-[11px] text-slate-500 mt-3">※ 僅為個人記錄工具，不提供投資建議；現價需自行更新。</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
+                        <h3 class="font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i> 資產配置</h3>
+                        <div id="allocationChart" class="space-y-2"></div>
+                    </div>
+                    <h3 class="font-black text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="briefcase" class="w-4 h-4 text-emerald-500"></i> 持倉</h3>
+                    <div id="holdingList" class="space-y-3 mb-8"></div>
+                    <h3 class="font-black text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="repeat" class="w-4 h-4 text-blue-500"></i> 交易紀錄</h3>
+                    <div id="tradeList" class="space-y-3 mb-8"></div>
+                    <h3 class="font-black text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4 text-fuchsia-500"></i> 投資筆記 / 觀察清單</h3>
+                    <div id="watchList" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ======================== 關於頁面 ======================== -->
         <div id="page-about" class="page-section hidden">
             <div class="max-w-4xl mx-auto mt-6 space-y-6 md:space-y-8">
@@ -966,6 +1033,93 @@
         </div>
     </div>
 
+    <!-- 記帳 -->
+    <div id="expenseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
+            <h3 id="expenseModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增一筆</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editExpenseId">
+                <div class="flex gap-2">
+                    <button data-action="set-expense-type" data-type="expense" class="exp-type-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">支出</button>
+                    <button data-action="set-expense-type" data-type="income" class="exp-type-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">收入</button>
+                </div>
+                <input type="number" id="expenseAmount" placeholder="金額" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg text-center">
+                <select id="expenseCategory" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700"></select>
+                <input type="text" id="expenseNote" maxlength="50" placeholder="備註（選填）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm">
+                <input type="date" id="expenseDate" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm text-slate-600">
+                <div class="flex gap-4 pt-2">
+                    <button data-close="expenseModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                    <button data-action="save-expense" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-400 transition-colors">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 持倉 -->
+    <div id="holdingModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
+            <h3 id="holdingModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增持倉</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editHoldingId">
+                <input type="text" id="holdingName" maxlength="30" placeholder="標的名稱（如 台積電）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
+                <input type="text" id="holdingSymbol" maxlength="20" placeholder="代號（選填，自動更新用：2330 / AAPL / bitcoin）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm">
+                <select id="holdingType" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                    <option value="股票">股票</option><option value="ETF">ETF</option><option value="基金">基金</option>
+                    <option value="加密貨幣">加密貨幣</option><option value="定存/現金">定存/現金</option><option value="其他">其他</option>
+                </select>
+                <div class="grid grid-cols-3 gap-3">
+                    <input type="number" id="holdingQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center">
+                    <input type="number" id="holdingCost" placeholder="成本價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center">
+                    <input type="number" id="holdingPrice" placeholder="現價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center">
+                </div>
+                <div class="flex gap-4 pt-2">
+                    <button data-close="holdingModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                    <button data-action="save-holding" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-400 transition-colors">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 交易紀錄 -->
+    <div id="tradeModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-500">
+            <h3 class="text-2xl font-bold mb-6 text-slate-900">記錄交易</h3>
+            <div class="space-y-4">
+                <div class="flex gap-2">
+                    <button data-action="set-trade-side" data-side="buy" class="trade-side-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">買入</button>
+                    <button data-action="set-trade-side" data-side="sell" class="trade-side-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">賣出</button>
+                </div>
+                <input type="text" id="tradeName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="number" id="tradeQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center">
+                    <input type="number" id="tradePrice" placeholder="價格" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center">
+                </div>
+                <input type="date" id="tradeDate" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm text-slate-600">
+                <div class="flex gap-4 pt-2">
+                    <button data-close="tradeModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                    <button data-action="save-trade" class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-400 transition-colors">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 投資筆記 / 觀察清單 -->
+    <div id="watchModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-fuchsia-500">
+            <h3 id="watchModalTitle" class="text-2xl font-bold mb-6 text-slate-900">投資筆記</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editWatchId">
+                <input type="text" id="watchName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg">
+                <input type="number" id="watchTarget" placeholder="目標價（選填）" step="any" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-sm">
+                <textarea id="watchNote" maxlength="500" placeholder="你的想法、觀察重點…" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-medium text-sm min-h-[120px] resize-none"></textarea>
+                <div class="flex gap-4 pt-2">
+                    <button data-close="watchModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                    <button data-action="save-watch" class="flex-1 py-3 bg-fuchsia-500 text-white rounded-xl font-bold shadow-lg shadow-fuchsia-200 hover:bg-fuchsia-400 transition-colors">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-10 py-4 rounded-full shadow-2xl font-bold text-sm hidden"></div>
 
     <!-- 🐾 回到頂端浮動鈕 -->
@@ -991,8 +1145,13 @@
         };
         const appId = "eeblackcat-c605d";
         const P = (name) => `artifacts/${appId}/public/data/${name}`;
+        // 🐾 個人私密資料（理財）：僅本人可讀寫
+        const PU = (name) => auth.currentUser ? `artifacts/${appId}/users/${auth.currentUser.uid}/${name}` : null;
         const PATHS = {
-            courses: P('courses'),     reviews: P('reviews'),   materials: P('materials'),
+            courses: P('courses'),     reviews: P('reviews'),
+            // 🔒 分級教材拆成兩個集合，讓 Firestore 規則能真正擋住讀取
+            // （放在同一集合用 requiredRole 欄位過濾，只是前端障眼法，任何人都能整包撈走）
+            matWarrior: P('materialsWarrior'), matLeader: P('materialsLeader'),
             kahoots: P('kahoots'),     users: P('users'),
             ssCourses: P('selfStudyCourses'), ssUnits: P('selfStudyUnits'),
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
@@ -1024,7 +1183,7 @@
 
         const TABS = [
             ['home', '首頁'], ['evaluation', '課程'], ['self-study', '學習'],
-            ['quiz', '測驗'], ['about', '關於黑貓'], ['management', '管理']
+            ['quiz', '測驗'], ['finance', '理財'], ['about', '關於黑貓'], ['management', '管理']
         ];
         const NEWS_CATEGORIES = ['共同', '新生', '舊生'];
         const FILTERS = [
@@ -1085,9 +1244,10 @@
          * 2. 應用程式狀態
          * ========================================================== */
         const state = {
-            courses: [], reviews: [], materials: [], kahoots: [], allUsers: [],
+            courses: [], reviews: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [],
-            news: [], links: [], articles: []
+            news: [], links: [], articles: [],
+            expenses: [], holdings: [], trades: [], watchlist: []   // 理財（個人私密）
         };
 
         let isAdmin = false, currentUserRole = '訪客', currentUserLevel = 0, isRegisterMode = false;
@@ -1277,6 +1437,7 @@
                 selectedFilterCourseId = null;
             }
             if (tab === 'self-study') switchStudySub(studySub);
+            if (tab === 'finance') renderFinance();
             if (tab === 'quiz') switchQuizSub(quizSub);
             icons();
         }
@@ -1682,7 +1843,7 @@
         /* ==========================================================
          * 11. 評價：寶藏庫 / 評價列表
          * ========================================================== */
-        function materialCardHTML(m) {
+        function materialCardHTML(m, tierKey) {
             return `
                 <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center hover:border-emerald-200 transition-all">
                     <div class="flex items-center gap-4">
@@ -1694,13 +1855,15 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <a href="${escapeHTML(m.url)}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
-                        ${isAdmin ? `<button data-action="delete" data-type="material" data-id="${m.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                        ${isAdmin ? `<button data-action="delete" data-type="${tierKey}" data-id="${m.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
                     </div>
                 </div>`;
         }
 
         function renderMaterials() {
-            const filtered = state.materials.filter(m =>
+            // 🔒 不再由前端過濾階級：階級不足的使用者根本不會訂閱該集合，
+            //    state.matLeader 會是空陣列，就算改 currentUserLevel 也變不出資料。
+            const visible = (list) => list.filter(m =>
                 matchesSearch(m.courseName, m.title) &&
                 (selectedFilterCourseId ? m.courseId === selectedFilterCourseId : true));
 
@@ -1709,13 +1872,13 @@
             const emptyHTML = (zone) =>
                 `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}目前沒有${zone === '戰士區' ? '寶藏' : '秘寶'}喵。</div>`;
 
-            const wItems = filtered.filter(m => !m.requiredRole || m.requiredRole <= 2);
+            const wItems = visible(state.matWarrior);
             $('warriorMaterialsList').innerHTML = currentUserLevel < 2 ? lockedHTML('戰士', 'text-rose-300')
-                : (wItems.length === 0 ? emptyHTML('戰士區') : wItems.map(materialCardHTML).join(''));
+                : (wItems.length === 0 ? emptyHTML('戰士區') : wItems.map(m => materialCardHTML(m, 'matWarrior')).join(''));
 
-            const lItems = filtered.filter(m => m.requiredRole && m.requiredRole >= 3);
+            const lItems = visible(state.matLeader);
             $('leaderMaterialsList').innerHTML = currentUserLevel < 3 ? lockedHTML('族長', 'text-amber-300')
-                : (lItems.length === 0 ? emptyHTML('族長區') : lItems.map(materialCardHTML).join(''));
+                : (lItems.length === 0 ? emptyHTML('族長區') : lItems.map(m => materialCardHTML(m, 'matLeader')).join(''));
             icons();
         }
 
@@ -1843,6 +2006,7 @@
             try {
                 const course = state.courses.find(c => c.id === d.courseId);
                 await setDoc(doc(collection(db, PATHS.reviews)), {
+                    authorId: auth.currentUser ? auth.currentUser.uid : null,  // 供規則驗證「只能刪自己的評價」
                     courseId: d.courseId,
                     courseName: course.name,
                     instructor: course.instructor,
@@ -2050,6 +2214,305 @@
             }
             updateStudySubUI();
             icons();
+        }
+
+        /* ==========================================================
+         * 14.4 理財（記帳 / 投資）— 個人私密資料，僅本人可讀寫
+         * ========================================================== */
+        let financeSub = 'expense', expenseType = 'expense', tradeSide = 'buy';
+        const financeUnsubs = [];
+        const EXPENSE_CATS = { expense: ['飲食', '交通', '學習', '娛樂', '生活用品', '醫療', '其他'], income: ['打工', '獎學金', '家人', '其他'] };
+        const money = (n) => '$' + Math.round(n || 0).toLocaleString();
+        const ymOf = (d) => (d || '').slice(0, 7);
+        const thisYM = () => new Date().toISOString().slice(0, 7);
+
+        function updateFinanceSubUI() {
+            document.querySelectorAll('.finance-sub-opt').forEach(b => {
+                const on = b.dataset.sub === financeSub;
+                b.classList.toggle('bg-emerald-500', on); b.classList.toggle('text-white', on);
+                b.classList.toggle('shadow-md', on);
+                b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-500', !on);
+            });
+        }
+        function switchFinanceSub(sub) {
+            financeSub = (sub === 'invest') ? 'invest' : 'expense';
+            $('finance-sub-expense').classList.toggle('hidden', financeSub !== 'expense');
+            $('finance-sub-invest').classList.toggle('hidden', financeSub !== 'invest');
+            updateFinanceSubUI(); renderFinance(); icons();
+        }
+
+        // 登入後才訂閱個人理財資料；登出時取消
+        function initFinanceSubs() {
+            stopFinanceSubs();
+            if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+            [['expenses', 'expenses'], ['holdings', 'holdings'], ['trades', 'trades'], ['watchlist', 'watchlist']].forEach(([key, name]) => {
+                const path = PU(name); if (!path) return;
+                financeUnsubs.push(onSnapshot(collection(db, path), (snap) => {
+                    state[key] = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                    state[key].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+                    renderFinance();
+                }, () => {}));
+            });
+        }
+        function stopFinanceSubs() {
+            while (financeUnsubs.length) { try { financeUnsubs.pop()(); } catch (e) {} }
+            state.expenses = []; state.holdings = []; state.trades = []; state.watchlist = [];
+        }
+
+        function renderFinance() {
+            if (!$('page-finance')) return;
+            const logged = auth.currentUser && !auth.currentUser.isAnonymous;
+            $('financeLoginHint').classList.toggle('hidden', !!logged);
+            $('financeContent').classList.toggle('hidden', !logged);
+            if (!logged) { icons(); return; }
+            renderExpenses(); renderInvest(); updateFinanceSubUI(); icons();
+        }
+
+        function renderExpenses() {
+            const ym = thisYM();
+            const mine = state.expenses.filter(e => ymOf(e.date) === ym);
+            const inc = mine.filter(e => e.type === 'income').reduce((s, e) => s + (e.amount || 0), 0);
+            const exp = mine.filter(e => e.type !== 'income').reduce((s, e) => s + (e.amount || 0), 0);
+            $('expIncome').textContent = money(inc); $('expExpense').textContent = money(exp);
+            $('expBalance').textContent = money(inc - exp);
+            $('expBalance').className = 'text-lg font-black ' + (inc - exp >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+            // 分類統計（本月支出）
+            const byCat = {};
+            mine.filter(e => e.type !== 'income').forEach(e => { byCat[e.category || '其他'] = (byCat[e.category || '其他'] || 0) + (e.amount || 0); });
+            const cats = Object.entries(byCat).sort((a, b) => b[1] - a[1]);
+            $('expenseByCategory').innerHTML = cats.length === 0
+                ? '<div class="text-slate-400 text-sm text-center py-4">本月還沒有支出紀錄喵</div>'
+                : cats.map(([c, v]) => `
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1"><span class="text-slate-600">${escapeHTML(c)}</span><span class="text-slate-500">${money(v)}（${Math.round(v / exp * 100)}%）</span></div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full bg-emerald-500 rounded-full" style="width:${Math.max(2, v / exp * 100)}%"></div></div>
+                    </div>`).join('');
+
+            $('expenseList').innerHTML = state.expenses.length === 0
+                ? '<div class="text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有任何紀錄，按上方「新增一筆」開始記帳喵 🐾</div>'
+                : state.expenses.slice(0, 100).map(e => `
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div class="min-w-0">
+                            <div class="font-black text-slate-900 truncate">${escapeHTML(e.category || '其他')}${e.note ? `<span class="font-medium text-slate-400 text-sm"> · ${escapeHTML(e.note)}</span>` : ''}</div>
+                            <div class="text-xs text-slate-400">${escapeHTML(e.date || '')}</div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <span class="font-black ${e.type === 'income' ? 'text-emerald-500' : 'text-rose-500'}">${e.type === 'income' ? '+' : '-'}${money(e.amount)}</span>
+                            <button data-action="edit-expense" data-id="${e.id}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="del-finance" data-col="expenses" data-id="${e.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </div>`).join('');
+        }
+
+        function renderInvest() {
+            const hs = state.holdings;
+            const cost = hs.reduce((s, h) => s + (h.qty || 0) * (h.cost || 0), 0);
+            const val = hs.reduce((s, h) => s + (h.qty || 0) * (h.price || h.cost || 0), 0);
+            const pnl = val - cost;
+            $('invCost').textContent = money(cost); $('invValue').textContent = money(val);
+            $('invPnl').textContent = (pnl >= 0 ? '+' : '') + money(pnl) + (cost ? `（${(pnl / cost * 100).toFixed(1)}%）` : '');
+            $('invPnl').className = 'text-lg font-black ' + (pnl >= 0 ? 'text-emerald-400' : 'text-rose-400');
+
+            // 資產配置（依標的現值佔比）
+            const COLORS = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-fuchsia-500', 'bg-rose-500', 'bg-teal-500', 'bg-indigo-500'];
+            const rows = hs.map(h => ({ name: h.name, v: (h.qty || 0) * (h.price || h.cost || 0) })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
+            $('allocationChart').innerHTML = rows.length === 0
+                ? '<div class="text-slate-400 text-sm text-center py-4">還沒有持倉喵</div>'
+                : rows.map((r, i) => `
+                    <div>
+                        <div class="flex justify-between text-xs font-bold mb-1"><span class="text-slate-600">${escapeHTML(r.name)}</span><span class="text-slate-500">${money(r.v)}（${Math.round(r.v / val * 100)}%）</span></div>
+                        <div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full ${COLORS[i % COLORS.length]} rounded-full" style="width:${Math.max(2, r.v / val * 100)}%"></div></div>
+                    </div>`).join('');
+
+            $('holdingList').innerHTML = hs.length === 0
+                ? '<div class="text-center py-8 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">還沒有持倉，按「新增持倉」開始追蹤喵 🐾</div>'
+                : hs.map(h => {
+                    const c = (h.qty || 0) * (h.cost || 0), v = (h.qty || 0) * (h.price || h.cost || 0), p = v - c;
+                    return `<div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div class="min-w-0">
+                            <div class="font-black text-slate-900 truncate">${escapeHTML(h.name)} <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${escapeHTML(h.type || '')}</span>${h.symbol ? `<span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1">${escapeHTML(h.symbol)}</span>` : ''}</div>
+                            <div class="text-xs text-slate-400">${h.qty} 股 · 成本 ${h.cost} · 現價 ${h.price || h.cost}</div>
+                        </div>
+                        <div class="flex items-center gap-2 shrink-0">
+                            <div class="text-right"><div class="font-black text-slate-800 text-sm">${money(v)}</div><div class="text-xs font-bold ${p >= 0 ? 'text-emerald-500' : 'text-rose-500'}">${p >= 0 ? '+' : ''}${money(p)}</div></div>
+                            <button data-action="edit-holding" data-id="${h.id}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="del-finance" data-col="holdings" data-id="${h.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </div>`; }).join('');
+
+            $('tradeList').innerHTML = state.trades.length === 0
+                ? '<div class="text-center py-8 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">還沒有交易紀錄喵</div>'
+                : state.trades.slice(0, 100).map(t => `
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
+                        <div class="min-w-0">
+                            <div class="font-black text-slate-900 truncate"><span class="${t.side === 'sell' ? 'text-rose-500' : 'text-blue-500'}">${t.side === 'sell' ? '賣出' : '買入'}</span> ${escapeHTML(t.name)}</div>
+                            <div class="text-xs text-slate-400">${t.qty} × ${t.price} = ${money((t.qty || 0) * (t.price || 0))} · ${escapeHTML(t.date || '')}</div>
+                        </div>
+                        <button data-action="del-finance" data-col="trades" data-id="${t.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg shrink-0"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>`).join('');
+
+            $('watchList').innerHTML = state.watchlist.length === 0
+                ? '<div class="text-center py-8 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">還沒有投資筆記喵</div>'
+                : state.watchlist.map(w => `
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                        <div class="flex justify-between items-start gap-2">
+                            <div class="min-w-0">
+                                <div class="font-black text-slate-900 truncate">${escapeHTML(w.name)}${w.target ? `<span class="ml-2 text-xs font-bold text-fuchsia-600 bg-fuchsia-50 px-2 py-0.5 rounded">目標 ${w.target}</span>` : ''}</div>
+                                ${w.note ? `<p class="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">${escapeHTML(w.note)}</p>` : ''}
+                            </div>
+                            <div class="flex gap-1 shrink-0">
+                                <button data-action="edit-watch" data-id="${w.id}" class="p-1.5 text-slate-300 hover:text-fuchsia-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="del-finance" data-col="watchlist" data-id="${w.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                            </div>
+                        </div>
+                    </div>`).join('');
+        }
+
+        // --- 記帳 CRUD ---
+        function updateExpenseTypeUI() {
+            document.querySelectorAll('.exp-type-opt').forEach(b => {
+                const on = b.dataset.type === expenseType;
+                b.classList.toggle('bg-emerald-500', on && expenseType === 'income');
+                b.classList.toggle('bg-rose-500', on && expenseType === 'expense');
+                b.classList.toggle('text-white', on);
+                b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-500', !on);
+            });
+            $('expenseCategory').innerHTML = EXPENSE_CATS[expenseType].map(c => `<option value="${c}">${c}</option>`).join('');
+        }
+        function openExpenseModal(id = null) {
+            const e = id ? state.expenses.find(x => x.id === id) : null;
+            expenseType = e ? (e.type || 'expense') : 'expense';
+            $('expenseModalTitle').textContent = e ? '編輯紀錄' : '新增一筆';
+            updateExpenseTypeUI();
+            setVals({ editExpenseId: e ? e.id : '', expenseAmount: e ? e.amount : '', expenseNote: e ? (e.note || '') : '',
+                      expenseDate: e ? e.date : new Date().toISOString().slice(0, 10) });
+            if (e) $('expenseCategory').value = e.category || '其他';
+            openModal('expenseModal');
+        }
+        async function saveExpense() {
+            const amount = parseFloat(getVal('expenseAmount'));
+            if (!amount || amount <= 0) return showToast("請輸入正確金額喵");
+            const payload = { type: expenseType, amount, category: $('expenseCategory').value,
+                              note: getVal('expenseNote'), date: getVal('expenseDate') || new Date().toISOString().slice(0, 10) };
+            const id = getVal('editExpenseId');
+            try {
+                if (id) await updateDoc(doc(db, PU('expenses'), id), payload);
+                else await setDoc(doc(collection(db, PU('expenses'))), { ...payload, createdAt: Date.now() });
+                closeModal('expenseModal'); showToast("已儲存 🐾");
+            } catch (e) { console.error(e); showToast("儲存失敗喵…（請確認已更新安全性規則）"); }
+        }
+
+        // --- 持倉 / 交易 / 筆記 CRUD ---
+        function openHoldingModal(id = null) {
+            const h = id ? state.holdings.find(x => x.id === id) : null;
+            $('holdingModalTitle').textContent = h ? '編輯持倉' : '新增持倉';
+            setVals({ editHoldingId: h ? h.id : '', holdingName: h ? h.name : '', holdingSymbol: h ? (h.symbol || '') : '',
+                      holdingQty: h ? h.qty : '', holdingCost: h ? h.cost : '', holdingPrice: h ? (h.price || '') : '' });
+            $('holdingType').value = h ? (h.type || '股票') : '股票';
+            openModal('holdingModal');
+        }
+        async function saveHolding() {
+            const name = getVal('holdingName'), qty = parseFloat(getVal('holdingQty')), cost = parseFloat(getVal('holdingCost'));
+            if (!isValidText(name, 30)) return showToast("請輸入標的名稱喵");
+            if (!qty || !cost) return showToast("請輸入數量與成本價喵");
+            const payload = { name, symbol: getVal('holdingSymbol').trim(), type: $('holdingType').value, qty, cost, price: parseFloat(getVal('holdingPrice')) || cost };
+            const id = getVal('editHoldingId');
+            try {
+                if (id) await updateDoc(doc(db, PU('holdings'), id), payload);
+                else await setDoc(doc(collection(db, PU('holdings'))), { ...payload, createdAt: Date.now() });
+                closeModal('holdingModal'); showToast("已儲存 🐾");
+            } catch (e) { console.error(e); showToast("儲存失敗喵…（請確認已更新安全性規則）"); }
+        }
+        function updateTradeSideUI() {
+            document.querySelectorAll('.trade-side-opt').forEach(b => {
+                const on = b.dataset.side === tradeSide;
+                b.classList.toggle('bg-blue-500', on && tradeSide === 'buy');
+                b.classList.toggle('bg-rose-500', on && tradeSide === 'sell');
+                b.classList.toggle('text-white', on);
+                b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-500', !on);
+            });
+        }
+        function openTradeModal() {
+            tradeSide = 'buy'; updateTradeSideUI();
+            setVals({ tradeName: '', tradeQty: '', tradePrice: '', tradeDate: new Date().toISOString().slice(0, 10) });
+            openModal('tradeModal');
+        }
+        async function saveTrade() {
+            const name = getVal('tradeName'), qty = parseFloat(getVal('tradeQty')), price = parseFloat(getVal('tradePrice'));
+            if (!isValidText(name, 30)) return showToast("請輸入標的名稱喵");
+            if (!qty || !price) return showToast("請輸入數量與價格喵");
+            try {
+                await setDoc(doc(collection(db, PU('trades'))), { name, side: tradeSide, qty, price, date: getVal('tradeDate'), createdAt: Date.now() });
+                closeModal('tradeModal'); showToast("已記錄 🐾");
+            } catch (e) { console.error(e); showToast("儲存失敗喵…（請確認已更新安全性規則）"); }
+        }
+        function openWatchModal(id = null) {
+            const w = id ? state.watchlist.find(x => x.id === id) : null;
+            $('watchModalTitle').textContent = w ? '編輯筆記' : '投資筆記';
+            setVals({ editWatchId: w ? w.id : '', watchName: w ? w.name : '', watchTarget: w ? (w.target || '') : '', watchNote: w ? (w.note || '') : '' });
+            openModal('watchModal');
+        }
+        async function saveWatch() {
+            const name = getVal('watchName');
+            if (!isValidText(name, 30)) return showToast("請輸入標的名稱喵");
+            const payload = { name, target: parseFloat(getVal('watchTarget')) || null, note: getVal('watchNote') };
+            const id = getVal('editWatchId');
+            try {
+                if (id) await updateDoc(doc(db, PU('watchlist'), id), payload);
+                else await setDoc(doc(collection(db, PU('watchlist'))), { ...payload, createdAt: Date.now() });
+                closeModal('watchModal'); showToast("已儲存 🐾");
+            } catch (e) { console.error(e); showToast("儲存失敗喵…（請確認已更新安全性規則）"); }
+        }
+        // --- 自動更新現價（透過 Cloudflare Worker 報價代理）---
+        // 部署 Worker 後把網址填在這裡，例如 'https://blackcat-quote.xxx.workers.dev'
+        const QUOTE_API = 'https://blackcat-quote.cctsai03.workers.dev';
+
+        const symbolKind = (h) => {
+            const s = (h.symbol || '').trim();
+            if (!s) return null;
+            if (h.type === '加密貨幣') return 'crypto';
+            if (/^[0-9]{4,6}$/.test(s)) return 'tw';       // 台股代號為純數字
+            if (/^[A-Za-z.\-]{1,10}$/.test(s)) return 'us'; // 英文代號視為美股
+            return null;
+        };
+
+        async function refreshPrices() {
+            if (!QUOTE_API) return showToast("尚未設定報價來源，請先部署 Worker 並填入 QUOTE_API 喵 🐾");
+            const groups = { tw: [], us: [], crypto: [] };
+            state.holdings.forEach(h => { const k = symbolKind(h); if (k) groups[k].push(h); });
+            const total = Object.values(groups).reduce((s, a) => s + a.length, 0);
+            if (!total) return showToast("沒有可更新的持倉（請先填寫代號）喵");
+
+            const btn = $('refreshPricesBtn'); btn.disabled = true;
+            const orig = btn.innerHTML; btn.textContent = '更新中…';
+            let ok = 0, fail = 0;
+            for (const [type, list] of Object.entries(groups)) {
+                if (!list.length) continue;
+                try {
+                    const syms = [...new Set(list.map(h => h.symbol.trim()))].join(',');
+                    const r = await fetch(`${QUOTE_API}/?type=${type}&symbols=${encodeURIComponent(syms)}`);
+                    const d = await r.json();
+                    if (!d || !d.ok) throw new Error(d && d.error || 'bad response');
+                    for (const h of list) {
+                        const key = type === 'crypto' ? h.symbol.trim().toLowerCase()
+                                  : type === 'us' ? h.symbol.trim().toUpperCase() : h.symbol.trim();
+                        const p = d.prices[key];
+                        if (typeof p === 'number' && p > 0) {
+                            try { await updateDoc(doc(db, PU('holdings'), h.id), { price: p }); ok++; }
+                            catch { fail++; }
+                        }
+                    }
+                } catch (e) { console.error(type, e); fail += list.length; }
+            }
+            btn.disabled = false; btn.innerHTML = orig; icons();
+            showToast(ok ? `已更新 ${ok} 檔現價${fail ? `，${fail} 檔失敗` : ''} 🐾` : "更新失敗，請確認代號與 Worker 設定喵");
+        }
+
+        async function deleteFinanceDoc(col, id) {
+            if (!confirm('確定要刪除這筆紀錄嗎？')) return;
+            try { await deleteDoc(doc(db, PU(col), id)); showToast("已刪除 🐾"); }
+            catch (e) { console.error(e); showToast("刪除失敗喵…"); }
         }
 
         /* ==========================================================
@@ -2802,7 +3265,8 @@
          * 17. 刪除流程 (含關聯資料連鎖刪除)
          * ========================================================== */
         const SIMPLE_DELETE_PATHS = {
-            review: PATHS.reviews, material: PATHS.materials, kahoot: PATHS.kahoots,
+            review: PATHS.reviews, kahoot: PATHS.kahoots,
+            matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
             news: PATHS.news, quickLink: PATHS.links, article: PATHS.articles
         };
@@ -2829,7 +3293,8 @@
                 if (currentDeleteType === 'course') {
                     await cascadeDelete(PATHS.courses, [
                         { path: PATHS.reviews, field: 'courseId' },
-                        { path: PATHS.materials, field: 'courseId' },
+                        { path: PATHS.matWarrior, field: 'courseId' },
+                        { path: PATHS.matLeader, field: 'courseId' },
                         { path: PATHS.kahoots, field: 'courseId' }
                     ], id);
                     if (id === selectedFilterCourseId) {
@@ -2997,10 +3462,14 @@
             const title = getVal('pdfTitleInput');
             const requiredRole = parseInt($('materialLevelSelect').value);
             if (!courseId || !url || !title) return showToast("喵，請填寫完整喔！");
+            // 規則只收 http/https 連結，先在前端擋下來才不會只看到「失敗喵」
+            if (!isValidUrl(url)) return showToast("連結格式錯誤！(必需包含 http/https)");
             try {
                 const course = state.courses.find(c => c.id === courseId);
-                await setDoc(doc(collection(db, PATHS.materials)), { courseId, courseName: course.name, title, url, requiredRole, createdAt: Date.now() });
-                showToast(`考題已存入${requiredRole === 3 ? '族長' : '戰士'}寶藏庫 🐾`);
+                // 🔒 依階級寫進不同集合，權限由 Firestore 規則決定，而非文件欄位
+                const targetPath = requiredRole >= 3 ? PATHS.matLeader : PATHS.matWarrior;
+                await setDoc(doc(collection(db, targetPath)), { courseId, courseName: course.name, title, url, requiredRole, createdAt: Date.now() });
+                showToast(`考題已存入${requiredRole >= 3 ? '族長' : '戰士'}寶藏庫 🐾`);
                 setVals({ pdfUrlInput: '', pdfTitleInput: '' });
             } catch { showToast("失敗喵..."); }
         }
@@ -3150,6 +3619,11 @@
 
                 if (!user) signInAnonymously(auth).catch(e => console.error(e));
             }
+            // 理財：登入才訂閱個人資料，登出即停止並清空
+            if (user && !user.isAnonymous) initFinanceSubs(); else stopFinanceSubs();
+            renderFinance();
+            // 🔒 階級可能已改變，重新評估分級教材的訂閱
+            resyncTieredSubs();
             updateAdminUI();
         }
 
@@ -3271,6 +3745,22 @@
             'toggle-class-reminder': () => toggleClassReminder(),
             'set-quiz-sub': (t) => switchQuizSub(t.dataset.sub),
             'set-study-sub': (t) => switchStudySub(t.dataset.sub),
+            'set-finance-sub': (t) => switchFinanceSub(t.dataset.sub),
+            'open-expense-modal': () => openExpenseModal(),
+            'edit-expense': (t) => openExpenseModal(t.dataset.id),
+            'set-expense-type': (t) => { expenseType = t.dataset.type; updateExpenseTypeUI(); },
+            'save-expense': saveExpense,
+            'open-holding-modal': () => openHoldingModal(),
+            'edit-holding': (t) => openHoldingModal(t.dataset.id),
+            'save-holding': saveHolding,
+            'open-trade-modal': () => openTradeModal(),
+            'set-trade-side': (t) => { tradeSide = t.dataset.side; updateTradeSideUI(); },
+            'save-trade': saveTrade,
+            'open-watch-modal': () => openWatchModal(),
+            'edit-watch': (t) => openWatchModal(t.dataset.id),
+            'save-watch': saveWatch,
+            'del-finance': (t) => deleteFinanceDoc(t.dataset.col, t.dataset.id),
+            'refresh-prices': refreshPrices,
             'reading-open': (t) => openReadingArticle(t.dataset.id),
             'reading-back': () => { $('reading-reader-view').classList.add('hidden'); $('reading-list-view').classList.remove('hidden'); },
             'cambridge-quick': () => openCambridge($('cambridgeQuickInput').value),
@@ -3552,8 +4042,10 @@
             { key: 'links',      path: PATHS.links,      sort: byNewest, render: () => renderQuickLinks() },
             { key: 'courses',    path: PATHS.courses,    sort: null,     render: () => { renderCourseSelect(); renderCourseGrid(); if (reviewWizardStep === 0) renderReviewWizard(); if (auth.currentUser && !auth.currentUser.isAnonymous) renderSchedule(); } },
             { key: 'reviews',    path: PATHS.reviews,    sort: byNewest, render: () => { renderReviews(); renderCourseGrid(); } },
-            { key: 'materials',  path: PATHS.materials,  sort: byNewest, render: () => renderMaterials() },
-            { key: 'kahoots',    path: PATHS.kahoots,    sort: byNewest, render: () => renderKahoots() },
+            // 🔒 分級教材：minLevel 不足就不訂閱（硬訂閱會被規則擋下並讓 listener 直接報錯）
+            { key: 'matWarrior', path: PATHS.matWarrior, sort: byNewest, minLevel: 2, render: () => renderMaterials() },
+            { key: 'matLeader',  path: PATHS.matLeader,  sort: byNewest, minLevel: 3, render: () => renderMaterials() },
+            { key: 'kahoots',    path: PATHS.kahoots,    sort: byNewest, minLevel: 2, render: () => renderKahoots() },
             { key: 'ssCourses',  path: PATHS.ssCourses,  sort: byOldest, render: () => renderSelfStudyCourses() },
             { key: 'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key: 'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
@@ -3564,28 +4056,53 @@
         // 🐾 每個分頁需要哪些資料集（延遲載入用）
         const TAB_DATA = {
             'home':       ['news', 'links', 'courses'],
-            'evaluation': ['courses', 'reviews', 'materials'],
+            'evaluation': ['courses', 'reviews', 'matWarrior', 'matLeader'],
             // 自學課程與測驗的管理表單會關聯「學校課程」，故需一併載入 courses
             'self-study': ['ssCourses', 'ssUnits', 'courses', 'articles'],
             'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords'],
             'about':      [],
             // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
-            'management': ['news', 'links', 'courses', 'reviews', 'materials', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
+            'management': ['news', 'links', 'courses', 'reviews', 'matWarrior', 'matLeader', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
         };
 
         // 🐾 延遲訂閱：只有真正需要某資料集時才開啟即時監聽，且同一資料集只開一次
         const SUB_MAP = Object.fromEntries(SUBSCRIPTIONS.map(s => [s.key, s]));
         const activeSubs = {}; // key -> unsubscribe fn
+        let lastLoadedKeys = [];   // 目前分頁要求過的資料集，階級變動時用來重新評估
+
         function ensureLoaded(...keys) {
+            if (keys.length) lastLoadedKeys = keys;
             keys.forEach(key => {
                 if (activeSubs[key] || !SUB_MAP[key]) return;
-                const { path, sort, render } = SUB_MAP[key];
-                activeSubs[key] = onSnapshot(collection(db, path), (snapshot) => {
-                    state[key] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-                    if (sort) state[key].sort(sort);
-                    render();
-                });
+                const { path, sort, render, minLevel } = SUB_MAP[key];
+                // 階級不足就別訂閱：規則會拒絕，硬訂閱只會讓整個 listener 報錯
+                if (minLevel && currentUserLevel < minLevel) return;
+                activeSubs[key] = onSnapshot(
+                    collection(db, path),
+                    (snapshot) => {
+                        state[key] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                        if (sort) state[key].sort(sort);
+                        render();
+                    },
+                    (err) => {   // 權限不足或離線：清掉這份訂閱並留白，不要讓整頁卡住
+                        console.warn(`訂閱 ${key} 失敗:`, err.code || err);
+                        if (activeSubs[key]) { activeSubs[key](); delete activeSubs[key]; }
+                        state[key] = [];
+                        render();
+                    }
+                );
             });
+        }
+
+        // 🐾 登入／登出後階級會改變：關掉所有「有階級門檻」的訂閱並依新階級重新評估
+        function resyncTieredSubs() {
+            SUBSCRIPTIONS.filter(s => s.minLevel).forEach(({ key }) => {
+                if (activeSubs[key]) { activeSubs[key](); delete activeSubs[key]; }
+                state[key] = [];
+            });
+            if (lastLoadedKeys.length) ensureLoaded(...lastLoadedKeys);
+            renderMaterials();
+            renderKahoots();
         }
 
         window.onload = () => {
