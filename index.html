@@ -396,6 +396,11 @@
 
         <!-- ======================== 課程自學頁面 ======================== -->
         <div id="page-self-study" class="page-section hidden">
+            <div class="flex gap-2 mb-6">
+                <button data-action="set-study-sub" data-sub="course" class="study-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 自學課程</button>
+                <button data-action="set-study-sub" data-sub="reading" class="study-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="newspaper" class="w-4 h-4 pointer-events-none"></i> 英文閱讀</button>
+            </div>
+            <div id="study-sub-course">
             <div id="page-self-study-main">
                 <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <i data-lucide="book-open" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
@@ -432,6 +437,35 @@
                     <div class="text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個課程還沒有任何單元，等星族來補充喵 🐾</div>
                 </div>
             </div>
+            </div>
+            <!-- 子分頁：英文閱讀 -->
+            <div id="study-sub-reading" class="hidden">
+                <div id="reading-list-view">
+                    <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                        <div class="relative z-10">
+                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">英文閱讀 <span class="animate-bounce">📰</span></h2>
+                            <p class="text-slate-400 text-sm mt-2">讀英文新聞、點任一個字直接查劍橋字典。文章來源：Global Voices（CC BY 3.0）。</p>
+                            <div class="mt-4 flex gap-2 max-w-md">
+                                <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500">
+                                <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
+                            </div>
+                            <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-all inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
+                        </div>
+                    </div>
+                    <div id="readingList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                </div>
+                <div id="reading-reader-view" class="hidden">
+                    <button data-action="reading-back" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm"><i data-lucide="arrow-left" class="w-4 h-4"></i> 返回文章列表</button>
+                    <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                        <div id="readingTopic" class="text-xs text-emerald-600 font-black uppercase tracking-widest mb-2"></div>
+                        <h2 id="readingTitle" class="text-2xl md:text-3xl font-black text-slate-900 mb-2 leading-snug"></h2>
+                        <p id="readingMeta" class="text-sm text-slate-400 mb-1"></p>
+                        <div class="text-xs text-teal-600 font-bold mb-5 pb-4 border-b border-slate-100 flex items-center gap-1"><i data-lucide="hand-pointer" class="w-3.5 h-3.5"></i> 點任一個英文字即可查劍橋字典</div>
+                        <div id="readingBody" class="text-slate-700 text-lg leading-loose space-y-4"></div>
+                        <div id="readingAttribution" class="mt-8 pt-4 border-t border-slate-100 text-xs text-slate-400 leading-relaxed"></div>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ======================== 單字庫頁面 ======================== -->
@@ -440,7 +474,6 @@
             <div class="flex gap-2 mb-6">
                 <button data-action="set-quiz-sub" data-sub="kahoot" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="gamepad-2" class="w-4 h-4 pointer-events-none"></i> 挑戰擂台</button>
                 <button data-action="set-quiz-sub" data-sub="vocab" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4 pointer-events-none"></i> 單字庫</button>
-                <button data-action="set-quiz-sub" data-sub="reading" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="newspaper" class="w-4 h-4 pointer-events-none"></i> 閱讀</button>
             </div>
             <div id="quiz-sub-kahoot">
             <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
@@ -500,34 +533,7 @@
             </div>
             </div>
 
-            <!-- 子分頁：英文閱讀 -->
-            <div id="quiz-sub-reading" class="hidden">
-                <div id="reading-list-view">
-                    <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                        <div class="relative z-10">
-                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">英文閱讀 <span class="animate-bounce">📰</span></h2>
-                            <p class="text-slate-400 text-sm mt-2">讀英文新聞、點任一個字直接查劍橋字典。文章來源：Global Voices（CC BY 3.0）。</p>
-                            <div class="mt-4 flex gap-2 max-w-md">
-                                <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500">
-                                <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
-                            </div>
-                            <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-all inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
-                        </div>
-                    </div>
-                    <div id="readingList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                </div>
-                <div id="reading-reader-view" class="hidden">
-                    <button data-action="reading-back" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm"><i data-lucide="arrow-left" class="w-4 h-4"></i> 返回文章列表</button>
-                    <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
-                        <div id="readingTopic" class="text-xs text-emerald-600 font-black uppercase tracking-widest mb-2"></div>
-                        <h2 id="readingTitle" class="text-2xl md:text-3xl font-black text-slate-900 mb-2 leading-snug"></h2>
-                        <p id="readingMeta" class="text-sm text-slate-400 mb-1"></p>
-                        <div class="text-xs text-teal-600 font-bold mb-5 pb-4 border-b border-slate-100 flex items-center gap-1"><i data-lucide="hand-pointer" class="w-3.5 h-3.5"></i> 點任一個英文字即可查劍橋字典</div>
-                        <div id="readingBody" class="text-slate-700 text-lg leading-loose space-y-4"></div>
-                        <div id="readingAttribution" class="mt-8 pt-4 border-t border-slate-100 text-xs text-slate-400 leading-relaxed"></div>
-                    </div>
-                </div>
-            </div>
+
         </div>
 
         <!-- ======================== 關於頁面 ======================== -->
@@ -576,9 +582,22 @@
                     </div>
                 </div>
 
-                <!-- 3. 更新內容 -->
+                <!-- 3. 最新更新（條列） -->
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
-                    <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-fuchsia-500"></i> 更新內容</h3>
+                    <h3 class="text-xl font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="sparkles" class="w-6 h-6 text-fuchsia-500"></i> 最新更新</h3>
+                    <ul class="list-disc pl-5 space-y-2.5 text-sm text-slate-600 leading-relaxed marker:text-emerald-500">
+                        <li><span class="font-bold text-slate-800">英文閱讀 + 查字典：</span>新增「測驗 → 閱讀」子頁,收錄 Global Voices 英文文章;<span class="font-bold text-slate-800">點任一個英文字</span>就跳出英英解釋小卡,連定義裡的字也能點,可一層層往下查,並附劍橋連結。</li>
+                        <li><span class="font-bold text-slate-800">學習三合一：</span>單字庫整併進「測驗」頁,分成「挑戰擂台 / 單字庫 / 閱讀」三個子分頁。</li>
+                        <li><span class="font-bold text-slate-800">可安裝成 App(PWA)：</span>手機與桌面都能「加到主畫面」,像原生 App 一樣開啟,離線也能讀已載入的內容。</li>
+                        <li><span class="font-bold text-slate-800">上課提醒：</span>課表可開啟上課前 10 分鐘的通知(Android／桌面;iOS 需加到主畫面且支援有限)。</li>
+                        <li><span class="font-bold text-slate-800">課表升級：</span>新增「閱讀／編輯」雙模式,手機閱讀模式一頁看完整週;星族可隨時調整課程分類。</li>
+                        <li><span class="font-bold text-slate-800">深色模式優化：</span>寶藏庫等區塊在深色下的配色更協調。</li>
+                    </ul>
+                </div>
+
+                <!-- 4. 過往更新 -->
+                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="history" class="w-6 h-6 text-slate-400"></i> 過往更新</h3>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
                         <div class="bg-slate-50 p-5 rounded-2xl border border-slate-100">
                             <i data-lucide="star" class="w-8 h-8 text-emerald-500 mb-3"></i>
@@ -1016,7 +1035,7 @@
         const categoryMap = Object.fromEntries([...CATEGORIES, ['elective', '系選修']]);
 
         const TABS = [
-            ['home', '首頁'], ['evaluation', '課程'], ['self-study', '自學'],
+            ['home', '首頁'], ['evaluation', '課程'], ['self-study', '學習'],
             ['quiz', '測驗'], ['about', '關於黑貓'], ['management', '管理']
         ];
         const NEWS_CATEGORIES = ['共同', '新生', '舊生'];
@@ -1269,7 +1288,7 @@
                 $('evaluationHero').classList.remove('hidden');
                 selectedFilterCourseId = null;
             }
-            if (tab === 'self-study') { closeModalView('page-self-study-details', 'page-self-study-main'); currentViewSSCourseId = null; }
+            if (tab === 'self-study') switchStudySub(studySub);
             if (tab === 'quiz') switchQuizSub(quizSub);
             icons();
         }
@@ -2002,22 +2021,46 @@
         }
 
         function switchQuizSub(sub) {
-            quizSub = ['vocab', 'reading'].includes(sub) ? sub : 'kahoot';
+            quizSub = (sub === 'vocab') ? 'vocab' : 'kahoot';
             $('quiz-sub-kahoot').classList.toggle('hidden', quizSub !== 'kahoot');
             $('quiz-sub-vocab').classList.toggle('hidden', quizSub !== 'vocab');
-            $('quiz-sub-reading').classList.toggle('hidden', quizSub !== 'reading');
             if (quizSub === 'vocab') {
                 closeModalView('page-vocabulary-details', 'page-vocabulary-main');
                 currentViewVocabBookId = null;
                 renderVocabBooks();
-            } else if (quizSub === 'reading') {
-                $('reading-reader-view').classList.add('hidden');
-                $('reading-list-view').classList.remove('hidden');
-                renderReadingList();
             } else {
                 renderKahoots();
             }
             updateQuizSubUI();
+            icons();
+        }
+
+        // 學習頁子分頁（自學課程 / 英文閱讀）
+        let studySub = 'course';
+        function updateStudySubUI() {
+            document.querySelectorAll('.study-sub-opt').forEach(btn => {
+                const on = btn.dataset.sub === studySub;
+                btn.classList.toggle('bg-emerald-500', on);
+                btn.classList.toggle('text-white', on);
+                btn.classList.toggle('shadow-md', on);
+                btn.classList.toggle('bg-slate-100', !on);
+                btn.classList.toggle('text-slate-500', !on);
+            });
+        }
+        function switchStudySub(sub) {
+            studySub = (sub === 'reading') ? 'reading' : 'course';
+            $('study-sub-course').classList.toggle('hidden', studySub !== 'course');
+            $('study-sub-reading').classList.toggle('hidden', studySub !== 'reading');
+            if (studySub === 'course') {
+                closeModalView('page-self-study-details', 'page-self-study-main');
+                currentViewSSCourseId = null;
+                renderSelfStudyCourses();
+            } else {
+                $('reading-reader-view').classList.add('hidden');
+                $('reading-list-view').classList.remove('hidden');
+                renderReadingList();
+            }
+            updateStudySubUI();
             icons();
         }
 
@@ -3239,6 +3282,7 @@
             'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode === 'edit'); renderSchedule(); },
             'toggle-class-reminder': () => toggleClassReminder(),
             'set-quiz-sub': (t) => switchQuizSub(t.dataset.sub),
+            'set-study-sub': (t) => switchStudySub(t.dataset.sub),
             'reading-open': (t) => openReadingArticle(t.dataset.id),
             'reading-back': () => { $('reading-reader-view').classList.add('hidden'); $('reading-list-view').classList.remove('hidden'); },
             'cambridge-quick': () => openCambridge($('cambridgeQuickInput').value),
@@ -3526,7 +3570,7 @@
             { key: 'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key: 'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
             { key: 'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
-            { key: 'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (quizSub === 'reading') renderReadingList(); } }
+            { key: 'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (studySub === 'reading') renderReadingList(); } }
         ];
 
         // 🐾 每個分頁需要哪些資料集（延遲載入用）
@@ -3534,8 +3578,8 @@
             'home':       ['news', 'links', 'courses'],
             'evaluation': ['courses', 'reviews', 'materials'],
             // 自學課程與測驗的管理表單會關聯「學校課程」，故需一併載入 courses
-            'self-study': ['ssCourses', 'ssUnits', 'courses'],
-            'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords', 'articles'],
+            'self-study': ['ssCourses', 'ssUnits', 'courses', 'articles'],
+            'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords'],
             'about':      [],
             // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
             'management': ['news', 'links', 'courses', 'reviews', 'materials', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
