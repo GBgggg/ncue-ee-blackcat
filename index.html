@@ -1497,7 +1497,10 @@
             btn.classList.toggle('text-slate-500', !on);
         }
 
+        const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
         async function toggleClassReminder() {
+            if (isIOS) return showToast("iPhone 請用 Safari「分享 → 加入主畫面」安裝成 App；iOS 網頁通知支援有限，可用課表的『現在／下一堂』當提醒喵 🐾");
             if (!('Notification' in window)) return showToast("這個瀏覽器不支援通知喵");
             if (classReminderOn) {
                 classReminderOn = false;
