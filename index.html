@@ -38,8 +38,24 @@
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
 
-        /* 課表：標記「今天」的欄位表頭 */
-        .schedule-day-head.is-today { background-color: #0f766e; box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.45); }
+        /* 課表表頭：走編輯排版的路子——不用整片色塊，只用底紙 + 細規線。
+           原本是整排 bg-teal-400，換成強調色之後變成一大片磚紅，
+           在紙面上比課程內容還搶眼，本末倒置。 */
+        .sched-head {
+            background-color: var(--paper-sunk) !important;
+            color: var(--ink-2) !important;
+            border: 0 !important;
+            border-bottom: 1px solid var(--rule) !important;
+            border-radius: 8px !important;
+            box-shadow: none !important;
+            letter-spacing: 0.08em;
+        }
+        /* 標記「今天」：只在該欄點一筆強調色，其餘維持安靜 */
+        .schedule-day-head.is-today {
+            background-color: var(--accent-soft) !important;
+            color: var(--accent) !important;
+            box-shadow: inset 0 -2px 0 var(--accent) !important;
+        }
 
         /* 分頁切換：淡入 + 輕微上滑，每次切換重新播放 */
         @keyframes pageFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -47,33 +63,22 @@
 
         /* 英文閱讀：可點查的單字 */
         .lw { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background-color .12s; }
-        .lw:hover { background-color: rgba(16, 185, 129, 0.18); }
-        html.dark .lw:hover { background-color: rgba(16, 185, 129, 0.28); }
+        .lw:hover { background-color: var(--accent-soft); }
+        html.dark .lw:hover { background-color: rgba(220, 145, 102, 0.22); }
 
         /* 課程卡 / 評價卡進場：純淡入、不位移，快速即時出現 */
         @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
         .list-enter { animation: cardEnter 0.2s ease-out both; }
 
-        /* ===== 品牌化中性色：避免純黑白，中性色向青綠(主色)微調 ===== */
-        /* 深色品牌表面(頁首/Hero)：兩種模式皆用「青碳色」，取代藍黑 */
-        .bg-slate-900 { background-color: #101f1b !important; }
-        .bg-slate-800 { background-color: #17302a !important; }
-        .border-slate-800 { border-color: #142520 !important; }
-        .border-slate-700 { border-color: #234840 !important; }
-
-        /* 淺色模式：底色帶一絲青綠(冷白→柔綠灰)，文字用深墨綠而非純黑 */
-        html:not(.dark) body,
-        html:not(.dark) .bg-slate-50,
-        html:not(.dark) .bg-slate-50\/50,
-        html:not(.dark) .bg-slate-50\/40 { background-color: #edf3f1 !important; }
-        html:not(.dark) .bg-white { background-color: #fbfdfc !important; }
-        html:not(.dark) .bg-slate-100 { background-color: #e2ece8 !important; }
-        html:not(.dark) .text-slate-900,
-        html:not(.dark) .text-slate-800 { color: #182420 !important; }
-
-        /* 舊的墨綠深色調色盤已由下方「紙墨白日 · 靛藍星夜」取代。
-           這裡只保留寶藏庫面板的分級色調（紅＝戰士、琥珀＝族長），
-           那是功能性的顏色編碼，不屬於主題配色。 */
+        /* 舊的「墨綠品牌中性色」整組已刪除。
+           那組用的是 html:not(.dark) 開頭（特異性 0,2,0），會壓過下方
+           「紙墨白日」的 .bg-white / .text-slate-900（0,1,0），
+           結果淺色模式一直維持在青綠色，新配色只有深色模式看得到。
+           留在這裡只保留寶藏庫分級面板的功能性色碼（紅＝戰士、琥珀＝族長）。 */
+        .bg-rose-50\/50  { background-color: rgba(156,74,72,0.09) !important; border-color: rgba(156,74,72,0.28) !important; }
+        .bg-amber-50\/50 { background-color: rgba(150,112,47,0.10) !important; border-color: rgba(150,112,47,0.30) !important; }
+        .bg-rose-50\/50 h4  { color: #9c4a48 !important; }
+        .bg-amber-50\/50 h4 { color: #7d5c26 !important; }
         html.dark .bg-rose-50\/50 { background-color: rgba(120,30,55,0.22) !important; border-color: rgba(190,70,100,0.38) !important; }
         html.dark .bg-rose-50\/50 h4 { color: #fda4af !important; }
         html.dark .bg-amber-50\/50 { background-color: rgba(110,60,18,0.22) !important; border-color: rgba(190,130,45,0.38) !important; }
@@ -187,6 +192,33 @@
         /* 帶透明度修飾的類別要另外寫，.bg-teal-400 選不到 .bg-teal-400\/90 */
         .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600 { background-color: var(--accent) !important; }
         .bg-teal-100, .bg-blue-100, .bg-emerald-100 { background-color: var(--accent-soft) !important; }
+        /* ring 是獨立的顏色變數，border-color 蓋不到它 */
+        .ring-emerald-400, .ring-emerald-500, .ring-teal-400,
+        .ring-blue-400, .ring-teal-200\/50 { --tw-ring-color: var(--accent) !important; }
+        .ring-4 { --tw-ring-offset-width: 0px; }
+
+        /* ---- 掃尾：其餘深淺階與帶透明度的品牌色 ----
+           漏掉任何一個，畫面上就會冒出一塊原本的翠綠／亮藍，
+           在紙墨配色裡特別刺眼，所以這裡列滿。 */
+        .text-teal-500, .text-teal-600, .text-teal-700,
+        .text-emerald-300, .text-emerald-700, .text-emerald-700\/70, .text-emerald-800,
+        .text-blue-300, .text-blue-400 { color: var(--accent) !important; }
+        .text-fuchsia-100, .text-fuchsia-300, .text-fuchsia-700 { color: var(--ink-2) !important; }
+        .border-teal-200, .border-teal-300,
+        .border-emerald-400, .border-emerald-600, .border-emerald-700,
+        .border-emerald-500\/20, .border-emerald-500\/30,
+        .border-emerald-500\/40, .border-emerald-500\/50,
+        .border-blue-400, .border-blue-500, .border-blue-700,
+        .border-fuchsia-100, .border-fuchsia-400, .border-fuchsia-500, .border-fuchsia-700,
+        .border-amber-100, .border-amber-700,
+        .border-rose-100, .border-rose-800 { border-color: var(--rule) !important; }
+        .bg-indigo-500 { background-color: #4c5578 !important; }
+        /* 答錯的回饋還是要讀得出「錯」，只是把亮度收下來 */
+        .bg-rose-600 { background-color: #9c4a48 !important; }
+        .text-amber-300, .text-amber-400, .text-amber-500, .text-amber-600 { color: #96702f !important; }
+        .text-rose-300, .text-rose-400, .text-rose-500, .text-rose-600 { color: #9c4a48 !important; }
+        html.dark .text-amber-300, html.dark .text-amber-400 { color: #d9ad5e !important; }
+        html.dark .text-rose-300, html.dark .text-rose-400 { color: #e08a86 !important; }
 
         /* 階級徽章：保留顏色編碼（識別階位用），但調成沉穩的墨彩，
            原本的亮紫紅／亮綠在紙面上太跳，會搶掉內容 */
@@ -1803,6 +1835,15 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-07-27',
+                title: '改版收尾：淺色模式終於真的變成紙色',
+                items: [
+                    ['修好淺色模式仍是青綠色的問題', '新配色其實從一開始就沒在淺色模式生效。舊的墨綠配色寫成 html:not(.dark) 開頭，在 CSS 裡的權重比新規則高，等於一直壓著新版不讓它出來，只有深色模式看得到改版。舊那組已整組移除。'],
+                    ['課表表頭不再是整片色塊', '表頭原本是整排實心底色，換成強調色之後變成大面積磚紅，比課程內容還搶眼。現在改成淺色紙底加一條細線，「今天」那一欄才點一筆強調色。'],
+                    ['補齊漏網的舊配色', '單字高亮、寶藏庫的分級面板、答錯提示、各種深淺階的邊框與文字色都重新對應過，畫面上不會再冒出一塊突兀的翠綠或亮藍。']
+                ]
+            },
+            {
                 date: '2026-07-26',
                 title: '全站改版：紙墨白日 · 靛藍星夜',
                 items: [
@@ -1963,8 +2004,8 @@
             `).join('');
 
             $('scheduleHeadRow').innerHTML =
-                `<th class="sched-period-col w-24 bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">節</th>` +
-                ['一','二','三','四','五'].map((d, i) => `<th data-day="${i + 1}" class="schedule-day-head bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm transition-all">${d}</th>`).join('');
+                `<th class="sched-period-col sched-head w-24 py-3 font-black text-lg">節</th>` +
+                ['一','二','三','四','五'].map((d, i) => `<th data-day="${i + 1}" class="schedule-day-head sched-head py-3 font-black text-lg transition-all">${d}</th>`).join('');
 
             // 選項按鈕改成每題動態生成（題目可以只有 2～4 個選項），見 renderPlayOptions()
         }
@@ -2104,7 +2145,7 @@
 
             const covered = new Set(); // 被上方 rowspan 涵蓋、不再輸出的格子
             tbody.innerHTML = timeSlots.map(p => {
-                const head = `<td class="sched-period-col bg-teal-400/90 text-white rounded-xl p-1 md:p-2 text-center align-middle shadow-sm border border-teal-500 w-16 md:w-24">
+                const head = `<td class="sched-period-col sched-head p-1 md:p-2 text-center align-middle w-16 md:w-24">
                         <div class="flex flex-col items-center justify-center leading-tight">
                             <span class="sched-period-label font-black text-sm md:text-xl">${p.label}</span>
                             <span class="sched-period-time opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter">${p.timeStr}</span>
