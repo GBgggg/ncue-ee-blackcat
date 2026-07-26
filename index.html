@@ -1432,9 +1432,10 @@
         const CHANGELOG = [
             {
                 date: '2026-07-26',
-                title: '課表隱私修正',
+                title: '隱私強化：課表與評價',
                 items: [
                     ['課表不再讓管理員看得到', '先前課表和階級資料存在同一份文件裡，而管理員必須能讀取那份文件才能管理階級，等於連同大家的課表一起看到了。課表已搬到只有本人能存取的地方，下次登入會自動搬家，不用做任何事。'],
+                    ['課程評價完全匿名', '評價不再記錄是誰寫的，連管理員也查不出來，可以放心寫真話。伺服器端會擋下任何夾帶作者資訊的評價。代價是自己也無法刪除自己的評價，需要時請找星族處理。'],
                     ['理財資料本來就是私密的', '記帳與投資從一開始就存在個人私密區，管理員讀不到，這次沒有變動。']
                 ]
             },
@@ -2248,8 +2249,10 @@
 
             try {
                 const course = state.courses.find(c => c.id === d.courseId);
+                // 刻意不記錄作者。評價是全世界可讀的，若存了 authorId，
+                // 星族能把 uid 對到 email 再對到真人，等於管理員可以查出
+                // 是誰批評了哪位教授。規則那邊也會擋下夾帶 authorId 的寫入。
                 await setDoc(doc(collection(db, PATHS.reviews)), {
-                    authorId: auth.currentUser ? auth.currentUser.uid : null,  // 供規則驗證「只能刪自己的評價」
                     courseId: d.courseId,
                     courseName: course.name,
                     instructor: course.instructor,
