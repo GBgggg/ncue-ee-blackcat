@@ -128,7 +128,8 @@
             --ink-2:        #4a453e;
             --ink-3:        #8a8277;
             --rule:         #e2dcd2;   /* 細線 */
-            --accent:       #b0522f;   /* 磚紅 */
+            --accent:       #b0522f;   /* 磚紅：文字／線條用 */
+            --accent-fill:  #b0522f;   /* 實心底色用，上面一定放白字 */
             --accent-soft:  #f2e5dd;
             --panel:        #fffefb;   /* 對話框／浮動小卡：一定不透明 */
             --radius:       14px;      /* 編輯感：收斂圓角 */
@@ -143,6 +144,9 @@
             --ink-3:        #7d7a94;
             --rule:         rgba(175, 190, 235, 0.16);
             --accent:       #dc9166;
+            /* 深色模式的強調色偏亮，拿來當實心底色的話白字對比只有 2.6，
+               等於看不清楚。實心底另外用深一階的同色系。 */
+            --accent-fill:  #a85a30;
             --accent-soft:  rgba(220, 145, 102, 0.14);
             --panel:        #131b33;   /* 同 --paper-raised 的色相，但滿版不透明 */
         }
@@ -181,18 +185,18 @@
         .rounded-xl, .rounded-lg  { border-radius: 10px !important; }
 
         /* ---- 強調色：翠綠改為磚紅 ---- */
-        .bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500 { background-color: var(--accent) !important; }
+        .bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500 { background-color: var(--accent-fill) !important; }
         .hover\:bg-emerald-400:hover, .hover\:bg-emerald-600:hover,
         .hover\:bg-blue-400:hover, .hover\:bg-blue-600:hover, .hover\:bg-teal-500:hover { background-color: #96431f !important; }
         .text-emerald-500, .text-emerald-600, .text-emerald-400,
         .text-blue-500, .text-blue-600, .text-blue-700, .text-fuchsia-500, .text-fuchsia-600 { color: var(--accent) !important; }
         .bg-emerald-50, .bg-blue-50, .bg-teal-50, .bg-fuchsia-50 { background-color: var(--accent-soft) !important; }
-        .bg-emerald-200, .bg-fuchsia-400 { background-color: var(--accent) !important; }
+        .bg-emerald-200, .bg-fuchsia-400 { background-color: var(--accent-fill) !important; }
         .border-emerald-100, .border-emerald-200, .border-emerald-300,
         .border-blue-100, .border-blue-300, .border-teal-100,
         .border-teal-400, .border-teal-500, .border-emerald-500\/20 { border-color: var(--rule) !important; }
         /* 帶透明度修飾的類別要另外寫，.bg-teal-400 選不到 .bg-teal-400\/90 */
-        .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600 { background-color: var(--accent) !important; }
+        .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600 { background-color: var(--accent-fill) !important; }
         .bg-teal-100, .bg-blue-100, .bg-emerald-100 { background-color: var(--accent-soft) !important; }
         /* ring 是獨立的顏色變數，border-color 蓋不到它 */
         .ring-emerald-400, .ring-emerald-500, .ring-teal-400,
@@ -303,6 +307,18 @@
            不能對應成 --ink（淺色模式下那是近黑，會直接看不見）。 */
         .bg-sky-600 { background-color: #4c5578 !important; }
         .text-sky-100 { color: rgba(255, 255, 255, 0.82) !important; }
+
+        /* 主導覽列：狀態自己顧，不要交給 Tailwind 的色階工具類去互相打架 */
+        .tab-btn { color: var(--ink-3) !important; background-color: transparent !important; box-shadow: none !important; }
+        .tab-btn:hover { color: var(--ink) !important; background-color: var(--accent-soft) !important; }
+        .tab-btn.is-active,
+        .tab-btn.is-active:hover { background-color: var(--accent-fill) !important; color: #fff !important; }
+
+        /* 明確寫了 text-white 就一定要是白的。
+           Tailwind 原生的 .text-white 沒有 !important，而設計系統把
+           .text-slate-400 對應成灰色時加了 !important，兩個同時掛在
+           同一顆按鈕上時灰色會贏——那顆按鈕的字就消失在實心底色裡。 */
+        .text-white { color: #fff !important; }
 
         /* 課程屬性標籤：遠距／點名／分組。原本用藍／琥珀／紫紅區分，
            但藍和紫紅都被對應成同一個強調色，看起來像壞掉。
@@ -1950,6 +1966,8 @@
                 date: '2026-07-27',
                 title: '改版收尾：淺色模式終於真的變成紙色',
                 items: [
+                    ['修好分頁按鈕的字會消失的問題', '切到「首頁」以外的分頁時，那顆按鈕的字會被實心底色吃掉。原因是灰字的樣式帶了強制優先，白字的沒有，兩個同時掛在同一顆按鈕上時灰色會贏。導覽列改成用自己的樣式，不再跟通用色階互相打架。'],
+                    ['深色模式的實心按鈕看得清楚了', '深色模式的強調色偏亮，白字壓上去對比只有 2.5（一般建議 4.5 以上）。實心底色改用深一階的同色系，現在是 5.0。'],
                     ['修好被壓成同一色的地方', '把整包顏色統一成磚紅之後，有些原本靠顏色分辨的東西跟著失去了區別：評價的「課程難度」與「學到多少」兩條長條圖變成同色、七本單字冊的封面只剩五種顏色、記帳的賺與賠也幾乎分不出來。這些地方改用一組彼此拉得夠開、但仍屬同一調性的專用色。'],
                     ['修好記帳金額沒有顏色的問題', '收支結餘與投資損益的顏色其實一直沒出現——程式裡少了一個空格，兩個樣式名黏成了一個不存在的名稱，連粗體也一起失效。'],
                     ['全站不再有綠色', '主色已改成磚紅，但輸入框點下去的外框、清單的項目符號、核取方塊、滑鼠移過去的變色等等，仍散落著舊的翠綠。這次逐條掃過樣式表把它們全部換掉。測驗的正解回饋也從綠色改成金色——若跟著主色走會變成磚紅，跟答錯的暗紅太像。'],
@@ -2104,11 +2122,17 @@
         /* ==========================================================
          * 6. 靜態 UI 生成（導覽列 / 消息分類 / 課程篩選 / 測驗選項）
          * ========================================================== */
-        const NAV_ACTIVE = ['bg-emerald-500','text-white','shadow-md'];
+        // 導覽列的狀態用自己的 class，不要用 Tailwind 色階工具類。
+        // 原本是 ['bg-emerald-500','text-white','shadow-md']，但設計系統把
+        // .text-slate-400 對應成灰色而且加了 !important，Tailwind 原生的
+        // .text-white 沒有 !important——只要作用中的分頁身上還留著
+        // text-slate-400，字就會變灰，壓在橘色底上等於整個消失。
+        // 首頁看起來正常只是因為範本沒給它 text-slate-400。
+        const NAV_ACTIVE = ['is-active'];
         function buildStaticUI() {
             $('mainNav').innerHTML = TABS.map(([tab, label]) => `
                 <button data-tab="${tab}" ${tab ==='management' ?'id="navManagementTab"' :''}
-                    class="tab-btn ${tab ==='management' ?'hidden' :''} whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab ==='home' ? NAV_ACTIVE.join('') :'text-slate-400 hover:text-emerald-400 hover:bg-slate-800'}">${label}</button>
+                    class="tab-btn ${tab ==='management' ?'hidden' :''} whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab ==='home' ? NAV_ACTIVE.join(' ') :''}">${label}</button>
             `).join('');
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
@@ -2132,12 +2156,9 @@
          * 7. 分頁切換
          * ========================================================== */
         function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(b => {
-                b.classList.remove(...NAV_ACTIVE);
-                b.classList.add('text-slate-400');
-            });
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
-            if (btn) { btn.classList.remove('text-slate-400'); btn.classList.add(...NAV_ACTIVE); }
+            if (btn) btn.classList.add(...NAV_ACTIVE);
 
             document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
             const activePage = $(`page-${tab}`);
