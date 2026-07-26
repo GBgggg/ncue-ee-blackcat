@@ -130,6 +130,7 @@
             --rule:         #e2dcd2;   /* 細線 */
             --accent:       #b0522f;   /* 磚紅 */
             --accent-soft:  #f2e5dd;
+            --panel:        #fffefb;   /* 對話框／浮動小卡：一定不透明 */
             --radius:       14px;      /* 編輯感：收斂圓角 */
             --radius-lg:    18px;
         }
@@ -143,6 +144,7 @@
             --rule:         rgba(175, 190, 235, 0.16);
             --accent:       #dc9166;
             --accent-soft:  rgba(220, 145, 102, 0.14);
+            --panel:        #131b33;   /* 同 --paper-raised 的色相，但滿版不透明 */
         }
 
         body { background-color: var(--paper); color: var(--ink); }
@@ -219,6 +221,55 @@
         .text-rose-300, .text-rose-400, .text-rose-500, .text-rose-600 { color: #9c4a48 !important; }
         html.dark .text-amber-300, html.dark .text-amber-400 { color: #d9ad5e !important; }
         html.dark .text-rose-300, html.dark .text-rose-400 { color: #e08a86 !important; }
+
+        /* ---- hover / focus 變體 ----
+           這些是綠色最後的藏身處。Tailwind 把 focus:ring-emerald-500 編成
+           .focus\:ring-emerald-500:focus，光寫 .ring-emerald-500 選不到它，
+           所以每個輸入框一點下去還是會亮一圈綠。 */
+        .focus\:ring-emerald-500:focus, .focus\:ring-emerald-400:focus,
+        .focus\:ring-teal-400:focus, .focus\:ring-blue-500:focus,
+        .focus\:ring-fuchsia-500:focus,
+        .focus-within\:ring-emerald-200:focus-within,
+        .ring-emerald-200, .ring-emerald-500 { --tw-ring-color: var(--accent) !important; }
+        .focus\:border-emerald-500:focus, .focus\:border-fuchsia-400:focus { border-color: var(--accent) !important; }
+        .hover\:bg-emerald-500:hover, .hover\:bg-emerald-600:hover,
+        .hover\:bg-teal-500:hover, .hover\:bg-blue-400:hover,
+        .hover\:bg-blue-600:hover, .hover\:bg-fuchsia-400:hover { background-color: #96431f !important; }
+        .hover\:bg-emerald-50:hover, .hover\:bg-emerald-100:hover,
+        .hover\:bg-teal-50:hover, .hover\:bg-teal-100:hover,
+        .hover\:bg-blue-50:hover, .hover\:bg-blue-100:hover,
+        .hover\:bg-fuchsia-50:hover { background-color: var(--accent-soft) !important; }
+        .hover\:text-emerald-500:hover, .hover\:text-emerald-400:hover,
+        .hover\:text-blue-500:hover, .hover\:text-blue-600:hover,
+        .hover\:text-fuchsia-500:hover,
+        .group:hover .group-hover\:text-teal-400 { color: var(--accent) !important; }
+        .hover\:border-emerald-200:hover, .hover\:border-emerald-300:hover,
+        .hover\:border-teal-200:hover, .hover\:border-blue-300:hover,
+        .hover\:border-fuchsia-300:hover { border-color: var(--accent) !important; }
+        .border-emerald-500 { border-color: var(--rule) !important; }
+        .text-teal-400 { color: var(--accent) !important; }
+        /* 核取方塊／單選鈕的原生色 */
+        .accent-emerald-500 { accent-color: var(--accent) !important; }
+        /* 清單項目的小圓點。這個只有掃 CSSOM 才找得到——
+           它落在 ::marker 偽元素上，不是元素本身的顏色，
+           所以「更新紀錄」的每個項目符號一直是亮綠的。 */
+        .marker\:text-emerald-500::marker,
+        .marker\:text-emerald-500 ::marker { color: var(--accent) !important; }
+        /* 有顏色的陰影 */
+        .shadow-emerald-200, .shadow-teal-200,
+        .shadow-blue-200, .shadow-fuchsia-200 { --tw-shadow-color: rgba(176, 82, 47, 0.25) !important; }
+
+        /* 測驗作答回饋：金＝正解、暗紅＝你選錯的、灰＝其餘 */
+        .kahoot-correct { background-color: #a8802f !important; border-color: #7d5c26 !important; color: #fff !important; }
+        .kahoot-wrong   { background-color: #9c4a48 !important; border-color: #783634 !important; color: #fff !important; }
+        .kahoot-muted   { background-color: #6b6760 !important; border-color: #4d4a45 !important; color: #fff !important; }
+        html.dark .kahoot-muted { background-color: #3b4258 !important; border-color: #2a3048 !important; }
+
+        /* ---- 對話框與浮動小卡：一律不透明 ----
+           頁面卡片用半透明是為了透出星空，但要打字、要讀定義的東西
+           底下透著星星只會看不清楚。 */
+        .word-popup, #accountMenu,
+        [id$="Modal"] > .bg-white { background-color: var(--panel) !important; }
 
         /* 階級徽章：保留顏色編碼（識別階位用），但調成沉穩的墨彩，
            原本的亮紫紅／亮綠在紙面上太跳，會搶掉內容 */
@@ -370,8 +421,9 @@
             }
         }
 
-        // 兩顆命名亮星（座標同樣定義在靜態層座標系，跟著一起轉）
-        const NAMED = [{ x: 0.30, y: 0.34, n:'天樞' }, { x: 0.70, y: 0.26, n:'織女' }];
+        // 兩顆特別亮的星（座標定義在靜態層座標系，跟著一起轉）。
+        // 原本旁邊有標星名，但那是背景，寫字反而變成要讀的東西，已拿掉。
+        const NAMED = [{ x: 0.30, y: 0.34 }, { x: 0.70, y: 0.26 }];
 
         function frame(now) {
             if (!isDark()) { raf = null; return; }
@@ -402,8 +454,7 @@
             }
             ctx.globalAlpha = 1;
 
-            // 命名亮星
-            ctx.font = `${11 * dpr}px'Noto Serif TC', serif`;
+            // 特別亮的兩顆
             for (const s of NAMED) {
                 const x = s.x * D - D / 2, y = s.y * D - D / 2;
                 const p = 0.85 + 0.15 * Math.sin(now / 900 + s.x * 10);
@@ -412,9 +463,6 @@
                 ctx.drawImage(h, x - h.width / 2, y - h.height / 2);
                 ctx.fillStyle ='#fffdf7';
                 ctx.beginPath(); ctx.arc(x, y, 2 * dpr, 0, 6.2832); ctx.fill();
-                ctx.globalAlpha = 0.34;
-                ctx.fillStyle ='#d2dcff';
-                ctx.fillText(s.n, x + 12 * dpr, y + 4 * dpr);
             }
             ctx.globalAlpha = 1;
             ctx.restore();
@@ -1848,6 +1896,9 @@
                 date: '2026-07-27',
                 title: '改版收尾：淺色模式終於真的變成紙色',
                 items: [
+                    ['全站不再有綠色', '主色已改成磚紅，但輸入框點下去的外框、清單的項目符號、核取方塊、滑鼠移過去的變色等等，仍散落著舊的翠綠。這次逐條掃過樣式表把它們全部換掉。測驗的正解回饋也從綠色改成金色——若跟著主色走會變成磚紅，跟答錯的暗紅太像。'],
+                    ['對話框與單字小卡不再透明', '登入框和英文釋義小卡原本會透出後面的星空，要打字、要讀定義的東西這樣並不好認。現在所有對話框與浮動小卡都是實色底。'],
+                    ['夜空不再標星名', '背景裡的兩顆亮星旁原本寫著星名，但背景就該是背景，有字反而變成要讀的東西。'],
                     ['修掉夜空上的那條裂縫', '銀河的暗塵帶原本是實心色塊，上下緣是硬邊，而且帶子畫得比畫布短，天空慢慢轉的時候就會看到被切斷的直邊，像裂了一縫。現在塵帶改成兩側化開的漸層，長度也拉到蓋滿整個對角線。'],
                     ['修好淺色模式仍是青綠色的問題', '新配色其實從一開始就沒在淺色模式生效。舊的墨綠配色寫成 html:not(.dark) 開頭，在 CSS 裡的權重比新規則高，等於一直壓著新版不讓它出來，只有深色模式看得到改版。舊那組已整組移除。'],
                     ['課表表頭不再是整片色塊', '表頭原本是整排實心底色，換成強調色之後變成大面積磚紅，比課程內容還搶眼。現在改成淺色紙底加一條細線，「今天」那一欄才點一筆強調色。'],
@@ -4113,20 +4164,19 @@
             if (correct) currentScore++;
             playAnswers.push({ ...qData, selectedIdx, correct });
 
-            // 直接在選項上給回饋：正解亮綠，選錯的那顆亮紅
+            // 直接在選項上給回饋。改用專屬 class，不再靠替換 Tailwind 色階：
+            // 全站不用綠色之後，「正解」若跟著主色走就會變成磚紅，跟「答錯」的暗紅
+            // 幾乎分不出來。所以正解固定用金色、答錯用暗紅，兩者色相差夠遠。
             document.querySelectorAll('#kahootOptionsGrid .kahoot-btn').forEach((btn, i) => {
                 btn.classList.add('pointer-events-none');
+                // 先清掉原本的底色，免得殘留的 bg-*-500 蓋過回饋色
+                btn.className = btn.className.replace(/bg-\w+-500/,'').replace(/border-\w+-700/,'');
                 if (i === qData.correctIdx) {
-                    btn.className = btn.className.replace(/bg-\w+-500/,'bg-emerald-500').replace(/border-\w+-700/,'border-emerald-700');
-                    btn.classList.add('ring-4','ring-white','scale-[1.02]');
+                    btn.classList.add('kahoot-correct','ring-4','ring-white','scale-[1.02]');
                 } else if (i === selectedIdx) {
-                    btn.className = btn.className.replace(/bg-\w+-500/,'bg-rose-600').replace(/border-\w+-700/,'border-rose-800');
-                    btn.classList.add('opacity-90');
+                    btn.classList.add('kahoot-wrong','opacity-90');
                 } else {
-                    // 其餘一律轉灰。第 4 個選項原本就是綠色，不轉灰的話畫面上會有兩顆綠，
-                    // 「綠色＝正解」就失去意義了。
-                    btn.className = btn.className.replace(/bg-\w+-500/,'bg-slate-600').replace(/border-\w+-700/,'border-slate-800');
-                    btn.classList.add('opacity-40');
+                    btn.classList.add('kahoot-muted','opacity-40');
                 }
             });
             $('kahootScoreDisplay').textContent = `分數: ${currentScore}`;
