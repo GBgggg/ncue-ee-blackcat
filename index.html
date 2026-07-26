@@ -1180,7 +1180,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, writeBatch, query, where, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs, enableIndexedDbPersistence } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
          * 1. 常數與設定
@@ -1430,6 +1430,14 @@
          *    格式：{ date: 'YYYY-MM-DD', title: '這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-07-26',
+                title: '課表隱私修正',
+                items: [
+                    ['課表不再讓管理員看得到', '先前課表和階級資料存在同一份文件裡，而管理員必須能讀取那份文件才能管理階級，等於連同大家的課表一起看到了。課表已搬到只有本人能存取的地方，下次登入會自動搬家，不用做任何事。'],
+                    ['理財資料本來就是私密的', '記帳與投資從一開始就存在個人私密區，管理員讀不到，這次沒有變動。']
+                ]
+            },
             {
                 date: '2026-07-26',
                 title: '測驗併入學習，帳號選單修正',
@@ -3657,7 +3665,7 @@
                 if (isEmpty) delete newSchedule[cellId]; else newSchedule[cellId] = { ...entry };
             }
             try {
-                await updateDoc(doc(db, PATHS.users, auth.currentUser.uid), { schedule: newSchedule });
+                await savePrivateSchedule(newSchedule);
                 userSchedule = newSchedule;
                 renderSchedule();
                 syncReminderSubscription();   // 課表變了，提醒清單要跟著更新
@@ -3808,6 +3816,45 @@
             }
         }
 
+        /* ==========================================================
+         * 課表：私人資料，存在只有本人讀得到的地方
+         *
+         * 為什麼要另外存：管理頁要管理階級，星族必須能讀整個 users 集合。
+         * 但 Firestore 的權限是「文件層級」，不能只開放 role 卻擋住 schedule——
+         * 只要課表跟 role 放在同一份文件，星族就連別人的課表一起讀到了。
+         * 所以課表移到 users/{uid}/settings/schedule，規則只允許本人存取。
+         * ========================================================== */
+        const schedulePath = () => PU('settings');   // 私人區，僅本人可讀寫
+
+        async function loadPrivateSchedule(profileData) {
+            const p = schedulePath();
+            if (!p) return {};
+            try {
+                const snap = await getDoc(doc(db, p, 'schedule'));
+                if (snap.exists()) return snap.data().cells || {};
+
+                // 舊帳號的課表還留在個人資料文件裡 → 搬到私人區，並從舊位置刪掉
+                const legacy = (profileData && profileData.schedule) || null;
+                if (legacy && Object.keys(legacy).length) {
+                    await setDoc(doc(db, p, 'schedule'), { cells: legacy, updatedAt: Date.now() });
+                    try {
+                        await updateDoc(doc(db, PATHS.users, auth.currentUser.uid), { schedule: deleteField() });
+                    } catch (e) { console.warn('舊課表欄位清除失敗（不影響使用）', e); }
+                    return legacy;
+                }
+                return {};
+            } catch (e) {
+                console.warn('讀取課表失敗', e);
+                return (profileData && profileData.schedule) || {};
+            }
+        }
+
+        async function savePrivateSchedule(cells) {
+            const p = schedulePath();
+            if (!p) throw new Error('not signed in');
+            await setDoc(doc(db, p, 'schedule'), { cells, updatedAt: Date.now() });
+        }
+
         async function handleAuthState(user) {
             if (user && !user.isAnonymous) {
                 const userRef = doc(db, PATHS.users, user.uid);
@@ -3821,7 +3868,9 @@
                 }
                 try {
                     if (!userSnap.exists()) {
-                        await setDoc(userRef, { email: user.email, role: '見習生', displayName: '無名小貓', schedule: {}, theme: currentTheme, createdAt: Date.now() });
+                        // 注意：這裡刻意不放 schedule。課表屬於私人資料，
+                        // 存在個人資料文件裡的話星族會連帶讀到（見下方 loadPrivateSchedule 說明）。
+                        await setDoc(userRef, { email: user.email, role: '見習生', displayName: '無名小貓', theme: currentTheme, createdAt: Date.now() });
                         currentUserRole = '見習生';
                         userDisplayName = '無名小貓';
                         userSchedule = {};
@@ -3829,9 +3878,10 @@
                         const data = userSnap.data();
                         currentUserRole = data.role || '見習生';
                         userDisplayName = data.displayName || '無名小貓';
-                        userSchedule = data.schedule || {};
                         // 套用此帳號上次選擇的顯示模式
                         if (data.theme) applyTheme(data.theme);
+                        // 課表改從私人區讀取；舊帳號若還留在個人資料裡會在這裡自動搬家
+                        userSchedule = await loadPrivateSchedule(data);
                     }
                 } catch (e) {
                     console.error('建立使用者資料失敗:', e);
