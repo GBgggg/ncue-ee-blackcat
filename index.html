@@ -512,9 +512,10 @@
                 </div>
             </div>
             <!-- 公有／我的 切換。「我的」只有本人看得到，連管理員都讀不到 -->
-            <div class="flex gap-2 mb-5">
+            <div class="flex flex-wrap items-center gap-2 mb-5">
                 <button data-action="set-kahoot-scope" data-scope="public" class="kahoot-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
                 <button data-action="set-kahoot-scope" data-scope="mine" class="kahoot-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
+                <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="ml-auto px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
             </div>
             <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">小黑貓正在睡覺喵...</div>
@@ -657,7 +658,7 @@
                         <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
                         <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">首頁：</span>查看最新公告與常用連結；登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
                         <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
-                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>四個子頁一次到位。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">測驗</span>與<span class="font-bold text-slate-800">單字庫</span>都分「公有」與「我的」——公有的由巫醫以上維護（測驗需戰士以上解鎖），<span class="font-bold text-slate-800">「我的」任何登入者都能自己建，而且只有你看得到，管理員也讀不到</span>。</p></div>
+                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>四個子頁一次到位。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">測驗</span>與<span class="font-bold text-slate-800">單字庫</span>都分「公有」與「我的」——公有的由巫醫以上維護（測驗需戰士以上解鎖），<span class="font-bold text-slate-800">「我的」任何登入者都能自己建，而且只有你看得到，管理員也讀不到</span>。答錯會直接顯示正解，結束後也會列出錯題；電腦上可用 1～4 鍵作答。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>分成「記帳」與「投資」。記帳可記錄收支；投資可登錄持倉與交易，按「更新現價」會自動帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價為延遲資料，僅供個人記錄參考，不構成投資建議。</span>這裡的資料只有你自己看得到。</p></div>
                         <div class="flex gap-3"><i data-lucide="bell-ring" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">上課提醒：</span>課表右上角的「提醒」按鈕可開啟上課前 10 分鐘通知，關掉 App 也會準時響。iPhone 需先用 Safari「分享 → 加入主畫面」安裝成 App，按下按鈕時會有圖解步驟帶你裝。</p></div>
                         <div class="flex gap-3"><i data-lucide="smartphone" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">安裝成 App：</span>手機與桌面都能「加到主畫面」，像原生 App 一樣開啟，離線也能讀已載入的內容。</p></div>
@@ -1057,9 +1058,9 @@
                     <input type="text" id="kahootTitle" maxlength="50" placeholder="例如：微積分期中考大挑戰" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
                 </div>
                 <div>
-                    <label class="text-xs font-black text-slate-400 uppercase mb-1 block">關聯課程</label>
+                    <label class="text-xs font-black text-slate-400 uppercase mb-1 block">關聯課程 <span class="text-slate-300 normal-case">（選填）</span></label>
                     <select id="kahootCourseSelect" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
-                        <option value="" disabled selected>請選擇課程...</option>
+                        <option value="">不指定課程</option>
                     </select>
                 </div>
             </div>
@@ -1068,13 +1069,17 @@
                 <div id="draftQuestionsList" class="space-y-2 max-h-40 overflow-y-auto text-sm text-slate-600 font-medium">還沒有題目，請在下方新增。</div>
             </div>
             <div class="bg-emerald-50 rounded-2xl p-6 border-2 border-emerald-100 mb-6">
-                <h4 class="font-bold text-emerald-800 mb-4 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題</h4>
+                <div class="flex items-center justify-between mb-4 gap-2">
+                    <h4 id="draftFormTitle" class="font-bold text-emerald-800 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題</h4>
+                    <button id="cancelEditQBtn" data-action="cancel-edit-q" class="hidden text-xs font-black text-slate-400 hover:text-slate-700 px-3 py-1.5 rounded-lg hover:bg-white transition">取消編輯</button>
+                </div>
+                <p class="text-[11px] text-emerald-700/70 font-bold mb-3">選項填 2～4 個即可，留空的會自動略過（可以做是非題或三選一）。點左邊圓圈選出正解。</p>
                 <input type="text" id="qText" maxlength="200" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-red-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-red-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-red-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 A (紅)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-blue-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-blue-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 B (藍)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-amber-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-amber-200"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-amber-500 cursor-pointer"><input type="text" id="opt2" maxlength="100" placeholder="選項 C (黃)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-emerald-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" maxlength="100" placeholder="選項 D (綠)" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-red-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-red-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-red-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-blue-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-blue-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-blue-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 2（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-amber-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-amber-200"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-amber-500 cursor-pointer"><input type="text" id="opt2" maxlength="100" placeholder="選項 3（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-emerald-500 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" maxlength="100" placeholder="選項 4（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
                 </div>
                 <button id="addDraftQuestionBtn" class="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm">將此題加入測驗</button>
             </div>
@@ -1096,21 +1101,34 @@
                 <h2 id="kahootQuestionDisplay" class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 leading-tight text-center break-words w-full">載入中...</h2>
             </div>
             <div id="kahootOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mx-2 md:mx-4">
-                <!-- JS 動態生成四個選項按鈕 -->
+                <!-- JS 依每題實際選項數動態生成按鈕 -->
+            </div>
+            <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
+            <div id="kahootNextWrap" class="hidden mx-2 md:mx-4 mt-4 md:mt-6">
+                <button id="kahootNextBtn" class="w-full py-4 md:py-5 bg-white text-slate-900 rounded-2xl font-black text-lg md:text-xl shadow-2xl hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+                    <span id="kahootNextLabel">下一題</span>
+                    <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
+                </button>
+                <p class="text-center text-slate-400 text-xs font-bold mt-2">看懂正解後再繼續（也可按 Enter）</p>
             </div>
         </div>
     </div>
 
     <!-- 測驗結果 -->
-    <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4">
-        <div class="bg-white rounded-[3rem] p-10 text-center max-w-md w-full shadow-2xl relative overflow-hidden">
-            <i data-lucide="award" class="w-24 h-24 text-amber-400 mx-auto mb-6 animate-bounce"></i>
-            <h2 class="text-4xl font-black text-slate-900 mb-2">測驗結束！</h2>
-            <p class="text-slate-500 font-medium mb-6">太棒了，來看看你的成績吧喵 🐾</p>
-            <div class="bg-slate-50 rounded-3xl p-6 mb-8 border-2 border-slate-100">
+    <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4 overflow-y-auto">
+        <div class="bg-white rounded-[3rem] p-8 md:p-10 text-center max-w-lg w-full shadow-2xl relative my-8">
+            <i data-lucide="award" class="w-20 h-20 text-amber-400 mx-auto mb-4" id="resultIcon"></i>
+            <h2 class="text-3xl md:text-4xl font-black text-slate-900 mb-1">測驗結束！</h2>
+            <p id="resultSubtitle" class="text-slate-500 font-medium mb-6"></p>
+            <div class="bg-slate-50 rounded-3xl p-6 mb-6 border-2 border-slate-100">
                 <span class="block text-sm font-bold text-slate-400 uppercase tracking-widest mb-2">最終得分</span>
                 <span id="finalScoreDisplay" class="text-6xl font-black text-emerald-500">0</span>
                 <span id="finalTotalDisplay" class="text-xl font-bold text-slate-400">/ 0</span>
+            </div>
+            <!-- 錯題檢討：先前只給一個分數，不知道錯在哪就失去複習意義 -->
+            <div id="resultWrongWrap" class="hidden text-left mb-6">
+                <h3 class="text-sm font-black text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-rose-500"></i> 答錯的題目</h3>
+                <div id="resultWrongList" class="space-y-3 max-h-64 overflow-y-auto pr-1"></div>
             </div>
             <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">回到大廳</button>
         </div>
@@ -1366,6 +1384,9 @@
 
         let draftQuestions = [], editingDraftQIndex = null;
         let activeKahoot = null, currentQIndex = 0, currentScore = 0, isKahootTransitioning = false;
+        // 題目亂序（記在本機，下次進來沿用）
+        let shuffleQuestionsOn = true;
+        try { shuffleQuestionsOn = localStorage.getItem('eeblackcat-quiz-shuffle') !== '0'; } catch (e) {}
 
         /* ==========================================================
          * 3. 通用工具函式
@@ -1481,6 +1502,19 @@
          *    格式：{ date: 'YYYY-MM-DD', title: '這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-07-26',
+                title: '測驗大改版：答錯會告訴你正解',
+                items: [
+                    ['答錯會停下來等你', '以前答錯只跳一句「答錯囉」就換下一題，你永遠不知道正確答案是什麼，等於沒有複習效果。現在正解會直接在選項上亮綠、你選錯的亮紅，而且畫面會停住，看懂後自己按「下一題」再繼續（電腦可按 Enter）。答對則快速帶過不打斷節奏。'],
+                    ['結束後列出錯題', '結果頁不再只有一個分數，會把答錯的題目連同「你選了什麼」「正解是什麼」一起列出來。'],
+                    ['題目可以亂序', '同一份測驗練第二次不會照原順序跑，避免變成背答案的位置。可在測驗頁右上角關閉。'],
+                    ['選項 2～4 個都行', '以前一定要填滿四個選項，是非題和三選一都做不出來。現在填 2 個以上即可，留空的會自動略過。'],
+                    ['關聯課程改成選填', '自己出的測驗未必對應系上某一門課，以前不選課程就存不了。'],
+                    ['出題介面改善', '題目清單直接顯示所有選項與正解，不用一題題點開檢查；可上下調整題序；編輯到一半可以取消；有未儲存的題目時關閉會先問你。'],
+                    ['鍵盤與誤觸保護', '電腦上可直接按 1～4 作答、Esc 離開；答到一半離開會先確認，不會手滑就丟失整場成績。']
+                ]
+            },
             {
                 date: '2026-07-26',
                 title: '單字冊與測驗：人人都能建自己的',
@@ -1622,13 +1656,7 @@
                 `<th class="sched-period-col w-24 bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm">節</th>` +
                 ['一', '二', '三', '四', '五'].map((d, i) => `<th data-day="${i + 1}" class="schedule-day-head bg-teal-400 text-white rounded-xl py-3 font-black text-lg shadow-sm transition-all">${d}</th>`).join('');
 
-            $('kahootOptionsGrid').innerHTML = KAHOOT_OPTS.map((o, i) => `
-                <button data-action="submit-kahoot" data-index="${i}" id="playOpt${i}"
-                    class="kahoot-btn p-4 md:py-10 bg-${o.color}-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-${o.color}-700 hover:bg-${o.color}-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
-                    <div class="w-6 h-6 md:w-8 md:h-8 shrink-0 ${o.shape} bg-white/20 pointer-events-none"></div>
-                    <span id="textOpt${i}" class="pointer-events-none text-left flex-1 break-words leading-tight"></span>
-                </button>
-            `).join('');
+            // 選項按鈕改成每題動態生成（題目可以只有 2～4 個選項），見 renderPlayOptions()
         }
 
         /* ==========================================================
@@ -3422,7 +3450,25 @@
         const kahootPath = (scope) => scope === 'mine' ? PU('kahoots') : PATHS.kahoots;
         const canEditKahoot = (scope) => scope === 'mine' ? isSignedInMember() : currentUserLevel >= 4;
 
+        function updateShuffleToggleUI() {
+            const btn = $('shuffleToggleBtn'), lbl = $('shuffleToggleLabel');
+            if (!btn || !lbl) return;
+            lbl.textContent = shuffleQuestionsOn ? '題目亂序：開' : '題目亂序：關';
+            btn.classList.toggle('bg-emerald-500', shuffleQuestionsOn);
+            btn.classList.toggle('text-white', shuffleQuestionsOn);
+            btn.classList.toggle('bg-slate-100', !shuffleQuestionsOn);
+            btn.classList.toggle('text-slate-500', !shuffleQuestionsOn);
+        }
+
+        function toggleShuffle() {
+            shuffleQuestionsOn = !shuffleQuestionsOn;
+            try { localStorage.setItem('eeblackcat-quiz-shuffle', shuffleQuestionsOn ? '1' : '0'); } catch (e) {}
+            updateShuffleToggleUI();
+            showToast(shuffleQuestionsOn ? '題目會隨機排序 🔀' : '題目照原順序出現');
+        }
+
         function updateKahootScopeUI() {
+            updateShuffleToggleUI();
             document.querySelectorAll('.kahoot-scope-opt').forEach(btn => {
                 const on = btn.dataset.scope === kahootScope;
                 btn.classList.toggle('bg-emerald-500', on);
@@ -3492,6 +3538,7 @@
         }
 
         function resetKahootQuestionForm() {
+            const wasEditing = editingDraftQIndex !== null;
             editingDraftQIndex = null;
             const btn = $('addDraftQuestionBtn');
             btn.textContent = "將此題加入測驗";
@@ -3499,6 +3546,21 @@
             setVals({ qText: '', opt0: '', opt1: '', opt2: '', opt3: '' });
             const checked = document.querySelector('input[name="correctOpt"]:checked');
             if (checked) checked.checked = false;
+            const title = $('draftFormTitle'), cancel = $('cancelEditQBtn');
+            if (title) title.innerHTML = '<i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題';
+            if (cancel) cancel.classList.add('hidden');
+            if (wasEditing) renderDraftQuestions();   // 清掉清單上的「編輯中」外框
+            icons();
+        }
+
+        // 調整題目順序
+        function moveDraftQ(idx, dir) {
+            const to = dir === 'up' ? idx - 1 : idx + 1;
+            if (to < 0 || to >= draftQuestions.length) return;
+            [draftQuestions[idx], draftQuestions[to]] = [draftQuestions[to], draftQuestions[idx]];
+            if (editingDraftQIndex === idx) editingDraftQIndex = to;
+            else if (editingDraftQIndex === to) editingDraftQIndex = idx;
+            renderDraftQuestions();
         }
 
         function openKahootModal(kahootId = null) {
@@ -3521,12 +3583,22 @@
                 list.innerHTML = "還沒有題目，請在下方新增。";
                 return;
             }
+            // 清單直接顯示選項與正解，不必一題一題點開才知道有沒有出錯
             list.innerHTML = draftQuestions.map((item, idx) => `
-                <div class="flex justify-between items-center p-2 bg-white rounded-lg shadow-sm">
-                    <span class="truncate pr-2">Q${idx + 1}: ${escapeHTML(item.q)}</span>
-                    <div class="flex shrink-0">
-                        <button data-action="edit-draft-q" data-index="${idx}" class="text-blue-400 hover:text-blue-600 mr-3"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="remove-draft-q" data-index="${idx}" class="text-red-400 hover:text-red-600"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+                <div class="p-3 bg-white rounded-xl shadow-sm ${editingDraftQIndex === idx ? 'ring-2 ring-blue-400' : ''}">
+                    <div class="flex justify-between items-start gap-2 mb-1.5">
+                        <span class="font-black text-slate-800 text-sm break-words min-w-0">Q${idx + 1}. ${escapeHTML(item.q)}</span>
+                        <div class="flex shrink-0 items-center gap-1">
+                            <button data-action="move-draft-q" data-index="${idx}" data-dir="up" ${idx === 0 ? 'disabled' : ''} class="p-1 ${idx === 0 ? 'text-slate-200' : 'text-slate-400 hover:text-slate-700'}"><i data-lucide="chevron-up" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="move-draft-q" data-index="${idx}" data-dir="down" ${idx === draftQuestions.length - 1 ? 'disabled' : ''} class="p-1 ${idx === draftQuestions.length - 1 ? 'text-slate-200' : 'text-slate-400 hover:text-slate-700'}"><i data-lucide="chevron-down" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="edit-draft-q" data-index="${idx}" class="p-1 text-blue-400 hover:text-blue-600"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="remove-draft-q" data-index="${idx}" class="p-1 text-red-400 hover:text-red-600"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-1.5">
+                        ${(item.options || []).map((o, oi) => `
+                            <span class="text-[11px] px-2 py-0.5 rounded-lg font-bold ${oi === item.correctIdx ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}">${oi === item.correctIdx ? '✓ ' : ''}${escapeHTML(o)}</span>
+                        `).join('')}
                     </div>
                 </div>
             `).join('');
@@ -3535,14 +3607,22 @@
 
         function editDraftQ(idx) {
             const q = draftQuestions[idx];
-            setVals({ qText: q.q, opt0: q.options[0], opt1: q.options[1], opt2: q.options[2], opt3: q.options[3] });
+            // 選項可能只有 2～3 個，補空字串避免把上一題的殘留值留在欄位裡
+            const o = [q.options[0] || '', q.options[1] || '', q.options[2] || '', q.options[3] || ''];
+            setVals({ qText: q.q, opt0: o[0], opt1: o[1], opt2: o[2], opt3: o[3] });
             const radio = document.querySelector(`input[name="correctOpt"][value="${q.correctIdx}"]`);
+            document.querySelectorAll('input[name="correctOpt"]').forEach(r => { r.checked = false; });
             if (radio) radio.checked = true;
 
             editingDraftQIndex = idx;
             const btn = $('addDraftQuestionBtn');
             btn.textContent = "更新此題目";
             btn.className = "w-full py-2 bg-blue-500 text-white rounded-xl font-bold shadow-md hover:bg-blue-600 transition-colors text-sm";
+            const title = $('draftFormTitle'), cancel = $('cancelEditQBtn');
+            if (title) title.innerHTML = `<i data-lucide="edit" class="w-4 h-4"></i> 編輯第 ${idx + 1} 題`;
+            if (cancel) cancel.classList.remove('hidden');
+            renderDraftQuestions();
+            icons();
         }
 
         function removeDraftQ(idx) {
@@ -3557,14 +3637,21 @@
                 return showToast(`喵！一次測驗最多只能有 ${MAX_KAHOOT_QUESTIONS} 題喔！`);
             }
             const qText = getVal('qText');
-            const opts = [getVal('opt0'), getVal('opt1'), getVal('opt2'), getVal('opt3')];
+            const rawOpts = [getVal('opt0'), getVal('opt1'), getVal('opt2'), getVal('opt3')];
             const correctRadio = document.querySelector('input[name="correctOpt"]:checked');
 
             if (!isValidText(qText, 200)) return showToast("喵，題目內容長度不符！(最多200字)");
-            if (opts.some(o => !isValidText(o, 100))) return showToast("選項內容不能為空，且最多100字喔！");
+            // 選項 2～4 個即可：留空的略過，這樣是非題、三選一都做得出來
+            const filled = rawOpts.map((o, i) => ({ text: (o || '').trim(), i })).filter(o => o.text);
+            if (filled.length < 2) return showToast("至少要填 2 個選項喔！");
+            if (filled.some(o => o.text.length > 100)) return showToast("每個選項最多 100 字喔！");
             if (!correctRadio) return showToast("請選擇一個正確答案！");
 
-            const payload = { q: qText, options: opts, correctIdx: parseInt(correctRadio.value) };
+            const chosen = parseInt(correctRadio.value);
+            const newIdx = filled.findIndex(o => o.i === chosen);
+            if (newIdx === -1) return showToast("正解那一格是空的，請填內容或改選其他選項！");
+
+            const payload = { q: qText, options: filled.map(o => o.text), correctIdx: newIdx };
             if (editingDraftQIndex !== null) {
                 draftQuestions[editingDraftQIndex] = payload;
                 showToast("題目更新成功 🐾");
@@ -3582,14 +3669,19 @@
             const courseId = $('kahootCourseSelect').value;
 
             if (!isValidText(title, 50)) return showToast("喵，測驗主題請在 50 字以內！");
-            if (!courseId) return showToast("請選擇關聯課程！");
             if (draftQuestions.length === 0) return showToast("至少要新增一題才能發布喔！");
 
             const p = kahootPath(kahootScope);
             if (!p) return showToast("請先登入喵 🐾");
             try {
-                const course = state.courses.find(c => c.id === courseId);
-                const payload = { title, courseId, courseName: course.name, questions: draftQuestions };
+                // 課程改成選填：自己出的測驗未必對應系上某一門課
+                const course = courseId ? state.courses.find(c => c.id === courseId) : null;
+                const payload = {
+                    title,
+                    courseId: courseId || '',
+                    courseName: course ? course.name : '',
+                    questions: draftQuestions,
+                };
                 if (id) {
                     await updateDoc(doc(db, p, id), payload);
                     showToast("測驗更新成功 🐾");
@@ -3601,53 +3693,144 @@
             } catch { showToast("儲存失敗喵..."); }
         }
 
+        /* ==========================================================
+         * 作答流程
+         *
+         * 改版重點：答錯一定要看得到正解，否則測驗只告訴你「錯了」，
+         * 沒有複習價值。所以答錯時正解會亮綠、你選的亮紅，停留久一點，
+         * 結束後還會把錯題連同正解一起列出來。
+         * ========================================================== */
+        let playQuestions = [], playAnswers = [];
+
         function startKahoot(kahootId) {
             const kahoot = kahootsOf(kahootScope).find(k => k.id === kahootId);
             if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) return showToast("找不到測驗內容喵...");
             activeKahoot = kahoot;
+            // 題目亂序：同一份測驗練第二次才不會變成背答案的位置
+            playQuestions = shuffleQuestionsOn ? shuffle([...kahoot.questions]) : [...kahoot.questions];
+            playAnswers = [];
             currentQIndex = 0;
             currentScore = 0;
+            isKahootTransitioning = false;
             $('playKahootModal').classList.remove('hidden');
             $('playKahootModal').classList.add('flex');
             renderPlayQuestion();
         }
 
+        // 依題目實際選項數生成按鈕（2～4 個都支援）
+        function renderPlayOptions(qData) {
+            const grid = $('kahootOptionsGrid');
+            grid.innerHTML = (qData.options || []).map((opt, i) => {
+                const o = KAHOOT_OPTS[i] || KAHOOT_OPTS[0];
+                return `
+                <button data-action="submit-kahoot" data-index="${i}" id="playOpt${i}"
+                    class="kahoot-btn p-4 md:py-10 bg-${o.color}-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-${o.color}-700 hover:bg-${o.color}-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
+                    <span class="shrink-0 w-7 h-7 md:w-9 md:h-9 rounded-lg bg-white/25 text-base md:text-xl flex items-center justify-center pointer-events-none">${i + 1}</span>
+                    <span class="pointer-events-none text-left flex-1 break-words leading-tight">${escapeHTML(opt)}</span>
+                </button>`;
+            }).join('');
+        }
+
         function renderPlayQuestion() {
-            if (!activeKahoot || currentQIndex >= activeKahoot.questions.length) {
-                $('playKahootModal').classList.add('hidden');
-                $('playKahootModal').classList.remove('flex');
-                $('finalScoreDisplay').textContent = currentScore;
-                $('finalTotalDisplay').textContent = `/ ${activeKahoot.questions.length}`;
-                $('kahootResultModal').classList.remove('hidden');
-                $('kahootResultModal').classList.add('flex');
-                return;
-            }
-            const qData = activeKahoot.questions[currentQIndex];
-            $('kahootProgress').textContent = `${currentQIndex + 1} / ${activeKahoot.questions.length}`;
+            $('kahootNextWrap').classList.add('hidden');
+            if (!activeKahoot || currentQIndex >= playQuestions.length) return showKahootResult();
+            const qData = playQuestions[currentQIndex];
+            $('kahootProgress').textContent = `${currentQIndex + 1} / ${playQuestions.length}`;
             $('kahootScoreDisplay').textContent = `分數: ${currentScore}`;
             $('kahootQuestionDisplay').textContent = qData.q;
-            qData.options.forEach((opt, i) => { $(`textOpt${i}`).textContent = opt; });
+            renderPlayOptions(qData);
         }
 
         function submitKahootAnswer(selectedIdx) {
+            if (isKahootTransitioning) return;
+            const qData = playQuestions[currentQIndex];
+            if (!qData || selectedIdx >= (qData.options || []).length) return;
             isKahootTransitioning = true;
-            const qData = activeKahoot.questions[currentQIndex];
-            const clickedBtn = $(`playOpt${selectedIdx}`);
-            if (clickedBtn) clickedBtn.classList.add('opacity-50', 'scale-95');
 
-            if (selectedIdx === qData.correctIdx) {
-                currentScore++;
-                showToast("答對了！喵 🐾");
-            } else {
-                showToast("哎呀，答錯囉！");
-            }
+            const correct = selectedIdx === qData.correctIdx;
+            if (correct) currentScore++;
+            playAnswers.push({ ...qData, selectedIdx, correct });
+
+            // 直接在選項上給回饋：正解亮綠，選錯的那顆亮紅
+            document.querySelectorAll('#kahootOptionsGrid .kahoot-btn').forEach((btn, i) => {
+                btn.classList.add('pointer-events-none');
+                if (i === qData.correctIdx) {
+                    btn.className = btn.className.replace(/bg-\w+-500/, 'bg-emerald-500').replace(/border-\w+-700/, 'border-emerald-700');
+                    btn.classList.add('ring-4', 'ring-white', 'scale-[1.02]');
+                } else if (i === selectedIdx) {
+                    btn.className = btn.className.replace(/bg-\w+-500/, 'bg-rose-600').replace(/border-\w+-700/, 'border-rose-800');
+                    btn.classList.add('opacity-90');
+                } else {
+                    // 其餘一律轉灰。第 4 個選項原本就是綠色，不轉灰的話畫面上會有兩顆綠，
+                    // 「綠色＝正解」就失去意義了。
+                    btn.className = btn.className.replace(/bg-\w+-500/, 'bg-slate-600').replace(/border-\w+-700/, 'border-slate-800');
+                    btn.classList.add('opacity-40');
+                }
+            });
+            $('kahootScoreDisplay').textContent = `分數: ${currentScore}`;
+            showToast(correct ? "答對了！喵 🐾" : `答錯了，正解是「${qData.options[qData.correctIdx]}」`);
+
             currentQIndex++;
 
-            setTimeout(() => {
-                if (clickedBtn) clickedBtn.classList.remove('opacity-50', 'scale-95');
-                renderPlayQuestion();
-                isKahootTransitioning = false;
-            }, 600);
+            if (correct) {
+                // 答對就快快帶過，不打斷節奏
+                setTimeout(() => { renderPlayQuestion(); isKahootTransitioning = false; }, 700);
+            } else {
+                // 答錯不自動跳：每個人看懂正解需要的時間不一樣，交給使用者決定
+                $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ? '看結果' : '下一題';
+                $('kahootNextWrap').classList.remove('hidden');
+                icons();
+            }
+        }
+
+        // 答錯後按「下一題」才繼續
+        function kahootNext() {
+            $('kahootNextWrap').classList.add('hidden');
+            isKahootTransitioning = false;
+            renderPlayQuestion();
+        }
+
+        function showKahootResult() {
+            $('playKahootModal').classList.add('hidden');
+            $('playKahootModal').classList.remove('flex');
+
+            const total = playQuestions.length;
+            const pct = total ? Math.round(currentScore / total * 100) : 0;
+            $('finalScoreDisplay').textContent = currentScore;
+            $('finalTotalDisplay').textContent = `/ ${total}`;
+            $('resultSubtitle').textContent =
+                pct === 100 ? '全對！這科穩了喵 🎉' :
+                pct >= 80 ? '表現很好，再補一下錯的就完美了 🐾' :
+                pct >= 50 ? '及格邊緣，下面這幾題再看一次 🐾' :
+                            '別灰心，先把下面錯的弄懂再挑戰一次 🐾';
+
+            const wrong = playAnswers.filter(a => !a.correct);
+            const wrap = $('resultWrongWrap');
+            wrap.classList.toggle('hidden', wrong.length === 0);
+            if (wrong.length) {
+                $('resultWrongList').innerHTML = wrong.map(a => `
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${escapeHTML(a.q)}</p>
+                        <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${escapeHTML(a.options[a.selectedIdx] ?? '—')}</span></p>
+                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${escapeHTML(a.options[a.correctIdx] ?? '—')}</span></p>
+                    </div>`).join('');
+            }
+            $('kahootResultModal').classList.remove('hidden');
+            $('kahootResultModal').classList.add('flex');
+            icons();
+        }
+
+        // 答到一半離開要確認，避免手滑點掉整場成績
+        function quitKahoot() {
+            const answered = playAnswers.length;
+            const total = playQuestions.length;
+            if (answered > 0 && currentQIndex < total) {
+                if (!confirm(`還有 ${total - answered} 題沒作答，確定要離開嗎？目前分數不會保留。`)) return;
+            }
+            $('playKahootModal').classList.add('hidden');
+            $('playKahootModal').classList.remove('flex');
+            $('kahootNextWrap').classList.add('hidden');
+            isKahootTransitioning = false;
         }
 
         /* ==========================================================
@@ -4202,6 +4385,9 @@
             'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
             'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
             'set-kahoot-scope':(t) => switchKahootScope(t.dataset.scope),
+            'toggle-shuffle':  () => toggleShuffle(),
+            'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
+            'cancel-edit-q':   () => resetKahootQuestionForm(),
             'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
             'remove-draft-q':  (t) => removeDraftQ(parseInt(t.dataset.index)),
             'edit-draft-q':    (t) => editDraftQ(parseInt(t.dataset.index)),
@@ -4339,7 +4525,14 @@
 
             // 通用 Modal 關閉按鈕
             const closer = e.target.closest('[data-close]');
-            if (closer) { closeModal(closer.dataset.close); return; }
+            if (closer) {
+                // 出題視窗有未儲存的題目時先問一聲，免得打了十幾題手滑關掉全沒了
+                if (closer.dataset.close === 'createKahootModal' && draftQuestions.length > 0) {
+                    if (!confirm(`還有 ${draftQuestions.length} 題沒有儲存，關閉後會全部消失。確定要關嗎？`)) return;
+                }
+                closeModal(closer.dataset.close);
+                return;
+            }
 
             // 分頁按鈕
             const tabBtn = e.target.closest('[data-tab]');
@@ -4514,6 +4707,24 @@
             });
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') { const ps = document.querySelectorAll('.word-popup'); if (ps.length) ps[ps.length - 1].remove(); }
+
+                const playing = !$('playKahootModal').classList.contains('hidden');
+                if (!playing) return;
+
+                // 答錯停在正解畫面時：Enter／空白鍵繼續
+                const waitingNext = !$('kahootNextWrap').classList.contains('hidden');
+                if (waitingNext) {
+                    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); kahootNext(); }
+                    else if (e.key === 'Escape') quitKahoot();
+                    return;   // 停在正解畫面時不接受 1～4，避免誤觸直接跳過
+                }
+
+                // 作答中用 1～4 直接選答案（桌機用滑鼠點大按鈕太慢）
+                if (/^[1-4]$/.test(e.key) && !isKahootTransitioning) {
+                    const idx = Number(e.key) - 1;
+                    if ($(`playOpt${idx}`)) { e.preventDefault(); submitKahootAnswer(idx); }
+                }
+                if (e.key === 'Escape') quitKahoot();
             });
             // 快查框：Enter 或按鈕 → 開劍橋英英
             $('cambridgeQuickInput').addEventListener('keydown', (e) => { if (e.key === 'Enter') openCambridge(e.target.value); });
@@ -4561,7 +4772,8 @@
             bind('openCreateKahootBtn', () => openKahootModal());
             bind('addDraftQuestionBtn', addOrUpdateDraftQuestion);
             bind('saveKahootBtn', saveKahoot);
-            bind('quitKahootBtn', () => { $('playKahootModal').classList.add('hidden'); $('playKahootModal').classList.remove('flex'); });
+            bind('quitKahootBtn', quitKahoot);
+            bind('kahootNextBtn', kahootNext);
             bind('closeResultBtn', () => { $('kahootResultModal').classList.add('hidden'); $('kahootResultModal').classList.remove('flex'); });
 
             bind('openStarclanBtn', () => { renderStarclanPanel(); openModal('starclanModal'); });
