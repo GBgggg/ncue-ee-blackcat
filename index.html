@@ -180,8 +180,23 @@
         .text-emerald-500, .text-emerald-600, .text-emerald-400,
         .text-blue-500, .text-blue-600, .text-blue-700, .text-fuchsia-500, .text-fuchsia-600 { color: var(--accent) !important; }
         .bg-emerald-50, .bg-blue-50, .bg-teal-50, .bg-fuchsia-50 { background-color: var(--accent-soft) !important; }
+        .bg-emerald-200, .bg-fuchsia-400 { background-color: var(--accent) !important; }
         .border-emerald-100, .border-emerald-200, .border-emerald-300,
-        .border-blue-100, .border-blue-300, .border-teal-100 { border-color: var(--rule) !important; }
+        .border-blue-100, .border-blue-300, .border-teal-100,
+        .border-teal-400, .border-teal-500, .border-emerald-500\/20 { border-color: var(--rule) !important; }
+        /* 帶透明度修飾的類別要另外寫，.bg-teal-400 選不到 .bg-teal-400\/90 */
+        .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600 { background-color: var(--accent) !important; }
+        .bg-teal-100, .bg-blue-100, .bg-emerald-100 { background-color: var(--accent-soft) !important; }
+
+        /* 階級徽章：保留顏色編碼（識別階位用），但調成沉穩的墨彩，
+           原本的亮紫紅／亮綠在紙面上太跳，會搶掉內容 */
+        .bg-fuchsia-500, .bg-fuchsia-600 { background-color: #6d4a66 !important; }  /* 星族 */
+        .bg-amber-500  { background-color: #96702f !important; }                    /* 族長 */
+        .bg-rose-500   { background-color: #9c4a48 !important; }                    /* 戰士 */
+        .bg-slate-400  { background-color: var(--ink-3) !important; }               /* 見習生 */
+        .bg-slate-300  { background-color: #bbb3a7 !important; }                    /* 訪客 */
+        .border-fuchsia-600, .border-amber-600, .border-rose-600,
+        .border-slate-500, .border-slate-400 { border-color: transparent !important; }
 
         /* ---- 陰影：紙張只要極淡的落影 ---- */
         .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
