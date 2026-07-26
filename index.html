@@ -314,6 +314,10 @@
             const scale = D / Math.max(W, H);
 
             // --- 銀河帶：瀰漫光 + 暗塵帶 + 帶內密集星塵 ---
+            // 帶子的長度要拉到 2D。原本只畫 ±D/2，但畫布半對角線是 0.707D，
+            // 帶子比畫布短，旋轉時兩端被切斷的直邊就露出來，
+            // 看起來像天空裂了一條縫。
+            const L = D * 2;
             s.save();
             s.translate(D / 2, D / 2);
             s.rotate(-0.62);
@@ -322,14 +326,20 @@
             bg.addColorStop(0.5,'rgba(152,168,218,0.09)');
             bg.addColorStop(1,'rgba(120,140,200,0)');
             s.fillStyle = bg;
-            s.fillRect(-D / 2, -D * 0.16, D, D * 0.32);
-            s.fillStyle ='rgba(6,9,20,0.45)';               // 暗塵帶，讓銀河不是均勻一條
-            s.fillRect(-D / 2, -D * 0.02, D, D * 0.04);
+            s.fillRect(-L / 2, -D * 0.16, L, D * 0.32);
+            // 暗塵帶：也要用漸層化開。實心 fillRect 的上下緣同樣是硬邊，
+            // 在漸層夜空上會讀成一條刻痕，而不是瀰漫的塵埃。
+            const dust = s.createLinearGradient(0, -D * 0.05, 0, D * 0.05);
+            dust.addColorStop(0,'rgba(6,9,20,0)');
+            dust.addColorStop(0.5,'rgba(6,9,20,0.40)');
+            dust.addColorStop(1,'rgba(6,9,20,0)');
+            s.fillStyle = dust;
+            s.fillRect(-L / 2, -D * 0.05, L, D * 0.10);
             s.fillStyle ='#dfe6ff';
             for (let i = 0; i < area * 1.1 * scale; i++) {
                 const v = (Math.random() + Math.random() + Math.random() - 1.5) * 0.13;
                 s.globalAlpha = rnd(0.05, 0.3);
-                s.fillRect(rnd(-D / 2, D / 2), v * D, rnd(0.2, 0.62) * dpr, rnd(0.2, 0.62) * dpr);
+                s.fillRect(rnd(-L / 2, L / 2), v * D, rnd(0.2, 0.62) * dpr, rnd(0.2, 0.62) * dpr);
             }
             s.globalAlpha = 1;
             s.restore();
@@ -1838,6 +1848,7 @@
                 date: '2026-07-27',
                 title: '改版收尾：淺色模式終於真的變成紙色',
                 items: [
+                    ['修掉夜空上的那條裂縫', '銀河的暗塵帶原本是實心色塊，上下緣是硬邊，而且帶子畫得比畫布短，天空慢慢轉的時候就會看到被切斷的直邊，像裂了一縫。現在塵帶改成兩側化開的漸層，長度也拉到蓋滿整個對角線。'],
                     ['修好淺色模式仍是青綠色的問題', '新配色其實從一開始就沒在淺色模式生效。舊的墨綠配色寫成 html:not(.dark) 開頭，在 CSS 裡的權重比新規則高，等於一直壓著新版不讓它出來，只有深色模式看得到改版。舊那組已整組移除。'],
                     ['課表表頭不再是整片色塊', '表頭原本是整排實心底色，換成強調色之後變成大面積磚紅，比課程內容還搶眼。現在改成淺色紙底加一條細線，「今天」那一欄才點一筆強調色。'],
                     ['補齊漏網的舊配色', '單字高亮、寶藏庫的分級面板、答錯提示、各種深淺階的邊框與文字色都重新對應過，畫面上不會再冒出一塊突兀的翠綠或亮藍。']
