@@ -9,8 +9,9 @@
  * 結果每次發布後，所有人看到的都還是上一版，而且會一直停在那裡，
  * 因為新版只默默寫進快取、要等下一次開啟才生效。這是刻意修掉的行為。
  */
-const CACHE = 'blackcat-v3';
+const CACHE = 'blackcat-v4';
 const CORE = ['./', './index.html', './image.png', './manifest.json'];
+const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
@@ -24,6 +25,55 @@ self.addEventListener('activate', (e) => {
       .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+/* ==========================================================
+ * 上課提醒：收到推播
+ *
+ * 伺服器送的是「無酬載」推播（只是喚醒訊號），內容要回頭跟 Worker 拿。
+ * 這樣就不必實作 Web Push 的酬載加密，少掉一大塊容易出錯的密碼學。
+ *
+ * 注意：瀏覽器規定收到推播「一定」要顯示通知，否則會懲罰（甚至撤銷權限），
+ * 所以就算拿不到內容也要顯示一則保底通知。
+ * ========================================================== */
+self.addEventListener('push', (e) => {
+  e.waitUntil((async () => {
+    let note = { title: '上課提醒 🐾', body: '快到上課時間了', tag: 'class-reminder' };
+    try {
+      const sub = await self.registration.pushManager.getSubscription();
+      if (sub) {
+        const r = await fetch(`${PUSH_API}/push/pending`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ endpoint: sub.endpoint }),
+        });
+        const j = await r.json();
+        if (j && j.note && j.note.title) note = j.note;
+      }
+    } catch (err) {
+      // 取不到內容就用保底文案，不能不顯示
+    }
+    await self.registration.showNotification(note.title, {
+      body: note.body || '',
+      icon: './image.png',
+      badge: './image.png',
+      tag: note.tag || 'class-reminder',
+      renotify: true,
+      data: { url: './' },
+    });
+  })());
+});
+
+// 點通知就把 App 帶到前景（已開著就聚焦，沒開就開新的）
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of all) {
+      if ('focus' in c) return c.focus();
+    }
+    if (self.clients.openWindow) return self.clients.openWindow('./');
+  })());
 });
 
 // 導覽請求，或明確要 HTML 的請求
