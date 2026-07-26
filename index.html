@@ -507,9 +507,14 @@
                         <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">喵的測驗 <span class="animate-bounce">🎮</span></h2>
                     </div>
                     <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
-                        <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增測驗
+                        <i data-lucide="plus-circle" class="w-5 h-5"></i> 建立測驗
                     </button>
                 </div>
+            </div>
+            <!-- 公有／我的 切換。「我的」只有本人看得到，連管理員都讀不到 -->
+            <div class="flex gap-2 mb-5">
+                <button data-action="set-kahoot-scope" data-scope="public" class="kahoot-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
+                <button data-action="set-kahoot-scope" data-scope="mine" class="kahoot-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
             </div>
             <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">小黑貓正在睡覺喵...</div>
@@ -527,6 +532,11 @@
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 創建單字冊
                         </button>
                     </div>
+                </div>
+                <!-- 公有／我的 切換。「我的」只有本人看得到，連管理員都讀不到 -->
+                <div class="flex gap-2 mb-5">
+                    <button data-action="set-vocab-scope" data-scope="public" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
+                    <button data-action="set-vocab-scope" data-scope="mine" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
                 </div>
                 <div id="vocabBookGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">小黑貓正在整理單字冊喵...</div>
@@ -647,7 +657,7 @@
                         <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
                         <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">首頁：</span>查看最新公告與常用連結；登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
                         <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
-                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>四個子頁一次到位。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">測驗</span>是 Kahoot 式的搶答複習（戰士以上解鎖）；<span class="font-bold text-slate-800">單字庫</span>可以建單字冊並開測驗自我檢核。</p></div>
+                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>四個子頁一次到位。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">測驗</span>與<span class="font-bold text-slate-800">單字庫</span>都分「公有」與「我的」——公有的由巫醫以上維護（測驗需戰士以上解鎖），<span class="font-bold text-slate-800">「我的」任何登入者都能自己建，而且只有你看得到，管理員也讀不到</span>。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>分成「記帳」與「投資」。記帳可記錄收支；投資可登錄持倉與交易，按「更新現價」會自動帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價為延遲資料，僅供個人記錄參考，不構成投資建議。</span>這裡的資料只有你自己看得到。</p></div>
                         <div class="flex gap-3"><i data-lucide="bell-ring" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">上課提醒：</span>課表右上角的「提醒」按鈕可開啟上課前 10 分鐘通知，關掉 App 也會準時響。iPhone 需先用 Safari「分享 → 加入主畫面」安裝成 App，按下按鈕時會有圖解步驟帶你裝。</p></div>
                         <div class="flex gap-3"><i data-lucide="smartphone" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">安裝成 App：</span>手機與桌面都能「加到主畫面」，像原生 App 一樣開啟，離線也能讀已載入的內容。</p></div>
@@ -714,6 +724,45 @@
                     <button id="confirmSaveSchedule" class="flex-1 py-3 bg-teal-400 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-500 transition-colors">儲存課表</button>
                 </div>
                 <button id="clearScheduleCell" class="w-full py-2 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">清除這節課</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 從英文閱讀把單字加進單字冊（欄位由 AI 自動填，存檔前可自行修改） -->
+    <div id="addWordModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-[70] p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-400">
+            <h3 class="text-2xl font-black mb-1 text-slate-900">加入單字冊</h3>
+            <p class="text-xs text-slate-400 font-medium mb-5">AI 會先幫你填好，存檔前可以自己改。內容僅供參考，可能有誤。</p>
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">加到哪一本</label>
+                    <select id="addWordBookSelect" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-bold text-sm text-slate-700 outline-none"></select>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">英文單字</label>
+                    <input type="text" id="addWordEnglish" maxlength="100" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-black text-lg text-blue-700 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">英譯英</label>
+                    <textarea id="addWordEngDef" rows="2" maxlength="200" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-sm outline-none resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">字根字首</label>
+                    <input type="text" id="addWordRootPrefix" maxlength="100" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-bold text-sm text-fuchsia-600 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">例句</label>
+                    <textarea id="addWordExample" rows="2" maxlength="300" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-sm italic outline-none resize-none"></textarea>
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">中文（選填）</label>
+                    <input type="text" id="addWordChinese" maxlength="100" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-sm outline-none">
+                </div>
+            </div>
+            <div id="addWordStatus" class="text-xs font-bold text-slate-400 mt-4 flex items-center gap-2"></div>
+            <div class="flex gap-3 pt-4">
+                <button data-close="addWordModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                <button id="confirmAddWord" class="flex-1 py-3 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-600 transition-colors">加入</button>
             </div>
         </div>
     </div>
@@ -1298,6 +1347,8 @@
             courses: [], reviews: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [],
             news: [], links: [], articles: [],
+            // 🔒 私人資料（只有本人讀得到，登出時清空）
+            myVocabBooks: [], myVocabWords: [], myKahoots: [],
             expenses: [], holdings: [], trades: [], watchlist: []   // 理財（個人私密）
         };
 
@@ -1430,6 +1481,16 @@
          *    格式：{ date: 'YYYY-MM-DD', title: '這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-07-26',
+                title: '單字冊與測驗：人人都能建自己的',
+                items: [
+                    ['我的單字冊', '單字庫分成「公有」與「我的」。自己的單字冊只有你看得到，管理員也讀不到，任何登入者都能建立。公有的仍由巫醫以上維護。'],
+                    ['我的測驗', '測驗同樣分公有與我的。自己出的題不受階級限制——就算是見習生也能建自己的測驗來複習。'],
+                    ['閱讀點單字直接加入單字冊', '英文閱讀點任一個單字，小卡上多了「加入單字冊」。AI 會自動填好英譯英、字根字首與例句，你確認後再存。內容僅供參考，存檔前可以自己改。'],
+                    ['測驗卡片改版', '顯示題數，沒有題目的測驗會標示出來而不是讓你點進去才發現是空的。']
+                ]
+            },
             {
                 date: '2026-07-26',
                 title: '隱私強化：課表與評價',
@@ -2959,7 +3020,10 @@
                     <button class="wp-close text-slate-300 hover:text-slate-600 shrink-0"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
                 </div>
                 <div class="wp-body mt-2 text-sm text-slate-600 max-h-52 overflow-y-auto leading-relaxed"></div>
-                <a class="wp-cam mt-3 inline-flex items-center gap-1 text-emerald-600 text-xs font-black hover:underline" target="_blank" rel="noopener"><i data-lucide="external-link" class="w-3.5 h-3.5"></i> 在劍橋看完整解釋</a>`;
+                <div class="flex items-center justify-between gap-2 mt-3">
+                    <a class="wp-cam inline-flex items-center gap-1 text-emerald-600 text-xs font-black hover:underline" target="_blank" rel="noopener"><i data-lucide="external-link" class="w-3.5 h-3.5"></i> 劍橋</a>
+                    <button class="wp-add inline-flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-500 text-white text-xs font-black hover:bg-blue-400 transition-colors shrink-0"><i data-lucide="plus" class="w-3.5 h-3.5 pointer-events-none"></i> 加入單字冊</button>
+                </div>`;
             return el;
         }
 
@@ -2989,6 +3053,7 @@
             pop.querySelector('.wp-word').textContent = w;
             pop.querySelector('.wp-cam').href = cambridgeUrl(w);
             pop.querySelector('.wp-close').addEventListener('click', (e) => { e.stopPropagation(); pop.remove(); });
+            pop.querySelector('.wp-add').addEventListener('click', (e) => { e.stopPropagation(); openAddWordModal(w); });
             const body = pop.querySelector('.wp-body');
             body.innerHTML = '<div class="text-slate-400">查詢中…</div>';
             icons();
@@ -3010,6 +3075,76 @@
             }
             positionPopup(pop, r, inPopup);                       // 內容載入後高度改變，重新定位
         }
+        /* ==========================================================
+         * 英文閱讀 → 加入單字冊（欄位由 Worker 的 AI 端點自動填）
+         *
+         * 只列出「我的」單字冊；公有的要巫醫以上才能改，不適合從閱讀頁隨手加。
+         * AI 內容是參考性質，所以一定讓使用者存檔前看得到、改得動。
+         * ========================================================== */
+        async function openAddWordModal(word) {
+            if (!isSignedInMember()) return showToast("登入後才能建立自己的單字冊喵 🐾");
+            const books = state.myVocabBooks;
+            const sel = $('addWordBookSelect');
+            if (books.length === 0) {
+                return showToast("先到「單字庫 → 我的」建立一本單字冊喵 🐾");
+            }
+            sel.innerHTML = books.map(b => `<option value="${b.id}">${escapeHTML(b.title)}</option>`).join('');
+
+            setVals({ addWordEnglish: word, addWordEngDef: '', addWordRootPrefix: '', addWordExample: '', addWordChinese: '' });
+            const status = $('addWordStatus');
+            status.innerHTML = '<i data-lucide="loader" class="w-3.5 h-3.5 animate-spin"></i> AI 正在查這個字…';
+            openModal('addWordModal');
+            icons();
+
+            try {
+                const r = await fetch(`${QUOTE_API}/ai/word`, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ word }),
+                });
+                const j = await r.json();
+                if (j.ok && j.data) {
+                    setVals({
+                        addWordEngDef: j.data.engDef || '',
+                        addWordRootPrefix: j.data.rootPrefix || '',
+                        addWordExample: j.data.example || '',
+                    });
+                    status.innerHTML = '<i data-lucide="sparkles" class="w-3.5 h-3.5 text-fuchsia-500"></i> AI 已填好，請確認後再加入';
+                } else {
+                    status.innerHTML = '<i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-500"></i> AI 查不到，請自己填';
+                }
+            } catch (e) {
+                status.innerHTML = '<i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-500"></i> 連線失敗，請自己填';
+            }
+            icons();
+        }
+
+        async function confirmAddWord() {
+            const bookId = $('addWordBookSelect').value;
+            const english = getVal('addWordEnglish');
+            const engDef = getVal('addWordEngDef');
+            if (!bookId) return showToast("請選一本單字冊喵");
+            if (!isValidText(english, 100)) return showToast("英文單字為必填喵");
+            if (!isValidText(engDef, 200)) return showToast("英譯英為必填（AI 沒填出來的話請自己補）喵");
+
+            const p = PU('vocabWords');
+            if (!p) return showToast("請先登入喵 🐾");
+            const btn = $('confirmAddWord');
+            btn.disabled = true;
+            try {
+                await setDoc(doc(collection(db, p)), {
+                    bookId, english, engDef,
+                    chinese: getVal('addWordChinese'),
+                    rootPrefix: getVal('addWordRootPrefix'),
+                    example: getVal('addWordExample'),
+                    createdAt: Date.now(),
+                });
+                showToast(`「${english}」已加入單字冊 🔒`);
+                closeModal('addWordModal');
+            } catch (e) {
+                showToast("加入失敗喵…");
+            } finally { btn.disabled = false; }
+        }
+
         // 把段落切成可點查的單字
         const wrapWordsForLookup = (text) =>
             escapeHTML(text).split(/(\s+)/).map(tok =>
@@ -3072,21 +3207,70 @@
             scrollTopSmooth();
         }
 
+        /* ==========================================================
+         * 單字庫：公有 / 我的
+         *
+         * 「我的」存在 users/{uid}/vocabBooks|vocabWords，規則只允許本人存取，
+         * 管理員也讀不到。公有的放在 public/data，由巫醫以上維護。
+         * ========================================================== */
+        let vocabScope = 'public';                 // 'public' | 'mine'
+        let currentViewVocabScope = 'public';      // 進入某本單字冊時記住它屬於哪一邊
+
+        const isSignedInMember = () => !!(auth.currentUser && !auth.currentUser.isAnonymous);
+        const vocabBooksOf = (scope) => scope === 'mine' ? state.myVocabBooks : state.vocabBooks;
+        const vocabWordsOf = (scope) => scope === 'mine' ? state.myVocabWords : state.vocabWords;
+        const vocabBookPath = (scope) => scope === 'mine' ? PU('vocabBooks') : PATHS.vocabBooks;
+        const vocabWordPath = (scope) => scope === 'mine' ? PU('vocabWords') : PATHS.vocabWords;
+        // 自己的東西自己全權管理；公有的要巫醫以上
+        const canEditVocab = (scope) => scope === 'mine' ? isSignedInMember() : currentUserLevel >= 4;
+
+        function updateVocabScopeUI() {
+            document.querySelectorAll('.vocab-scope-opt').forEach(btn => {
+                const on = btn.dataset.scope === vocabScope;
+                btn.classList.toggle('bg-blue-500', on);
+                btn.classList.toggle('text-white', on);
+                btn.classList.toggle('shadow-md', on);
+                btn.classList.toggle('bg-slate-100', !on);
+                btn.classList.toggle('text-slate-500', !on);
+            });
+            const addBtn = $('addVocabBookBtn');
+            if (addBtn) addBtn.classList.toggle('hidden', !canEditVocab(vocabScope));
+        }
+
+        function switchVocabScope(scope) {
+            vocabScope = (scope === 'mine') ? 'mine' : 'public';
+            closeModalView('page-vocabulary-details', 'page-vocabulary-main');
+            currentViewVocabBookId = null;
+            renderVocabBooks();
+        }
+
         function renderVocabBooks() {
             const grid = $('vocabBookGrid');
-            if (state.vocabBooks.length === 0) {
-                grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">目前還沒有單字冊喵。</div>';
+            if (!grid) return;
+            updateVocabScopeUI();
+
+            if (vocabScope === 'mine' && !isSignedInMember()) {
+                grid.innerHTML = '<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">登入後就能建立自己的單字冊喵 🐾<br><span class="text-xs">只有你看得到，管理員也讀不到</span></div>';
+                icons();
                 return;
             }
-            const filtered = state.vocabBooks.filter(b => matchesSearch(b.title, b.description));
+            const books = vocabBooksOf(vocabScope);
+            if (books.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${vocabScope === 'mine' ? '你還沒有自己的單字冊，按上方「創建單字冊」開始吧 🐾' : '目前還沒有公有單字冊喵。'}</div>`;
+                icons();
+                return;
+            }
+            const editable = canEditVocab(vocabScope);
+            const filtered = books.filter(b => matchesSearch(b.title, b.description));
             grid.innerHTML = filtered.map(b => `
                 <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-all flex flex-col group relative">
                     <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i data-lucide="book-type" class="w-6 h-6"></i>
                     </div>
-                    <h3 class="text-xl font-black text-slate-900 mb-2 truncate">${escapeHTML(b.title)}</h3>
+                    <h3 class="text-xl font-black text-slate-900 mb-2 truncate pr-16">${escapeHTML(b.title)}</h3>
                     <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(b.description || '無描述')}</p>
-                    ${currentUserLevel >= 4 ? `
+                    <span class="text-[10px] font-black tracking-widest uppercase ${vocabScope === 'mine' ? 'text-blue-500' : 'text-slate-400'}">${vocabScope === 'mine' ? '🔒 只有你看得到' : '公有'}</span>
+                    ${editable ? `
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button data-action="edit-vocab-book" data-id="${b.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                         <button data-action="delete" data-type="vocabBook" data-id="${b.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
@@ -3098,14 +3282,16 @@
 
         function renderVocabWords() {
             if (!currentViewVocabBookId) return;
-            const words = state.vocabWords.filter(w => w.bookId === currentViewVocabBookId);
+            const words = vocabWordsOf(currentViewVocabScope).filter(w => w.bookId === currentViewVocabBookId);
+            const addBtn = $('addVocabWordBtn');
+            if (addBtn) addBtn.classList.toggle('hidden', !canEditVocab(currentViewVocabScope));
             if (words.length === 0) {
-                $('vocabWordList').innerHTML = '<div class="col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個單字冊還是空的，等巫醫來補充喵 🐾</div>';
+                $('vocabWordList').innerHTML = `<div class="col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${currentViewVocabScope === 'mine' ? '這本還是空的，按上方「新增單字」，或到英文閱讀點單字直接加進來 🐾' : '這個單字冊還是空的，等巫醫來補充喵 🐾'}</div>`;
                 return;
             }
             $('vocabWordList').innerHTML = words.map(w => `
                 <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-slate-100 hover:shadow-md transition-all relative flex flex-col justify-center">
-                    ${currentUserLevel >= 4 ? `
+                    ${canEditVocab(currentViewVocabScope) ? `
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button data-action="edit-vocab-word" data-id="${w.id}" class="p-2 text-slate-300 hover:text-emerald-500 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                         <button data-action="delete" data-type="vocabWord" data-id="${w.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
@@ -3121,9 +3307,10 @@
         }
 
         function openVocabBookDetails(bookId) {
-            const b = state.vocabBooks.find(x => x.id === bookId);
+            const b = vocabBooksOf(vocabScope).find(x => x.id === bookId);
             if (!b) return;
             currentViewVocabBookId = bookId;
+            currentViewVocabScope = vocabScope;   // 記住這本屬於公有還是我的，後續讀寫都看它
             $('page-vocabulary-main').classList.add('hidden');
             $('page-vocabulary-details').classList.remove('hidden');
             $('vocabDetailsTitle').textContent = b.title;
@@ -3134,7 +3321,10 @@
         }
 
         function openVocabBookModal(id = null) {
-            const b = id ? state.vocabBooks.find(x => x.id === id) : null;
+            if (!canEditVocab(vocabScope)) {
+                return showToast(vocabScope === 'mine' ? "登入後才能建立自己的單字冊喵 🐾" : "公有單字冊要巫醫以上才能建立喵");
+            }
+            const b = id ? vocabBooksOf(vocabScope).find(x => x.id === id) : null;
             $('vocabBookModalTitle').textContent = b ? '編輯單字冊' : '創建單字冊';
             setVals({ editVocabBookId: b ? b.id : '', vocabBookTitle: b ? b.title : '', vocabBookDescription: b ? (b.description || '') : '' });
             openModal('vocabBookModal');
@@ -3147,10 +3337,12 @@
             if (!isValidText(title, 80)) return showToast("喵，單字冊名稱請在 80 字以內！");
             if (description && !isValidText(description, 200)) return showToast("描述請在 200 字以內！");
 
+            const p = vocabBookPath(vocabScope);
+            if (!p) return showToast("請先登入喵 🐾");
             try {
-                if (id) await updateDoc(doc(db, PATHS.vocabBooks, id), { title, description });
-                else await setDoc(doc(collection(db, PATHS.vocabBooks)), { title, description, createdAt: Date.now() });
-                showToast(id ? "單字冊更新成功 🐾" : "單字冊建立成功 🐾");
+                if (id) await updateDoc(doc(db, p, id), { title, description });
+                else await setDoc(doc(collection(db, p)), { title, description, createdAt: Date.now() });
+                showToast(id ? "單字冊更新成功 🐾" : (vocabScope === 'mine' ? "建立成功，只有你看得到 🔒" : "單字冊建立成功 🐾"));
                 closeModal('vocabBookModal');
                 if (id === currentViewVocabBookId) {
                     $('vocabDetailsTitle').textContent = title;
@@ -3161,7 +3353,8 @@
         }
 
         function openVocabWordModal(id = null) {
-            const w = id ? state.vocabWords.find(x => x.id === id) : null;
+            if (!canEditVocab(currentViewVocabScope)) return showToast("這本單字冊你沒有編輯權限喵");
+            const w = id ? vocabWordsOf(currentViewVocabScope).find(x => x.id === id) : null;
             $('vocabWordModalTitle').textContent = w ? '編輯單字' : '新增單字';
             setVals({
                 editVocabWordId: w ? w.id : '',
@@ -3188,9 +3381,11 @@
             if (example && !isValidText(example, 300)) return showToast("例句最多 300 字！");
 
             const payload = { bookId: currentViewVocabBookId, english, engDef, chinese, rootPrefix, example };
+            const p = vocabWordPath(currentViewVocabScope);
+            if (!p) return showToast("請先登入喵 🐾");
             try {
-                if (id) await updateDoc(doc(db, PATHS.vocabWords, id), payload);
-                else await setDoc(doc(collection(db, PATHS.vocabWords)), { ...payload, createdAt: Date.now() });
+                if (id) await updateDoc(doc(db, p, id), payload);
+                else await setDoc(doc(collection(db, p)), { ...payload, createdAt: Date.now() });
                 showToast(id ? "單字更新成功 🐾" : "單字新增成功 🐾");
                 closeModal('vocabWordModal');
             } catch { showToast("儲存失敗喵..."); }
@@ -3198,7 +3393,7 @@
 
         /* 單字擂台：由目前單字冊自動出題 (題目為英文單字，選出正確定義) */
         function startVocabQuiz() {
-            const words = state.vocabWords.filter(w => w.bookId === currentViewVocabBookId);
+            const words = vocabWordsOf(currentViewVocabScope).filter(w => w.bookId === currentViewVocabBookId);
             if (words.length < 4) return showToast("喵，至少要有 4 個單字才能開始擂台挑戰喔！");
 
             const questions = shuffle(words).map(w => {
@@ -3218,37 +3413,81 @@
         /* ==========================================================
          * 15. 挑戰擂台 (Kahoot)
          * ========================================================== */
+        /* ==========================================================
+         * 測驗：公有 / 我的
+         * 「我的」存在 users/{uid}/kahoots，只有本人讀得到。
+         * ========================================================== */
+        let kahootScope = 'public';   // 'public' | 'mine'
+        const kahootsOf = (scope) => scope === 'mine' ? state.myKahoots : state.kahoots;
+        const kahootPath = (scope) => scope === 'mine' ? PU('kahoots') : PATHS.kahoots;
+        const canEditKahoot = (scope) => scope === 'mine' ? isSignedInMember() : currentUserLevel >= 4;
+
+        function updateKahootScopeUI() {
+            document.querySelectorAll('.kahoot-scope-opt').forEach(btn => {
+                const on = btn.dataset.scope === kahootScope;
+                btn.classList.toggle('bg-emerald-500', on);
+                btn.classList.toggle('text-white', on);
+                btn.classList.toggle('shadow-md', on);
+                btn.classList.toggle('bg-slate-100', !on);
+                btn.classList.toggle('text-slate-500', !on);
+            });
+            const b = $('openCreateKahootBtn');
+            if (b) b.classList.toggle('hidden', !canEditKahoot(kahootScope));
+        }
+
+        function switchKahootScope(scope) {
+            kahootScope = (scope === 'mine') ? 'mine' : 'public';
+            renderKahoots();
+        }
+
         function renderKahoots() {
             const list = $('kahootList');
-            if (currentUserLevel < 2) {
-                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖測驗！</div>`;
+            if (!list) return;
+            updateKahootScopeUI();
+
+            // 自己的測驗不受階級限制——那是你自己出的題
+            if (kahootScope === 'public' && currentUserLevel < 2) {
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖公有測驗！<br><span class="text-xs">但你隨時可以在「我的」建立自己的測驗</span></div>`;
                 icons();
                 return;
             }
-            const filtered = state.kahoots.filter(k => matchesSearch(k.title, k.courseName));
-            if (filtered.length === 0) {
-                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">目前沒有相關挑戰，自己做一個吧！</div>`;
+            if (kahootScope === 'mine' && !isSignedInMember()) {
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">登入後就能建立自己的測驗喵 🐾<br><span class="text-xs">只有你看得到，管理員也讀不到</span></div>`;
+                icons();
                 return;
             }
-            list.innerHTML = filtered.map(k => `
+
+            const editable = canEditKahoot(kahootScope);
+            const filtered = kahootsOf(kahootScope).filter(k => matchesSearch(k.title, k.courseName));
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${kahootScope === 'mine' ? '你還沒有自己的測驗，按上方「建立測驗」開始吧 🐾' : '目前沒有相關測驗喵。'}</div>`;
+                icons();
+                return;
+            }
+            list.innerHTML = filtered.map(k => {
+                const n = k.questions ? k.questions.length : 0;
+                return `
                 <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-all flex flex-col justify-between">
                     <div>
-                        <div class="flex justify-between items-start mb-2">
-                            <h4 class="text-xl font-black text-slate-900">${escapeHTML(k.title)}</h4>
-                            ${isAdmin ? `
-                            <div class="flex gap-2">
-                                ${currentUserLevel === 5 ? `<button data-action="edit-kahoot" data-id="${k.id}" class="text-slate-300 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>` : ''}
+                        <div class="flex justify-between items-start mb-2 gap-2">
+                            <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
+                            ${editable ? `
+                            <div class="flex gap-2 shrink-0">
+                                <button data-action="edit-kahoot" data-id="${k.id}" class="text-slate-300 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                                 <button data-action="delete" data-type="kahoot" data-id="${k.id}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                             </div>` : ''}
                         </div>
-                        <p class="text-sm text-emerald-600 font-bold mb-4 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName)}</p>
-                        <p class="text-xs text-slate-400 font-medium mb-4">共 ${k.questions ? k.questions.length : 0} 題</p>
+                        <p class="text-sm text-emerald-600 font-bold mb-2 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName || '未指定課程')}</p>
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">${n} 題</span>
+                            ${kahootScope === 'mine' ? '<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' : ''}
+                        </div>
                     </div>
-                    <button data-action="start-kahoot" data-id="${k.id}" class="w-full py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-400 transition-colors flex justify-center items-center gap-2">
-                        <i data-lucide="play" class="w-4 h-4 fill-white pointer-events-none"></i> 開始測驗
+                    <button data-action="start-kahoot" data-id="${k.id}" ${n === 0 ? 'disabled' : ''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ? 'bg-slate-200 text-slate-400 cursor-not-allowed' : 'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                        <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ? '還沒有題目' : '開始測驗'}
                     </button>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
             icons();
         }
 
@@ -3263,7 +3502,10 @@
         }
 
         function openKahootModal(kahootId = null) {
-            const kahoot = kahootId ? state.kahoots.find(k => k.id === kahootId) : null;
+            if (!canEditKahoot(kahootScope)) {
+                return showToast(kahootScope === 'mine' ? "登入後才能建立自己的測驗喵 🐾" : "公有測驗要巫醫以上才能建立喵");
+            }
+            const kahoot = kahootId ? kahootsOf(kahootScope).find(k => k.id === kahootId) : null;
             setVals({ editKahootId: kahoot ? kahoot.id : '', kahootTitle: kahoot ? kahoot.title : '' });
             $('kahootCourseSelect').value = kahoot ? kahoot.courseId : '';
             draftQuestions = kahoot ? JSON.parse(JSON.stringify(kahoot.questions || [])) : [];
@@ -3343,22 +3585,24 @@
             if (!courseId) return showToast("請選擇關聯課程！");
             if (draftQuestions.length === 0) return showToast("至少要新增一題才能發布喔！");
 
+            const p = kahootPath(kahootScope);
+            if (!p) return showToast("請先登入喵 🐾");
             try {
                 const course = state.courses.find(c => c.id === courseId);
                 const payload = { title, courseId, courseName: course.name, questions: draftQuestions };
                 if (id) {
-                    await updateDoc(doc(db, PATHS.kahoots, id), payload);
+                    await updateDoc(doc(db, p, id), payload);
                     showToast("測驗更新成功 🐾");
                 } else {
-                    await setDoc(doc(collection(db, PATHS.kahoots)), { ...payload, createdAt: Date.now() });
-                    showToast("測驗建立成功，大家可以開始挑戰了 🐾");
+                    await setDoc(doc(collection(db, p)), { ...payload, createdAt: Date.now() });
+                    showToast(kahootScope === 'mine' ? "建立成功，只有你看得到 🔒" : "測驗建立成功，大家可以開始挑戰了 🐾");
                 }
                 closeModal('createKahootModal');
             } catch { showToast("儲存失敗喵..."); }
         }
 
         function startKahoot(kahootId) {
-            const kahoot = state.kahoots.find(k => k.id === kahootId);
+            const kahoot = kahootsOf(kahootScope).find(k => k.id === kahootId);
             if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) return showToast("找不到測驗內容喵...");
             activeKahoot = kahoot;
             currentQIndex = 0;
@@ -3409,10 +3653,13 @@
         /* ==========================================================
          * 16. 權限與管理介面
          * ========================================================== */
+        // 注意：openCreateKahootBtn / addVocabBookBtn / addVocabWordBtn 已從這裡移除。
+        // 它們的顯示與否改由「公有／我的」決定——自己的單字冊與測驗人人都能建，
+        // 只有公有的才需要 Lv4。相關邏輯在 updateVocabScopeUI / updateKahootScopeUI / renderVocabWords。
         const LEVEL4_ELEMENT_IDS = [
-            'navManagementTab', 'adminUploadSection', 'importCoursesSection', 'openCreateKahootBtn',
+            'navManagementTab', 'adminUploadSection', 'importCoursesSection',
             'addSelfStudyCourseBtn', 'addSelfStudyUnitBtn',
-            'addVocabBookBtn', 'addVocabWordBtn', 'addNewsBtn', 'addLinkBtn', 'importArticlesBtn'
+            'addNewsBtn', 'addLinkBtn', 'importArticlesBtn'
         ];
 
         function updateAdminUI() {
@@ -3561,11 +3808,16 @@
                         closeModalView('page-self-study-details', 'page-self-study-main');
                     }
                 } else if (currentDeleteType === 'vocabBook') {
-                    await cascadeDelete(PATHS.vocabBooks, [{ path: PATHS.vocabWords, field: 'bookId' }], id);
+                    // 公有與私人是不同集合，要刪對地方
+                    await cascadeDelete(vocabBookPath(vocabScope), [{ path: vocabWordPath(vocabScope), field: 'bookId' }], id);
                     if (currentViewVocabBookId === id) {
                         currentViewVocabBookId = null;
                         closeModalView('page-vocabulary-details', 'page-vocabulary-main');
                     }
+                } else if (currentDeleteType === 'vocabWord') {
+                    await deleteDoc(doc(db, vocabWordPath(currentViewVocabScope), id));
+                } else if (currentDeleteType === 'kahoot') {
+                    await deleteDoc(doc(db, kahootPath(kahootScope), id));
                 } else {
                     await deleteDoc(doc(db, SIMPLE_DELETE_PATHS[currentDeleteType], id));
                 }
@@ -3919,7 +4171,7 @@
             if (user && !user.isAnonymous) initFinanceSubs(); else stopFinanceSubs();
             renderFinance();
             // 🔒 階級可能已改變，重新評估分級教材的訂閱
-            resyncTieredSubs();
+            resyncScopedSubs();
             updateAdminUI();
         }
 
@@ -3947,10 +4199,9 @@
                 $('editScheduleCourseResults').classList.add('hidden');
             },
             'start-kahoot':    (t) => startKahoot(t.dataset.id),
-            'edit-kahoot':     (t) => {
-                if (currentUserLevel !== 5) return showToast("只有星族可以編輯測驗喵！");
-                openKahootModal(t.dataset.id);
-            },
+            'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
+            'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
+            'set-kahoot-scope':(t) => switchKahootScope(t.dataset.scope),
             'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
             'remove-draft-q':  (t) => removeDraftQ(parseInt(t.dataset.index)),
             'edit-draft-q':    (t) => editDraftQ(parseInt(t.dataset.index)),
@@ -4305,6 +4556,7 @@
             bind('addVocabWordBtn', () => openVocabWordModal());
             bind('confirmSaveVocabWord', saveVocabWord);
             bind('startVocabQuizBtn', startVocabQuiz);
+            bind('confirmAddWord', confirmAddWord);
 
             bind('openCreateKahootBtn', () => openKahootModal());
             bind('addDraftQuestionBtn', addOrUpdateDraftQuestion);
@@ -4345,7 +4597,13 @@
             { key: 'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key: 'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
             { key: 'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
-            { key: 'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (studySub === 'reading') renderReadingList(); } }
+            { key: 'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (studySub === 'reading') renderReadingList(); } },
+
+            // 🔒 私人資料：路徑要等登入後才算得出來，所以 path 用函式；
+            //    未登入不訂閱，登出時 resyncScopedSubs() 會清空。只有本人讀得到。
+            { key: 'myVocabBooks', path: () => PU('vocabBooks'), sort: byOldest, private: true, render: () => renderVocabBooks() },
+            { key: 'myVocabWords', path: () => PU('vocabWords'), sort: byNewest, private: true, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
+            { key: 'myKahoots',    path: () => PU('kahoots'),    sort: byNewest, private: true, render: () => renderKahoots() }
         ];
 
         // 🐾 每個分頁需要哪些資料集（延遲載入用）
@@ -4354,7 +4612,8 @@
             'evaluation': ['courses', 'reviews', 'matWarrior', 'matLeader'],
             // 測驗與單字庫已併入學習頁，四個子分頁的資料集在此一併載入
             // （自學課程與測驗的管理表單會關聯「學校課程」，故需要 courses）
-            'self-study': ['ssCourses', 'ssUnits', 'courses', 'articles', 'kahoots', 'vocabBooks', 'vocabWords'],
+            'self-study': ['ssCourses', 'ssUnits', 'courses', 'articles', 'kahoots', 'vocabBooks', 'vocabWords',
+                           'myVocabBooks', 'myVocabWords', 'myKahoots'],
             'about':      [],
             // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
             'management': ['news', 'links', 'courses', 'reviews', 'matWarrior', 'matLeader', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
@@ -4369,11 +4628,15 @@
             if (keys.length) lastLoadedKeys = keys;
             keys.forEach(key => {
                 if (activeSubs[key] || !SUB_MAP[key]) return;
-                const { path, sort, render, minLevel } = SUB_MAP[key];
+                const { path, sort, render, minLevel, private: isPrivate } = SUB_MAP[key];
                 // 階級不足就別訂閱：規則會拒絕，硬訂閱只會讓整個 listener 報錯
                 if (minLevel && currentUserLevel < minLevel) return;
+                // 私人資料要登入才有路徑（匿名帳號也不算）
+                if (isPrivate && !(auth.currentUser && !auth.currentUser.isAnonymous)) return;
+                const resolvedPath = (typeof path === 'function') ? path() : path;
+                if (!resolvedPath) return;
                 activeSubs[key] = onSnapshot(
-                    collection(db, path),
+                    collection(db, resolvedPath),
                     (snapshot) => {
                         state[key] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                         if (sort) state[key].sort(sort);
@@ -4389,15 +4652,17 @@
             });
         }
 
-        // 🐾 登入／登出後階級會改變：關掉所有「有階級門檻」的訂閱並依新階級重新評估
-        function resyncTieredSubs() {
-            SUBSCRIPTIONS.filter(s => s.minLevel).forEach(({ key }) => {
+        // 🐾 登入／登出後階級與身分都會變：關掉所有「有階級門檻」或「私人」的訂閱，
+        //    依新身分重新評估。登出時私人資料一定要清空，不能留在畫面上給下一個人看到。
+        function resyncScopedSubs() {
+            SUBSCRIPTIONS.filter(s => s.minLevel || s.private).forEach(({ key }) => {
                 if (activeSubs[key]) { activeSubs[key](); delete activeSubs[key]; }
                 state[key] = [];
             });
             if (lastLoadedKeys.length) ensureLoaded(...lastLoadedKeys);
             renderMaterials();
             renderKahoots();
+            renderVocabBooks();
         }
 
         window.onload = () => {
