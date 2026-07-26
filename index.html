@@ -148,8 +148,18 @@
                     <span>登入 / 註冊</span>
                 </button>
                 <!-- 已登入帳號選單 -->
-                <div id="accountMenu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-2xl shadow-xl border-2 border-slate-100 py-2 z-50 text-slate-700">
+                <!-- 手機版按鈕在左側，若用 right-0 選單會往左掉出畫面，
+                     所以小螢幕靠左展開、桌機才靠右；再用 max-w 保證不超出視窗 -->
+                <div id="accountMenu" class="hidden absolute left-0 right-auto md:left-auto md:right-0 mt-2 w-56 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border-2 border-slate-100 py-2 z-50 text-slate-700">
                     <div class="px-4 pt-1 pb-2 text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">帳號</div>
+                    <!-- 目前登入的身分（先前這裡是空的，只有「帳號」標題看不到是誰） -->
+                    <div class="px-4 py-3 border-b border-slate-100">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="accountRoleBadge" class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest bg-slate-300 text-white border border-slate-400">訪客</span>
+                            <span id="accountName" class="font-black text-slate-800 text-sm truncate">無名小貓</span>
+                        </div>
+                        <div id="accountEmail" class="text-xs text-slate-400 font-medium break-all leading-snug"></div>
+                    </div>
                     <div class="px-4 py-3">
                         <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">顯示模式</div>
                         <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
@@ -403,9 +413,12 @@
 
         <!-- ======================== 課程自學頁面 ======================== -->
         <div id="page-self-study" class="page-section hidden">
-            <div class="flex gap-2 mb-6">
-                <button data-action="set-study-sub" data-sub="course" class="study-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 自學課程</button>
-                <button data-action="set-study-sub" data-sub="reading" class="study-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="newspaper" class="w-4 h-4 pointer-events-none"></i> 英文閱讀</button>
+            <!-- 學習頁子分頁列（測驗已併入此處，共四個子頁；page-quiz 內有一份相同的） -->
+            <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
+                <button data-action="set-study-sub" data-sub="course" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 自學課程</button>
+                <button data-action="set-study-sub" data-sub="reading" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="newspaper" class="w-4 h-4 pointer-events-none"></i> 英文閱讀</button>
+                <button data-action="set-study-sub" data-sub="kahoot" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="gamepad-2" class="w-4 h-4 pointer-events-none"></i> 測驗</button>
+                <button data-action="set-study-sub" data-sub="vocab" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4 pointer-events-none"></i> 單字庫</button>
             </div>
             <div id="study-sub-course">
             <div id="page-self-study-main">
@@ -478,16 +491,20 @@
         <!-- ======================== 單字庫頁面 ======================== -->
         <!-- ======================== 測驗頁面 ======================== -->
         <div id="page-quiz" class="page-section hidden">
-            <div class="flex gap-2 mb-6">
-                <button data-action="set-quiz-sub" data-sub="kahoot" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="gamepad-2" class="w-4 h-4 pointer-events-none"></i> 挑戰擂台</button>
-                <button data-action="set-quiz-sub" data-sub="vocab" class="quiz-sub-opt px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4 pointer-events-none"></i> 單字庫</button>
+            <!-- 與學習頁相同的子分頁列（測驗／單字庫的內容仍留在這個 page-section，
+                 由 switchStudySub() 決定顯示哪一個 page-section，使用者感覺是同一頁） -->
+            <div class="flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1">
+                <button data-action="set-study-sub" data-sub="course" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 自學課程</button>
+                <button data-action="set-study-sub" data-sub="reading" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="newspaper" class="w-4 h-4 pointer-events-none"></i> 英文閱讀</button>
+                <button data-action="set-study-sub" data-sub="kahoot" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="gamepad-2" class="w-4 h-4 pointer-events-none"></i> 測驗</button>
+                <button data-action="set-study-sub" data-sub="vocab" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="library" class="w-4 h-4 pointer-events-none"></i> 單字庫</button>
             </div>
             <div id="quiz-sub-kahoot">
             <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                     <div class="flex-1">
-                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">喵的挑戰擂台 <span class="animate-bounce">🎮</span></h2>
+                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">喵的測驗 <span class="animate-bounce">🎮</span></h2>
                     </div>
                     <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
                         <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增測驗
@@ -630,8 +647,7 @@
                         <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
                         <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">首頁：</span>查看最新公告與常用連結；登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
                         <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
-                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>分成「自學課程」與「英文閱讀」兩個子頁。自學課程是整理好的單元教材；英文閱讀收錄 Global Voices 文章，<span class="font-bold text-slate-800">點任一個英文字</span>就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查。</p></div>
-                        <div class="flex gap-3"><i data-lucide="gamepad-2" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">測驗：</span>分成「挑戰擂台」與「單字庫」。擂台是 Kahoot 式的搶答複習（戰士以上解鎖）；單字庫可以自己建單字冊並開測驗自我檢核。</p></div>
+                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>四個子頁一次到位。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">測驗</span>是 Kahoot 式的搶答複習（戰士以上解鎖）；<span class="font-bold text-slate-800">單字庫</span>可以建單字冊並開測驗自我檢核。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>分成「記帳」與「投資」。記帳可記錄收支；投資可登錄持倉與交易，按「更新現價」會自動帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價為延遲資料，僅供個人記錄參考，不構成投資建議。</span>這裡的資料只有你自己看得到。</p></div>
                         <div class="flex gap-3"><i data-lucide="bell-ring" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">上課提醒：</span>課表右上角的「提醒」按鈕可開啟上課前 10 分鐘通知，關掉 App 也會準時響。iPhone 需先用 Safari「分享 → 加入主畫面」安裝成 App，按下按鈕時會有圖解步驟帶你裝。</p></div>
                         <div class="flex gap-3"><i data-lucide="smartphone" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">安裝成 App：</span>手機與桌面都能「加到主畫面」，像原生 App 一樣開啟，離線也能讀已載入的內容。</p></div>
@@ -650,7 +666,7 @@
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white border border-rose-600 shrink-0 mt-0.5">戰士</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">見習生的全部功能，再加上 <span class="font-bold text-slate-800">戰士寶藏庫</span>（共享資源與考古題）與 <span class="font-bold text-slate-800">測驗挑戰擂台</span>。</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">見習生的全部功能，再加上 <span class="font-bold text-slate-800">戰士寶藏庫</span>（共享資源與考古題）與 <span class="font-bold text-slate-800">測驗</span>。</p>
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-amber-500 text-white border border-amber-600 shrink-0 mt-0.5">族長</span>
@@ -1216,8 +1232,9 @@
         const categoryMap = Object.fromEntries([...CATEGORIES, ['elective', '系選修']]);
 
         const TABS = [
+            // 「測驗」已併入「學習」，不再是頂層分頁
             ['home', '首頁'], ['evaluation', '課程'], ['self-study', '學習'],
-            ['quiz', '測驗'], ['finance', '理財'], ['about', '關於黑貓'], ['management', '管理']
+            ['finance', '理財'], ['about', '關於黑貓'], ['management', '管理']
         ];
         const NEWS_CATEGORIES = ['共同', '新生', '舊生'];
         const FILTERS = [
@@ -1415,6 +1432,16 @@
         const CHANGELOG = [
             {
                 date: '2026-07-26',
+                title: '測驗併入學習，帳號選單修正',
+                items: [
+                    ['分頁精簡', '「測驗」不再是獨立分頁，併入「學習」底下。現在學習頁有四個子頁：自學課程 / 英文閱讀 / 測驗 / 單字庫，不用再兩邊跳。'],
+                    ['「挑戰擂台」改名為「測驗」', '名稱統一，比較好找。'],
+                    ['修正手機帳號選單跑出畫面', '手機版帳號按鈕在左側，選單卻往左展開，導致內容掉出螢幕外看不到。已改成小螢幕靠左展開。'],
+                    ['帳號選單補上身分資訊', '先前選單只有「帳號」標題卻沒顯示是誰。現在會顯示階位、暱稱與 email，改名後也會即時更新。']
+                ]
+            },
+            {
+                date: '2026-07-26',
                 title: '使用手冊全面更新',
                 items: [
                     ['補齊漏掉的功能說明', '「理財」分頁先前完全沒寫進使用說明；「學習」與「測驗」的子分頁名稱與位置也早就改了但說明沒跟上。這次全部重寫對齊實際畫面。'],
@@ -1568,9 +1595,10 @@
                 $('evaluationHero').classList.remove('hidden');
                 selectedFilterCourseId = null;
             }
+            // 學習頁含四個子分頁，其中測驗／單字庫實際住在 #page-quiz，
+            // 交給 switchStudySub 決定要顯示哪一個 page-section
             if (tab === 'self-study') switchStudySub(studySub);
             if (tab === 'finance') renderFinance();
-            if (tab === 'quiz') switchQuizSub(quizSub);
             icons();
         }
 
@@ -2364,38 +2392,18 @@
         }
 
         /* ==========================================================
-         * 14. 測驗頁子分頁（挑戰擂台 / 單字庫）
+         * 14. 學習頁子分頁（自學課程 / 英文閱讀 / 測驗 / 單字庫）
+         *
+         * 原本「測驗」是獨立的頂層分頁，已併入「學習」。
+         * 測驗與單字庫的 HTML 仍留在 #page-quiz 這個 page-section 裡沒有搬動，
+         * 由這裡決定要顯示 #page-self-study 還是 #page-quiz，
+         * 兩邊都放同一份子分頁列，所以使用者感覺就是同一頁的四個子分頁。
          * ========================================================== */
-        let quizSub = 'kahoot'; // 測驗頁目前子分頁
-
-        function updateQuizSubUI() {
-            document.querySelectorAll('.quiz-sub-opt').forEach(btn => {
-                const on = btn.dataset.sub === quizSub;
-                btn.classList.toggle('bg-emerald-500', on);
-                btn.classList.toggle('text-white', on);
-                btn.classList.toggle('shadow-md', on);
-                btn.classList.toggle('bg-slate-100', !on);
-                btn.classList.toggle('text-slate-500', !on);
-            });
-        }
-
-        function switchQuizSub(sub) {
-            quizSub = (sub === 'vocab') ? 'vocab' : 'kahoot';
-            $('quiz-sub-kahoot').classList.toggle('hidden', quizSub !== 'kahoot');
-            $('quiz-sub-vocab').classList.toggle('hidden', quizSub !== 'vocab');
-            if (quizSub === 'vocab') {
-                closeModalView('page-vocabulary-details', 'page-vocabulary-main');
-                currentViewVocabBookId = null;
-                renderVocabBooks();
-            } else {
-                renderKahoots();
-            }
-            updateQuizSubUI();
-            icons();
-        }
-
-        // 學習頁子分頁（自學課程 / 英文閱讀）
+        const STUDY_SUBS = ['course', 'reading', 'kahoot', 'vocab'];
         let studySub = 'course';
+        // 舊變數保留別名，避免其他地方引用時出錯
+        let quizSub = 'kahoot';
+
         function updateStudySubUI() {
             document.querySelectorAll('.study-sub-opt').forEach(btn => {
                 const on = btn.dataset.sub === studySub;
@@ -2406,18 +2414,35 @@
                 btn.classList.toggle('text-slate-500', !on);
             });
         }
+
         function switchStudySub(sub) {
-            studySub = (sub === 'reading') ? 'reading' : 'course';
+            studySub = STUDY_SUBS.includes(sub) ? sub : 'course';
+            quizSub = (studySub === 'vocab') ? 'vocab' : 'kahoot';
+
+            // 測驗與單字庫住在另一個 page-section，這裡決定顯示哪一個
+            const inQuizSection = (studySub === 'kahoot' || studySub === 'vocab');
+            $('page-self-study').classList.toggle('hidden', inQuizSection);
+            $('page-quiz').classList.toggle('hidden', !inQuizSection);
+
             $('study-sub-course').classList.toggle('hidden', studySub !== 'course');
             $('study-sub-reading').classList.toggle('hidden', studySub !== 'reading');
+            $('quiz-sub-kahoot').classList.toggle('hidden', studySub !== 'kahoot');
+            $('quiz-sub-vocab').classList.toggle('hidden', studySub !== 'vocab');
+
             if (studySub === 'course') {
                 closeModalView('page-self-study-details', 'page-self-study-main');
                 currentViewSSCourseId = null;
                 renderSelfStudyCourses();
-            } else {
+            } else if (studySub === 'reading') {
                 $('reading-reader-view').classList.add('hidden');
                 $('reading-list-view').classList.remove('hidden');
                 renderReadingList();
+            } else if (studySub === 'vocab') {
+                closeModalView('page-vocabulary-details', 'page-vocabulary-main');
+                currentViewVocabBookId = null;
+                renderVocabBooks();
+            } else {
+                renderKahoots();
             }
             updateStudySubUI();
             icons();
@@ -3185,7 +3210,7 @@
         function renderKahoots() {
             const list = $('kahootList');
             if (currentUserLevel < 2) {
-                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖挑戰擂台！</div>`;
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖測驗！</div>`;
                 icons();
                 return;
             }
@@ -3392,6 +3417,15 @@
                 adminBtn.className = isAdmin
                     ? 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-800 text-white shadow-md hover:bg-slate-700 transition-colors border border-slate-600'
                     : 'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-sm hover:bg-slate-800 transition-colors';
+
+                // 帳號選單裡也要看得到自己是誰
+                const nameEl = $('accountName'), mailEl = $('accountEmail'), badgeEl = $('accountRoleBadge');
+                if (nameEl) nameEl.textContent = userDisplayName || '無名小貓';
+                if (mailEl) mailEl.textContent = user.email || '';
+                if (badgeEl) {
+                    badgeEl.textContent = currentUserRole;
+                    badgeEl.className = `px-2 py-0.5 rounded text-[10px] font-black tracking-widest shadow-sm border ${badgeStyle}`;
+                }
             } else {
                 adminBtn.innerHTML = '<i data-lucide="user" class="w-4 h-4"></i><span>登入 / 註冊</span>';
                 adminBtn.className = 'flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold bg-slate-900 text-white';
@@ -3566,6 +3600,7 @@
                 await updateDoc(doc(db, PATHS.users, auth.currentUser.uid), { displayName: newName });
                 userDisplayName = newName;
                 $('displayUserName').textContent = userDisplayName;
+                updateAdminUI();          // 帳號選單裡的名稱也要跟著換
                 closeModal('nameModal');
                 showToast("名稱修改成功 🐾");
             } catch { showToast("儲存失敗喵..."); }
@@ -3951,7 +3986,6 @@
             'set-theme': (t) => setTheme(t.dataset.theme),
             'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode === 'edit'); renderSchedule(); },
             'toggle-class-reminder': () => toggleClassReminder(),
-            'set-quiz-sub': (t) => switchQuizSub(t.dataset.sub),
             'set-study-sub': (t) => switchStudySub(t.dataset.sub),
             'set-finance-sub': (t) => switchFinanceSub(t.dataset.sub),
             'open-expense-modal': () => openExpenseModal(),
@@ -4265,9 +4299,9 @@
         const TAB_DATA = {
             'home':       ['news', 'links', 'courses'],
             'evaluation': ['courses', 'reviews', 'matWarrior', 'matLeader'],
-            // 自學課程與測驗的管理表單會關聯「學校課程」，故需一併載入 courses
-            'self-study': ['ssCourses', 'ssUnits', 'courses', 'articles'],
-            'quiz':       ['kahoots', 'courses', 'vocabBooks', 'vocabWords'],
+            // 測驗與單字庫已併入學習頁，四個子分頁的資料集在此一併載入
+            // （自學課程與測驗的管理表單會關聯「學校課程」，故需要 courses）
+            'self-study': ['ssCourses', 'ssUnits', 'courses', 'articles', 'kahoots', 'vocabBooks', 'vocabWords'],
             'about':      [],
             // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
             'management': ['news', 'links', 'courses', 'reviews', 'matWarrior', 'matLeader', 'kahoots', 'ssCourses', 'ssUnits', 'vocabBooks', 'vocabWords']
