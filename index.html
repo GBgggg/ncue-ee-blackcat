@@ -259,6 +259,60 @@
         .shadow-emerald-200, .shadow-teal-200,
         .shadow-blue-200, .shadow-fuchsia-200 { --tw-shadow-color: rgba(176, 82, 47, 0.25) !important; }
 
+        /* ==========================================================
+           資訊用色：這些地方的顏色是拿來「分辨」的，不是裝飾。
+           把整包品牌色壓成單一強調色之後，原本靠 emerald / blue / teal
+           區分的東西會全部變成同一個磚紅，等於資訊被吃掉。
+           所以另外給一組彼此色相拉開、但仍屬紙墨調性的色票。
+           ========================================================== */
+        /* 評價的四項指標 */
+        .bg-data-1 { background-color: #b0522f !important; } .text-data-1 { color: #b0522f !important; }
+        .bg-data-2 { background-color: #9c4a48 !important; } .text-data-2 { color: #9c4a48 !important; }
+        .bg-data-3 { background-color: #96702f !important; } .text-data-3 { color: #96702f !important; }
+        .bg-data-4 { background-color: #4c5578 !important; } .text-data-4 { color: #4c5578 !important; }
+        html.dark .bg-data-1 { background-color: #dc9166 !important; } html.dark .text-data-1 { color: #dc9166 !important; }
+        html.dark .bg-data-2 { background-color: #d68b88 !important; } html.dark .text-data-2 { color: #d68b88 !important; }
+        html.dark .bg-data-3 { background-color: #c79a4e !important; } html.dark .text-data-3 { color: #c79a4e !important; }
+        html.dark .bg-data-4 { background-color: #8a94c4 !important; } html.dark .text-data-4 { color: #8a94c4 !important; }
+
+        /* 單字冊封面色票：七本要能一眼分開 */
+        .bg-sw-1 { background-color: #b0522f !important; }
+        .bg-sw-2 { background-color: #96702f !important; }
+        .bg-sw-3 { background-color: #9c4a48 !important; }
+        .bg-sw-4 { background-color: #6d4a66 !important; }
+        .bg-sw-5 { background-color: #4c5578 !important; }
+        .bg-sw-6 { background-color: #7a5a3c !important; }
+        .bg-sw-7 { background-color: #4f4a3c !important; }  /* 原本的石板藍灰跟第 5 色只差 ΔE 15，換成橄欖墨拉開到 19 */
+
+        /* 金額的正負。原本是綠／紅，改配色後綠變磚紅、紅是暗紅，
+           兩者在深色模式下幾乎同一個色，賺賠會看不出來。改成冷暖對立。 */
+        .val-up   { color: #3f5b82 !important; }
+        .val-down { color: #9c4a48 !important; }
+        html.dark .val-up   { color: #8fa8d6 !important; }
+        html.dark .val-down { color: #e08a86 !important; }
+
+        /* 危險操作（刪除、離開測驗）：要比戰士徽章的暗紅再亮一階，
+           才讀得出「這一按會出事」，但仍不用原廠的螢光紅。 */
+        .bg-red-500, .bg-red-600 { background-color: #b3423f !important; }
+        .hover\:bg-red-600:hover, .hover\:bg-red-500:hover { background-color: #8f3230 !important; }
+        .text-red-500, .text-red-400, .hover\:text-red-500:hover { color: #b3423f !important; }
+        .text-red-200 { color: var(--ink-3) !important; }
+        .bg-red-50, .hover\:bg-red-50:hover, .bg-rose-50, .bg-amber-50 { background-color: var(--accent-soft) !important; }
+        .shadow-red-200 { --tw-shadow-color: rgba(179, 66, 63, 0.25) !important; }
+        /* 剩下的雜色。text-sky-100 是深色面板上的說明文字，
+           不能對應成 --ink（淺色模式下那是近黑，會直接看不見）。 */
+        .bg-sky-600 { background-color: #4c5578 !important; }
+        .text-sky-100 { color: rgba(255, 255, 255, 0.82) !important; }
+
+        /* 課程屬性標籤：遠距／點名／分組。原本用藍／琥珀／紫紅區分，
+           但藍和紫紅都被對應成同一個強調色，看起來像壞掉。
+           這三項本來就有文字標明，改成統一的安靜樣式。 */
+        .tag-meta {
+            background-color: var(--paper-sunk) !important;
+            color: var(--ink-2) !important;
+            border: 1px solid var(--rule) !important;
+        }
+
         /* 測驗作答回饋：金＝正解、暗紅＝你選錯的、灰＝其餘 */
         .kahoot-correct { background-color: #a8802f !important; border-color: #7d5c26 !important; color: #fff !important; }
         .kahoot-wrong   { background-color: #9c4a48 !important; border-color: #783634 !important; color: #fff !important; }
@@ -1896,6 +1950,8 @@
                 date: '2026-07-27',
                 title: '改版收尾：淺色模式終於真的變成紙色',
                 items: [
+                    ['修好被壓成同一色的地方', '把整包顏色統一成磚紅之後，有些原本靠顏色分辨的東西跟著失去了區別：評價的「課程難度」與「學到多少」兩條長條圖變成同色、七本單字冊的封面只剩五種顏色、記帳的賺與賠也幾乎分不出來。這些地方改用一組彼此拉得夠開、但仍屬同一調性的專用色。'],
+                    ['修好記帳金額沒有顏色的問題', '收支結餘與投資損益的顏色其實一直沒出現——程式裡少了一個空格，兩個樣式名黏成了一個不存在的名稱，連粗體也一起失效。'],
                     ['全站不再有綠色', '主色已改成磚紅，但輸入框點下去的外框、清單的項目符號、核取方塊、滑鼠移過去的變色等等，仍散落著舊的翠綠。這次逐條掃過樣式表把它們全部換掉。測驗的正解回饋也從綠色改成金色——若跟著主色走會變成磚紅，跟答錯的暗紅太像。'],
                     ['對話框與單字小卡不再透明', '登入框和英文釋義小卡原本會透出後面的星空，要打字、要讀定義的東西這樣並不好認。現在所有對話框與浮動小卡都是實色底。'],
                     ['夜空不再標星名', '背景裡的兩顆亮星旁原本寫著星名，但背景就該是背景，有字反而變成要讀的東西。'],
@@ -2481,9 +2537,9 @@
 
             if (!isAdmin) {
                 return `<div class="mt-3 flex flex-wrap gap-2 text-[10px] uppercase font-black tracking-widest pointer-events-none">
-                        <span class="px-2 py-1 bg-blue-50 text-blue-600 rounded-md border border-blue-100">遠距: ${remote}</span>
-                        <span class="px-2 py-1 bg-amber-50 text-amber-600 rounded-md border border-amber-100">點名: ${rollCall}</span>
-                        <span class="px-2 py-1 bg-fuchsia-50 text-fuchsia-600 rounded-md border border-fuchsia-100">分組: ${group}</span>
+                        <span class="tag-meta px-2 py-1 rounded-md">遠距: ${remote}</span>
+                        <span class="tag-meta px-2 py-1 rounded-md">點名: ${rollCall}</span>
+                        <span class="tag-meta px-2 py-1 rounded-md">分組: ${group}</span>
                     </div>`;
             }
             const sel = (field, current, options) => `
@@ -2554,10 +2610,10 @@
                         </div>
                     </div>
                     <div class="mt-auto grid grid-cols-2 gap-3 text-xs font-bold bg-slate-50 p-3 rounded-2xl pointer-events-none">
-                        ${metric('book-open','text-emerald-500','課程難度', a.courseDiff)}
-                        ${metric('pen-tool','text-rose-500','考試難度', a.examDiff)}
-                        ${metric('layers','text-amber-500','作業多寡', a.hwAmount)}
-                        ${metric('brain','text-blue-500','學到多少', a.learned)}
+                        ${metric('book-open','text-data-1','課程難度', a.courseDiff)}
+                        ${metric('pen-tool','text-data-2','考試難度', a.examDiff)}
+                        ${metric('layers','text-data-3','作業多寡', a.hwAmount)}
+                        ${metric('brain','text-data-4','學到多少', a.learned)}
                     </div>
                 </div>`;
             }).join('');
@@ -2653,10 +2709,10 @@
                         ${isAdmin ? `<button data-action="delete" data-type="review" data-id="${r.id}" class="p-2 text-red-200 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` :''}
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 bg-slate-50 rounded-2xl">
-                        ${metric('課程難度', r.courseDiff,'bg-emerald-500')}
-                        ${metric('考試難度', r.examDiff,'bg-rose-500')}
-                        ${metric('作業多寡', r.hwAmount,'bg-amber-500')}
-                        ${metric('學到多少', r.learned,'bg-blue-500')}
+                        ${metric('課程難度', r.courseDiff,'bg-data-1')}
+                        ${metric('考試難度', r.examDiff,'bg-data-2')}
+                        ${metric('作業多寡', r.hwAmount,'bg-data-3')}
+                        ${metric('學到多少', r.learned,'bg-data-4')}
                     </div>
                     <div class="text-slate-700 leading-relaxed font-medium italic relative"><i data-lucide="paw-print" class="absolute -left-2 -top-2 w-6 h-6 text-slate-200 opacity-30"></i>「${escapeHTML(r.comment)}」</div>
                 </div>
@@ -3020,7 +3076,9 @@
             const exp = mine.filter(e => e.type !=='income').reduce((s, e) => s + (e.amount || 0), 0);
             $('expIncome').textContent = money(inc); $('expExpense').textContent = money(exp);
             $('expBalance').textContent = money(inc - exp);
-            $('expBalance').className ='text-lg font-black' + (inc - exp >= 0 ?'text-emerald-400' :'text-rose-400');
+            // 注意這裡少了一個空格會變成 "font-blacktext-emerald-400"，
+            // 結果連 font-black 一起失效、金額也一直沒有顏色。
+            $('expBalance').className ='text-lg font-black ' + (inc - exp >= 0 ?'val-up' :'val-down');
 
             // 分類統計（本月支出）
             const byCat = {};
@@ -3057,10 +3115,12 @@
             const pnl = val - cost;
             $('invCost').textContent = money(cost); $('invValue').textContent = money(val);
             $('invPnl').textContent = (pnl >= 0 ?'+' :'') + money(pnl) + (cost ? `（${(pnl / cost * 100).toFixed(1)}%）` :'');
-            $('invPnl').className ='text-lg font-black' + (pnl >= 0 ?'text-emerald-400' :'text-rose-400');
+            $('invPnl').className ='text-lg font-black ' + (pnl >= 0 ?'val-up' :'val-down');
 
             // 資產配置（依標的現值佔比）
-            const COLORS = ['bg-emerald-500','bg-blue-500','bg-amber-500','bg-fuchsia-500','bg-rose-500','bg-teal-500','bg-indigo-500'];
+            // 用專屬色票，不要用 Tailwind 色階：emerald / blue / teal 在新配色裡
+            // 全都被對應成同一個磚紅，七本單字冊會有三本長得一模一樣。
+            const COLORS = ['bg-sw-1','bg-sw-2','bg-sw-3','bg-sw-4','bg-sw-5','bg-sw-6','bg-sw-7'];
             const rows = hs.map(h => ({ name: h.name, v: (h.qty || 0) * (h.price || h.cost || 0) })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
             $('allocationChart').innerHTML = rows.length === 0
                 ?'<div class="text-slate-400 text-sm text-center py-4">還沒有持倉</div>'
@@ -3080,7 +3140,7 @@
                             <div class="text-xs text-slate-400">${h.qty} 股 · 成本 ${h.cost} · 現價 ${h.price || h.cost}</div>
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
-                            <div class="text-right"><div class="font-black text-slate-800 text-sm">${money(v)}</div><div class="text-xs font-bold ${p >= 0 ?'text-emerald-500' :'text-rose-500'}">${p >= 0 ?'+' :''}${money(p)}</div></div>
+                            <div class="text-right"><div class="font-black text-slate-800 text-sm">${money(v)}</div><div class="text-xs font-bold ${p >= 0 ?'val-up' :'val-down'}">${p >= 0 ?'+' :''}${money(p)}</div></div>
                             <button data-action="edit-holding" data-id="${h.id}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                             <button data-action="del-finance" data-col="holdings" data-id="${h.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                         </div>
