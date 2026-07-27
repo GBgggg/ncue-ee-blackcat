@@ -329,18 +329,23 @@
             width: 64px; height: 64px; margin: -32px 0 0 -32px;
             border-radius: 50%; object-fit: cover;
             box-shadow: 0 2px 18px rgba(26,24,21,.14);
-            animation: splashBreathe 2.4s ease-in-out infinite;
+            /* 原本這裡有個呼吸縮放，但貓現在是踩在 logo 邊緣上走的，
+               logo 一脹一縮腳就會陷進去，接觸感就沒了。 */
         }
         .splash-orbit {
             position: absolute; inset: 0;
-            animation: splashSpin 1.6s linear infinite;
+            animation: splashSpin 3.2s linear infinite;
         }
+        /* 貓「不」反轉——跟著軌道一起轉，牠的腳才會永遠指向圓心，
+           看起來就是繞著 logo 的邊緣走。之前反轉是為了讓貓保持直立，
+           但那樣牠只是被拎著繞圈，腳沒有踩在任何東西上。
+           top 是算出來的：軌道框 132px、圓心在 66，logo 半徑 32，
+           所以 logo 上緣在 y=34；貓的腳底約在圖高的 87%（26px 處），
+           34 - 26 = 8，腳就正好落在 logo 邊上。 */
         .splash-cat {
-            position: absolute; top: -15px; left: 50%;
+            position: absolute; top: 8px; left: 50%;
             margin-left: -21px;
             line-height: 0;
-            /* 反轉抵銷外層的旋轉，貓才不會頭下腳上 */
-            animation: splashSpin 1.6s linear infinite reverse;
             display: inline-block;
         }
         .cat-svg { color: #17131b; overflow: visible; }
@@ -356,42 +361,44 @@
 
         /* 跑步循環。四條腿分成對角兩組，前後再各錯開一點，
            不然四條腿會像同時跳，看起來是在蹦不是在跑。 */
+        /* 走路不是跑步：擺幅要小、節奏要慢。
+           而且步頻得跟前進速度對得上，不然腳會在原地滑。
+           軌道 3.2 秒一圈、腳的半徑約 33px，圓周約 207px，
+           所以速度約 65px/秒；一個完整步態 0.45 秒就前進約 29px，
+           對一隻 42px 長的貓來說差不多是一步的距離。 */
         .cat-leg { transform-box: fill-box; transform-origin: 50% 6%; }
-        .leg-f1 { animation: catLegA .34s ease-in-out infinite; }
-        .leg-f2 { animation: catLegA .34s ease-in-out infinite; animation-delay: -.09s; }
-        .leg-b1 { animation: catLegB .34s ease-in-out infinite; }
-        .leg-b2 { animation: catLegB .34s ease-in-out infinite; animation-delay: -.09s; }
+        .leg-f1 { animation: catLegA .45s ease-in-out infinite; }
+        .leg-f2 { animation: catLegA .45s ease-in-out infinite; animation-delay: -.13s; }
+        .leg-b1 { animation: catLegB .45s ease-in-out infinite; }
+        .leg-b2 { animation: catLegB .45s ease-in-out infinite; animation-delay: -.13s; }
         @keyframes catLegA {
-            0%, 100% { transform: rotate(27deg); }
-            50%      { transform: rotate(-25deg); }
+            0%, 100% { transform: rotate(18deg); }
+            50%      { transform: rotate(-16deg); }
         }
         @keyframes catLegB {
-            0%, 100% { transform: rotate(-25deg); }
-            50%      { transform: rotate(27deg); }
+            0%, 100% { transform: rotate(-16deg); }
+            50%      { transform: rotate(18deg); }
         }
-        /* 身體隨著步伐上下起伏並微微前後傾，少了這個會像腿在動、身體卻飄著 */
+        /* 身體隨著步伐輕微起伏。走路的起伏比跑步小很多，
+           太大會變成一跳一跳的，腳就不像踩在地上。 */
         .cat { transform-box: fill-box; transform-origin: 50% 70%;
-               animation: catBob .34s ease-in-out infinite; }
+               animation: catBob .45s ease-in-out infinite; }
         @keyframes catBob {
-            0%, 100% { transform: translateY(0)      rotate(-1.5deg); }
-            50%      { transform: translateY(-1.8px) rotate(1.5deg); }
+            0%, 100% { transform: translateY(0)    rotate(-.8deg); }
+            50%      { transform: translateY(-.9px) rotate(.8deg); }
         }
         /* 尾巴用比腳步慢一倍的節奏擺，才不會整隻貓像節拍器 */
         .cat-tail { transform-box: fill-box; transform-origin: 92% 88%;
-                    animation: catTail .68s ease-in-out infinite; }
+                    animation: catTail .9s ease-in-out infinite; }
         @keyframes catTail {
-            0%, 100% { transform: rotate(-9deg); }
-            50%      { transform: rotate(10deg); }
+            0%, 100% { transform: rotate(-8deg); }
+            50%      { transform: rotate(9deg); }
         }
         .splash-text {
             font-family: 'Noto Serif TC', Georgia, serif;
             color: var(--ink-3); font-size: 14px; letter-spacing: .08em; margin: 0;
         }
         @keyframes splashSpin { to { transform: rotate(360deg); } }
-        @keyframes splashBreathe {
-            0%, 100% { transform: scale(1); }
-            50%      { transform: scale(1.06); }
-        }
         /* 系統設定「減少動態」時不轉，只留一個靜止的畫面 */
         @media (prefers-reduced-motion: reduce) {
             .splash-orbit, .splash-cat, .splash-logo,
@@ -2497,7 +2504,7 @@
                 date: '2026-07-27',
                 title: '操作介面',
                 items: [
-                    ['開站有載入畫面了', '一隻黑貓繞著小黑貓的頭跑。貓是畫出來的，不是表情符號——四條腿分成對角兩組交錯擺動、身體隨步伐上下起伏並微微前後傾、尾巴用比腳步慢一倍的節奏擺。深色模式下黑貓在黑底上本來看不見，所以打了一道輪廓光，身體維持是暗的、只有邊緣發亮。首頁的公告、連結、課程三份資料都有回音之後就淡出——注意是「有回音」而不是「都成功」，離線或沒權限也算，不然一個讀不到的集合就會把人永遠鎖在載入畫面。另外還有兩道逾時保底，其中一道故意寫在主程式外面，這樣連 Firebase 的網路被學校擋掉、主程式整個沒跑起來，畫面也還是會放行。'],
+                    ['開站有載入畫面了', '一隻黑貓踩在小黑貓的頭上繞圈走。貓是畫出來的，不是表情符號——四條腿分成對角兩組交錯擺動、身體隨步伐輕微起伏、尾巴用比腳步慢一倍的節奏擺。牠跟著軌道一起轉，所以腳永遠指向圓心，是真的踩在 logo 邊緣上走；步頻也對著前進速度算過，不然腳會在原地滑。深色模式下黑貓在黑底上本來看不見，所以打了一道輪廓光，身體維持是暗的、只有邊緣發亮。首頁的公告、連結、課程三份資料都有回音之後就淡出——注意是「有回音」而不是「都成功」，離線或沒權限也算，不然一個讀不到的集合就會把人永遠鎖在載入畫面。另外還有兩道逾時保底，其中一道故意寫在主程式外面，這樣連 Firebase 的網路被學校擋掉、主程式整個沒跑起來，畫面也還是會放行。'],
                     ['滑到底時頁首不再亂冒出來', '以前只要 scrollY 變小就當成「使用者往上滑」而顯示頁首。但到了底部之後，手機的回彈、網址列收合、按「載入更多」造成的重新排版，都會讓 scrollY 小幅變小——人根本沒滑，頁首卻一直閃。現在接近底部就不自動顯示。'],
                     ['課程頁改成分批顯示', '以前一次把整個課程庫都畫出來，量到將近一萬像素高、三百多個可點元素，手機上要捲很久，畫面也跟著變慢。現在一次顯示 12 門，下面有「載入更多」並標示還剩幾門。改搜尋或篩選會自動回到第一批。'],
                     ['手機上的按鈕變大了', '量到有 23 個可點目標小於 44px，最小的只有 24px（首頁的快速連結）和 28px（課表的提醒／閱讀／編輯、改暱稱的鉛筆、刪除圖示）。手指的接觸面積差不多就是 44px，低於這個值在手機上會真的點不中。現在觸控裝置上一律至少 44px，用滑鼠的桌機版面維持原樣。'],
