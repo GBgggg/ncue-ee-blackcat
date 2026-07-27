@@ -288,12 +288,14 @@
         .bg-sw-6 { background-color: #7a5a3c !important; }
         .bg-sw-7 { background-color: #4f4a3c !important; }  /* 原本的石板藍灰跟第 5 色只差 ΔE 15，換成橄欖墨拉開到 19 */
 
-        /* 金額的正負。原本是綠／紅，改配色後綠變磚紅、紅是暗紅，
-           兩者在深色模式下幾乎同一個色，賺賠會看不出來。改成冷暖對立。 */
-        .val-up   { color: #3f5b82 !important; }
-        .val-down { color: #9c4a48 !important; }
-        html.dark .val-up   { color: #8fa8d6 !important; }
-        html.dark .val-down { color: #e08a86 !important; }
+        /* 金額的正負：依台股慣例，紅漲綠跌。
+           這是全站唯一還留著綠色的地方——不是裝飾，是台灣使用者
+           一眼就會讀的約定，換成別的顏色反而要多想一秒。
+           兩個顏色都往紙墨調性壓過，不用證券軟體那種螢光紅綠。 */
+        .val-up   { color: #c0392b !important; }   /* 漲／賺 */
+        .val-down { color: #2e7d5b !important; }   /* 跌／賠 */
+        html.dark .val-up   { color: #ff8a80 !important; }
+        html.dark .val-down { color: #5fc79a !important; }
 
         /* 危險操作（刪除、離開測驗）：要比戰士徽章的暗紅再亮一階，
            才讀得出「這一按會出事」，但仍不用原廠的螢光紅。 */
@@ -1964,8 +1966,11 @@
         const CHANGELOG = [
             {
                 date: '2026-07-27',
-                title: '改版收尾：淺色模式終於真的變成紙色',
+                title: '改版收尾與三項修正',
                 items: [
+                    ['上課提醒不再連響好幾次', '以前是一節課響一次，連上三節同一間教室就會被吵三次，而後面兩次並沒有告訴你任何新的事。現在只有「要換教室」時才提醒——第一堂、空堂之後、中午之後，以及真的換教室的那一節。'],
+                    ['修好台股現價整天不動的問題', '證交所的成交價欄位只有在剛好撮合到的那一瞬間才有值，其他時候是空的，程式碼因此每次都退回昨天的收盤價，看起來就像從來沒更新過。現在會依序往下找：成交價、最佳買賣的中間價、今日開盤，真的都沒有才用昨收。'],
+                    ['漲跌改回紅綠', '依台股慣例，賺與上漲是紅色、賠與下跌是綠色，記帳的收支結餘也一樣。顏色有壓過，不是證券軟體那種螢光紅綠。另外金額的負號改成寫在錢字號前面（-$302），紅綠色盲看不出顏色時，正負號是唯一的線索。'],
                     ['修好分頁按鈕的字會消失的問題', '切到「首頁」以外的分頁時，那顆按鈕的字會被實心底色吃掉。原因是灰字的樣式帶了強制優先，白字的沒有，兩個同時掛在同一顆按鈕上時灰色會贏。導覽列改成用自己的樣式，不再跟通用色階互相打架。'],
                     ['深色模式的實心按鈕看得清楚了', '深色模式的強調色偏亮，白字壓上去對比只有 2.5（一般建議 4.5 以上）。實心底色改用深一階的同色系，現在是 5.0。'],
                     ['修好被壓成同一色的地方', '把整包顏色統一成磚紅之後，有些原本靠顏色分辨的東西跟著失去了區別：評價的「課程難度」與「學到多少」兩條長條圖變成同色、七本單字冊的封面只剩五種顏色、記帳的賺與賠也幾乎分不出來。這些地方改用一組彼此拉得夠開、但仍屬同一調性的專用色。'],
@@ -2427,15 +2432,25 @@
         function buildReminderItems() {
             const items = [];
             for (let day = 1; day <= 5; day++) {
+                // prev 記錄「上一節」的教室；null 代表上一節沒課（含中午休息）
+                let prev = null;
                 for (const s of timeSlots) {
-                    if (s.id ==='noon') continue;
-                    const cell = userSchedule[`${day}-${s.id}`];
-                    if (!cell || !cell.courseName) continue;
+                    const cell = s.id ==='noon' ? null : userSchedule[`${day}-${s.id}`];
+                    if (!cell || !cell.courseName) { prev = null; continue; }
+
                     let loc = cell.location ||'';
                     if (!loc && cell.courseId) {
                         const c = state.courses.find(x => x.id === cell.courseId);
                         if (c) loc = courseLocation(c) ||'';
                     }
+
+                    // 只在「要換教室」時提醒。連上三節同一間教室，
+                    // 以前會連響三次，但後面兩次並沒有帶來新資訊。
+                    // 上一節沒課（第一堂、中午之後、空堂之後）也算要提醒。
+                    const needNotify = prev === null || prev.location !== loc;
+                    prev = { location: loc };
+                    if (!needNotify) continue;
+
                     items.push({
                         day, startMin: s.start,
                         courseName: cell.courseName,
@@ -3044,7 +3059,12 @@
         let financeSub ='expense', expenseType ='expense', tradeSide ='buy';
         const financeUnsubs = [];
         const EXPENSE_CATS = { expense: ['飲食','交通','學習','娛樂','生活用品','醫療','其他'], income: ['打工','獎學金','家人','其他'] };
-        const money = (n) =>'$' + Math.round(n || 0).toLocaleString();
+        // 負數要寫成 -$302 而不是 $-302。紅綠色盲看不出漲跌顏色，
+        // 正負號是唯一的替代線索，不能長得像錯字。
+        const money = (n) => {
+            const v = Math.round(n || 0);
+            return (v < 0 ?'-' :'') +'$' + Math.abs(v).toLocaleString();
+        };
         const ymOf = (d) => (d ||'').slice(0, 7);
         const thisYM = () => new Date().toISOString().slice(0, 7);
 
@@ -3347,6 +3367,28 @@
         // 排程任務會更新此「匯入來源」陣列；管理員按「匯入文章」寫進 Firestore
         const ARTICLE_IMPORTS = [
             {
+"title":"How transnational movements can shield African civil spaces",
+"topic":"Digital Activism",
+"source":"Global Voices",
+"author":"Guest Contributor",
+"sourceUrl":"https://globalvoices.org/2026/07/26/how-transnational-movements-can-shield-african-civil-spaces/",
+"license":"CC BY 3.0",
+"date":"2026-07-26",
+"paragraphs": [
+"Defending human rights across Africa and the wider Global South must begin with active listening",
+"Brian Bright Tamuka Kagoro landed at Jomo Kenyatta International Airport late on a Monday night earlier this year without a weapon, contraband, or any plans to destabilize the state. He carried only his ideas, his convictions, and the weight of four decades spent fighting for justice.",
+"As a distinguished Pan-Africanist, constitutional lawyer, and human rights defender, Kagoro entered Kenya through official channels. His passport was stamped, and he cleared immigration. Yet, midway through his transit, state officials intercepted him, confiscated his phones, and blocked him from contacting lawyers, friends, or consular support. For 14 hours, Kenya’s National Intelligence Service (NIS) held him completely incommunicado.",
+"When they finally declared him persona non grata and deported him, they offered no explanation, no due process, and no public charges. While his “crime” was never spoken aloud, the underlying message was unmistakable: dissent, solidarity, and independent thought are dangerous.",
+"This is a reality that human rights defenders across Africa know intimately. The closing of civic space is no longer just an abstract problem for high-profile opposition leaders. It is a daily hazard for researchers, journalists, lawyers, feminists, and ordinary citizens who dare to ask questions or stand beside those under attack.",
+"We are witnessing a dangerous, accelerating trend across the continent where states are actively weaponizing their borders to track and silence activists. In the past, state repression was largely contained within a country’s own frontiers. Today, autocrats are cooperating across borders, using digital surveillance, shared intelligence, and coordinated expulsions to reach dissenters even after they flee into exile. Kenya’s treatment of Kagoro is a stark reminder that leaving home no longer guarantees safety.",
+"This cross-border intimidation follows a terrifyingly consistent blueprint. Farther west, we saw a similar architecture of control sweep up Mubarak Bala, a Nigerian humanist blogger who was sentenced to 24 years in prison on blasphemy charges simply for expressing his beliefs. While intense international mobilization ultimately helped secure his release two years later, his ordeal underscores the sheer scale of the threat facing free expression.",
+"The data backing up these individual stories is staggering. According to the latest findings from the CIVICUS Monitor, more than 80 percent of people in Sub-Saharan Africa now live in countries where civic space is officially classified as “repressed” or “closed.” Out of 50 countries and territories monitored in the region, 44 face severe obstructions or outright closures of fundamental liberties. Furthermore, the data reveals that detaining journalists has become the primary tactic used by African governments to silence independent reporting, with authorities in 33 countries locking up media workers over the past year alone.",
+"This onslaught comes at a time when the world’s attention is dangerously fragmented. Preoccupied by wars, economic crises, and shifting geopolitical alliances, many traditional international allies have quietly relegated human rights to a secondary priority. Governments that once positioned themselves as champions of democracy are increasingly prioritizing bilateral trade deals and security agreements over principled confrontations with repressive regimes. When human rights defenders are left to face this isolation alone, authoritarianism creeps into the gaps they leave behind.",
+"Yet, history shows that these borderless emergencies can be met with resilience. Localized activism is no longer enough to safeguard front-line activists against state-level overreach; civil society must develop a collaborative, cross-border mutualism. This is precisely why, to coincide with Nelson Mandela International Day, the global launch of the #StandAsMyWitness campaign offers a vital blueprint for citizen-led resistance through transnational solidarity.",
+"We have seen, both professionally and personally, how movements sustain people long after institutions fail them. Sometimes what protects a detained activist is not a court order or a government statement, but the knowledge that others are watching, documenting, speaking, organizing, and refusing to let their story disappear. Organizing beyond borders builds pressure through advocacy campaigns, democratic mobilization, diplomatic lobbying, and reputational cost. Transnational solidarity reminds governments that the world is paying attention. It helps ensure detainees are not forgotten, reducing the risk of torture, enforced disappearance, and indefinite imprisonment. International laws also strengthen these advocacy efforts. Under instruments like the International Covenant on Civil and Political Rights, arbitrary arrest is prohibited, giving global movements the legal leverage to force compliance."
+                ]
+            },
+            {
 "title":"How much will it take to rebuild Venezuela after the earthquakes?",
 "topic":"Disaster",
 "source":"Global Voices",
@@ -3365,7 +3407,8 @@
 "Additional costs include extraordinary expenditures incurred by governments and the private sector in response to the disaster, such as emergency medical supplies, humanitarian assistance, and other essential goods and services.",
 "Finally, the methodology estimates recovery and reconstruction financing needs, which encompass the costs of the public policies and investments required to restore normal economic and social conditions. These include rebuilding basic infrastructure and services, as well as financing food assistance programs, cash transfers, and other forms of support for affected households.",
 "We still don’t know the full scale of the destruction. While the Venezuelan government claims that more than 2,000 pieces of infrastructure were severely damaged, satellite images from NASA show that the figure is closer to 30,000.",
-"Just two days after the twin earthquakes struck, the United Nations Development Programme (UNDP) released a preliminary assessment of the direct physical damage to housing and other assets, using satellite imagery and artificial intelligence-powered Geographic Information Systems (GIS) through its Rapid Digital Analysis (RAPIDA) methodology. The assessment estimated direct losses to be USD 6.7 billion, with a range of USD 4.7–8.7 billion, equivalent to approximately six percent of Venezuela’s GDP."
+"Just two days after the twin earthquakes struck, the United Nations Development Programme (UNDP) released a preliminary assessment of the direct physical damage to housing and other assets, using satellite imagery and artificial intelligence-powered Geographic Information Systems (GIS) through its Rapid Digital Analysis (RAPIDA) methodology. The assessment estimated direct losses to be USD 6.7 billion, with a range of USD 4.7–8.7 billion, equivalent to approximately six percent of Venezuela’s GDP.",
+"Venezuelan economist Asdrúbal Oliveros argues that the damage could be more extensive, estimating direct losses at USD 7-9 billion. He further suggests that the total cost of reconstruction could reach USD 12-15 billion, reflecting not only the replacement of damaged assets but also the broader costs of economic recovery and rebuilding."
                 ]
             },
             {
@@ -3387,7 +3430,8 @@
 "Although there’s no formal evidence, several anthropological and ethnographic records suggest the idea of pangolin scales as a medical cure traveled from China to India and Africa. In any case, pangolins in India and Africa have been and still are sought after for their alleged medical properties.",
 "“In remote tribal homes in Central India, you might still find a pangolin scale hanging by the front door. There are reports of people burying pangolin scales in the earth before constructing a new house. They believe that the scales bring good fortune. Scales are also turned into amulets by the remote indigenous communities of Central India to ward off evil spirits,” explains Monesh Singh Tomar, a member of the IUCN Pangolin Specialist Group and a project lead for the Wildlife Trust of India in an interview with Global Voices.",
 "In India, the two species of pangolins — the Indian pangolin and the Chinese pangolin have been hunted across their range. However, it was only by the 1980s that reports started indicating pangolin scales being exported to East and Southeast Asia. The real surge was in the 21st century, when India became a major supplier to countries like Vietnam and China through organized trafficking syndicates. By then, India had already enacted its Wildlife (Protection) Act, 1972, giving both species of pangolins a Schedule I status — a protection similar to the national animal, the Bengal tiger.",
-"According to an IUCN report, at least 74 countries are currently implicated in the global illegal pangolin trade, serviced by 178 unique international trade routes that keep on shifting to evade enforcement action."
+"According to an IUCN report, at least 74 countries are currently implicated in the global illegal pangolin trade, serviced by 178 unique international trade routes that keep on shifting to evade enforcement action.",
+"“Social media too has played a huge role, especially after the Covid-19 years. Cybercrime has been on the rise and conversations between sellers and buyers are encrypted. Intercepting these messages requires more than traditional enforcement tools. Basically, much of the illegal marketplace has shifted online and so have our tools for enforcement action,” adds Tomar."
                 ]
             },
             {
@@ -3408,8 +3452,7 @@
 "By 2009, about 200,000 JFCs were thus classified legally as Filipino citizens or left stateless. Living under the stigma of illegitimate children without social and financial support, most of them grew up in severe poverty both in Japan and the Philippines.",
 "While the Japanese government amended its Nationality Act in December 2008 to remove the rule that required the parents to marry for the child to gain citizenship after birth, the law still requires the Japanese father to recognize biological paternity through proper registration.",
 "However, it is often very difficult for JFCs to locate their fathers given their lack of local knowledge and Japan’s very strict privacy laws. Despite a number of Japanese NGOs, such as the Citizens’ Network for Japanese-Filipino Children (JFC Network) in Tokyo and its Manila branch, sometimes the Japanese fathers and family members refuse to recognize the children; and those who insist the quests for their fathers have to suffer the pain of “endless waiting,” frustrations and anxieties, as highlighted by JFC Network’s campaign to protect human rights for JFCs:",
-"If you are abandoned by your father, if you are forsaken by your home country, you may lose your roots, which you should hold on to in this world, or you may lose self-belief, which is most precious in your heart, wondering, ‘Why do I live?’ ‘Who am I?’ We regret to say that a lot of Japanese-Filipino children are struggling with such anxiety today.",
-"Below is a news feature produced by ABS-CBN News in the Philippines regarding the financial difficulties and social stigma JFCs face in the Philippines and their quests for reunion with their Japanese fathers:"
+"If you are abandoned by your father, if you are forsaken by your home country, you may lose your roots, which you should hold on to in this world, or you may lose self-belief, which is most precious in your heart, wondering, ‘Why do I live?’ ‘Who am I?’ We regret to say that a lot of Japanese-Filipino children are struggling with such anxiety today."
                 ]
             },
             {
@@ -3430,9 +3473,7 @@
 "From an administrative standpoint, opening a travel agency in Haiti is not a complicated undertaking, as oversight remains weak. While authorised agencies are operating legally in the country, many others exist only to exploit already vulnerable people who are trying to escape gang violence, poverty and instability. Because this demographic usually does not meet the normal financial or administrative requirements needed for official migration programmes, they become easy targets for risky and unregulated travel offers.",
 "One of the most discussed recent cases involves Mackenson Dorilas, a well-known spiritual figure who people refer to as “Prophet Mackenson.” He reportedly signed an advertising agreement with a travel agency called Fidélité Tours, appearing in the company’s promotional videos encouraging people to travel to Canada, Mexico and Brazil.",
 "During an episode of the popular morning show “Se sa nou vle” (“That is what we want”) on the Team Rudy Officiel YouTube channel, host Rudy Thomas Sanon said he had received complaints from several alleged victims linked to Fidelité Tours.",
-"According to testimonies shared during the show, people said they trusted the agency because Prophet Mackenson publicly promoted it. Some victims explained that they went directly to the agency’s office in Pétion-Ville and each paid around USD 4,000 to organise trips out of Haiti.",
-"Moun yo di mwen yo peye ajans la 4000 dola ameriken pou vwayaje ak yo Meksik. Ajans la pran 4000 dola ameriken nan men 80 moun, sa ki fè 320,000 dola ameriken, epi li disparèt. Lè moun yo ale nan biwo ajans la, li te fèmen, yo pa jwenn okenn moun.",
-"People tell me they paid the agency USD 4,000 to travel to Mexico with them. The agency collected USD 4,000 from 80 people, totalling USD 320,000, and then disappeared. When the people went to the agency’s office, it was closed, and they found no one there."
+"According to testimonies shared during the show, people said they trusted the agency because Prophet Mackenson publicly promoted it. Some victims explained that they went directly to the agency’s office in Pétion-Ville and each paid around USD 4,000 to organise trips out of Haiti."
                 ]
             },
             {
@@ -3454,7 +3495,8 @@
 "We also know that our country, Venezuela, is not prepared to cope with earthquakes like these.",
 "Just a couple of hours after the quake, reports from La Guaira began to emerge, and by the following morning we were already making decisions about how to organize. That same day, we launched our initiative, and within seven hours we had delivered supplies, meals, and clean drinking water to four public hospitals thanks to the overwhelming response from donors. During that same week, we also established a collection center at La Pitahaya Vegana, made possible by an incredible network of volunteers.",
 "GMR: What does this mobilization say about the Venezuela that exists beyond its borders?",
-"MÁC: Venezuelan migrants are learning how to build community outside our country. Unlike countries such as Mexico, Puerto Rico, or China, whose migration histories span generations and have produced well-established communities abroad—like Mexicans in Chicago or California, or Puerto Ricans in New York—we don’t have a long-standing migrant tradition to draw upon. We’re creating that collective memory now."
+"MÁC: Venezuelan migrants are learning how to build community outside our country. Unlike countries such as Mexico, Puerto Rico, or China, whose migration histories span generations and have produced well-established communities abroad—like Mexicans in Chicago or California, or Puerto Ricans in New York—we don’t have a long-standing migrant tradition to draw upon. We’re creating that collective memory now.",
+"Migration on this scale is a recent phenomenon in Venezuela’s history, so it isn’t always easy to organize or know how best to respond. But in this case, different small groups quickly reached the same conclusion: we had to send money for whatever was most urgently needed — water, tools, medical supplies, medicines, and more recently, orthopedic fixation materials for survivors with severe injuries caused by collapsed buildings."
                 ]
             },
             {
@@ -3475,14 +3517,13 @@
 "Before this project, Future Narratives Lab had developed an AI Interviewer tool specifically for civil society organisations looking to understand their audiences. After a successful trial of the tool in a project testing messages on the criminal justice system in the UK, Instituto Fogo Cruzado approached Future Narratives Lab for support using it in a new project on state-sponsored violence in Brazil, funded by the International Resource for Impact and Storytelling (IRIS), as part of their “New Tech, New Rules” programme.",
 "The main use of the tool in this project was for primary research, laying the foundations for the development of new message and counter-narrative approaches. Twenty-eight in-depth qualitative interviews were conducted via the chatbot-based AI interviewer, with each participant able to engage in the conversation using their own devices via a supplied URL and participant code.",
 "Participants were selected and recruited based on a demographic profile identified in prior desk research as being more likely to support an increase in police violence as a means to reduce crime: those who identified as Christian (Evangelical or Roman Catholic), had not completed higher education, and had a household income of less than 500 BRL (approximately USD 98).",
-"The AI interviewer carried out a customised, structured but adaptive conversation with each participant for up to 30 minutes, asking follow-up questions and probing for inconsistencies and reasoning. Each interview was based on an overall brief setting out what the research aimed to achieve and what happened, concurrently, but unique to each participant. To give a sense of how a typical interview went:",
-"The process of message development that followed uncovered a range of new insights and potential opportunities for persuasion.",
-"The ability to carry out multiple interviews, concurrently and remotely, enables organisations to compress what would normally take weeks of fieldwork into days at a fraction of the cost. For under-resourced civil society organisations across the world, this tool creates a significant shift: it makes in-depth audience research about what would move their audiences viable."
+"The AI interviewer carried out a customised, structured but adaptive conversation with each participant for up to 30 minutes, asking follow-up questions and probing for inconsistencies and reasoning. Each interview was based on an overall brief setting out what the research aimed to achieve and what happened, concurrently, but unique to each participant.",
+"The process of message development that followed uncovered a range of new insights and potential opportunities for persuasion."
                 ]
             },
             {
 "title":"Sold as brides, lost at sea: The trafficking of stateless Rohingya girls",
-"topic":"Censorship",
+"topic":"Bangladesh",
 "source":"Global Voices",
 "author":"Zulker Naeen",
 "sourceUrl":"https://globalvoices.org/2026/07/21/sold-as-brides-lost-at-sea-the-trafficking-of-stateless-rohingya-girls/",
@@ -3500,27 +3541,6 @@
 "Her story, like many others, ends not with protection but with a new layer of abuse in a foreign country.",
 "These are not isolated tragedies. They are emblematic of a pattern in which stateless Rohingya girls in Bangladesh’s refugee camps are pushed from early marriage and gender-based violence into maritime journeys that are framed as family reunification or escape—but in reality, amount to human trafficking.",
 "In the camps of Cox’s Bazar, Rohingya girls stand at the intersection of every kind of vulnerability. More than 1.2 million stateless refugees remain fenced into some thirty-three overcrowded settlements, most of them women and children, almost none allowed to take formal work or move freely beyond the perimeter. Daily life is structured by checkpoints and ration cards rather than by school timetables or pay slips."
-                ]
-            },
-            {
-"title":"Deprivation of nationality in the Gulf: Stories from Kuwait and Bahrain",
-"topic":"Bahrain",
-"source":"Global Voices",
-"author":"Muwatin Media Network",
-"sourceUrl":"https://globalvoices.org/2026/07/20/deprivation-of-nationality-in-the-gulf-stories-from-kuwait-and-bahrain/",
-"license":"CC BY 3.0",
-"date":"2026-07-20",
-"paragraphs": [
-"For Bidoon and stateless Gulf citizens, having no nationality means having no rights at all",
-"The denial or revocation of nationality in the Gulf states is a political practice shaped by each state’s internal dynamics and governance style. It reflects the failure to uphold human rights, chief among them, the equal right of every individual to acquire a nationality and never be arbitrarily deprived of it.",
-"In 2025, Kuwait passed amendments to its Nationality Law, making it easier to revoke Kuwaiti nationality. In parallel, the country launched a broad campaign to review nationality acquisition. Through the Supreme Committee for Verifying Kuwaiti Nationality, more than 42,000 people have reportedly had their citizenship revoked since 2024 — an unprecedented escalation.",
-"The campaign has targeted naturalized citizens, dual nationals, and those accused of acquiring nationality fraudulently. Many affected are women who acquired Kuwaiti nationality through marriage under Article 8 of the law, which has now been repealed. These revocations were carried out without judicial oversight or avenues for appeal, raising serious legal and human rights concerns.",
-"Many of those stripped of their nationality are now stateless, deprived of access to essential services like healthcare, education, and employment. Their identity documents and passports are confiscated, effectively curtailing their freedom of movement and participation in public life.",
-"Kuwait’s Bidoon population has faced statelessness since the country’s founding, leading to profound economic and social marginalization, with many struggling to access education, healthcare, and employment because of their lack of an official identity.",
-"Khadija, a Bidoon woman from Kuwait born into a family of 10, realized early on that her family lacked the privileges others enjoyed. When she was in primary school, she and her sister were forced to stay home because the family could not afford tuition fees, despite public education being free for Kuwaiti citizens.",
-"“We stayed home and studied using last year’s textbooks until the time came when my sister and I had to help our struggling family,” Khadija recalls. “We worked to save money for bunk beds like our brothers had, and for school fees the following year. I longed to run, play, and draw like other girls. But our little project irritated a municipal employee, or so he claimed. He threatened us — and that ended our business.”",
-"Kuwait is not alone in using nationality revocation to punish political opponents or deny rights to specific groups. Bahrain has taken a similar approach. Between 2012 and 2020, over 1,000 people were stripped of their nationality. The peak came in 2018 and 2019, when about 300 people were subjected to mass trials on terrorism charges, resulting in the revocation of their citizenship. In one case, in May 2018, 115 people were denaturalized. “Bahrain uses nationality revocation as a weapon against political dissidents,” said Human Rights Watch researcher Niku Jafarnia in an interview with Muwatin.",
-"In April 2019, King Hamad bin Isa Al Khalifa issued a royal pardon restoring the nationality of 551 of those whose nationality had been stripped, following widespread pressure from human rights organisations and United Nations bodies. However, Jawad Fairooz, director of SALAM for Democracy and Human Rights, notes: “It was only a partial step. The decision did not include all those who had lost their Bahraini nationality. Statistics indicate around 435 cases remain unresolved, primarily due to political and security considerations aimed at limiting the influence of the opposition.”"
                 ]
             }
         ];
