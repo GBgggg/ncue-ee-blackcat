@@ -334,17 +334,17 @@
         }
         .splash-orbit {
             position: absolute; inset: 0;
-            animation: splashSpin 3.2s linear infinite;
+            animation: splashSpin 4.3s linear infinite;
         }
         /* 貓「不」反轉——跟著軌道一起轉，牠的腳才會永遠指向圓心，
            看起來就是繞著 logo 的邊緣走。之前反轉是為了讓貓保持直立，
            但那樣牠只是被拎著繞圈，腳沒有踩在任何東西上。
            top 是算出來的：軌道框 132px、圓心在 66，logo 半徑 32，
-           所以 logo 上緣在 y=34；貓的腳底在 viewBox 的 y=76／共 82，
-           換算成 33px 高就是 30.6px，34 - 30.6 ≈ 3，腳正好落在 logo 邊上。 */
+           所以 logo 上緣在 y=34；貓的腳底在 viewBox 的 y=126／共 130，
+           換算成 35px 高就是 33.9px，34 - 33.9 ≈ 0，腳正好落在 logo 邊上。 */
         .splash-cat {
-            position: absolute; top: 3px; left: 50%;
-            margin-left: -24px;
+            position: absolute; top: 0; left: 50%;
+            margin-left: -27px;
             line-height: 0;
             display: inline-block;
         }
@@ -359,122 +359,31 @@
                 drop-shadow(0 0 7px rgba(220, 145, 102, .55));
         }
 
-        /* 跑步循環。四條腿分成對角兩組，前後再各錯開一點，
-           不然四條腿會像同時跳，看起來是在蹦不是在跑。 */
-        /* 走路不是跑步：擺幅要小、節奏要慢。
-           而且步頻得跟前進速度對得上，不然腳會在原地滑。
-           軌道 3.2 秒一圈、腳的半徑約 33px，圓周約 207px，
-           所以速度約 65px/秒；一個完整步態 0.45 秒就前進約 29px，
-           對一隻 42px 長的貓來說差不多是一步的距離。 */
-        /* 轉軸要落在關節上。前腿在肩、後腿在髖，而後腿是 Z 形、
-           外框比較寬，所以水平位置不是正中間。 */
-        .cat-leg { transform-box: fill-box; }
-        .leg-f1, .leg-f2 { transform-origin: 42% 2%; }
-        .leg-b1, .leg-b2 { transform-origin: 40% 2%; }
-        .leg-f1 { animation: catLegA .45s ease-in-out infinite; }
-        .leg-f2 { animation: catLegA .45s ease-in-out infinite; animation-delay: -.13s; }
-        .leg-b1 { animation: catLegB .45s ease-in-out infinite; }
-        .leg-b2 { animation: catLegB .45s ease-in-out infinite; animation-delay: -.13s; }
-        @keyframes catLegA {
-            0%, 100% { transform: rotate(18deg); }
-            50%      { transform: rotate(-16deg); }
+        /* 逐格動畫：六格輪流顯示，不是把零件轉來轉去。
+           每一格都是真貓在那個瞬間的實際輪廓，所以肌肉的起伏、
+           腿彎曲的角度、身體重心的移動全是真的，不是我猜的參數。
+
+           一格 0.12 秒、六格一輪＝0.72 秒。步頻要對得上前進速度：
+           軌道 4.3 秒一圈、腳的半徑約 33px，圓周約 207px，
+           速度約 48px/秒；0.72 秒走完一輪前進約 35px，
+           而 Muybridge 這六格本來就約是貓的一個步幅，對得起來。 */
+        .cat .cf { opacity: 0; animation: catFrames .72s steps(1, end) infinite; }
+        .cat .cf:nth-child(1) { animation-delay: 0s }
+        .cat .cf:nth-child(2) { animation-delay: .12s }
+        .cat .cf:nth-child(3) { animation-delay: .24s }
+        .cat .cf:nth-child(4) { animation-delay: .36s }
+        .cat .cf:nth-child(5) { animation-delay: .48s }
+        .cat .cf:nth-child(6) { animation-delay: .60s }
+        @keyframes catFrames {
+            0%      { opacity: 1 }
+            16.66%  { opacity: 0 }
+            100%    { opacity: 0 }
         }
-        @keyframes catLegB {
-            0%, 100% { transform: rotate(-16deg); }
-            50%      { transform: rotate(18deg); }
-        }
-        /* 身體隨著步伐輕微起伏。走路的起伏比跑步小很多，
-           太大會變成一跳一跳的，腳就不像踩在地上。 */
-        .cat { transform-box: fill-box; transform-origin: 50% 70%;
-               animation: catBob .45s ease-in-out infinite; }
-        @keyframes catBob {
-            0%, 100% { transform: translateY(0)    rotate(-.8deg); }
-            50%      { transform: translateY(-.9px) rotate(.8deg); }
-        }
-        /* 尾巴用比腳步慢一倍的節奏擺，才不會整隻貓像節拍器 */
-        .cat-tail { transform-box: fill-box; transform-origin: 92% 88%;
-                    animation: catTail .9s ease-in-out infinite; }
-        @keyframes catTail {
-            0%, 100% { transform: rotate(-8deg); }
-            50%      { transform: rotate(9deg); }
-        }
-        .splash-text {
-            font-family: 'Noto Serif TC', Georgia, serif;
-            color: var(--ink-3); font-size: 14px; letter-spacing: .08em; margin: 0;
-        }
-        @keyframes splashSpin { to { transform: rotate(360deg); } }
-        /* 系統設定「減少動態」時不轉，只留一個靜止的畫面 */
+        /* 系統設定「減少動態」時：不轉圈、不換格，只留第一格站著 */
         @media (prefers-reduced-motion: reduce) {
-            .splash-orbit, .splash-cat, .splash-logo,
-            .cat, .cat-leg, .cat-tail { animation: none !important; }
+            .splash-orbit, .cat .cf { animation: none !important; }
+            .cat .cf:nth-child(1) { opacity: 1 }
         }
-
-        /* ==========================================================
-           觸控裝置的點擊目標：至少 44px
-           量到有 23 個目標低於 44px，最小的只有 24px（首頁的快速連結）
-           和 28px（課表的提醒／閱讀／編輯、改暱稱的鉛筆、各種刪除圖示）。
-           手指的接觸面積大約就是 44px，低於這個值在手機上會真的點不中。
-
-           只在 pointer: coarse 生效，桌機用滑鼠的版面完全不受影響——
-           滑鼠很準，桌機把按鈕撐大反而會讓版面鬆散。
-           用 min-height 而不是改 padding，才不會動到既有的水平間距。
-           ========================================================== */
-        @media (pointer: coarse) {
-            .tab-btn,
-            .news-tab-btn,
-            .sched-mode-opt,
-            button[data-action],
-            #adminBtn,
-            #classReminderBtn,
-            #editNameBtn,
-            #addNewsBtn,
-            #addLinkBtn {
-                min-height: 44px;
-            }
-            /* 純圖示的方形按鈕，寬度也要一起撐開 */
-            #editNameBtn,
-            button[data-action="delete"] {
-                min-width: 44px;
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-            }
-            /* 快速連結是純文字連結，只有 24px 高。
-               padding 撐開之後順便把整列變成可點範圍，比只點到文字好按。 */
-            #quickLinksList a {
-                display: inline-flex;
-                align-items: center;
-                min-height: 44px;
-                padding-block: 6px;
-            }
-        }
-
-        /* 主導覽列：狀態自己顧，不要交給 Tailwind 的色階工具類去互相打架 */
-        .tab-btn { color: var(--ink-3) !important; background-color: transparent !important; box-shadow: none !important; }
-        .tab-btn:hover { color: var(--ink) !important; background-color: var(--accent-soft) !important; }
-        .tab-btn.is-active,
-        .tab-btn.is-active:hover { background-color: var(--accent-fill) !important; color: #fff !important; }
-
-        /* 明確寫了 text-white 就一定要是白的。
-           Tailwind 原生的 .text-white 沒有 !important，而設計系統把
-           .text-slate-400 對應成灰色時加了 !important，兩個同時掛在
-           同一顆按鈕上時灰色會贏——那顆按鈕的字就消失在實心底色裡。 */
-        .text-white { color: #fff !important; }
-
-        /* 課程屬性標籤：遠距／點名／分組。原本用藍／琥珀／紫紅區分，
-           但藍和紫紅都被對應成同一個強調色，看起來像壞掉。
-           這三項本來就有文字標明，改成統一的安靜樣式。 */
-        .tag-meta {
-            background-color: var(--paper-sunk) !important;
-            color: var(--ink-2) !important;
-            border: 1px solid var(--rule) !important;
-        }
-
-        /* 測驗作答回饋：金＝正解、暗紅＝你選錯的、灰＝其餘 */
-        .kahoot-correct { background-color: #a8802f !important; border-color: #7d5c26 !important; color: #fff !important; }
-        .kahoot-wrong   { background-color: #9c4a48 !important; border-color: #783634 !important; color: #fff !important; }
-        .kahoot-muted   { background-color: #6b6760 !important; border-color: #4d4a45 !important; color: #fff !important; }
-        html.dark .kahoot-muted { background-color: #3b4258 !important; border-color: #2a3048 !important; }
 
         /* ---- 對話框與浮動小卡：一律不透明 ----
            頁面卡片用半透明是為了透出星空，但要打字、要讀定義的東西
@@ -1077,34 +986,23 @@
             <img src="image.png" alt="" class="splash-logo">
             <div class="splash-orbit">
                 <span class="splash-cat">
-                    <!-- 側面的貓。用幾個重疊的圓與橢圓堆出剪影，
-                         比一條複雜的路徑好調整，小尺寸下輪廓也比較乾淨。
-                         遠側的兩條腿先畫（在身體後面），近側的兩條後畫（蓋在身體上），
-                         這樣跑起來才有前後層次。 -->
-                    <svg class="cat-svg" viewBox="0 0 120 82" width="48" height="33" aria-hidden="true">
+                    <!-- 這隻貓不是畫的，是描出來的。
+                         來源：Eadweard Muybridge《Animal Locomotion》1887 年 Plate 716
+                         「Cat; walking」，賓州大學攝，現藏美國國家藝廊，公有領域。
+                         做法：取該板第一列的六格（走路，後面幾列已轉成奔跑），
+                         用門檻二值化 → 開運算洗掉背景格線 → 取最大連通塊 →
+                         閉運算 → 補上虎斑淺色造成的破洞 → 摩爾鄰域取外輪廓 →
+                         Douglas-Peucker 簡化。所以比例、肌肉起伏、四腳落地的
+                         時序全部來自真貓，不是我猜的。
+                         六格輪流顯示就是逐格動畫。 -->
+                    <svg class="cat-svg" viewBox="0 0 200 130" width="54" height="35" aria-hidden="true">
                         <g class="cat">
-                            <!-- 尾巴：往上勾起再收尖。用填色而不是描邊，粗細才能漸變 -->
-                            <path class="cat-tail" d="M27 40 C17 38 8 31 6 20 C5 13 9 8 14 9
-                                  C18 10 18 14 15 16 C11 20 16 29 26 33 Z"/>
-                            <!-- 遠側兩腿先畫，會被身體蓋住一部分 -->
-                            <path class="cat-leg leg-b2" d="M33 46 L40 47 L35 59 L41 71 L46 71 L46 75 L35 75 L29 59 Z"/>
-                            <path class="cat-leg leg-f2" d="M76 48 L82 48 L80 69 L86 69 L86 74 L74 74 L76 69 Z"/>
-                            <!-- 身體：背線微拱、腰往後收、腹部比胸口高（收腹），
-                                 後段是圓的股塊。這幾件事決定了它像不像貓 -->
-                            <path d="M85 32 C74 27 60 26 48 27 C36 28 28 32 25 38
-                                     C22 44 25 50 30 52 C35 54 40 53 44 51
-                                     C50 49 54 49 60 50 C68 51 74 54 79 54
-                                     C84 54 87 48 86 40 C86 36 86 33 85 32 Z"/>
-                            <!-- 頭與口鼻 -->
-                            <path d="M84 30 C84 22 89 16 96 16 C104 16 110 21 110 28
-                                     C110 34 105 39 98 39 C92 39 87 36 84 32 Z"/>
-                            <ellipse cx="108" cy="31" rx="5" ry="4"/>
-                            <path d="M88 19 L86 8 L96 15 Z"/>
-                            <path d="M97 15 L103 5 L108 16 Z"/>
-                            <!-- 近側兩腿。後腿是 Z 形：大腿往後下、飛節轉折、小腿再往前下踩。
-                                 畫成直的就會變成狗或凳子，這是最明顯的破綻 -->
-                            <path class="cat-leg leg-b1" d="M30 46 L38 47 L32 60 L39 72 L45 72 L45 76 L34 76 L26 60 Z"/>
-                            <path class="cat-leg leg-f1" d="M72 48 L79 48 L77 70 L84 70 L84 75 L70 75 L72 70 Z"/>
+                            <path class="cf" d="M20 6L26 6L27 10L29 11L29 17L34 27L56 48L76 47L113 52L135 52L139 49L167 48L175 45L181 40L185 40L185 46L193 56L194 61L196 63L196 68L192 70L186 70L185 68L173 67L168 64L161 65L161 73L151 86L151 94L157 100L161 108L159 119L153 119L153 110L151 108L144 109L144 117L146 120L150 120L150 126L141 125L137 119L136 104L133 97L133 92L130 89L111 90L108 91L84 91L80 96L79 101L75 106L75 109L73 110L73 113L69 113L67 109L64 109L63 93L54 94L49 98L44 98L43 95L38 95L34 99L29 99L29 93L31 93L36 88L55 87L56 79L52 76L52 72L48 69L48 50L35 41L31 35L29 35L25 23L19 18L19 7Z"/>
+                            <path class="cf" d="M20 7L25 7L26 15L30 24L37 34L48 42L55 48L77 48L114 53L136 53L143 49L151 51L172 49L174 46L178 44L178 43L182 41L186 41L186 48L193 55L196 63L195 69L188 70L185 68L177 68L173 67L172 60L165 60L164 64L162 65L162 70L160 78L158 82L155 84L155 92L161 99L166 103L172 113L172 120L166 120L164 118L162 112L153 104L142 103L141 119L143 122L143 126L138 126L135 119L134 105L132 101L130 89L113 90L105 92L96 92L95 89L84 89L81 91L72 108L69 109L69 113L65 113L65 109L61 109L61 92L55 92L46 98L41 98L41 95L35 95L31 99L27 99L27 94L36 87L54 87L55 79L51 75L51 70L46 68L46 65L49 61L49 51L43 48L41 43L37 43L36 38L31 37L25 29L24 24L19 20L19 8Z"/>
+                            <path class="cf" d="M33 7L37 7L39 9L40 15L46 28L69 47L96 48L111 51L142 54L149 54L156 50L175 51L184 49L184 53L176 57L177 72L175 77L166 77L165 84L173 85L173 93L177 96L180 101L188 107L188 110L196 115L196 119L188 120L187 117L182 113L167 104L161 98L161 95L155 95L153 97L150 114L151 126L145 125L145 121L143 119L143 102L141 90L128 90L122 92L111 92L102 90L93 90L89 97L86 98L86 103L83 106L79 107L79 112L75 112L75 108L71 107L71 91L65 91L60 96L54 97L53 100L49 100L48 97L41 97L41 93L48 87L66 87L67 76L65 75L65 69L59 67L59 64L64 61L63 49L48 41L40 30L38 25L32 19L32 8Z"/>
+                            <path class="cf" d="M17 10L20 10L22 12L26 22L30 28L30 32L35 33L39 37L46 41L56 49L73 49L115 57L136 57L138 54L157 56L168 53L169 51L173 51L178 44L185 44L185 50L191 56L195 64L196 72L193 74L180 73L173 71L171 67L164 67L163 95L180 116L183 119L185 119L185 121L186 122L186 126L179 126L164 113L161 112L146 95L138 91L132 91L129 92L111 94L106 96L94 95L90 92L79 91L75 94L75 97L72 100L68 101L68 105L63 110L61 115L56 115L56 111L52 109L52 100L41 99L41 88L51 86L50 73L47 70L43 70L43 66L47 61L47 51L35 44L34 40L30 39L29 33L24 33L20 27L17 26L15 20L16 11Z"/>
+                            <path class="cf" d="M15 11L19 11L21 13L32 31L46 39L56 47L74 47L114 56L136 57L138 55L157 56L163 53L168 53L171 50L174 43L185 44L185 52L192 57L194 64L196 65L194 72L175 71L172 69L171 66L165 66L163 77L163 96L167 99L167 101L177 113L177 115L184 120L184 125L178 126L150 99L146 93L140 91L101 95L89 93L84 89L78 89L73 96L58 110L56 114L52 114L52 109L48 108L47 98L37 98L34 107L30 107L28 104L29 94L33 92L34 89L39 87L42 82L46 81L45 64L48 59L48 52L46 49L34 43L29 38L28 32L24 32L21 27L15 26L15 24L12 22L12 13L14 12Z"/>
+                            <path class="cf" d="M37 10L42 11L52 22L53 27L59 28L68 35L74 41L75 44L79 47L106 48L123 52L149 61L158 61L162 59L182 59L181 70L184 76L184 80L182 84L182 89L179 91L178 93L178 100L182 103L191 117L196 121L196 126L190 126L185 119L183 119L182 116L167 106L160 95L119 96L109 94L108 90L98 90L91 97L78 105L74 109L70 109L69 105L63 105L59 98L59 94L62 92L62 90L70 83L70 74L68 69L70 49L53 34L52 29L48 29L46 27L36 27L32 19L32 15L36 11Z"/>
                         </g>
                     </svg>
                 </span>
@@ -2518,7 +2416,7 @@
                 date: '2026-07-27',
                 title: '操作介面',
                 items: [
-                    ['開站有載入畫面了', '一隻黑貓踩在小黑貓的頭上繞圈走。貓是照著真貓的骨架畫的：背線微拱、腰往後收、腹部比胸口高，後腿是 Z 形的——大腿往後下、飛節轉折、小腿再往前下踩。後腿畫成直的就會變成狗或凳子，那是最明顯的破綻。四條腿分成對角兩組交錯擺動、身體隨步伐輕微起伏、尾巴往上勾起並用比腳步慢一倍的節奏擺。牠跟著軌道一起轉，所以腳永遠指向圓心，是真的踩在 logo 邊緣上走；步頻也對著前進速度算過，不然腳會在原地滑。深色模式下黑貓在黑底上本來看不見，所以打了一道輪廓光，身體維持是暗的、只有邊緣發亮。首頁的公告、連結、課程三份資料都有回音之後就淡出——注意是「有回音」而不是「都成功」，離線或沒權限也算，不然一個讀不到的集合就會把人永遠鎖在載入畫面。另外還有兩道逾時保底，其中一道故意寫在主程式外面，這樣連 Firebase 的網路被學校擋掉、主程式整個沒跑起來，畫面也還是會放行。'],
+                    ['開站有載入畫面了', '一隻黑貓踩在小黑貓的頭上繞圈走。這隻貓不是畫的，是描出來的——來源是 Muybridge 1887 年為賓州大學拍的《Animal Locomotion》Plate 716「貓，走路」，一組真貓走路的逐格連續照，已進入公有領域。我取了走路那一列的六格，把貓從背景格線裡分離出來、補掉虎斑淺色造成的破洞、再把外輪廓描成向量。所以牠的比例、肌肉起伏、四隻腳落地的時序全部來自真貓，不是我猜的。六格輪流顯示就是逐格動畫，步頻也跟繞圈的前進速度對過，腳不會在原地滑。深色模式下黑貓在黑底上本來看不見，所以打了一道輪廓光，身體維持是暗的、只有邊緣發亮。首頁的公告、連結、課程三份資料都有回音之後就淡出——注意是「有回音」而不是「都成功」，離線或沒權限也算，不然一個讀不到的集合就會把人永遠鎖在載入畫面。另外還有兩道逾時保底，其中一道故意寫在主程式外面，這樣連 Firebase 的網路被學校擋掉、主程式整個沒跑起來，畫面也還是會放行。'],
                     ['滑到底時頁首不再亂冒出來', '以前只要 scrollY 變小就當成「使用者往上滑」而顯示頁首。但到了底部之後，手機的回彈、網址列收合、按「載入更多」造成的重新排版，都會讓 scrollY 小幅變小——人根本沒滑，頁首卻一直閃。現在接近底部就不自動顯示。'],
                     ['課程頁改成分批顯示', '以前一次把整個課程庫都畫出來，量到將近一萬像素高、三百多個可點元素，手機上要捲很久，畫面也跟著變慢。現在一次顯示 12 門，下面有「載入更多」並標示還剩幾門。改搜尋或篩選會自動回到第一批。'],
                     ['手機上的按鈕變大了', '量到有 23 個可點目標小於 44px，最小的只有 24px（首頁的快速連結）和 28px（課表的提醒／閱讀／編輯、改暱稱的鉛筆、刪除圖示）。手指的接觸面積差不多就是 44px，低於這個值在手機上會真的點不中。現在觸控裝置上一律至少 44px，用滑鼠的桌機版面維持原樣。'],
