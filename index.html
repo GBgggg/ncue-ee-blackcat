@@ -336,12 +336,14 @@
             animation: splashSpin 1.6s linear infinite;
         }
         .splash-cat {
-            position: absolute; top: -2px; left: 50%;
-            margin-left: -13px;
-            font-size: 26px; line-height: 1;
+            position: absolute; top: -6px; left: 50%;
+            margin-left: -16px;
+            font-size: 32px; line-height: 1;
             /* 反轉抵銷外層的旋轉，貓才不會翻過來 */
             animation: splashSpin 1.6s linear infinite reverse;
             display: inline-block;
+            /* emoji 本身偏暗，在深色底上幾乎看不見，補一圈微光把輪廓拉出來 */
+            filter: drop-shadow(0 0 5px rgba(255, 236, 210, .55));
         }
         .splash-text {
             font-family: 'Noto Serif TC', Georgia, serif;
@@ -1023,7 +1025,7 @@
     <div id="splash" aria-hidden="true">
         <div class="splash-stage">
             <img src="image.png" alt="" class="splash-logo">
-            <div class="splash-orbit"><span class="splash-cat">🐾</span></div>
+            <div class="splash-orbit"><span class="splash-cat">🐈</span></div>
         </div>
         <p class="splash-text">正在叫醒小黑貓…</p>
     </div>
