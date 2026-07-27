@@ -310,6 +310,44 @@
         .bg-sky-600 { background-color: #4c5578 !important; }
         .text-sky-100 { color: rgba(255, 255, 255, 0.82) !important; }
 
+        /* ==========================================================
+           觸控裝置的點擊目標：至少 44px
+           量到有 23 個目標低於 44px，最小的只有 24px（首頁的快速連結）
+           和 28px（課表的提醒／閱讀／編輯、改暱稱的鉛筆、各種刪除圖示）。
+           手指的接觸面積大約就是 44px，低於這個值在手機上會真的點不中。
+
+           只在 pointer: coarse 生效，桌機用滑鼠的版面完全不受影響——
+           滑鼠很準，桌機把按鈕撐大反而會讓版面鬆散。
+           用 min-height 而不是改 padding，才不會動到既有的水平間距。
+           ========================================================== */
+        @media (pointer: coarse) {
+            .tab-btn,
+            .news-tab-btn,
+            .sched-mode-opt,
+            button[data-action],
+            #adminBtn,
+            #classReminderBtn,
+            #editNameBtn {
+                min-height: 44px;
+            }
+            /* 純圖示的方形按鈕，寬度也要一起撐開 */
+            #editNameBtn,
+            button[data-action="delete"] {
+                min-width: 44px;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+            /* 快速連結是純文字連結，只有 24px 高。
+               padding 撐開之後順便把整列變成可點範圍，比只點到文字好按。 */
+            #quickLinksList a {
+                display: inline-flex;
+                align-items: center;
+                min-height: 44px;
+                padding-block: 6px;
+            }
+        }
+
         /* 主導覽列：狀態自己顧，不要交給 Tailwind 的色階工具類去互相打架 */
         .tab-btn { color: var(--ink-3) !important; background-color: transparent !important; box-shadow: none !important; }
         .tab-btn:hover { color: var(--ink) !important; background-color: var(--accent-soft) !important; }
@@ -2178,6 +2216,15 @@
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
         let userDisplayName ='無名小貓', userSchedule = {};
         let searchQuery ='', activeSemesterFilter ='all', selectedFilterCourseId = null;
+
+        // 課程頁分批顯示。改搜尋或篩選時要退回第一批，否則使用者搜完
+        // 會看到「顯示前 48 門」但其實只找到 3 門。
+        // 這裡不在每個改動搜尋／篩選的地方各補一次重置——那種寫法只要
+        // 日後多一個入口就會漏掉。改成在繪製時比對「篩選條件的指紋」，
+        // 條件一變就自動歸零，呼叫端完全不必知道這件事。
+        const COURSE_PAGE = 12;
+        let courseShown = COURSE_PAGE;
+        let lastCourseFilterKey = null;
         let currentActiveNewsTab ='共同';
         let currentViewSSCourseId = null, currentViewVocabBookId = null;
         let currentDeleteId = null, currentDeleteType = null;
@@ -2307,6 +2354,14 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-07-27',
+                title: '操作介面',
+                items: [
+                    ['課程頁改成分批顯示', '以前一次把整個課程庫都畫出來，量到將近一萬像素高、三百多個可點元素，手機上要捲很久，畫面也跟著變慢。現在一次顯示 12 門，下面有「載入更多」並標示還剩幾門。改搜尋或篩選會自動回到第一批。'],
+                    ['手機上的按鈕變大了', '量到有 23 個可點目標小於 44px，最小的只有 24px（首頁的快速連結）和 28px（課表的提醒／閱讀／編輯、改暱稱的鉛筆、刪除圖示）。手指的接觸面積差不多就是 44px，低於這個值在手機上會真的點不中。現在觸控裝置上一律至少 44px，用滑鼠的桌機版面維持原樣。'],
+                ]
+            },
             {
                 date: '2026-07-27',
                 title: '天空',
@@ -2966,8 +3021,21 @@
                 return c.year === y && c.semester === s;
             });
 
+            // 篩選條件的指紋。一變就退回第一批。
+            const filterKey = searchQuery + ' ' + activeSemesterFilter;
+            if (filterKey !== lastCourseFilterKey) {
+                lastCourseFilterKey = filterKey;
+                courseShown = COURSE_PAGE;
+            }
+
             const rc = $('courseResultCount');
-            if (rc) rc.textContent = (searchQuery || activeSemesterFilter !=='all') ? `找到 ${filtered.length} 門課` : `共 ${state.courses.length} 門課`;
+            if (rc) {
+                const total = (searchQuery || activeSemesterFilter !=='all')
+                    ? `找到 ${filtered.length} 門課` : `共 ${state.courses.length} 門課`;
+                // 有分批時要講清楚現在看到的是幾門，不然使用者不知道下面還有
+                rc.textContent = (filtered.length > courseShown)
+                    ? `${total}，顯示前 ${courseShown} 門` : total;
+            }
 
             if (filtered.length === 0) {
                 grid.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 bg-white rounded-3xl border border-slate-100">找不到符合條件的課程，是不是貓咪記錯了？
@@ -2975,7 +3043,11 @@
                 return;
             }
 
-            grid.innerHTML = filtered.map((course, idx) => {
+            // 只畫前 courseShown 門。全部畫出來的話，光是課程頁就有近一萬像素高、
+            // 三百多個可點元素；管理員身分每張卡還各帶四個下拉選單，
+            // 手機上捲不完也拖慢整頁。
+            const shown = filtered.slice(0, courseShown);
+            grid.innerHTML = shown.map((course, idx) => {
                 const a = courseAverages(course.id);
                 const metric = (icon, iconColor, label, value) => {
                     const dots = value ==='-' ?'' : `<span class="flex gap-0.5">${drawMetricDots(Math.round(parseFloat(value)) || 0, iconColor.replace('text-','bg-'))}</span>`;
@@ -3009,6 +3081,18 @@
                     </div>
                 </div>`;
             }).join('');
+
+            const more = filtered.length - shown.length;
+            if (more > 0) {
+                grid.insertAdjacentHTML('beforeend', `
+                <div class="col-span-full flex flex-col items-center gap-2 pt-2">
+                    <button data-action="more-courses"
+                        class="px-6 py-3 min-h-[44px] rounded-2xl font-black text-sm bg-white border-2 border-slate-100 shadow-sm hover:shadow-md transition-all">
+                        載入更多（還有 ${more} 門）
+                    </button>
+                    <span class="text-xs text-slate-400">已顯示 ${shown.length} / ${filtered.length}</span>
+                </div>`);
+            }
             icons();
         }
 
@@ -5321,6 +5405,10 @@
                 $('courseFilterDropdown').classList.add('hidden');
                 $('filterChevron').classList.remove('rotate-180');
                 activeSemesterFilter = t.dataset.tag;
+                renderCourseGrid();
+            },
+'more-courses': () => {
+                courseShown += COURSE_PAGE;
                 renderCourseGrid();
             },
 'clear-search': () => {
