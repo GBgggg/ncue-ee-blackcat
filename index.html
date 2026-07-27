@@ -374,13 +374,14 @@
         /* 小標籤：字距拉開的編輯體例 */
         .uppercase.tracking-widest { letter-spacing: 0.2em !important; }
 
-        /* ---- 星野畫布：只在深色模式出現，墊在所有內容之後 ---- */
+        /* ---- 天空畫布：白天畫藍天積雲，夜裡畫星野，墊在所有內容之後 ---- */
         #skyCanvas {
             position: fixed; inset: 0; width: 100%; height: 100%;
-            z-index: -1; display: none; pointer-events: none;
+            z-index: -1; display: block; pointer-events: none;
         }
-        html.dark #skyCanvas { display: block; }
-        html.dark body { background-color: transparent; }
+        /* 兩種模式的 body 都要透明，否則紙色會蓋住天空 */
+        body { background-color: transparent; }
+        /* 天空是背景，卡片必須維持不透明，內容才讀得清楚 */
     </style>
     <script>
         // 開站前先套用上次使用者選的顯示模式，避免閃爍
@@ -389,18 +390,233 @@
 </head>
 <body class="bg-slate-50 text-slate-800">
 
-    <!-- 靛藍星夜：寫實星野（只在深色模式繪製） -->
+    <!-- 天空：白天是藍天積雲，夜裡是星野。兩者共用同一張畫布 -->
     <canvas id="skyCanvas" aria-hidden="true"></canvas>
     <script>
+    /* ==========================================================
+     * 天空背景
+     *
+     * 美術參考《你的名字》《天氣之子》《鈴芽之旅》：
+     *   - 天空本身就是主角，而不是內容後面的一片底色
+     *   - 天頂濃藍 → 地平線暖白，色相一路連續變化（不是單一色）
+     *   - 積雲有體積：頂端受光偏白、底部在自己的陰影裡偏藍灰
+     *   - 大氣透視：越靠近地平線的雲越小、越淡、越藍
+     *   - 夜景是黃昏與夜的交界，不是純黑；地平線留一道殘紅
+     *
+     * 效能原則（跟星野同一套）：每幀只做 drawImage，
+     * 所有漸層與雲朵都先烘成點陣圖。每幀重建漸層在手機上會掉幀。
+     * ========================================================== */
     (function () {
         const cv = document.getElementById('skyCanvas');
         const ctx = cv.getContext('2d', { alpha: false });
         let W = 0, H = 0, dpr = 1, raf = null, t0 = performance.now();
-        let statics = null, D = 0;      // 靜態星層（預先畫好，之後只旋轉貼上）
-        let live = [], halos = {}, meteor = null;
+        let night = null, day = null, comet = null;
 
         const isDark = () => document.documentElement.classList.contains('dark');
         const rnd = (a, b) => a + Math.random() * (b - a);
+        const calm = matchMedia('(prefers-reduced-motion: reduce)');
+
+        const mkCanvas = (w, h) => {
+            const c = document.createElement('canvas');
+            c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
+            return c;
+        };
+
+        // 把一組色標烘成整面畫布大小的點陣圖，之後每幀只要貼上
+        function bakeVertical(stops) {
+            const c = mkCanvas(W, H), g = c.getContext('2d');
+            const grd = g.createLinearGradient(0, 0, 0, H);
+            for (const [p, col] of stops) grd.addColorStop(p, col);
+            g.fillStyle = grd; g.fillRect(0, 0, W, H);
+            return c;
+        }
+
+        /* ---------- 白天 ---------- */
+
+        // 一朵積雲：先用一堆模糊的圓疊出剪影，再用 source-in 上色。
+        // 直接畫實心圓會有硬邊，看起來像棉花糖而不是雲。
+        function makeCloud(w, h) {
+            const c = mkCanvas(w, h), g = c.getContext('2d');
+            const blur = Math.round(w * 0.018);
+            g.filter = `blur(${blur}px)`;
+            g.fillStyle = '#fff';
+            // 任何形狀只要碰到這張小圖的邊界就會被切出一條直邊，
+            // 貼到天空上會看到一個矩形的接縫（跟銀河那條裂縫同一種錯）。
+            // ×3.5 是量出來的：高斯模糊的尾巴很長，×2.5 時邊緣還會殘留
+            // alpha 2～4，在漸層天空上就是一條看得出來的邊。
+            //
+            // 重點是「把雲畫在內框裡」，不是「畫滿之後再夾回來」——
+            // 後者會把頂端的起伏一起夾掉，雲就變回一顆平滑的饅頭。
+            const pad = blur * 3.5;
+            const x0 = pad, y0 = pad, iw = w - pad * 2, ih = h - pad * 2;
+            const clampR = (x, y, r) =>
+                Math.min(r, x - pad, y - pad, w - pad - x, h - pad - y);   // 保險，正常不會生效
+            const puff = (x, y, r) => {
+                const rr = clampR(x, y, r);
+                if (rr > 1) { g.beginPath(); g.arc(x, y, rr, 0, 6.2832); g.fill(); }
+            };
+
+            const base = y0 + ih * 0.78;                 // 積雲底部大致是平的
+            // 第一層：沿著拱形排的大團，決定整朵雲的重心
+            const n = 9 + Math.floor(Math.random() * 5);
+            for (let i = 0; i < n; i++) {
+                const t = i / (n - 1);
+                const hump = Math.sin(t * Math.PI);
+                puff(x0 + iw * (0.16 + 0.68 * t) + rnd(-iw * 0.02, iw * 0.02),
+                     base - ih * 0.30 * hump * rnd(0.7, 1.15),
+                     ih * (0.11 + 0.18 * hump) * rnd(0.8, 1.2));
+            }
+            // 第二層：頂上再加一批小團。只有第一層的話輪廓是一條平滑的拱線，
+            // 看起來像饅頭；積雲的頭是一顆一顆疊出來的，要有高低起伏。
+            const m = 7 + Math.floor(Math.random() * 5);
+            for (let j = 0; j < m; j++) {
+                const t = rnd(0.08, 0.92);
+                const hump = Math.sin(t * Math.PI);
+                puff(x0 + iw * (0.16 + 0.68 * t),
+                     base - ih * (0.28 * hump + 0.06) * rnd(0.9, 1.3),
+                     ih * (0.05 + 0.09 * hump) * rnd(0.7, 1.3));
+            }
+            // 底部用幾片高度不一的扁橢圓疊出來。單一橢圓會切出一條直線邊，
+            // 雲會像被桌子截斷。
+            for (let k = 0; k < 4; k++) {
+                const cx = x0 + iw * rnd(0.28, 0.72), cy = base + ih * rnd(-0.02, 0.02);
+                const rx = Math.min(iw * rnd(0.14, 0.24), cx - pad, w - pad - cx);
+                const ry = Math.min(ih * rnd(0.06, 0.10), cy - pad, h - pad - cy);
+                if (rx > 1 && ry > 1) {
+                    g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 6.2832); g.fill();
+                }
+            }
+            g.filter = 'none';
+
+            // 上色：頂白、腰淡藍、底藍灰。這一層決定雲有沒有體積
+            g.globalCompositeOperation = 'source-in';
+            const grd = g.createLinearGradient(0, h * 0.12, 0, h * 0.92);
+            grd.addColorStop(0.00, '#ffffff');
+            grd.addColorStop(0.38, '#f4f8fd');
+            grd.addColorStop(0.68, '#cddbeb');
+            grd.addColorStop(1.00, '#a9bcd4');
+            g.fillStyle = grd; g.fillRect(0, 0, w, h);
+
+            // 右上角的受光邊。太陽在右上，這道暖白邊是三部片最好認的一筆
+            g.globalCompositeOperation = 'source-atop';
+            const rim = g.createRadialGradient(w * 0.72, h * 0.18, 0, w * 0.72, h * 0.18, w * 0.55);
+            rim.addColorStop(0, 'rgba(255,248,232,0.85)');
+            rim.addColorStop(0.45, 'rgba(255,246,228,0.22)');
+            rim.addColorStop(1, 'rgba(255,240,220,0)');
+            g.fillStyle = rim; g.fillRect(0, 0, w, h);
+            g.globalCompositeOperation = 'source-over';
+            return c;
+        }
+
+        // 高空捲雲：又薄又長，幾乎只是一層紗
+        function makeCirrus(w, h) {
+            const c = mkCanvas(w, h), g = c.getContext('2d');
+            const blur = Math.round(h * 0.16);
+            g.filter = `blur(${blur}px)`;
+            g.fillStyle = 'rgba(255,255,255,0.55)';
+            // ×3.5 是量出來的：高斯模糊的尾巴很長，×2.5 時邊緣還會殘留
+            // alpha 2～4，貼在漸層天空上就是一條看得出來的矩形邊。
+            const pad = blur * 3.5;
+            const x0 = pad, y0 = pad, iw = w - pad * 2, ih = h - pad * 2;
+            for (let i = 0; i < 6; i++) {
+                const cx = x0 + iw * rnd(0.18, 0.82), cy = y0 + ih * rnd(0.35, 0.65);
+                const rx = Math.min(iw * rnd(0.12, 0.24), cx - pad, w - pad - cx);
+                const ry = Math.min(ih * rnd(0.10, 0.22), cy - pad, h - pad - cy);
+                if (rx > 1 && ry > 1) {
+                    g.beginPath(); g.ellipse(cx, cy, rx, ry, rnd(-0.05, 0.05), 0, 6.2832); g.fill();
+                }
+            }
+            g.filter = 'none';
+            return c;
+        }
+
+        function buildDay() {
+            // 天頂濃藍一路到地平線的暖白，最後收在《鈴芽之旅》那種黃昏交界的橙紅。
+            // 這條漸層是整個白天畫面的骨架，雲只是放在上面。
+            const bg = bakeVertical([
+                [0.00, '#2f6cb0'], [0.18, '#4a8ac9'], [0.38, '#79b2dd'],
+                [0.58, '#a9cfe8'], [0.74, '#d3e4ec'], [0.86, '#f2ddc6'],
+                [0.94, '#f3bd97'], [1.00, '#e2947e'],
+            ]);
+
+            // 三張雲朵母版，之後靠縮放、翻面、透明度變出十幾朵。
+            // 每朵都獨立產生的話記憶體會吃掉幾十 MB。
+            // 尺寸要比雲本身大一圈，多出來的是給模糊尾巴的留白
+            const sprites = [makeCloud(780, 380), makeCloud(740, 350), makeCloud(820, 330)];
+            const cirrus = [makeCirrus(820, 190), makeCirrus(880, 170)];
+
+            // y 越大＝越靠地平線＝越小、越淡、越偏藍（大氣透視）
+            const clouds = [];
+            const layers = [
+                { n: 3, y: [0.06, 0.20], sc: [0.62, 0.95], a: [0.92, 1.00], sp: [7, 12] },
+                { n: 4, y: [0.24, 0.42], sc: [0.40, 0.62], a: [0.72, 0.90], sp: [4, 7] },
+                { n: 5, y: [0.46, 0.66], sc: [0.20, 0.36], a: [0.42, 0.66], sp: [2, 4] },
+            ];
+            for (const L of layers) {
+                for (let i = 0; i < L.n; i++) {
+                    clouds.push({
+                        img: sprites[Math.floor(Math.random() * sprites.length)],
+                        y: rnd(L.y[0], L.y[1]), scale: rnd(L.sc[0], L.sc[1]),
+                        alpha: rnd(L.a[0], L.a[1]), speed: rnd(L.sp[0], L.sp[1]),
+                        base: Math.random(), flip: Math.random() < 0.5,
+                    });
+                }
+            }
+            for (let i = 0; i < 3; i++) {
+                clouds.push({
+                    img: cirrus[i % cirrus.length], cirrus: true,
+                    y: rnd(0.04, 0.26), scale: rnd(0.7, 1.15),
+                    alpha: rnd(0.30, 0.55), speed: rnd(1.5, 3),
+                    base: Math.random(), flip: Math.random() < 0.5,
+                });
+            }
+            clouds.sort((a, b) => a.y - b.y);   // 遠的先畫，近的疊在上面
+
+            // 地平線附近的霾：讓雲的底部融進暖色裡，不會像貼紙浮著
+            const haze = mkCanvas(W, H);
+            const hg = haze.getContext('2d');
+            const hz = hg.createLinearGradient(0, H * 0.58, 0, H);
+            hz.addColorStop(0, 'rgba(246,222,198,0)');
+            hz.addColorStop(0.55, 'rgba(246,214,186,0.30)');
+            hz.addColorStop(1, 'rgba(240,180,150,0.58)');
+            hg.fillStyle = hz; hg.fillRect(0, H * 0.58, W, H * 0.42);
+
+            // 很輕的暗角，只是把視線收回中間
+            const vig = mkCanvas(W, H);
+            const vgx = vig.getContext('2d');
+            const vg = vgx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.45,
+                                                W / 2, H * 0.45, Math.max(W, H) * 0.80);
+            vg.addColorStop(0, 'rgba(40,60,90,0)');
+            vg.addColorStop(1, 'rgba(40,60,90,0.16)');
+            vgx.fillStyle = vg; vgx.fillRect(0, 0, W, H);
+
+            day = { bg, clouds, haze, vig };
+        }
+
+        function drawDay(now) {
+            const t = (now - t0) / 1000;
+            ctx.drawImage(day.bg, 0, 0);
+            for (const c of day.clouds) {
+                const w = c.img.width * c.scale * (W / 1400) * (dpr / 1.2);
+                const h = c.img.height * c.scale * (W / 1400) * (dpr / 1.2);
+                const period = W + w * 2;
+                // 用取餘數算位置，不累加位移，久放也不會飄掉
+                let x = (((c.base * period - c.speed * t * dpr) % period) + period) % period - w;
+                ctx.globalAlpha = c.alpha;
+                if (c.flip) {
+                    ctx.save(); ctx.translate(x + w, c.y * H); ctx.scale(-1, 1);
+                    ctx.drawImage(c.img, 0, 0, w, h); ctx.restore();
+                } else {
+                    ctx.drawImage(c.img, x, c.y * H, w, h);
+                }
+            }
+            ctx.globalAlpha = 1;
+            ctx.drawImage(day.haze, 0, 0);
+            ctx.drawImage(day.vig, 0, 0);
+        }
+
+        /* ---------- 夜晚 ---------- */
+
         const tint = () => {
             const k = Math.random();
             if (k < 0.62) return [255, 252, 245];   // 多數偏白
@@ -410,8 +626,7 @@
 
         // 光暈預先畫成小圖，之後用 drawImage 貼；比每幀重建徑向漸層快非常多
         function makeHalo(radius, rgb) {
-            const s = Math.ceil(radius * 2), c = document.createElement('canvas');
-            c.width = c.height = s;
+            const s = Math.ceil(radius * 2), c = mkCanvas(s, s);
             const g = c.getContext('2d');
             const grd = g.createRadialGradient(radius, radius, 0, radius, radius, radius);
             grd.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.5)`);
@@ -421,17 +636,10 @@
             return c;
         }
 
-        function build() {
-            dpr = Math.min(window.devicePixelRatio || 1, 2);
-            W = cv.width = Math.floor(innerWidth * dpr);
-            H = cv.height = Math.floor(innerHeight * dpr);
-            cv.style.width = innerWidth +'px';
-            cv.style.height = innerHeight +'px';
-
+        function buildNight() {
             // 靜態層要能涵蓋旋轉後的四角，所以用對角線長度當邊長
-            D = Math.ceil(Math.hypot(W, H));
-            statics = document.createElement('canvas');
-            statics.width = statics.height = D;
+            const D = Math.ceil(Math.hypot(W, H));
+            const statics = mkCanvas(D, D);
             const s = statics.getContext('2d');
             const area = (innerWidth * innerHeight) / 1000;
             const scale = D / Math.max(W, H);
@@ -479,8 +687,8 @@
             }
 
             // --- 中星與亮星：數量少，留到每幀即時畫，才有閃爍與光暈 ---
-            live = [];
-            halos = { m: makeHalo(3 * dpr, [255, 250, 242]), b: makeHalo(7 * dpr, [255, 250, 242]) };
+            const live = [];
+            const halos = { m: makeHalo(3 * dpr, [255, 250, 242]), b: makeHalo(7 * dpr, [255, 250, 242]) };
             for (const t of [{ n: area * 0.14, r: [0.9, 1.4], a: [0.65, 0.95], h:'m' },
                              { n: area * 0.03, r: [1.4, 2.1], a: [0.85, 1.0], h:'b' }]) {
                 for (let i = 0; i < t.n; i++) {
@@ -491,33 +699,101 @@
                     });
                 }
             }
+
+            // 夜空的底色：黃昏與夜的交界。純黑會失去《鈴芽之旅》那種
+            // 紫粉往深藍推、地平線留一道殘紅的層次。
+            const bgImg = bakeVertical([
+                [0.00, '#050813'], [0.30, '#0c142e'], [0.52, '#1b1d45'],
+                [0.70, '#2f2450'], [0.84, '#4a2f4f'], [0.93, '#6a3f48'], [1.00, '#7d4a42'],
+            ]);
+
+            // 地平線輝光 + 暗角，一起烘成一張疊圖
+            const fg = mkCanvas(W, H);
+            const f = fg.getContext('2d');
+            const lp = f.createRadialGradient(W * 0.5, H * 1.04, 0, W * 0.5, H * 1.04, H * 0.6);
+            lp.addColorStop(0,'rgba(214,140,96,0.30)');
+            lp.addColorStop(0.45,'rgba(150,100,120,0.12)');
+            lp.addColorStop(1,'rgba(0,0,0,0)');
+            f.fillStyle = lp; f.fillRect(0, 0, W, H);
+            const vg = f.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.78);
+            vg.addColorStop(0,'rgba(0,0,0,0)');
+            vg.addColorStop(1,'rgba(0,0,0,0.45)');
+            f.fillStyle = vg; f.fillRect(0, 0, W, H);
+
+            night = { statics, D, live, halos, bg: bgImg, fg };
         }
 
         // 兩顆特別亮的星（座標定義在靜態層座標系，跟著一起轉）。
         // 原本旁邊有標星名，但那是背景，寫字反而變成要讀的東西，已拿掉。
         const NAMED = [{ x: 0.30, y: 0.34 }, { x: 0.70, y: 0.26 }];
 
-        function frame(now) {
-            if (!isDark()) { raf = null; return; }
-            const rot = ((now - t0) / 90000) * Math.PI * 2;   // 90 秒一圈
+        // 彗星：取代原本的流星。流星是一閃而過的小事件，
+        // 《你的名字》的彗星是慢慢橫越整片天、拖著長尾的東西，
+        // 所以刻意做得又慢又稀有——平均約兩分鐘才一次，走完要十幾秒。
+        function drawComet(now) {
+            if (!comet && Math.random() < 0.00012) {
+                const dir = Math.random() < 0.5 ? 1 : -1;
+                comet = {
+                    t: now, dur: rnd(13000, 18000),
+                    x0: dir > 0 ? -W * 0.15 : W * 1.15, y0: rnd(0.05, 0.30) * H,
+                    x1: dir > 0 ? W * 1.15 : -W * 0.15, y1: rnd(0.34, 0.58) * H,
+                };
+            }
+            if (!comet) return;
+            const p = (now - comet.t) / comet.dur;
+            if (p >= 1) { comet = null; return; }
 
-            // 天頂到地平線的連續漸層（不跟著轉）
-            const g = ctx.createLinearGradient(0, 0, 0, H);
-            g.addColorStop(0,'#04060f'); g.addColorStop(0.45,'#070d21');
-            g.addColorStop(0.78,'#0d1733'); g.addColorStop(1,'#16224a');
-            ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+            // 進出場各花兩成時間淡入淡出，中間維持全亮
+            const fade = p < 0.2 ? p / 0.2 : p > 0.8 ? (1 - p) / 0.2 : 1;
+            const x = comet.x0 + (comet.x1 - comet.x0) * p;
+            const y = comet.y0 + (comet.y1 - comet.y0) * p;
+            const dx = comet.x1 - comet.x0, dy = comet.y1 - comet.y0;
+            const len = Math.hypot(dx, dy);
+            const ux = -dx / len, uy = -dy / len;          // 尾巴指向來時的方向
+            const tail = W * 0.26;
+            const tx = x + ux * tail, ty = y + uy * tail;
+            const px = -uy, py = ux;                        // 垂直方向，用來讓尾巴張開
+            const half = H * 0.022;
+
+            // 尾巴：從彗核往後張開的三角形，用漸層讓它散掉
+            const grd = ctx.createLinearGradient(x, y, tx, ty);
+            grd.addColorStop(0, `rgba(255,247,232,${0.55 * fade})`);
+            grd.addColorStop(0.35, `rgba(214,206,255,${0.20 * fade})`);
+            grd.addColorStop(1, 'rgba(180,190,255,0)');
+            ctx.fillStyle = grd;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(tx + px * half, ty + py * half);
+            ctx.lineTo(tx - px * half, ty - py * half);
+            ctx.closePath(); ctx.fill();
+
+            // 彗核：小而亮，外面一圈光暈
+            const hg = ctx.createRadialGradient(x, y, 0, x, y, H * 0.03);
+            hg.addColorStop(0, `rgba(255,252,244,${0.95 * fade})`);
+            hg.addColorStop(0.25, `rgba(255,238,214,${0.35 * fade})`);
+            hg.addColorStop(1, 'rgba(255,230,200,0)');
+            ctx.fillStyle = hg;
+            ctx.beginPath(); ctx.arc(x, y, H * 0.03, 0, 6.2832); ctx.fill();
+            ctx.fillStyle = `rgba(255,255,255,${fade})`;
+            ctx.beginPath(); ctx.arc(x, y, 1.8 * dpr, 0, 6.2832); ctx.fill();
+        }
+
+        function drawNight(now) {
+            const rot = ((now - t0) / 90000) * Math.PI * 2;   // 90 秒一圈
+            const N = night, D = N.D;
+            ctx.drawImage(N.bg, 0, 0);
 
             ctx.save();
             ctx.translate(W / 2, H / 2);
             ctx.rotate(rot);
-            ctx.drawImage(statics, -D / 2, -D / 2);          // 靜態星層：一次貼圖
+            ctx.drawImage(N.statics, -D / 2, -D / 2);          // 靜態星層：一次貼圖
 
             // 中星／亮星即時閃爍
-            for (const st of live) {
+            for (const st of N.live) {
                 const x = st.x - D / 2, y = st.y - D / 2;
                 const tw = 0.82 + 0.18 * Math.sin(now / 1000 * st.tw + st.ph);
                 const a = st.a * tw;
-                const h = halos[st.h];
+                const h = N.halos[st.h];
                 ctx.globalAlpha = a * 0.9;
                 ctx.drawImage(h, x - h.width / 2, y - h.height / 2);
                 ctx.globalAlpha = a;
@@ -530,7 +806,7 @@
             for (const s of NAMED) {
                 const x = s.x * D - D / 2, y = s.y * D - D / 2;
                 const p = 0.85 + 0.15 * Math.sin(now / 900 + s.x * 10);
-                const h = halos.b;
+                const h = N.halos.b;
                 ctx.globalAlpha = p;
                 ctx.drawImage(h, x - h.width / 2, y - h.height / 2);
                 ctx.fillStyle ='#fffdf7';
@@ -539,50 +815,42 @@
             ctx.globalAlpha = 1;
             ctx.restore();
 
-            // 地平線光害輝光（疊在星野之上，模擬大氣散射）
-            const lp = ctx.createRadialGradient(W * 0.5, H * 1.04, 0, W * 0.5, H * 1.04, H * 0.55);
-            lp.addColorStop(0,'rgba(150,120,90,0.26)');
-            lp.addColorStop(0.5,'rgba(90,90,120,0.09)');
-            lp.addColorStop(1,'rgba(0,0,0,0)');
-            ctx.fillStyle = lp; ctx.fillRect(0, 0, W, H);
-
-            // 流星：平均約每 17 秒一顆
-            if (!meteor && Math.random() < 0.001) {
-                meteor = { t: now, dur: rnd(650, 1000), x: rnd(W * 0.1, W * 0.9), y: rnd(0, H * 0.45),
-                           vx: rnd(W * 0.18, W * 0.34), vy: rnd(H * 0.12, H * 0.24) };
-            }
-            if (meteor) {
-                const p = (now - meteor.t) / meteor.dur;
-                if (p >= 1) meteor = null;
-                else {
-                    const fade = Math.sin(p * Math.PI);
-                    const x = meteor.x + meteor.vx * p, y = meteor.y + meteor.vy * p;
-                    const tx = x - meteor.vx * 0.055, ty = y - meteor.vy * 0.055;
-                    const mg = ctx.createLinearGradient(tx, ty, x, y);
-                    mg.addColorStop(0,'rgba(255,255,255,0)');
-                    mg.addColorStop(1, `rgba(255,252,245,${0.85 * fade})`);
-                    ctx.strokeStyle = mg; ctx.lineWidth = 1.5 * dpr; ctx.lineCap ='round';
-                    ctx.beginPath(); ctx.moveTo(tx, ty); ctx.lineTo(x, y); ctx.stroke();
-                }
-            }
-
-            // 暗角
-            const vg = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.78);
-            vg.addColorStop(0,'rgba(0,0,0,0)');
-            vg.addColorStop(1,'rgba(0,0,0,0.45)');
-            ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
-
-            raf = requestAnimationFrame(frame);
+            ctx.drawImage(N.fg, 0, 0);   // 地平線輝光 + 暗角
+            drawComet(now);
         }
 
-        function start() { if (raf || !isDark()) return; if (!statics) build(); t0 = performance.now(); raf = requestAnimationFrame(frame); }
+        /* ---------- 共用流程 ---------- */
+
+        function resize() {
+            dpr = Math.min(window.devicePixelRatio || 1, 2);
+            W = cv.width = Math.floor(innerWidth * dpr);
+            H = cv.height = Math.floor(innerHeight * dpr);
+            cv.style.width = innerWidth +'px';
+            cv.style.height = innerHeight +'px';
+            night = null; day = null;
+        }
+
+        function frame(now) {
+            if (isDark()) { if (!night) buildNight(); drawNight(now); }
+            else { if (!day) buildDay(); drawDay(now); }
+            raf = calm.matches ? null : requestAnimationFrame(frame);
+        }
+
+        function start() {
+            if (raf) return;
+            if (!W) resize();
+            // 系統設定「減少動態」時只畫一張靜止的天空
+            if (calm.matches) { frame(performance.now()); return; }
+            raf = requestAnimationFrame(frame);
+        }
         function stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } }
 
         let rt = null;
-        addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { statics = null; stop(); start(); }, 200); });
-        // 切到背景就停，回來再繼續：星野是持續動畫，不停會一直耗電
+        addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { stop(); resize(); start(); }, 200); });
+        // 切到背景就停，回來再繼續：天空是持續動畫，不停會一直耗電
         document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
-        new MutationObserver(() => isDark() ? start() : stop())
+        // 換日夜模式時重畫一張，不然會停在舊的那一面
+        new MutationObserver(() => { if (calm.matches) { stop(); frame(performance.now()); } })
             .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         start();
     })();
@@ -1964,6 +2232,16 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-07-27',
+                title: '天空',
+                items: [
+                    ['白天有天空了', '淺色模式以前只是一片紙色。現在是一整片天：天頂濃藍一路過渡到地平線的暖白與橙紅，積雲有厚度——頂端受光偏白、底部在自己的陰影裡偏藍灰，右上角有一道暖色的受光邊。越靠近地平線的雲越小、越淡、越藍，那是大氣透視。雲會很慢地飄，遠近速度不同。'],
+                    ['夜空改成黃昏與夜的交界', '原本是單純的深藍到黑。現在從天頂的深空往下推過紫、紫粉，最後在地平線留一道殘紅，接上原本就有的城市光害輝光。'],
+                    ['流星換成彗星', '流星是一閃而過的小事件；彗星會慢慢橫越整片天，拖著散開的長尾，走完要十幾秒，平均兩分鐘才出現一次。'],
+                    ['卡片維持不透明', '天空是背景，內容還是要讀得清楚，所以卡片沒有跟著變透明。'],
+                ]
+            },
             {
                 date: '2026-07-27',
                 title: '改版收尾與三項修正',
