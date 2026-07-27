@@ -310,6 +310,53 @@
         .bg-sky-600 { background-color: #4c5578 !important; }
         .text-sky-100 { color: rgba(255, 255, 255, 0.82) !important; }
 
+        /* ---- 開站載入畫面 ----
+           貓繞著 logo 跑。繞圈是靠外層轉、內層反轉：
+           外層 .splash-orbit 帶著貓一起轉，貓自己再反方向轉同樣的角速度，
+           這樣貓的方向永遠是正的，不會跟著頭下腳上。 */
+        #splash {
+            position: fixed; inset: 0; z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 22px;
+            background: var(--paper);
+            transition: opacity .45s ease, visibility .45s ease;
+        }
+        html.dark #splash { background: #070b18; }
+        #splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
+        .splash-stage { position: relative; width: 132px; height: 132px; }
+        .splash-logo {
+            position: absolute; inset: 50% auto auto 50%;
+            width: 64px; height: 64px; margin: -32px 0 0 -32px;
+            border-radius: 50%; object-fit: cover;
+            box-shadow: 0 2px 18px rgba(26,24,21,.14);
+            animation: splashBreathe 2.4s ease-in-out infinite;
+        }
+        .splash-orbit {
+            position: absolute; inset: 0;
+            animation: splashSpin 1.6s linear infinite;
+        }
+        .splash-cat {
+            position: absolute; top: -2px; left: 50%;
+            margin-left: -13px;
+            font-size: 26px; line-height: 1;
+            /* 反轉抵銷外層的旋轉，貓才不會翻過來 */
+            animation: splashSpin 1.6s linear infinite reverse;
+            display: inline-block;
+        }
+        .splash-text {
+            font-family: 'Noto Serif TC', Georgia, serif;
+            color: var(--ink-3); font-size: 14px; letter-spacing: .08em; margin: 0;
+        }
+        @keyframes splashSpin { to { transform: rotate(360deg); } }
+        @keyframes splashBreathe {
+            0%, 100% { transform: scale(1); }
+            50%      { transform: scale(1.06); }
+        }
+        /* 系統設定「減少動態」時不轉，只留一個靜止的畫面 */
+        @media (prefers-reduced-motion: reduce) {
+            .splash-orbit, .splash-cat, .splash-logo { animation: none !important; }
+        }
+
         /* ==========================================================
            觸控裝置的點擊目標：至少 44px
            量到有 23 個目標低於 44px，最小的只有 24px（首頁的快速連結）
@@ -971,6 +1018,25 @@
     })();
     </script>
 
+
+    <!-- 開站載入畫面：一隻喵繞著 logo 跑。首頁資料到齊後淡出 -->
+    <div id="splash" aria-hidden="true">
+        <div class="splash-stage">
+            <img src="image.png" alt="" class="splash-logo">
+            <div class="splash-orbit"><span class="splash-cat">🐾</span></div>
+        </div>
+        <p class="splash-text">正在叫醒小黑貓…</p>
+    </div>
+    <script>
+        // 保底計時器，刻意寫在這裡而不是主程式裡：
+        // 如果主程式整個沒跑起來（語法錯誤、Firebase 的 CDN 被擋、
+        // 學校網路擋掉 gstatic…），主程式裡的任何邏輯都不會執行，
+        // 使用者就會永遠卡在載入畫面。這段是普通 script，不受 module 影響。
+        setTimeout(function () {
+            var el = document.getElementById('splash');
+            if (el) el.classList.add('done');
+        }, 8000);
+    </script>
 
     <header id="mainHeader" class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30 transition-transform duration-300 ease-in-out transform translate-y-0">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
@@ -2336,11 +2402,18 @@
         (() => {
             let lastScrollY = window.scrollY;
             const header = $('mainHeader');
+            // 接近底部時不讓頁首自動冒出來。
+            // 到了底部之後，手機的回彈、網址列收合、或是「載入更多」造成的
+            // 重新排版都會讓 scrollY 小幅變小，而「變小＝往上滑＝顯示頁首」，
+            // 結果人根本沒滑，頁首卻一直閃。
+            const NEAR_BOTTOM = 80;
+            const atBottom = () =>
+                innerHeight + window.scrollY >= document.documentElement.scrollHeight - NEAR_BOTTOM;
             window.addEventListener('scroll', () => {
                 const y = window.scrollY;
                 if (y <= 0) header.style.transform ='translateY(0)';
                 else if (y > 60 && y > lastScrollY) header.style.transform ='translateY(-100%)';
-                else if (y < lastScrollY) header.style.transform ='translateY(0)';
+                else if (y < lastScrollY && !atBottom()) header.style.transform ='translateY(0)';
                 lastScrollY = y;
                 const btt = $('backToTopBtn'); if (btt) btt.classList.toggle('hidden', y < 400);
             }, { passive: true });
@@ -2360,6 +2433,8 @@
                 date: '2026-07-27',
                 title: '操作介面',
                 items: [
+                    ['開站有載入畫面了', '一隻喵繞著小黑貓的頭跑。首頁的公告、連結、課程三份資料都有回音之後就淡出——注意是「有回音」而不是「都成功」，離線或沒權限也算，不然一個讀不到的集合就會把人永遠鎖在載入畫面。另外還有兩道逾時保底，其中一道故意寫在主程式外面，這樣連 Firebase 的網路被學校擋掉、主程式整個沒跑起來，畫面也還是會放行。'],
+                    ['滑到底時頁首不再亂冒出來', '以前只要 scrollY 變小就當成「使用者往上滑」而顯示頁首。但到了底部之後，手機的回彈、網址列收合、按「載入更多」造成的重新排版，都會讓 scrollY 小幅變小——人根本沒滑，頁首卻一直閃。現在接近底部就不自動顯示。'],
                     ['課程頁改成分批顯示', '以前一次把整個課程庫都畫出來，量到將近一萬像素高、三百多個可點元素，手機上要捲很久，畫面也跟著變慢。現在一次顯示 12 門，下面有「載入更多」並標示還剩幾門。改搜尋或篩選會自動回到第一批。'],
                     ['手機上的按鈕變大了', '量到有 23 個可點目標小於 44px，最小的只有 24px（首頁的快速連結）和 28px（課表的提醒／閱讀／編輯、改暱稱的鉛筆、刪除圖示）。手指的接觸面積差不多就是 44px，低於這個值在手機上會真的點不中。現在觸控裝置上一律至少 44px，用滑鼠的桌機版面維持原樣。'],
                 ]
@@ -5778,6 +5853,27 @@
         ];
 
         // 每個分頁需要哪些資料集（延遲載入用）
+        /* ---- 載入畫面何時收掉 ----
+         * 判準是「首頁要的三份資料都有回音」，而不是「都成功」——
+         * 權限不足或離線時 onSnapshot 走的是錯誤回呼，那也算有回音。
+         * 只等成功的話，一個沒權限的集合就會把使用者永遠鎖在載入畫面。
+         * 另外再加一道逾時，兩條路任一條走到都會收掉。 */
+        const SPLASH_KEYS = ['news','links','courses'];
+        const splashSettled = new Set();
+        let splashDone = false;
+        function hideSplash() {
+            if (splashDone) return;
+            splashDone = true;
+            const el = document.getElementById('splash');
+            if (el) el.classList.add('done');
+        }
+        function markSettled(key) {
+            if (splashDone) return;
+            splashSettled.add(key);
+            if (SPLASH_KEYS.every(k => splashSettled.has(k))) hideSplash();
+        }
+        setTimeout(hideSplash, 6000);
+
         const TAB_DATA = {
 'home':       ['news','links','courses'],
 'evaluation': ['courses','reviews','matWarrior','matLeader'],
@@ -5812,12 +5908,14 @@
                         state[key] = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
                         if (sort) state[key].sort(sort);
                         render();
+                        markSettled(key);
                     },
                     (err) => {   // 權限不足或離線：清掉這份訂閱並留白，不要讓整頁卡住
                         console.warn(`訂閱 ${key} 失敗:`, err.code || err);
                         if (activeSubs[key]) { activeSubs[key](); delete activeSubs[key]; }
                         state[key] = [];
                         render();
+                        markSettled(key);   // 失敗也算有回音，不然載入畫面收不掉
                     }
                 );
             });
