@@ -433,124 +433,128 @@
 
         /* ---------- 白天 ---------- */
 
-        // 一朵積雲：先用一堆模糊的圓疊出剪影，再用 source-in 上色。
-        // 直接畫實心圓會有硬邊，看起來像棉花糖而不是雲。
-        function makeCloud(w, h) {
+        // 黃昏的雲是「逆光」的：太陽在地平線上，所以亮的是雲的下緣，
+        // 上緣反而在自己的陰影裡偏冷。這跟正午的雲剛好相反，
+        // 也是這張參考圖最關鍵的一件事。
+        const DUSK_CLOUD = [
+            [0.00, '#9d8fb8'],   // 頂：背光，冷紫
+            [0.40, '#bda0b8'],
+            [0.72, '#e8bb9e'],
+            [1.00, '#fbdcbb'],   // 底：迎著地平線的光
+        ];
+
+        // 一片雲：先用一堆模糊的橢圓疊出剪影，再用 source-in 上色。
+        // 直接畫實心圖形會有硬邊，看起來像貼紙而不是雲。
+        function makeWisp(w, h) {
             const c = mkCanvas(w, h), g = c.getContext('2d');
-            const blur = Math.round(w * 0.018);
+            const blur = Math.round(h * 0.15);
             g.filter = `blur(${blur}px)`;
             g.fillStyle = '#fff';
-            // 任何形狀只要碰到這張小圖的邊界就會被切出一條直邊，
-            // 貼到天空上會看到一個矩形的接縫（跟銀河那條裂縫同一種錯）。
-            // ×3.5 是量出來的：高斯模糊的尾巴很長，×2.5 時邊緣還會殘留
-            // alpha 2～4，在漸層天空上就是一條看得出來的邊。
-            //
-            // 重點是「把雲畫在內框裡」，不是「畫滿之後再夾回來」——
-            // 後者會把頂端的起伏一起夾掉，雲就變回一顆平滑的饅頭。
             const pad = blur * 3.5;
             const x0 = pad, y0 = pad, iw = w - pad * 2, ih = h - pad * 2;
-            const clampR = (x, y, r) =>
-                Math.min(r, x - pad, y - pad, w - pad - x, h - pad - y);   // 保險，正常不會生效
-            const puff = (x, y, r) => {
-                const rr = clampR(x, y, r);
-                if (rr > 1) { g.beginPath(); g.arc(x, y, rr, 0, 6.2832); g.fill(); }
-            };
-
-            const base = y0 + ih * 0.78;                 // 積雲底部大致是平的
-            // 第一層：沿著拱形排的大團，決定整朵雲的重心
-            const n = 9 + Math.floor(Math.random() * 5);
-            for (let i = 0; i < n; i++) {
-                const t = i / (n - 1);
-                const hump = Math.sin(t * Math.PI);
-                puff(x0 + iw * (0.16 + 0.68 * t) + rnd(-iw * 0.02, iw * 0.02),
-                     base - ih * 0.30 * hump * rnd(0.7, 1.15),
-                     ih * (0.11 + 0.18 * hump) * rnd(0.8, 1.2));
-            }
-            // 第二層：頂上再加一批小團。只有第一層的話輪廓是一條平滑的拱線，
-            // 看起來像饅頭；積雲的頭是一顆一顆疊出來的，要有高低起伏。
-            const m = 7 + Math.floor(Math.random() * 5);
-            for (let j = 0; j < m; j++) {
-                const t = rnd(0.08, 0.92);
-                const hump = Math.sin(t * Math.PI);
-                puff(x0 + iw * (0.16 + 0.68 * t),
-                     base - ih * (0.28 * hump + 0.06) * rnd(0.9, 1.3),
-                     ih * (0.05 + 0.09 * hump) * rnd(0.7, 1.3));
-            }
-            // 底部用幾片高度不一的扁橢圓疊出來。單一橢圓會切出一條直線邊，
-            // 雲會像被桌子截斷。
-            for (let k = 0; k < 4; k++) {
-                const cx = x0 + iw * rnd(0.28, 0.72), cy = base + ih * rnd(-0.02, 0.02);
-                const rx = Math.min(iw * rnd(0.14, 0.24), cx - pad, w - pad - cx);
-                const ry = Math.min(ih * rnd(0.06, 0.10), cy - pad, h - pad - cy);
+            if (iw < 8 || ih < 8) return c;
+            // 黃昏的高空雲是被拉長的，不是團狀的積雲
+            for (let i = 0; i < 6; i++) {
+                const cx = x0 + iw * rnd(0.18, 0.82), cy = y0 + ih * rnd(0.30, 0.70);
+                const rx = Math.min(iw * rnd(0.16, 0.34), cx - pad, w - pad - cx);
+                const ry = Math.min(ih * rnd(0.12, 0.30), cy - pad, h - pad - cy);
                 if (rx > 1 && ry > 1) {
-                    g.beginPath(); g.ellipse(cx, cy, rx, ry, 0, 0, 6.2832); g.fill();
+                    g.beginPath(); g.ellipse(cx, cy, rx, ry, rnd(-0.06, 0.06), 0, 6.2832); g.fill();
                 }
             }
             g.filter = 'none';
-
-            // 上色：頂白、腰淡藍、底藍灰。這一層決定雲有沒有體積
             g.globalCompositeOperation = 'source-in';
-            const grd = g.createLinearGradient(0, h * 0.12, 0, h * 0.92);
-            grd.addColorStop(0.00, '#ffffff');
-            grd.addColorStop(0.38, '#f4f8fd');
-            grd.addColorStop(0.68, '#cddbeb');
-            grd.addColorStop(1.00, '#a9bcd4');
+            const grd = g.createLinearGradient(0, y0, 0, y0 + ih);
+            for (const [p, col] of DUSK_CLOUD) grd.addColorStop(p, col);
             g.fillStyle = grd; g.fillRect(0, 0, w, h);
-
-            // 右上角的受光邊。太陽在右上，這道暖白邊是三部片最好認的一筆
-            g.globalCompositeOperation = 'source-atop';
-            const rim = g.createRadialGradient(w * 0.72, h * 0.18, 0, w * 0.72, h * 0.18, w * 0.55);
-            rim.addColorStop(0, 'rgba(255,248,232,0.85)');
-            rim.addColorStop(0.45, 'rgba(255,246,228,0.22)');
-            rim.addColorStop(1, 'rgba(255,240,220,0)');
-            g.fillStyle = rim; g.fillRect(0, 0, w, h);
             g.globalCompositeOperation = 'source-over';
             return c;
         }
 
-        // 高空捲雲：又薄又長，幾乎只是一層紗
-        function makeCirrus(w, h) {
-            const c = mkCanvas(w, h), g = c.getContext('2d');
-            const blur = Math.round(h * 0.16);
+        // 雲海：整片畫布寬度一次烘好，不做拼接。
+        // 拼接就得處理接縫，而雲海在很遠的地方、幾乎不動，不值得為它冒這個險。
+        function bakeCloudSea() {
+            const c = mkCanvas(W, H), g = c.getContext('2d');
+            const top = H * 0.80, band = H - top;
+            // 模糊要小。太糊的話一整排雲頂會爛成一條均勻的帶子，
+            // 看起來像一塊平板或一片湖，而不是一團一團的雲海。
+            const blur = Math.max(2, Math.round(band * 0.05));
             g.filter = `blur(${blur}px)`;
-            g.fillStyle = 'rgba(255,255,255,0.55)';
-            // ×3.5 是量出來的：高斯模糊的尾巴很長，×2.5 時邊緣還會殘留
-            // alpha 2～4，貼在漸層天空上就是一條看得出來的矩形邊。
-            const pad = blur * 3.5;
-            const x0 = pad, y0 = pad, iw = w - pad * 2, ih = h - pad * 2;
-            for (let i = 0; i < 6; i++) {
-                const cx = x0 + iw * rnd(0.18, 0.82), cy = y0 + ih * rnd(0.35, 0.65);
-                const rx = Math.min(iw * rnd(0.12, 0.24), cx - pad, w - pad - cx);
-                const ry = Math.min(ih * rnd(0.10, 0.22), cy - pad, h - pad - cy);
-                if (rx > 1 && ry > 1) {
-                    g.beginPath(); g.ellipse(cx, cy, rx, ry, rnd(-0.05, 0.05), 0, 6.2832); g.fill();
-                }
+            g.fillStyle = '#fff';
+
+            // 第一層：大團的雲頂，彼此重疊、高低差要夠大
+            const n = Math.max(5, Math.round(W / band));
+            for (let i = -1; i <= n + 1; i++) {
+                const cx = (i + rnd(-0.35, 0.35)) * (W / n);
+                const cy = top + band * rnd(0.55, 1.00);
+                g.beginPath();
+                g.ellipse(cx, cy, band * rnd(0.55, 1.25), band * rnd(0.42, 0.78), 0, 0, 6.2832);
+                g.fill();
             }
+            // 第二層：小一點的，疊在輪廓線上製造細碎的起伏
+            for (let i = -1; i <= n * 2 + 1; i++) {
+                const cx = (i + rnd(-0.4, 0.4)) * (W / (n * 2));
+                const cy = top + band * rnd(0.45, 0.85);
+                g.beginPath();
+                g.ellipse(cx, cy, band * rnd(0.22, 0.50), band * rnd(0.18, 0.38), 0, 0, 6.2832);
+                g.fill();
+            }
+            // 下半部整片填滿，雲海才是連續的一層而不是一顆一顆。
+            // 左右各多畫一段，避免模糊把兩側邊緣吃掉露出天空。
+            g.fillRect(-blur * 4, top + band * 0.72, W + blur * 8, band * 0.28 + blur * 4);
             g.filter = 'none';
+
+            g.globalCompositeOperation = 'source-in';
+            const grd = g.createLinearGradient(0, top - band * 0.25, 0, H);
+            grd.addColorStop(0.00, '#fff8ea');   // 雲頂直接迎著地平線的光，幾乎是白的
+            grd.addColorStop(0.22, '#fde7c9');
+            grd.addColorStop(0.50, '#f0c7b6');
+            grd.addColorStop(0.76, '#d3a9bd');
+            grd.addColorStop(1.00, '#a88fc0');   // 靠近眼前的部分在陰影裡
+            g.fillStyle = grd; g.fillRect(0, 0, W, H);
+            g.globalCompositeOperation = 'source-over';
             return c;
         }
 
         function buildDay() {
-            // 天頂濃藍一路到地平線的暖白，最後收在《鈴芽之旅》那種黃昏交界的橙紅。
-            // 這條漸層是整個白天畫面的骨架，雲只是放在上面。
+            // 黃昏：天頂的藍往下推過紫、粉、橘，最後在地平線收成暖白。
+            // 這條漸層是整張畫面的骨架，其餘東西都只是放在上面。
             const bg = bakeVertical([
-                [0.00, '#2f6cb0'], [0.18, '#4a8ac9'], [0.38, '#79b2dd'],
-                [0.58, '#a9cfe8'], [0.74, '#d3e4ec'], [0.86, '#f2ddc6'],
-                [0.94, '#f3bd97'], [1.00, '#e2947e'],
+                [0.00, '#25497c'], [0.10, '#37568a'], [0.24, '#5b6295'],
+                [0.36, '#7d6a9c'], [0.48, '#a3789f'], [0.58, '#c48d9c'],
+                [0.68, '#dea294'], [0.76, '#efba95'], [0.83, '#f9d6ac'],
+                [0.875, '#fdedc9'], [1.00, '#fbe0bd'],
             ]);
+            const b = bg.getContext('2d');
 
-            // 三張雲朵母版，之後靠縮放、翻面、透明度變出十幾朵。
-            // 每朵都獨立產生的話記憶體會吃掉幾十 MB。
-            // 尺寸要比雲本身大一圈，多出來的是給模糊尾巴的留白
-            const sprites = [makeCloud(780, 380), makeCloud(740, 350), makeCloud(820, 330)];
-            const cirrus = [makeCirrus(820, 190), makeCirrus(880, 170)];
+            // 太陽落在地平線正中央，把周圍的天空烤亮。
+            // 這是天空本身的散射，不是鏡頭光斑，所以只有一團柔和的暈。
+            const sun = b.createRadialGradient(W * 0.5, H * 0.875, 0, W * 0.5, H * 0.875, W * 0.42);
+            sun.addColorStop(0, 'rgba(255,247,222,0.85)');
+            sun.addColorStop(0.35, 'rgba(255,226,180,0.34)');
+            sun.addColorStop(1, 'rgba(255,210,170,0)');
+            b.fillStyle = sun; b.fillRect(0, 0, W, H);
 
-            // y 越大＝越靠地平線＝越小、越淡、越偏藍（大氣透視）
+            // 黃昏還看得到幾顆亮星，但只在還夠暗的上半部
+            for (let i = 0; i < 70; i++) {
+                const y = Math.random() * H * 0.42;
+                const fade = 1 - y / (H * 0.42);              // 越往下越看不見
+                b.fillStyle = `rgba(255,253,246,${(0.25 + Math.random() * 0.5) * fade})`;
+                const r = rnd(0.5, 1.3) * dpr;
+                b.beginPath(); b.arc(Math.random() * W, y, r, 0, 6.2832); b.fill();
+            }
+
+            // 遠山：只是地平線上一排很淡的剪影，一半還會被雲海蓋住
+            // 原本這裡有一排遠山剪影，已經拿掉：它跟雲海擠在同一條地平線上，
+            // 兩者糊在一起變成一條分不出是什麼的灰帶，反而比沒有更糟。
+
+            // 高空的小片雲，飄得很慢
+            const sprites = [makeWisp(560, 190), makeWisp(620, 170), makeWisp(500, 210)];
             const clouds = [];
             const layers = [
-                { n: 3, y: [0.06, 0.20], sc: [0.62, 0.95], a: [0.92, 1.00], sp: [7, 12] },
-                { n: 4, y: [0.24, 0.42], sc: [0.40, 0.62], a: [0.72, 0.90], sp: [4, 7] },
-                { n: 5, y: [0.46, 0.66], sc: [0.20, 0.36], a: [0.42, 0.66], sp: [2, 4] },
+                { n: 3, y: [0.30, 0.44], sc: [0.55, 0.85], a: [0.55, 0.80], sp: [2.5, 4.5] },
+                { n: 4, y: [0.48, 0.62], sc: [0.35, 0.60], a: [0.45, 0.70], sp: [1.5, 3.0] },
+                { n: 5, y: [0.66, 0.80], sc: [0.20, 0.40], a: [0.35, 0.60], sp: [0.8, 1.8] },
             ];
             for (const L of layers) {
                 for (let i = 0; i < L.n; i++) {
@@ -562,35 +566,20 @@
                     });
                 }
             }
-            for (let i = 0; i < 3; i++) {
-                clouds.push({
-                    img: cirrus[i % cirrus.length], cirrus: true,
-                    y: rnd(0.04, 0.26), scale: rnd(0.7, 1.15),
-                    alpha: rnd(0.30, 0.55), speed: rnd(1.5, 3),
-                    base: Math.random(), flip: Math.random() < 0.5,
-                });
-            }
-            clouds.sort((a, b) => a.y - b.y);   // 遠的先畫，近的疊在上面
+            clouds.sort((a, b2) => a.y - b2.y);   // 遠的先畫，近的疊在上面
 
-            // 地平線附近的霾：讓雲的底部融進暖色裡，不會像貼紙浮著
-            const haze = mkCanvas(W, H);
-            const hg = haze.getContext('2d');
-            const hz = hg.createLinearGradient(0, H * 0.58, 0, H);
-            hz.addColorStop(0, 'rgba(246,222,198,0)');
-            hz.addColorStop(0.55, 'rgba(246,214,186,0.30)');
-            hz.addColorStop(1, 'rgba(240,180,150,0.58)');
-            hg.fillStyle = hz; hg.fillRect(0, H * 0.58, W, H * 0.42);
+            const sea = bakeCloudSea();
 
             // 很輕的暗角，只是把視線收回中間
             const vig = mkCanvas(W, H);
             const vgx = vig.getContext('2d');
-            const vg = vgx.createRadialGradient(W / 2, H * 0.45, Math.min(W, H) * 0.45,
-                                                W / 2, H * 0.45, Math.max(W, H) * 0.80);
-            vg.addColorStop(0, 'rgba(40,60,90,0)');
-            vg.addColorStop(1, 'rgba(40,60,90,0.16)');
+            const vg = vgx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.5,
+                                                W / 2, H * 0.55, Math.max(W, H) * 0.85);
+            vg.addColorStop(0, 'rgba(48,40,72,0)');
+            vg.addColorStop(1, 'rgba(48,40,72,0.20)');
             vgx.fillStyle = vg; vgx.fillRect(0, 0, W, H);
 
-            day = { bg, clouds, haze, vig };
+            day = { bg, clouds, sea, vig };
         }
 
         function drawDay(now) {
@@ -601,7 +590,7 @@
                 const h = c.img.height * c.scale * (W / 1400) * (dpr / 1.2);
                 const period = W + w * 2;
                 // 用取餘數算位置，不累加位移，久放也不會飄掉
-                let x = (((c.base * period - c.speed * t * dpr) % period) + period) % period - w;
+                const x = (((c.base * period - c.speed * t * dpr) % period) + period) % period - w;
                 ctx.globalAlpha = c.alpha;
                 if (c.flip) {
                     ctx.save(); ctx.translate(x + w, c.y * H); ctx.scale(-1, 1);
@@ -611,7 +600,7 @@
                 }
             }
             ctx.globalAlpha = 1;
-            ctx.drawImage(day.haze, 0, 0);
+            ctx.drawImage(day.sea, 0, 0);
             ctx.drawImage(day.vig, 0, 0);
         }
 
@@ -654,18 +643,14 @@
             s.rotate(-0.62);
             const bg = s.createLinearGradient(0, -D * 0.16, 0, D * 0.16);
             bg.addColorStop(0,'rgba(120,140,200,0)');
-            bg.addColorStop(0.5,'rgba(152,168,218,0.09)');
+            bg.addColorStop(0.5,'rgba(152,168,218,0.11)');
             bg.addColorStop(1,'rgba(120,140,200,0)');
             s.fillStyle = bg;
             s.fillRect(-L / 2, -D * 0.16, L, D * 0.32);
-            // 暗塵帶：也要用漸層化開。實心 fillRect 的上下緣同樣是硬邊，
-            // 在漸層夜空上會讀成一條刻痕，而不是瀰漫的塵埃。
-            const dust = s.createLinearGradient(0, -D * 0.05, 0, D * 0.05);
-            dust.addColorStop(0,'rgba(6,9,20,0)');
-            dust.addColorStop(0.5,'rgba(6,9,20,0.40)');
-            dust.addColorStop(1,'rgba(6,9,20,0)');
-            s.fillStyle = dust;
-            s.fillRect(-L / 2, -D * 0.05, L, D * 0.10);
+            // 暗塵帶已經移除。它的透明度是 0.40，而它要切開的銀河輝光只有
+            // 0.11——比背景還強四倍，在深色天空上就不會被讀成「瀰漫的塵埃」，
+            // 只會被讀成有人在天上畫了一條線。真實的暗塵帶之所以看得出來，
+            // 是因為周圍夠亮；這裡沒有那個條件，所以整條拿掉。
             s.fillStyle ='#dfe6ff';
             for (let i = 0; i < area * 1.1 * scale; i++) {
                 const v = (Math.random() + Math.random() + Math.random() - 1.5) * 0.13;
@@ -2236,7 +2221,8 @@
                 date: '2026-07-27',
                 title: '天空',
                 items: [
-                    ['白天有天空了', '淺色模式以前只是一片紙色。現在是一整片天：天頂濃藍一路過渡到地平線的暖白與橙紅，積雲有厚度——頂端受光偏白、底部在自己的陰影裡偏藍灰，右上角有一道暖色的受光邊。越靠近地平線的雲越小、越淡、越藍，那是大氣透視。雲會很慢地飄，遠近速度不同。'],
+                    ['白天改成黃昏的天空', '淺色模式以前只是一片紙色。現在是一整片黃昏：天頂的藍往下推過紫、粉、橘，太陽落在地平線正中央把周圍烤亮，底下是一層雲海，上方還看得到幾顆星。雲是逆光的——亮的是下緣、上緣在自己的陰影裡，這跟正午的雲剛好相反。'],
+                    ['修掉夜空那條直線', '銀河的暗塵帶讀起來像有人在天上畫了一條線，而不是瀰漫的塵埃。原因是它的濃度比它要切開的銀河輝光還強四倍——真實的暗塵帶看得出來是因為周圍夠亮，這裡沒有那個條件，所以整條拿掉。'],
                     ['夜空改成黃昏與夜的交界', '原本是單純的深藍到黑。現在從天頂的深空往下推過紫、紫粉，最後在地平線留一道殘紅，接上原本就有的城市光害輝光。'],
                     ['流星換成彗星', '流星是一閃而過的小事件；彗星會慢慢橫越整片天，拖著散開的長尾，走完要十幾秒，平均兩分鐘才出現一次。'],
                     ['卡片維持不透明', '天空是背景，內容還是要讀得清楚，所以卡片沒有跟著變透明。'],
