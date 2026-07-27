@@ -672,9 +672,12 @@
         function drawDay(now) {
             const t = (now - t0) / 1000;
             ctx.drawImage(day.bg, 0, 0);
+            // 雜訊版的雲圖只有 320px 寬（舊的橢圓版是 560），
+            // 縮放係數要跟著補回來，不然雲會小一半。
+            const K = 2.2;
             for (const c of day.clouds) {
-                const w = c.img.width * c.scale * (W / 1400) * (dpr / 1.2);
-                const h = c.img.height * c.scale * (W / 1400) * (dpr / 1.2);
+                const w = c.img.width * c.scale * (W / 1400) * (dpr / 1.2) * K;
+                const h = c.img.height * c.scale * (W / 1400) * (dpr / 1.2) * K;
                 const period = W + w * 2;
                 // 用取餘數算位置，不累加位移，久放也不會飄掉
                 const x = (((c.base * period - c.speed * t * dpr) % period) + period) % period - w;
