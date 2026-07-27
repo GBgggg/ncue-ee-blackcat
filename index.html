@@ -336,6 +336,13 @@
             position: absolute; inset: 0;
             animation: splashSpin 1.85s linear infinite;
         }
+        /* 這段之前漏掉了。CSS 對於「animation 指到一個不存在的 @keyframes」
+           不會報錯也不會警告，就只是安靜地什麼都不做——所以貓一直在原地
+           擺腿，看起來像在跑但根本沒繞圈。順時針，因為貓是朝右的。 */
+        @keyframes splashSpin {
+            from { transform: rotate(0deg) }
+            to   { transform: rotate(360deg) }
+        }
         /* 貓「不」反轉——跟著軌道一起轉，牠的腳才會永遠指向圓心，
            看起來就是繞著 logo 的邊緣跑。之前反轉是為了讓貓保持直立，
            但那樣牠只是被拎著繞圈，腳沒有踩在任何東西上。
