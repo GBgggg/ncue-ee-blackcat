@@ -526,6 +526,11 @@ function drawSheet(){
     const ink = cvar('--ink'), rule = cvar('--rule'), wire = cvar('--wire'),
           selc = cvar('--sel'), ink3 = cvar('--ink-3'), warnc = cvar('--warn');
     // 格點
+    /* 接腳標記的半徑：跟著縮放走但夾住上下限。
+       完全固定的話縮小時會蓋住元件、放大時又顯得太小。 */
+    const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
+    const RING_R = clamp(8*view.z, 6, 12);
+    const DOT_R  = clamp(4.2*view.z, 3.2, 6);
     const step = G*view.z;
     if (step > 5){
         g.fillStyle = rule;
@@ -546,7 +551,7 @@ function drawSheet(){
     sch.parts.forEach(p => pinsOf(p).forEach(([x,y]) => bump(x,y)));
     g.fillStyle = wire;
     cnt.forEach((c,k) => { if (c >= 3){ const [x,y] = k.split(',').map(Number);
-        const [sx,sy] = W2S(x,y); g.beginPath(); g.arc(sx,sy,3,0,7); g.fill(); } });
+        const [sx,sy] = W2S(x,y); g.beginPath(); g.arc(sx,sy,DOT_R,0,7); g.fill(); } });
     // 元件
     sch.parts.forEach((p,i) => {
         const on = sel && sel.kind==='part' && sel.i===i;
@@ -570,10 +575,10 @@ function drawSheet(){
             const [a,b] = W2S(x,y);
             if (isConnected(x,y,i,k)){
                 g.fillStyle = wire;
-                g.beginPath(); g.arc(a,b,2.2,0,7); g.fill();
+                g.beginPath(); g.arc(a,b,DOT_R,0,7); g.fill();
             } else {
-                g.strokeStyle = warnc; g.lineWidth = 1.6;
-                g.beginPath(); g.arc(a,b,4,0,7); g.stroke();
+                g.strokeStyle = warnc; g.lineWidth = 2.2;
+                g.beginPath(); g.arc(a,b,RING_R,0,7); g.stroke();
             }
         });
     });
