@@ -242,6 +242,14 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
       <div id="anaFields"></div>
       <div id="directive" class="mono"></div>
       <p class="sub">上面這行就是送給 ngspice 的指令，改欄位會即時同步。</p>
+      <div class="field" style="margin-top:10px">
+        <label for="modeSel">元件模型</label>
+        <select id="modeSel">
+          <option value="ideal">理想 — 電子學／電路學考題的預設</option>
+          <option value="real">現實 — 加上寄生參數與真實模型</option>
+        </select>
+      </div>
+      <div id="modeNote" class="sub"></div>
     </div>
 
     <div class="card" style="margin-top:12px">
@@ -418,7 +426,7 @@ function autosave(){
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
         try {
-            const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals, t:Date.now() });
+            const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value, t:Date.now() });
             if (data === lastSaved) return;
             localStorage.setItem(DOC_KEY, data); lastSaved = data;
         } catch(e) {}    // 空間滿了或被停用就算了，不要吵使用者
@@ -550,18 +558,110 @@ function buildNodes(){
     return { nameOf, key, find, gnd };
 }
 
+/* ==========================================================
+   理想模式 vs 現實模式
+
+   理想模式就是課本和考卷上的預設：運放虛短路虛斷路、電容電感沒有寄生、
+   電源沒有內阻、電晶體的 β 是常數而且沒有 Early 效應。這是預設值，
+   因為學生要先能算得出跟課本一樣的答案，才有資格談誤差。
+
+   現實模式在「產生 netlist 的那一刻」把寄生元件插進去，電路圖完全不動。
+   這樣做的好處是：外部節點名稱不變，探針、波形圖、量測表全都不用改；
+   插進去的隱藏節點另外用 X 開頭編號，不會跟 N 開頭的真實節點撞名。
+
+   數值全部寫死，不開放修改——這個功能要回答的是「為什麼實驗結果跟計算
+   對不起來」，不是要人調參數去湊答案。每個值下面都註明了出處。
+   ========================================================== */
+let realMode = false;
+const REAL = {
+    // 陶瓷／薄膜電容的等效串聯電阻與電感。ESL 讓電容在自諧振頻率以上
+    // 變成電感性——這是「為什麼高頻要並一顆小電容」的直接答案。
+    C_ESR: 0.1, C_ESL: 10e-9,
+    // 繞線電阻。用「每亨利 1000 Ω」估，10mH 得 10Ω，跟小型功率電感相當。
+    L_DCR_PER_H: 1000, L_DCR_MIN: 0.01,
+    // 訊號產生器輸出阻抗是 50Ω 的業界標準；直流電源供應器／電池則很小。
+    V_SIG_R: 50, V_DC_R: 0.1,
+    // 741 等級的運放：開迴路增益 100dB、增益頻寬積 1MHz、輸出阻抗 75Ω。
+    OP_A0: 1e5, OP_GBW: 1e6, OP_ROUT: 75, OP_RIN: 2e6
+};
+const MODELS = {
+    ideal: {
+        // 定壓降模型：IS=1e-14、N=1 時 1mA 下的順向壓降約 0.65V，接近課本的 0.7V。
+        D: '.model DMOD D(IS=1e-14 N=1)',
+        // β 為常數、沒有 VAF（無 Early 效應）、沒有接面電容——考題的標準假設。
+        Q: '.model QMOD NPN(BF=200 IS=1e-15)'
+    },
+    real: {
+        // 1N4148 的公開參數
+        D: '.model DMOD D(IS=2.52n RS=0.568 N=1.752 CJO=4p M=0.333 VJ=0.75 BV=100 IBV=0.1u TT=11.5n)',
+        // 2N2222 等級：有 Early 電壓、基極／集極電阻、接面電容與渡越時間
+        Q: '.model QMOD NPN(IS=1e-14 BF=200 VAF=100 RB=10 RC=1 RE=0.5 CJE=25p CJC=8p TF=0.4n TR=100n)'
+    }
+};
+/* 電壓源的內阻要看它扮演什麼。寫 DC 的當成電源供應器或電池（內阻很小），
+   其餘（AC／SIN／PULSE）當成訊號產生器，用 50Ω。 */
+const srcR = val => /^\s*(dc\b|[-+.\d])/i.test(String(val)) ? REAL.V_DC_R : REAL.V_SIG_R;
+
 /* ---------- 產生 netlist ---------- */
 function toNetlist(){
     const nd = buildNodes();
-    const lines = ['Blackcat SPICE schematic'];
+    const lines = ['Blackcat SPICE schematic' + (realMode ? ' (real)' : '')];
     const used = {}, models = new Set(); const warn = [];
     let hasGnd = sch.parts.some(p => p.type === 'GND');
+    // 現實模式插進去的隱藏節點。用 X 開頭，不會跟 N 開頭的真實節點撞名。
+    let hidden = 0;
+    const hid = () => 'X' + (++hidden);
     for (const p of sch.parts){
         const T = TYPES[p.type];
         if (p.type === 'GND') continue;
         const ref = p.ref || (T.pre + (used[T.pre] = (used[T.pre]||0)+1));
         const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
-        if (T.model) models.add(T.model);
+        // 模型只在使用者沒有自己指定名稱時才換掉
+        if (T.model){
+            const std = MODELS[realMode?'real':'ideal'][p.type];
+            models.add(std && /^(DMOD|QMOD)$/i.test(String(p.val).trim()) ? std : T.model);
+        }
+        if (realMode && p.type === 'C'){
+            /* 真實電容 = 理想電容 + ESR + ESL 串聯。
+               外面兩個接點維持原節點，所以探針和波形完全不受影響。 */
+            const a = hid(), b = hid();
+            lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
+            lines.push(`R_${ref}_esr ${a} ${b} ${REAL.C_ESR}`);
+            lines.push(`L_${ref}_esl ${b} ${ns[1]} ${REAL.C_ESL}`);
+            continue;
+        }
+        if (realMode && p.type === 'L'){
+            const a = hid();
+            const h = unit(p.val);
+            // 看不懂的寫法就給下限，不要讓 NaN 流進 netlist（ngspice 會整段解析失敗）
+            const dcr = isFinite(h) ? Math.max(REAL.L_DCR_MIN, h * REAL.L_DCR_PER_H)
+                                    : REAL.L_DCR_MIN;
+            lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
+            lines.push(`R_${ref}_dcr ${a} ${ns[1]} ${dcr.toPrecision(3)}`);
+            continue;
+        }
+        if (realMode && p.type === 'V'){
+            const a = hid();
+            lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
+            lines.push(`R_${ref}_out ${a} ${ns[1]} ${srcR(p.val)}`);
+            continue;
+        }
+        if (realMode && p.type === 'E'){
+            /* 單極點運放巨觀模型（教科書標準三段式）：
+                 輸入電阻 → 有限增益的 VCVS → RC 極點 → 緩衝 → 輸出電阻
+               極點頻率 = GBW / A0，所以增益頻寬積剛好是 1MHz。
+               這裡刻意用 Rp=1k 當基準去反推 Cp，數字比較好讀。 */
+            const a = hid(), b = hid(), c = hid();
+            const fp = REAL.OP_GBW / REAL.OP_A0;          // 10 Hz
+            const Rp = 1e3, Cp = 1/(2*Math.PI*fp*Rp);
+            lines.push(`R_${ref}_in ${ns[0]} ${ns[1]} ${REAL.OP_RIN.toPrecision(3)}`);
+            lines.push(`${ref} ${a} 0 ${ns[0]} ${ns[1]} ${REAL.OP_A0.toPrecision(3)}`);
+            lines.push(`R_${ref}_p ${a} ${b} ${Rp}`);
+            lines.push(`C_${ref}_p ${b} 0 ${Cp.toPrecision(4)}`);
+            lines.push(`E_${ref}_b ${c} 0 ${b} 0 1`);
+            lines.push(`R_${ref}_out ${c} ${ns[2]} ${REAL.OP_ROUT}`);
+            continue;
+        }
         if (p.type === 'E')       lines.push(`${ref} ${ns[2]} 0 ${ns[0]} ${ns[1]} ${p.val}`);
         else if (p.type === 'Q')  lines.push(`${ref} ${ns[0]} ${ns[1]} ${ns[2]} ${p.val}`);
         else                      lines.push(`${ref} ${ns[0]} ${ns[1]} ${p.val}`);
@@ -698,6 +798,23 @@ $('anaSel').onchange = buildAna;
 buildAna();
 
 function refreshNet(){ const r = toNetlist(); $('net').value = r.text; autosave(); return r; }
+
+const MODE_NOTE = {
+    ideal: '運放虛短路虛斷路、電容電感沒有寄生、電源沒有內阻、電晶體 β 為常數且沒有 Early 效應。' +
+           '算出來會跟課本一樣。',
+    real:  `電容串上 ${REAL.C_ESR}Ω ESR 與 ${REAL.C_ESL*1e9}nH ESL、電感串上繞線電阻（每亨利 ` +
+           `${REAL.L_DCR_PER_H}Ω）、電壓源串上內阻（直流 ${REAL.V_DC_R}Ω／訊號 ${REAL.V_SIG_R}Ω）、` +
+           `運放換成開迴路增益 ${REAL.OP_A0/1e3}k、增益頻寬積 ${REAL.OP_GBW/1e6}MHz、輸出阻抗 ` +
+           `${REAL.OP_ROUT}Ω 的巨觀模型，二極體用 1N4148、電晶體用含 Early 效應的 2N2222 參數。` +
+           '電路圖不會被改動，寄生元件是產生 netlist 時才插進去的，可以在下面的 netlist 裡看到。' +
+           '（運放模型沒有電源軌，所以不會飽和；元件誤差容差也還沒做。）'
+};
+function applyMode(){
+    realMode = $('modeSel').value === 'real';
+    $('modeNote').textContent = MODE_NOTE[realMode ? 'real' : 'ideal'];
+    refreshNet(); drawSheet();
+}
+$('modeSel').onchange = applyMode;
 
 /* ==========================================================
    畫布：格點、元件、線、選取
@@ -1055,7 +1172,16 @@ function keyName(code){
               ControlLeft:'Ctrl', ControlRight:'右Ctrl', Tab:'Tab' })[code]
         || code.replace(/^Key/,'').replace(/^Digit/,'').replace(/^Numpad/,'數字鍵');
 }
-const actionFor = code => ACTIONS.find(([a]) => keys[a] === code)?.[0];
+/* 有些鍵盤上沒有獨立的 Delete，或使用者以為右上角那顆就是 Delete（其實是
+   Backspace）；數字鍵盤的 Del 送出的又是 NumpadDecimal。三顆都當成同一件事，
+   除非使用者自己把別的動作綁到那顆鍵上。 */
+const DEL_ALIAS = ['Delete', 'Backspace', 'NumpadDecimal'];
+const actionFor = code => {
+    const hit = ACTIONS.find(([a]) => keys[a] === code)?.[0];
+    if (hit) return hit;
+    if (DEL_ALIAS.includes(code) && DEL_ALIAS.includes(keys.del)) return 'del';
+    return null;
+};
 
 addEventListener('keydown', e => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
@@ -1269,7 +1395,11 @@ function inspect(){
         <button class="btn" id="ip_rot">旋轉</button>
         <button class="btn" id="ip_del">刪除</button>
       </div>
-      <p class="sub">型別：${T.label}（${p.type}）</p>`;
+      <p class="sub">型別：${T.label}（${p.type}）${
+        realMode && p.type === 'E'
+          ? '<br><b>現實模式下這個增益欄位不生效</b>，運放改用內建的巨觀模型。' : ''}${
+        realMode && (p.type === 'C' || p.type === 'L' || p.type === 'V')
+          ? '<br>現實模式會在產生 netlist 時幫它串上寄生元件。' : ''}</p>`;
     let typed = false;      // 連續打字只記一次復原點，不然每按一個字都是一步
     const once = () => { if (!typed){ pushUndo(); typed = true; } };
     $('ip_ref').oninput = e => { once(); p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
@@ -1721,12 +1851,13 @@ $('plot').addEventListener('mouseleave', () => { hoverX=null; $('readout').textC
    存檔與分享
    ========================================================== */
 const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
-    { s:sch, a:$('anaSel').value, v:anaVals }))));
+    { s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value }))));
 function unpack(str){
     const o = JSON.parse(decodeURIComponent(escape(atob(str))));
     sch = o.s || {parts:[],wires:[],probes:[]}; sch.probes = sch.probes || [];
     seq = (sch.parts.length||0)+1; sel = [];
     $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
+    $('modeSel').value = o.m === 'real' ? 'real' : 'ideal'; applyMode();
     inspect(); refreshNet(); renderProbes(); fit();
 }
 $('saveBtn').onclick = async () => {
@@ -1783,7 +1914,8 @@ if (q){
                 sch = o.s; sch.probes = sch.probes || [];
                 seq = sch.parts.length + 1; sel = [];
                 $('anaSel').value = o.a || 'tran'; anaVals = o.v || {};
-                buildAna(); inspect(); refreshNet(); fit();
+                $('modeSel').value = o.m === 'real' ? 'real' : 'ideal';
+                buildAna(); applyMode(); inspect(); refreshNet(); fit();
                 show('ok','已接續上次編輯的電路',
                      ['要改用範例請從上面的下拉選單挑一個。']);
                 restored = true;
@@ -1792,6 +1924,7 @@ if (q){
     } catch(e) {}
     if (!restored) loadExample('RC 低通（步階）');
 }
+applyMode();          // 不論走哪條路都要把模式說明填上、netlist 重算一次
 drawPlot();
 </script>
 </body>
