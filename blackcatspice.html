@@ -5,19 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>小黑貓電路模擬器</title>
 <link rel="icon" href="image.png">
-<meta name="description" content="彰師電子小黑貓的電路模擬器。免安裝、手機可用、一個連結就能分享。">
+<meta name="description" content="彰師電子小黑貓的電路模擬器。畫電路、按執行、看波形。免安裝，手機也能跑。">
 <style>
 /* ==========================================================
-   設計 token 與主站共用同一組值，兩邊看起來才是同一個站。
-   主站是 publicnew.html，改配色時兩邊要一起改。
+   設計 token 與主站 publicnew.html 共用同一組值。改配色要兩邊一起改。
    ========================================================== */
 :root{
     --paper:#f6f3ec; --paper-raised:#fffefb;
     --ink:#1a1815; --ink-2:#4a453e; --ink-3:#8a8277;
     --rule:#e2dcd2; --accent:#b0522f; --accent-fill:#b0522f; --accent-soft:#f2e5dd;
-    /* 「成功」不用綠色——全站的綠只保留給台股跌的慣例。這是色相 190° 的藍青。 */
+    /* 「成功」不用綠色——全站的綠只留給台股跌的慣例。這是色相 190° 的藍青。 */
     --ok:#2f7d8c; --bad:#c0392b; --warn:#b8862b;
-    /* 波形用色：刻意避開色相 75–165°（綠），且兩兩色相拉開 */
+    --wire:#3a4a63; --sel:#b0522f;
     --t1:#b0522f; --t2:#3d6b9e; --t3:#b8862b; --t4:#7a4f8a; --t5:#2f7d8c; --t6:#a8425f;
 }
 html.dark{
@@ -26,107 +25,106 @@ html.dark{
     --rule:rgba(175,190,235,.16); --accent:#dc9166; --accent-fill:#a85a30;
     --accent-soft:rgba(220,145,102,.14);
     --ok:#63b6c4; --bad:#ff8a80; --warn:#dcae4d;
+    --wire:#93a7c9; --sel:#dc9166;
     --t1:#e08a5f; --t2:#7aa8dc; --t3:#dcae4d; --t4:#b489c4; --t5:#63b6c4; --t6:#e0768f;
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{
-    background:var(--paper); color:var(--ink);
-    font:15px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
-    -webkit-text-size-adjust:100%;
-}
+body{background:var(--paper);color:var(--ink);
+     font:15px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
+     -webkit-text-size-adjust:100%}
 a{color:var(--accent)}
-.wrap{max-width:1180px;margin:0 auto;padding:0 14px 40px}
+.wrap{max-width:1340px;margin:0 auto;padding:0 12px 40px}
 
-/* ---- 頁首 ---- */
-header{
-    position:sticky; top:0; z-index:30;
-    background:var(--paper-raised); border-bottom:1px solid var(--rule);
-    padding:10px 0;
-}
-.hbar{max-width:1180px;margin:0 auto;padding:0 14px;display:flex;align-items:center;gap:12px}
-.hbar img{width:38px;height:38px;border-radius:50%;object-fit:cover;flex:none}
-.htitle{font-weight:900;font-size:16px;letter-spacing:.01em;line-height:1.2}
-.htitle small{display:block;font-weight:600;font-size:11px;color:var(--ink-3);letter-spacing:.16em}
+header{position:sticky;top:0;z-index:40;background:var(--paper-raised);
+       border-bottom:1px solid var(--rule);padding:9px 0}
+.hbar{max-width:1340px;margin:0 auto;padding:0 12px;display:flex;align-items:center;gap:10px}
+.hbar img{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none}
+.htitle{font-weight:900;font-size:15px;line-height:1.15}
+.htitle small{display:block;font-weight:600;font-size:10px;color:var(--ink-3);letter-spacing:.16em}
 .spacer{flex:1}
-.chip{
-    font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
-    background:var(--accent-soft);color:var(--accent);white-space:nowrap;
-}
-.iconbtn{
-    min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center;
-    border:1px solid var(--rule);background:transparent;color:var(--ink-2);
-    border-radius:12px;cursor:pointer;font:inherit;font-size:18px;
-}
-.iconbtn:hover{background:var(--accent-soft);color:var(--ink)}
+.chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
+      background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 
-/* ---- 版面 ---- */
-.grid{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);gap:14px;margin-top:14px}
-@media(max-width:900px){ .grid{grid-template-columns:1fr} }
-.card{
-    background:var(--paper-raised);border:1px solid var(--rule);border-radius:16px;
-    padding:14px 16px;
-}
-.card h2{
-    font-size:13px;margin:0 0 10px;color:var(--ink-3);
-    letter-spacing:.14em;font-weight:800;
-}
+button,select,input{font:inherit;color:var(--ink)}
+.btn{font-weight:700;border-radius:11px;min-height:40px;padding:0 14px;
+     border:1px solid var(--rule);background:var(--paper);cursor:pointer}
+.btn:hover{background:var(--accent-soft)}
+.btn.primary{background:var(--accent-fill);color:#fff;border-color:transparent;
+             box-shadow:0 2px 8px rgba(26,24,21,.2)}
+.btn.on{background:var(--accent-fill);color:#fff;border-color:transparent}
+.btn:disabled{opacity:.45;cursor:default;box-shadow:none}
+.icb{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;
+     border:1px solid var(--rule);background:transparent;color:var(--ink-2);
+     border-radius:11px;cursor:pointer;font-size:17px;text-decoration:none}
+.icb:hover{background:var(--accent-soft);color:var(--ink)}
 
-/* ---- 控制項 ---- */
-.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-button,select{
-    font:inherit;font-weight:700;border-radius:12px;min-height:44px;padding:0 16px;
-    border:1px solid var(--rule);background:var(--paper);color:var(--ink);cursor:pointer;
-}
-select{padding:0 10px;max-width:100%}
-button.primary{background:var(--accent-fill);color:#fff;border-color:transparent;
-    box-shadow:0 2px 8px rgba(26,24,21,.2)}
-button:disabled{opacity:.45;cursor:default;box-shadow:none}
-textarea{
-    width:100%;min-height:290px;resize:vertical;
-    font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
-    background:var(--paper);color:var(--ink);
-    border:1px solid var(--rule);border-radius:12px;padding:11px 12px;
-    tab-size:4;
-}
-textarea:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.hint{font-size:12.5px;color:var(--ink-3);margin:8px 0 0}
+/* ---- 版面：畫布為主，右側常駐面板 ---- */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;margin-top:12px}
+@media(max-width:1040px){ .main{grid-template-columns:1fr} }
+.card{background:var(--paper-raised);border:1px solid var(--rule);border-radius:15px;padding:12px 14px}
+.card h2{font-size:12px;margin:0 0 9px;color:var(--ink-3);letter-spacing:.14em;font-weight:800}
+
+/* ---- 元件工具列（扁平、向量、先選物件再操作）---- */
+.palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pi{display:inline-flex;flex-direction:column;align-items:center;gap:2px;
+    min-width:56px;min-height:52px;padding:5px 6px;border-radius:11px;
+    border:1px solid var(--rule);background:var(--paper);cursor:pointer;font-size:10.5px;
+    font-weight:700;color:var(--ink-2)}
+.pi svg{width:30px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.6;
+        stroke-linecap:round;stroke-linejoin:round}
+.pi:hover{background:var(--accent-soft)}
+.pi.on{background:var(--accent-fill);border-color:transparent;color:#fff}
+.pi.on svg{stroke:#fff}
+
+#sheetBox{position:relative;border:1px solid var(--rule);border-radius:12px;overflow:hidden;
+          background:var(--paper)}
+#sheet{display:block;width:100%;height:430px;touch-action:none;cursor:crosshair}
+#hud{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--ink-3);
+     background:var(--paper-raised);border:1px solid var(--rule);border-radius:8px;
+     padding:3px 8px;pointer-events:none;max-width:calc(100% - 20px)}
+
+/* ---- 右側常駐面板 ---- */
+.field{display:flex;align-items:center;gap:8px;margin:7px 0}
+.field label{flex:0 0 76px;font-size:12.5px;color:var(--ink-2);font-weight:700}
+.field input,.field select{flex:1;min-width:0;min-height:36px;border-radius:9px;
+    border:1px solid var(--rule);background:var(--paper);padding:0 9px}
+.field input:focus,.field select:focus,.btn:focus-visible,.pi:focus-visible{
+    outline:2px solid var(--accent);outline-offset:2px}
+.sub{font-size:12px;color:var(--ink-3);margin:4px 0 0}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+#directive{background:var(--paper);border:1px solid var(--rule);border-radius:9px;
+    padding:7px 9px;font:12px/1.5 ui-monospace,Menlo,monospace;word-break:break-all;margin-top:8px}
 
 /* ---- 波形 ---- */
-#plotBox{position:relative}
-canvas{width:100%;display:block;border-radius:12px;background:var(--paper);
+canvas#plot{width:100%;display:block;border-radius:12px;background:var(--paper);
     border:1px solid var(--rule);touch-action:none}
-.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-.lg{
-    display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
-    padding:6px 10px;border-radius:999px;border:1px solid var(--rule);
-    background:var(--paper);cursor:pointer;min-height:32px;
-}
-.lg i{width:11px;height:11px;border-radius:3px;display:inline-block;flex:none}
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+    padding:5px 10px;border-radius:999px;border:1px solid var(--rule);
+    background:var(--paper);cursor:pointer;min-height:32px}
+.lg i{width:11px;height:11px;border-radius:3px;flex:none}
 .lg.off{opacity:.38}
-#readout{
-    font:12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);
-    margin-top:8px;min-height:1.5em;white-space:pre-wrap;
-}
+#readout{font:12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);
+         margin-top:8px;min-height:1.5em;white-space:pre-wrap}
 
-/* ---- 訊息 ---- */
-.msg{border-radius:12px;padding:11px 13px;margin-top:12px;font-size:14px;line-height:1.6;
-     border:1px solid var(--rule)}
-.msg.err{border-color:var(--bad);background:color-mix(in srgb,var(--bad) 8%,transparent)}
+.msg{border-radius:11px;padding:10px 12px;margin-top:10px;font-size:14px;
+     line-height:1.6;border:1px solid var(--rule)}
+.msg.err{border-color:var(--bad)}
 .msg.ok{border-color:var(--ok)}
 .msg.warn{border-color:var(--warn)}
 .msg b{display:block;margin-bottom:2px}
-.msg ul{margin:6px 0 0;padding-left:20px}
-.msg li{margin:2px 0}
-details{margin-top:12px}
-summary{cursor:pointer;font-size:13px;color:var(--ink-3);font-weight:700;min-height:32px;
-        display:flex;align-items:center}
-pre{
-    background:var(--paper);border:1px solid var(--rule);border-radius:10px;
-    padding:10px 12px;font:11.5px/1.5 ui-monospace,Menlo,monospace;
-    overflow:auto;max-height:260px;margin:8px 0 0;white-space:pre-wrap;word-break:break-all;
-}
-.skel{height:8px;border-radius:99px;background:var(--rule);overflow:hidden;position:relative}
+.msg ul{margin:5px 0 0;padding-left:19px}
+details{margin-top:10px}
+summary{cursor:pointer;font-size:12.5px;color:var(--ink-3);font-weight:700;
+        min-height:32px;display:flex;align-items:center}
+pre{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:9px 11px;
+    font:11.5px/1.5 ui-monospace,Menlo,monospace;overflow:auto;max-height:240px;
+    margin:7px 0 0;white-space:pre-wrap;word-break:break-all}
+textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);color:var(--ink);
+    border:1px solid var(--rule);border-radius:11px;padding:10px 11px;
+    font:12.5px/1.5 ui-monospace,Menlo,monospace}
+.skel{height:7px;border-radius:99px;background:var(--rule);overflow:hidden;position:relative}
 .skel i{position:absolute;inset:0;width:34%;background:var(--accent);border-radius:99px;
         animation:sweep 1.1s ease-in-out infinite}
 @keyframes sweep{0%{left:-34%}100%{left:100%}}
@@ -137,65 +135,93 @@ pre{
 
 <header>
   <div class="hbar">
-    <a href="index.html" class="iconbtn" title="回小黑貓" aria-label="回小黑貓">←</a>
+    <a href="index.html" class="icb" title="回小黑貓" aria-label="回小黑貓">←</a>
     <img src="image.png" alt="">
     <div class="htitle">小黑貓電路模擬器<small>NCUE EE SPICE</small></div>
     <div class="spacer"></div>
     <span class="chip" id="whoami">載入中…</span>
-    <button class="iconbtn" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
+    <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
   </div>
 </header>
 
 <div class="wrap">
-<div class="grid">
+<div class="main">
 
-  <!-- 左：編輯區 -->
+  <!-- 左：畫布 -->
   <div>
     <div class="card">
-      <h2>電路（netlist）</h2>
-      <div class="row" style="margin-bottom:10px">
-        <select id="exSel" aria-label="選擇範例"></select>
-        <button id="loadEx">帶入範例</button>
+      <h2>電路圖</h2>
+      <div class="palette" id="palette"></div>
+      <div class="palette" style="margin-bottom:10px">
+        <button class="btn" id="mSel">選取</button>
+        <button class="btn" id="mWire">連線 <small style="opacity:.7">W</small></button>
+        <button class="btn" id="rotBtn">旋轉 <small style="opacity:.7">R</small></button>
+        <button class="btn" id="delBtn">刪除 <small style="opacity:.7">Del</small></button>
+        <button class="btn" id="clrBtn">清空</button>
+        <button class="btn" id="fitBtn">置中</button>
+        <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
       </div>
-      <textarea id="net" spellcheck="false" aria-label="netlist 編輯區"></textarea>
-      <div class="row" style="margin-top:10px">
-        <button class="primary" id="run">執行模擬</button>
-        <button id="saveBtn">存到我的</button>
-        <button id="shareBtn">分享連結</button>
-        <button id="resetBtn" title="丟掉目前的引擎實例，重新建立一個">重設引擎</button>
+      <div id="sheetBox">
+        <canvas id="sheet"></canvas>
+        <div id="hud"></div>
       </div>
-      <div id="loadbar" style="display:none;margin-top:12px">
+      <div class="palette" style="margin-top:10px">
+        <button class="btn primary" id="run">執行模擬</button>
+        <button class="btn" id="saveBtn">存到我的</button>
+        <button class="btn" id="shareBtn">分享連結</button>
+        <button class="btn" id="resetBtn" title="丟掉目前的引擎實例重建">重設引擎</button>
+      </div>
+      <div id="loadbar" style="display:none;margin-top:10px">
         <div class="skel"><i></i></div>
-        <p class="hint" id="loadtxt" style="margin-top:6px"></p>
+        <p class="sub" id="loadtxt"></p>
       </div>
-      <p class="hint">
-        第一次執行要下載模擬引擎（ngspice，約 20MB），之後就走瀏覽器快取。
-        引擎完全跑在你的裝置上，電路內容不會上傳。
-      </p>
+      <div id="msg"></div>
     </div>
 
-    <div class="card" style="margin-top:14px">
-      <h2>我存的電路</h2>
-      <div id="myList" class="row" style="gap:6px">
-        <span class="hint">登入後才能存檔。</span>
-      </div>
-    </div>
-  </div>
-
-  <!-- 右：結果 -->
-  <div>
-    <div class="card">
+    <div class="card" style="margin-top:12px">
       <h2>波形</h2>
-      <div id="plotBox">
-        <canvas id="plot" height="330" aria-label="模擬波形圖"></canvas>
-      </div>
+      <canvas id="plot" height="300" aria-label="模擬波形圖"></canvas>
       <div class="legend" id="legend"></div>
       <div id="readout"></div>
-      <div id="msg"></div>
       <details id="rawBox" style="display:none">
         <summary>ngspice 原始輸出</summary>
         <pre id="raw"></pre>
       </details>
+      <details>
+        <summary>產生的 netlist（唯讀，電路圖改了就會跟著變）</summary>
+        <textarea id="net" spellcheck="false" readonly aria-label="產生的 netlist"></textarea>
+      </details>
+    </div>
+  </div>
+
+  <!-- 右：常駐面板 -->
+  <div>
+    <div class="card">
+      <h2>屬性</h2>
+      <div id="insp"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h2>模擬設定</h2>
+      <div class="field">
+        <label for="anaSel">分析</label>
+        <select id="anaSel">
+          <option value="tran">時域 .tran</option>
+          <option value="ac">頻率響應 .ac</option>
+          <option value="dc">直流掃描 .dc</option>
+          <option value="op">工作點 .op</option>
+        </select>
+      </div>
+      <div id="anaFields"></div>
+      <div id="directive" class="mono"></div>
+      <p class="sub">上面這行就是送給 ngspice 的指令，改欄位會即時同步。</p>
+    </div>
+
+    <div class="card" style="margin-top:12px">
+      <h2>我存的電路</h2>
+      <div id="myList" class="palette" style="gap:6px">
+        <span class="sub">登入後才能存檔。</span>
+      </div>
     </div>
   </div>
 
@@ -205,44 +231,35 @@ pre{
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, getDoc, getDocs, setDoc, deleteDoc }
+import { getFirestore, collection, doc, addDoc, getDoc, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/* 非同步的錯誤如果沒有人接，瀏覽器只會默默印在主控台，
-   使用者看到的就是一個永遠停在「執行中…」的按鈕。全部攤到畫面上。 */
+/* 非同步的錯誤如果沒人接，只會默默印在主控台，畫面上就是一個永遠沒反應的按鈕。全部攤出來。 */
 function fatal(where, err){
     const t = (err && (err.stack || err.message)) || String(err);
-    const box = document.getElementById('msg');
-    if (box) box.innerHTML =
-        `<div class="msg err"><b>${where}</b><pre style="margin-top:6px">${
-            t.replace(/[<&]/g, c => ({'<':'&lt;','&':'&amp;'}[c]))}</pre></div>`;
-    const b = document.getElementById('run');
-    if (b) { b.disabled = false; b.textContent = '執行模擬'; }
+    const box = $('msg');
+    if (box) box.innerHTML = `<div class="msg err"><b>${where}</b><pre>${
+        t.replace(/[<&]/g, c => ({'<':'&lt;','&':'&amp;'}[c]))}</pre></div>`;
+    const b = $('run'); if (b) { b.disabled = false; b.textContent = '執行模擬'; }
 }
 addEventListener('error', e => fatal('頁面發生未攔截的錯誤', e.error || e.message));
 addEventListener('unhandledrejection', e => fatal('有一個非同步工作失敗了', e.reason));
 
-/* ==========================================================
-   1. 主題：跟主站共用同一個 localStorage 鍵，兩頁之間切換不會閃
-   ========================================================== */
+/* ---------- 主題：與主站共用同一個鍵 ---------- */
 const THEME_KEY = 'eeblackcat-theme';
-function applyTheme(t){
-    document.documentElement.classList.toggle('dark', t === 'dark');
-    try { localStorage.setItem(THEME_KEY, t); } catch(e) {}
-}
-try {
-    const saved = localStorage.getItem(THEME_KEY);
-    applyTheme(saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'));
-} catch(e) {}
-$('themeBtn').addEventListener('click', () =>
-    applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark'));
+const applyTheme = t => { document.documentElement.classList.toggle('dark', t === 'dark');
+    try { localStorage.setItem(THEME_KEY, t); } catch(e){} };
+try { applyTheme(localStorage.getItem(THEME_KEY) ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')); } catch(e){}
+$('themeBtn').onclick = () => {
+    applyTheme(document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+    paintPalette(); drawSheet(); drawPlot();
+};
 
-/* ==========================================================
-   2. Firebase：跟主站同一個專案。同一個來源，所以登入狀態直接沿用，
-      使用者從主站點進來不用再登入一次。
-   ========================================================== */
+/* ---------- Firebase：同一個專案、同一個來源，登入狀態直接沿用 ---------- */
 const firebaseConfig = {
     apiKey:"AIzaSyD9uIEAe3InKxHs86QhWHjuMSuimxrhdkQ",
     authDomain:"eeblackcat-c605d.firebaseapp.com",
@@ -255,572 +272,793 @@ const appId = "eeblackcat-c605d";
 const P  = n => `artifacts/${appId}/public/data/${n}`;
 const PU = n => auth.currentUser && !auth.currentUser.isAnonymous
                 ? `artifacts/${appId}/users/${auth.currentUser.uid}/${n}` : null;
-
-const app  = initializeApp(firebaseConfig);
-const auth = getAuth(app);
-const db   = getFirestore(app);
+const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
 let me = null;
-
 onAuthStateChanged(auth, async (user) => {
     me = (user && !user.isAnonymous) ? user : null;
     if (!me) { $('whoami').textContent = '訪客'; renderMine(); return; }
     let name = '已登入';
-    try {
-        const snap = await getDoc(doc(db, P('users'), me.uid));
-        if (snap.exists()) name = snap.data().displayName || '無名小貓';
-    } catch(e) { /* 讀不到就用預設字樣，不擋使用 */ }
-    $('whoami').textContent = name;
-    renderMine();
+    try { const s = await getDoc(doc(db, P('users'), me.uid));
+          if (s.exists()) name = s.data().displayName || '無名小貓'; } catch(e){}
+    $('whoami').textContent = name; renderMine();
 });
 
 /* ==========================================================
-   3. 範例：學生從「改參數」開始，而不是從空白開始。
-      每一則都標了預期結果，才能自己判斷跑出來對不對。
+   元件定義
+   pins 是相對原點的接腳座標；draw 用區域座標畫，旋轉由外面處理。
+   emit 產生該元件的 netlist 那一行。
    ========================================================== */
-const EXAMPLES = [
-{ n:'RC 低通：步階響應', d:'V(out) 在 t=RC=1ms 時應為 0.632V', s:
-`RC low-pass step response
-V1 in 0 PULSE(0 1 0 1n 1n 1 2)
-R1 in out 1k
-C1 out 0 1u
-.tran 2u 5m
-.end`},
-{ n:'RC 低通：頻率響應', d:'−3dB 應落在 1/(2πRC) ≈ 159Hz', s:
-`RC low-pass AC response
-V1 in 0 AC 1
-R1 in out 1k
-C1 out 0 1u
-.ac dec 20 1 100k
-.end`},
-{ n:'RLC 串聯諧振', d:'諧振頻率 1/(2π√LC) ≈ 5033Hz', s:
-`RLC series resonance
-V1 in 0 AC 1
-R1 in a 10
-L1 a b 10m
-C1 b 0 100n
-.ac dec 50 100 100k
-.end`},
-{ n:'分壓器：直流掃描', d:'V(mid) 應為輸入的 2/3', s:
-`Resistive divider DC sweep
-V1 in 0 DC 0
-R1 in mid 1k
-R2 mid 0 2k
-.dc V1 0 10 0.1
-.end`},
-{ n:'二極體半波整流', d:'輸出被電容濾成接近直流，比峰值低一個二極體壓降', s:
-`Half-wave rectifier with filter cap
-V1 in 0 SIN(0 5 1k)
-D1 in out DMOD
-R1 out 0 1k
-C1 out 0 10u
-.model DMOD D(IS=1e-14 N=1)
-.tran 10u 5m
-.end`},
-{ n:'共射放大器（BJT）', d:'輸出與輸入反相，小訊號有明顯增益', s:
-`Common emitter amplifier
-VCC vcc 0 12
-Vin in 0 SIN(0 10m 1k)
-R1 vcc b 100k
-R2 b 0 22k
-RC vcc c 4.7k
-RE e 0 1k
-CE e 0 100u
-Cin in b 10u
-Cout c out 10u
-RL out 0 100k
-Q1 c b e QMOD
-.model QMOD NPN(BF=200 IS=1e-15)
-.tran 20u 5m
-.end`},
-{ n:'反相放大器（理想運放）', d:'增益 −Rf/R1 = −10，輸出為輸入的十倍且反相', s:
-`Inverting amplifier, VCVS as ideal opamp
-Vin in 0 SIN(0 0.1 1k)
-R1 in m 10k
-Rf m out 100k
-E1 out 0 0 m 1e6
-.tran 20u 3m
-.end`}
-];
-EXAMPLES.forEach((e,i) => $('exSel').insertAdjacentHTML('beforeend',
-    `<option value="${i}">${e.n}</option>`));
-$('loadEx').addEventListener('click', () => {
-    const e = EXAMPLES[+$('exSel').value];
-    $('net').value = e.s;
-    show('ok', '已帶入範例', [e.d]);
+const G = 10;                        // 格點
+const TYPES = {
+  R:{ label:'電阻', pre:'R', pins:[[0,-20],[0,20]], val:'1k',
+      draw(g){ ln(g,0,-20,0,-10); g.strokeRect(-6,-10,12,20); ln(g,0,10,0,20); } },
+  C:{ label:'電容', pre:'C', pins:[[0,-20],[0,20]], val:'1u',
+      draw(g){ ln(g,0,-20,0,-4); ln(g,-9,-4,9,-4); ln(g,-9,4,9,4); ln(g,0,4,0,20); } },
+  L:{ label:'電感', pre:'L', pins:[[0,-20],[0,20]], val:'10m',
+      draw(g){ ln(g,0,-20,0,-12); for(let i=0;i<3;i++){ g.beginPath();
+        g.arc(0,-12+8*i+4,4,-Math.PI/2,Math.PI/2); g.stroke(); } ln(g,0,12,0,20); } },
+  V:{ label:'電壓源', pre:'V', pins:[[0,-20],[0,20]], val:'DC 5',
+      draw(g){ ln(g,0,-20,0,-11); cir(g,0,0,11); ln(g,0,11,0,20);
+        ln(g,-4,-5,4,-5); ln(g,0,-9,0,-1); ln(g,-4,5,4,5); } },
+  I:{ label:'電流源', pre:'I', pins:[[0,-20],[0,20]], val:'DC 1m',
+      draw(g){ ln(g,0,-20,0,-11); cir(g,0,0,11); ln(g,0,11,0,20);
+        ln(g,0,6,0,-6); ln(g,-3,-2,0,-6); ln(g,3,-2,0,-6); } },
+  D:{ label:'二極體', pre:'D', pins:[[0,-20],[0,20]], val:'DMOD', model:'.model DMOD D(IS=1e-14 N=1)',
+      draw(g){ ln(g,0,-20,0,-7); g.beginPath(); g.moveTo(-8,-7); g.lineTo(8,-7);
+        g.lineTo(0,7); g.closePath(); g.stroke(); ln(g,-8,7,8,7); ln(g,0,7,0,20); } },
+  Q:{ label:'NPN', pre:'Q', pins:[[-20,0],[14,-18],[14,18]], order:'CBE', val:'QMOD',
+      model:'.model QMOD NPN(BF=200 IS=1e-15)',
+      draw(g){ ln(g,-20,0,-6,0); ln(g,-6,-14,-6,14); ln(g,-6,-7,14,-18); ln(g,-6,7,14,18);
+        g.beginPath(); g.moveTo(8,10); g.lineTo(14,18); g.lineTo(5,15); g.closePath();
+        g.fillStyle=g.strokeStyle; g.fill(); } },
+  E:{ label:'運放', pre:'E', pins:[[-18,-10],[-18,10],[20,0]], order:'+-o', val:'1e6',
+      draw(g){ ln(g,-18,-10,-12,-10); ln(g,-18,10,-12,10);
+        g.beginPath(); g.moveTo(-12,-18); g.lineTo(-12,18); g.lineTo(14,0); g.closePath(); g.stroke();
+        ln(g,14,0,20,0); ln(g,-9,-10,-5,-10); ln(g,-7,-12,-7,-8); ln(g,-9,10,-5,10); } },
+  GND:{label:'接地', pre:'', pins:[[0,0]], val:'',
+      draw(g){ ln(g,0,0,0,8); ln(g,-9,8,9,8); ln(g,-5,12,5,12); ln(g,-2,16,2,16); } }
+};
+function ln(g,a,b,c,d){ g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke(); }
+function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
+
+/* ==========================================================
+   文件模型
+   ========================================================== */
+let sch = { parts:[], wires:[] };
+let seq = 1;
+let sel = null;                         // {kind:'part'|'wire', i}
+let mode = 'sel';                       // sel | wire | place
+let placing = null;                     // 要放的元件型別
+let placeRot = 0;
+let wireFrom = null;                    // 連線的起點
+let view = { x:0, y:0, z:1 };           // 平移與縮放
+let mouseW = { x:0, y:0 };
+
+const rotPt = (px,py,r) => [[px,py],[-py,px],[-px,-py],[py,-px]][((r%4)+4)%4];
+const pinsOf = p => TYPES[p.type].pins.map(([a,b]) => {
+    const [u,v] = rotPt(a,b,p.rot); return [p.x+u, p.y+v];
 });
-$('net').value = EXAMPLES[0].s;
+const snap = v => Math.round(v/G)*G;
 
 /* ==========================================================
-   4. 錯誤訊息中文化
-      ngspice 的錯誤對學生幾乎沒有可讀性，而這是他們最容易卡住的地方。
-      這張表的投入產出比是整個專案最高的——幾乎不用寫程式。
+   節點萃取：把接腳與線段合併成節點
+   規則：座標相同就是同一個節點；接腳若落在某條線段上也算接到。
    ========================================================== */
-const ERR_MAP = [
-{ re:/timestep too small/i, t:'時間步長已縮到極限仍無法收斂',
-  why:['電路裡有變化太快的東西（理想開關、零上升時間的脈波）',
-       '有節點沒有直流路徑接地',
-       '電容或電感的值極端到讓時間尺度差太多個數量級'],
-  fix:'先把 PULSE 的上升／下降時間從 0 改成 1n，或在浮空節點對地加一個很大的電阻（例如 1G）。' },
-{ re:/singular matrix|matrix is singular/i, t:'矩陣奇異：這個電路在數學上無解',
-  why:['某個節點沒有任何直流路徑通到地（0 節點）',
-       '兩個電壓源並聯在同一對節點上',
-       '電感形成的迴路裡沒有電阻'],
-  fix:'檢查每個節點是不是都能經由電阻走回 0。電容中間的節點也需要。' },
-{ re:/no such vector|could not find/i, t:'找不到指定的節點或變數',
-  why:['節點名稱拼錯，或大小寫不一致','該節點在電路裡根本沒被用到'],
-  fix:'ngspice 的節點名不分大小寫，但要拼對。接地一定要寫成 0。' },
-{ re:/unknown subckt|unknown model|could not find model/i, t:'找不到元件模型',
-  why:['用了 D、Q、M 之類的元件卻沒有對應的 .model','.model 的名稱跟元件那行寫的不一樣'],
-  fix:'例如寫了 D1 a b DMOD，就必須有一行 .model DMOD D(...)。' },
-{ re:/no\s+\.?(tran|ac|dc|op)\b|no analysis/i, t:'沒有指定要做哪一種分析',
-  why:['netlist 裡少了 .tran / .ac / .dc / .op'],
-  fix:'時域看波形用 .tran，頻率響應用 .ac，直流掃描用 .dc。' },
-{ re:/error on line|syntax error|parse error/i, t:'語法錯誤',
-  why:['元件那行的欄位數不對','數值單位寫錯（要用 k、meg、u、n、p，不是 K、M、µ）'],
-  fix:'注意 ngspice 的 M 是「毫」不是「兆」，一百萬要寫 meg。' },
-{ re:/too few nodes|not enough nodes/i, t:'元件的接點數不足',
-  why:['例如電阻只寫了一個節點'],
-  fix:'R/L/C 要兩個節點，二極體兩個，BJT 三個，MOSFET 四個。' }
-];
-// 這一則是 WASM 沙箱裡必然出現的，不是錯誤，直接吃掉不要嚇到學生
-const NOISE = /can't find the initialization file spinit/i;
+function buildNodes(){
+    const par = new Map();
+    const key = (x,y) => `${x},${y}`;
+    const find = k => { if(!par.has(k)) par.set(k,k);
+        while(par.get(k)!==k){ par.set(k,par.get(par.get(k))); k=par.get(k); } return k; };
+    const uni = (a,b) => { a=find(a); b=find(b); if(a!==b) par.set(a,b); };
 
-function explain(text){
-    const out = [];
-    for (const e of ERR_MAP) if (e.re.test(text)) out.push(e);
-    return out;
+    const pts = [];
+    sch.parts.forEach((p,i) => pinsOf(p).forEach(([x,y],pi) => {
+        pts.push({x,y,part:i,pin:pi}); find(key(x,y));
+    }));
+    sch.wires.forEach(w => { find(key(w.x1,w.y1)); find(key(w.x2,w.y2));
+                             uni(key(w.x1,w.y1), key(w.x2,w.y2)); });
+    // 接腳或線端點落在別的線段上 → 也要接起來
+    const onSeg = (x,y,w) => {
+        const minx=Math.min(w.x1,w.x2), maxx=Math.max(w.x1,w.x2);
+        const miny=Math.min(w.y1,w.y2), maxy=Math.max(w.y1,w.y2);
+        if (x<minx-0.1||x>maxx+0.1||y<miny-0.1||y>maxy+0.1) return false;
+        return Math.abs((w.x2-w.x1)*(y-w.y1)-(w.y2-w.y1)*(x-w.x1)) < 0.5;
+    };
+    const all = pts.map(p=>[p.x,p.y])
+        .concat(sch.wires.flatMap(w=>[[w.x1,w.y1],[w.x2,w.y2]]));
+    for (const [x,y] of all) for (const w of sch.wires)
+        if (onSeg(x,y,w)) uni(key(x,y), key(w.x1,w.y1));
+
+    // 命名：接地那一組固定叫 0
+    const gnd = new Set();
+    sch.parts.forEach((p,i) => { if (p.type==='GND') pinsOf(p).forEach(([x,y]) => gnd.add(find(key(x,y)))); });
+    const name = new Map(); let n = 1;
+    const nameOf = k => { const r = find(k);
+        if (gnd.has(r)) return '0';
+        if (!name.has(r)) name.set(r, 'N' + (n++));
+        return name.get(r); };
+    return { nameOf, key, find, gnd };
 }
-function show(kind, title, lines){
-    $('msg').innerHTML = `<div class="msg ${kind}"><b>${title}</b>${
-        lines && lines.length ? '<ul>' + lines.map(l => `<li>${l}</li>`).join('') + '</ul>' : ''}</div>`;
+
+/* ---------- 產生 netlist ---------- */
+function toNetlist(){
+    const nd = buildNodes();
+    const lines = ['Blackcat SPICE schematic'];
+    const used = {}, models = new Set(); const warn = [];
+    let hasGnd = sch.parts.some(p => p.type === 'GND');
+    for (const p of sch.parts){
+        const T = TYPES[p.type];
+        if (p.type === 'GND') continue;
+        const ref = p.ref || (T.pre + (used[T.pre] = (used[T.pre]||0)+1));
+        const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+        if (T.model) models.add(T.model);
+        if (p.type === 'E')       lines.push(`${ref} ${ns[2]} 0 ${ns[0]} ${ns[1]} ${p.val}`);
+        else if (p.type === 'Q')  lines.push(`${ref} ${ns[0]} ${ns[1]} ${ns[2]} ${p.val}`);
+        else                      lines.push(`${ref} ${ns[0]} ${ns[1]} ${p.val}`);
+    }
+    models.forEach(m => lines.push(m));
+    lines.push(directive());
+    lines.push('.end');
+    if (!hasGnd) warn.push('電路裡沒有接地符號。SPICE 一定要有 0 節點，請放一個接地。');
+    if (!sch.parts.some(p => p.type==='V' || p.type==='I')) warn.push('沒有任何電源，模擬不會有東西可看。');
+    return { text: lines.join('\n') + '\n', warn };
 }
 
 /* ==========================================================
-   5. 引擎：第一次按執行才載，不要讓沒用到的人白付 20MB
+   模擬儀表板：圖形化欄位 → 即時生成 SPICE 指令
    ========================================================== */
-/* 兩個來源。第一個卡住或掛掉就換第二個——校園網路擋掉某一家 CDN 是常態，
-   而 20MB 的請求一旦停住是「不會報錯的無限等待」，不設逾時就會卡在「執行中…」。 */
+const ANA = {
+  tran:{ f:[['stop','模擬時間','5m'],['step','步長','2u']],
+         make:v => `.tran ${v.step} ${v.stop}` },
+  ac:{   f:[['sweep','掃描方式','dec'],['pts','每段點數','20'],
+            ['f1','起始頻率','1'],['f2','結束頻率','100k']],
+         make:v => `.ac ${v.sweep} ${v.pts} ${v.f1} ${v.f2}` },
+  dc:{   f:[['src','掃描的源','V1'],['from','起','0'],['to','迄','10'],['inc','間隔','0.1']],
+         make:v => `.dc ${v.src} ${v.from} ${v.to} ${v.inc}` },
+  op:{   f:[], make:() => `.op` }
+};
+let anaVals = {};
+function buildAna(){
+    const a = ANA[$('anaSel').value];
+    $('anaFields').innerHTML = a.f.map(([k,lab,def]) =>
+        k === 'sweep'
+        ? `<div class="field"><label for="f_${k}">${lab}</label><select id="f_${k}">
+             <option value="dec">十倍頻 dec</option><option value="oct">八倍頻 oct</option>
+             <option value="lin">線性 lin</option></select></div>`
+        : `<div class="field"><label for="f_${k}">${lab}</label>
+             <input id="f_${k}" class="mono" value="${anaVals[k] ?? def}"></div>`).join('');
+    a.f.forEach(([k,,def]) => { const el = $('f_'+k); if (!el) return;
+        el.value = anaVals[k] ?? def;
+        el.oninput = el.onchange = () => { anaVals[k] = el.value; syncDirective(); }; });
+    syncDirective();
+}
+function directive(){ const v = {}; (ANA[$('anaSel').value].f).forEach(([k,,d]) => v[k] = anaVals[k] ?? d);
+    return ANA[$('anaSel').value].make(v); }
+function syncDirective(){ $('directive').textContent = directive(); refreshNet(); }
+$('anaSel').onchange = buildAna;
+buildAna();
+
+function refreshNet(){ const r = toNetlist(); $('net').value = r.text; return r; }
+
+/* ==========================================================
+   畫布：格點、元件、線、選取
+   ========================================================== */
+const cv = $('sheet'), g = cv.getContext('2d');
+const cvar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function sizeCanvas(){
+    const dpr = devicePixelRatio || 1;
+    cv.width = cv.clientWidth * dpr; cv.height = cv.clientHeight * dpr;
+    g.setTransform(dpr,0,0,dpr,0,0);
+}
+const W2S = (x,y) => [x*view.z + view.x, y*view.z + view.y];
+const S2W = (x,y) => [(x - view.x)/view.z, (y - view.y)/view.z];
+
+function drawSheet(){
+    sizeCanvas();
+    const w = cv.clientWidth, h = cv.clientHeight;
+    g.clearRect(0,0,w,h);
+    const ink = cvar('--ink'), rule = cvar('--rule'), wire = cvar('--wire'),
+          selc = cvar('--sel'), ink3 = cvar('--ink-3');
+    // 格點
+    const step = G*view.z;
+    if (step > 5){
+        g.fillStyle = rule;
+        const x0 = ((view.x % step) + step) % step, y0 = ((view.y % step) + step) % step;
+        for (let x = x0; x < w; x += step) for (let y = y0; y < h; y += step) g.fillRect(x,y,1,1);
+    }
+    // 線
+    g.lineWidth = 1.8; g.strokeStyle = wire;
+    sch.wires.forEach((wr,i) => {
+        g.strokeStyle = (sel && sel.kind==='wire' && sel.i===i) ? selc : wire;
+        const [a,b] = W2S(wr.x1,wr.y1), [c,d] = W2S(wr.x2,wr.y2);
+        g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke();
+    });
+    // 接點（三條以上共點才畫實心點）
+    const cnt = new Map();
+    const bump = (x,y) => cnt.set(`${x},${y}`, (cnt.get(`${x},${y}`)||0)+1);
+    sch.wires.forEach(w => { bump(w.x1,w.y1); bump(w.x2,w.y2); });
+    sch.parts.forEach(p => pinsOf(p).forEach(([x,y]) => bump(x,y)));
+    g.fillStyle = wire;
+    cnt.forEach((c,k) => { if (c >= 3){ const [x,y] = k.split(',').map(Number);
+        const [sx,sy] = W2S(x,y); g.beginPath(); g.arc(sx,sy,3,0,7); g.fill(); } });
+    // 元件
+    sch.parts.forEach((p,i) => {
+        const on = sel && sel.kind==='part' && sel.i===i;
+        g.save();
+        const [sx,sy] = W2S(p.x,p.y);
+        g.translate(sx,sy); g.scale(view.z,view.z); g.rotate(p.rot*Math.PI/2);
+        g.strokeStyle = on ? selc : ink; g.lineWidth = 1.7/1;
+        g.lineCap='round'; g.lineJoin='round';
+        TYPES[p.type].draw(g);
+        g.restore();
+        // 標籤不跟著轉，才讀得順
+        if (p.type !== 'GND'){
+            g.fillStyle = on ? selc : ink3;
+            g.font = `${Math.max(9, 11*view.z)}px ui-monospace,Menlo,monospace`;
+            g.textAlign = 'left';
+            g.fillText(`${p.ref}`, sx + 16*view.z, sy - 2);
+            g.fillText(`${p.val}`, sx + 16*view.z, sy + 11*view.z);
+        }
+        // 接腳小圈
+        g.fillStyle = wire;
+        pinsOf(p).forEach(([x,y]) => { const [a,b]=W2S(x,y);
+            g.beginPath(); g.arc(a,b,2,0,7); g.fill(); });
+    });
+    // 正在拉的線
+    if (mode==='wire' && wireFrom){
+        g.strokeStyle = selc; g.setLineDash([4,4]); g.lineWidth = 1.6;
+        const [a,b] = W2S(wireFrom.x, wireFrom.y);
+        const [c,d] = W2S(snap(mouseW.x), snap(mouseW.y));
+        g.beginPath(); g.moveTo(a,b); g.lineTo(c,b); g.lineTo(c,d); g.stroke();
+        g.setLineDash([]);
+    }
+    // 預覽要放的元件
+    if (mode==='place' && placing){
+        g.save(); const [sx,sy] = W2S(snap(mouseW.x), snap(mouseW.y));
+        g.globalAlpha = .5; g.translate(sx,sy); g.scale(view.z,view.z);
+        g.rotate(placeRot*Math.PI/2); g.strokeStyle = selc; g.lineWidth = 1.7;
+        TYPES[placing].draw(g); g.restore();
+    }
+    $('hud').textContent =
+        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，R 旋轉，Esc 取消`
+      : mode==='wire'  ? (wireFrom ? '再點一下決定終點，Esc 取消' : '點一個接腳或空白處開始拉線')
+      : sel ? '已選取：Delete 刪除、R 旋轉、拖曳可移動'
+      : '點元件選取；中鍵或空白鍵拖曳可平移；滾輪縮放';
+}
+
+/* ---------- 命中測試 ---------- */
+function hitPart(wx,wy){
+    for (let i = sch.parts.length-1; i>=0; i--){
+        const p = sch.parts[i];
+        if (Math.abs(wx-p.x) <= 22 && Math.abs(wy-p.y) <= 22) return i;
+    }
+    return -1;
+}
+function hitWire(wx,wy){
+    for (let i = sch.wires.length-1; i>=0; i--){
+        const w = sch.wires[i];
+        const minx=Math.min(w.x1,w.x2)-4, maxx=Math.max(w.x1,w.x2)+4;
+        const miny=Math.min(w.y1,w.y2)-4, maxy=Math.max(w.y1,w.y2)+4;
+        if (wx<minx||wx>maxx||wy<miny||wy>maxy) continue;
+        const L = Math.hypot(w.x2-w.x1, w.y2-w.y1) || 1;
+        if (Math.abs((w.x2-w.x1)*(wy-w.y1)-(w.y2-w.y1)*(wx-w.x1))/L < 5) return i;
+    }
+    return -1;
+}
+
+/* ---------- 滑鼠與鍵盤 ---------- */
+let dragging = null, panning = null, spaceDown = false;
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('pointerdown', e => {
+    cv.setPointerCapture(e.pointerId);
+    const r = cv.getBoundingClientRect();
+    const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
+    if (e.button === 1 || spaceDown || e.button === 2){
+        panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
+    }
+    if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
+    if (mode === 'wire'){
+        const px = snap(wx), py = snap(wy);
+        if (!wireFrom){ wireFrom = {x:px, y:py}; }
+        else {
+            // 兩段直角：先水平再垂直
+            if (wireFrom.x !== px) sch.wires.push({x1:wireFrom.x,y1:wireFrom.y,x2:px,y2:wireFrom.y});
+            if (wireFrom.y !== py) sch.wires.push({x1:px,y1:wireFrom.y,x2:px,y2:py});
+            wireFrom = {x:px, y:py};      // 連續拉線
+            refreshNet();
+        }
+        drawSheet(); return;
+    }
+    const pi = hitPart(wx,wy);
+    if (pi >= 0){ sel = {kind:'part', i:pi};
+        dragging = { i:pi, dx:wx - sch.parts[pi].x, dy:wy - sch.parts[pi].y };
+        inspect(); drawSheet(); return; }
+    const wi = hitWire(wx,wy);
+    sel = wi >= 0 ? {kind:'wire', i:wi} : null;
+    inspect(); drawSheet();
+});
+cv.addEventListener('pointermove', e => {
+    const r = cv.getBoundingClientRect();
+    const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
+    mouseW = {x:wx, y:wy};
+    if (panning){ view.x = panning.ox + (e.clientX-panning.sx);
+                  view.y = panning.oy + (e.clientY-panning.sy); drawSheet(); return; }
+    if (dragging){ const p = sch.parts[dragging.i];
+        p.x = snap(wx - dragging.dx); p.y = snap(wy - dragging.dy);
+        refreshNet(); drawSheet(); return; }
+    if (mode==='wire' || mode==='place') drawSheet();
+});
+addEventListener('pointerup', () => { dragging = null; panning = null; });
+cv.addEventListener('wheel', e => {
+    e.preventDefault();
+    const r = cv.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+    const [bx,by] = S2W(mx,my);
+    view.z = Math.min(3, Math.max(0.35, view.z * (e.deltaY < 0 ? 1.12 : 1/1.12)));
+    const [ax,ay] = S2W(mx,my);
+    view.x += (ax-bx)*view.z; view.y += (ay-by)*view.z;
+    drawSheet();
+}, { passive:false });
+
+addEventListener('keydown', e => {
+    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    if (e.code === 'Space'){ spaceDown = true; e.preventDefault(); }
+    if (e.key === 'Escape'){ setMode('sel'); sel = null; inspect(); drawSheet(); }
+    if (e.key === 'w' || e.key === 'W') setMode('wire');
+    if (e.key === 'r' || e.key === 'R') rotate();
+    if (e.key === 'Delete' || e.key === 'Backspace'){ del(); e.preventDefault(); }
+});
+addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
+
+/* ---------- 操作 ---------- */
+function addPart(type, x, y, rot){
+    const T = TYPES[type];
+    const p = { type, x, y, rot, ref: type==='GND' ? '' : T.pre + (seq++), val: T.val };
+    sch.parts.push(p); sel = {kind:'part', i:sch.parts.length-1};
+    setMode('sel'); inspect(); refreshNet(); drawSheet();
+}
+function rotate(){
+    if (mode === 'place'){ placeRot = (placeRot+1)%4; drawSheet(); return; }
+    if (sel && sel.kind==='part'){ sch.parts[sel.i].rot = (sch.parts[sel.i].rot+1)%4;
+        refreshNet(); drawSheet(); }
+}
+function del(){
+    if (!sel) return;
+    if (sel.kind==='part') sch.parts.splice(sel.i,1); else sch.wires.splice(sel.i,1);
+    sel = null; inspect(); refreshNet(); drawSheet();
+}
+function setMode(m, type){
+    mode = m; placing = type || null; wireFrom = null;
+    $('mSel').classList.toggle('on', m==='sel');
+    $('mWire').classList.toggle('on', m==='wire');
+    document.querySelectorAll('.pi').forEach(el =>
+        el.classList.toggle('on', m==='place' && el.dataset.t===type));
+    cv.style.cursor = m==='sel' ? 'default' : 'crosshair';
+    paintPalette(); drawSheet();
+}
+$('mSel').onclick = () => setMode('sel');
+$('mWire').onclick = () => setMode('wire');
+$('rotBtn').onclick = rotate;
+$('delBtn').onclick = del;
+$('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
+    sch = {parts:[],wires:[]}; seq = 1; sel = null; inspect(); refreshNet(); drawSheet(); };
+$('fitBtn').onclick = fit;
+function fit(){
+    if (!sch.parts.length && !sch.wires.length){ view = {x:cv.clientWidth/2, y:cv.clientHeight/2, z:1};
+        drawSheet(); return; }
+    let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+    const add=(x,y)=>{x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y);};
+    sch.parts.forEach(p=>{add(p.x-30,p.y-30);add(p.x+40,p.y+30);});
+    sch.wires.forEach(w=>{add(w.x1,w.y1);add(w.x2,w.y2);});
+    const z = Math.min(2, Math.max(0.4,
+        Math.min(cv.clientWidth/(x2-x1+60), cv.clientHeight/(y2-y1+60))));
+    view.z = z;
+    view.x = cv.clientWidth/2 - (x1+x2)/2*z;
+    view.y = cv.clientHeight/2 - (y1+y2)/2*z;
+    drawSheet();
+}
+
+/* ---------- 元件工具列 ---------- */
+$('palette').innerHTML = Object.entries(TYPES).map(([k,T]) =>
+    `<button class="pi" data-t="${k}" title="${T.label}">
+        <canvas class="pico" width="60" height="40"></canvas><span>${T.label}</span></button>`).join('');
+/* 縮圖用同一份 draw() 畫，所以工具列上的符號跟畫布上的一定一致。
+   顏色要跟著主題重畫——寫死黑色的話深色模式會整排看不見。 */
+function paintPalette(){
+    document.querySelectorAll('.pi').forEach(el => {
+        const c = el.querySelector('canvas'), k = el.dataset.t;
+        const dpr = devicePixelRatio || 1;
+        c.width = 60*dpr; c.height = 40*dpr;
+        const cg = c.getContext('2d');
+        cg.setTransform(dpr,0,0,dpr,0,0);
+        cg.clearRect(0,0,60,40);
+        cg.translate(30,20); cg.scale(0.72,0.72);
+        cg.strokeStyle = el.classList.contains('on') ? '#fff' : cvar('--ink');
+        cg.lineWidth = 2.2; cg.lineCap='round'; cg.lineJoin='round';
+        TYPES[k].draw(cg);
+    });
+}
+document.querySelectorAll('.pi').forEach(el =>
+    el.onclick = () => setMode('place', el.dataset.t));
+
+/* ==========================================================
+   常駐屬性面板：點元件直接改，不跳彈窗
+   ========================================================== */
+const VAL_HINT = {
+  R:'例：1k、4.7k、100', C:'例：1u、100n、10p', L:'例：10m、1u',
+  V:'例：DC 5、SIN(0 1 1k)、PULSE(0 1 0 1n 1n 1m 2m)、AC 1',
+  I:'例：DC 1m、SIN(0 1m 1k)', D:'模型名稱，會自動附上 .model',
+  Q:'模型名稱，會自動附上 .model', E:'增益，理想運放填 1e6'
+};
+function inspect(){
+    const box = $('insp');
+    if (!sel){ box.innerHTML = '<p class="sub">點畫布上的元件或線，這裡就會顯示它的參數。<br>' +
+        '沒有彈出視窗，改完立刻生效。</p>'; return; }
+    if (sel.kind === 'wire'){
+        box.innerHTML = '<p class="sub">選取的是一段導線。</p>';
+        box.insertAdjacentHTML('beforeend',
+            '<button class="btn" id="ip_del" style="margin-top:6px">刪除這段線</button>');
+        $('ip_del').onclick = del; return;
+    }
+    const p = sch.parts[sel.i], T = TYPES[p.type];
+    if (p.type === 'GND'){
+        box.innerHTML = '<p class="sub">接地（0 節點）。SPICE 一定要有它。</p>' +
+            '<button class="btn" id="ip_del" style="margin-top:6px">刪除</button>';
+        $('ip_del').onclick = del; return;
+    }
+    box.innerHTML = `
+      <div class="field"><label for="ip_ref">名稱</label>
+        <input id="ip_ref" class="mono" value="${p.ref}"></div>
+      <div class="field"><label for="ip_val">數值</label>
+        <input id="ip_val" class="mono" value="${p.val}"></div>
+      <p class="sub">${VAL_HINT[p.type] || ''}</p>
+      <div class="palette" style="margin-top:8px">
+        <button class="btn" id="ip_rot">旋轉</button>
+        <button class="btn" id="ip_del">刪除</button>
+      </div>
+      <p class="sub">型別：${T.label}（${p.type}）</p>`;
+    $('ip_ref').oninput = e => { p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
+    $('ip_val').oninput = e => { p.val = e.target.value; refreshNet(); drawSheet(); };
+    $('ip_rot').onclick = rotate;
+    $('ip_del').onclick = del;
+}
+inspect();
+
+/* ==========================================================
+   範例：直接給電路圖，不是給文字
+   ========================================================== */
+const EXAMPLES = {
+ 'RC 低通（步階）': () => ({ ana:'tran', v:{stop:'5m',step:'2u'}, parts:[
+    ['V',60,120,0,'V1','PULSE(0 1 0 1n 1n 1 2)'], ['R',140,80,1,'R1','1k'],
+    ['C',220,120,0,'C1','1u'], ['GND',60,180,0,'',''], ['GND',220,180,0,'','']],
+    wires:[[60,100,60,80],[60,80,120,80],[160,80,220,80],[220,80,220,100],
+           [60,140,60,180],[220,140,220,180]] }),
+ 'RC 低通（頻率響應）': () => ({ ana:'ac', v:{sweep:'dec',pts:'20',f1:'1',f2:'100k'}, parts:[
+    ['V',60,120,0,'V1','AC 1'], ['R',140,80,1,'R1','1k'],
+    ['C',220,120,0,'C1','1u'], ['GND',60,180,0,'',''], ['GND',220,180,0,'','']],
+    wires:[[60,100,60,80],[60,80,120,80],[160,80,220,80],[220,80,220,100],
+           [60,140,60,180],[220,140,220,180]] }),
+ 'RLC 串聯諧振': () => ({ ana:'ac', v:{sweep:'dec',pts:'50',f1:'100',f2:'100k'}, parts:[
+    ['V',60,140,0,'V1','AC 1'], ['R',120,80,1,'R1','10'], ['L',200,80,1,'L1','10m'],
+    ['C',280,140,0,'C1','100n'], ['GND',60,200,0,'',''], ['GND',280,200,0,'','']],
+    wires:[[60,120,60,80],[60,80,100,80],[140,80,180,80],[220,80,280,80],[280,80,280,120],
+           [60,160,60,200],[280,160,280,200]] }),
+ '二極體半波整流': () => ({ ana:'tran', v:{stop:'5m',step:'10u'}, parts:[
+    ['V',60,120,0,'V1','SIN(0 5 1k)'], ['D',140,80,3,'D1','DMOD'],
+    ['R',220,120,0,'R1','1k'], ['C',290,120,0,'C1','10u'],
+    ['GND',60,180,0,'',''], ['GND',220,180,0,'',''], ['GND',290,180,0,'','']],
+    wires:[[60,100,60,80],[60,80,120,80],[160,80,290,80],[220,80,220,100],[290,80,290,100],
+           [60,140,60,180],[220,140,220,180],[290,140,290,180]] }),
+ '反相放大器（理想運放）': () => ({ ana:'tran', v:{stop:'3m',step:'20u'}, parts:[
+    ['V',60,150,0,'V1','SIN(0 0.1 1k)'], ['R',140,130,1,'R1','10k'],
+    ['R',215,70,1,'Rf','100k'], ['E',250,120,0,'E1','1e6'],
+    ['GND',60,210,0,'',''], ['GND',232,80,0,'','']],
+    wires:[[60,130,120,130],[160,130,232,130],[195,130,195,70],
+           [235,70,270,70],[270,70,270,120],[232,110,232,80],[60,170,60,210]] })
+};
+Object.keys(EXAMPLES).forEach(k => $('exSel').insertAdjacentHTML('beforeend',
+    `<option value="${k}">${k}</option>`));
+$('exSel').onchange = () => loadExample($('exSel').value);
+function loadExample(k){
+    const e = EXAMPLES[k](); sch = {parts:[],wires:[]}; seq = 1; sel = null;
+    e.parts.forEach(([t,x,y,r,ref,val]) => sch.parts.push({type:t,x,y,rot:r,ref,val}));
+    e.wires.forEach(([a,b,c,d]) => sch.wires.push({x1:a,y1:b,x2:c,y2:d}));
+    seq = sch.parts.length + 1;
+    $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); buildAna();
+    inspect(); refreshNet(); fit();
+}
+
+/* ==========================================================
+   引擎
+   ========================================================== */
 const ENGINE_URLS = [
     'https://cdn.jsdelivr.net/npm/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs',
     'https://unpkg.com/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs'
 ];
-const DL_TIMEOUT = 90000, INIT_TIMEOUT = 60000;
-let sim = null, engineLoading = null;
-
-// 目前進行到哪一步，卡住時要靠它才知道死在哪
-let step = '';
-let tick = null;
+let sim = null, engineLoading = null, step = '', tick = null;
 function setStep(s){
-    step = s;
-    $('loadbar').style.display = s ? '' : 'none';
-    if (tick) { clearInterval(tick); tick = null; }
+    step = s; $('loadbar').style.display = s ? '' : 'none';
+    if (tick){ clearInterval(tick); tick = null; }
     if (!s) return;
     const t0 = Date.now();
     const paint = () => { $('loadtxt').textContent =
-        `${step}（已經 ${((Date.now() - t0) / 1000).toFixed(0)} 秒）`; };
+        `${step}（已經 ${((Date.now()-t0)/1000).toFixed(0)} 秒）`; };
     paint(); tick = setInterval(paint, 1000);
 }
-const sleep = ms => new Promise(r => setTimeout(r, ms));
 function withTimeout(p, ms, what){
-    // 計時器一定要清掉。不清的話，工作成功之後那個 setTimeout 還是會照樣觸發，
-    // 去 reject 一個已經沒人在等的 promise，變成「無主的拒絕」，
-    // 然後被全域攔截器抓到，畫面莫名其妙跳出錯誤。
+    // 計時器一定要清。不清的話成功之後它照樣觸發，去 reject 一個沒人在等的 promise，
+    // 變成無主的拒絕，畫面會莫名其妙跳錯。
     let id;
-    const timer = new Promise((_, rej) => {
-        id = setTimeout(() => rej(new Error(`TIMEOUT:${what}`)), ms);
-    });
-    return Promise.race([p, timer]).finally(() => clearTimeout(id));
+    const timer = new Promise((_,rej)=>{ id = setTimeout(()=>rej(new Error('TIMEOUT:'+what)), ms); });
+    return Promise.race([p,timer]).finally(()=>clearTimeout(id));
 }
-
 async function getSim(){
     if (sim) return sim;
     if (engineLoading) return engineLoading;
     engineLoading = (async () => {
-        let mod = null, lastErr = null;
+        let mod = null, last = null;
         for (const url of ENGINE_URLS){
-            try {
-                setStep(`正在下載模擬引擎（約 20MB）… 來源 ${new URL(url).hostname}`);
-                mod = await withTimeout(import(/* @vite-ignore */ url), DL_TIMEOUT, '下載');
-                break;
-            } catch (e) { lastErr = e; }
+            try { setStep(`正在下載模擬引擎（約 20MB）… 來源 ${new URL(url).hostname}`);
+                  mod = await withTimeout(import(url), 90000, '下載'); break; }
+            catch(e){ last = e; }
         }
-        if (!mod) throw lastErr || new Error('所有 CDN 都拿不到引擎');
+        if (!mod) throw last || new Error('所有 CDN 都拿不到引擎');
         setStep('正在啟動引擎…');
         const s = new mod.Simulation();
-        await withTimeout(s.start(), INIT_TIMEOUT, '啟動');
-        /* ★ 這個等待不能拿掉。
-           引擎內部是一個迴圈：start() 的 promise 在「初始化完成」時就解決了，
-           但迴圈要再跑一段才會抵達「等待下一次執行」的等待點。
-           如果 runSim() 在它抵達等待點之前被呼叫，觸發信號就送給了一個
-           還不存在的等待者，然後雙方互等到天荒地老——症狀就是
-           runSim() 永遠不回來，也不丟錯。
-           驗證頁之所以沒事，是因為它在 start() 和 runSim() 之間還做了
-           好幾件事（更新畫面、讀啟動訊息），剛好把時間讓出去了。 */
+        await withTimeout(s.start(), 60000, '啟動');
+        /* ★ 這個等待不能拿掉。引擎內部是一個迴圈：start() 在「初始化完成」就解決，
+           但迴圈要再跑一段才會抵達「等待下一次執行」的等待點。若 runSim() 早於
+           那個時間點被呼叫，觸發信號就送給了不存在的等待者，雙方互等到天荒地老。 */
         await sleep(150);
-        setStep('');
-        sim = s;
-        return s;
+        setStep(''); sim = s; return s;
     })();
     try { return await engineLoading; }
-    catch (e) { setStep(''); throw e; }
+    catch(e){ setStep(''); throw e; }
     finally { engineLoading = null; }
 }
+$('resetBtn').onclick = () => { sim = null; engineLoading = null; setStep('');
+    show('ok','已重設引擎',['下次按「執行模擬」會建立一個全新的引擎實例。']); };
 
-/* ---- 執行前先擋掉會把手機弄爆的規模 ----
-   模擬跑在使用者的裝置上，沒有上限的話一個手滑就會讓手機當住。 */
-const MAX_CHARS = 20000;
-function guard(net){
-    if (net.length > MAX_CHARS) return `netlist 太長（${net.length} 字元，上限 ${MAX_CHARS}）。`;
-    // netlist 是原封不動餵給 C 寫的 ngspice 的，非 ASCII 位元組在那裡是未知數。
-    // 與其讓它靜靜卡死，不如先擋下來講清楚。
+/* ---------- 錯誤中文化 ---------- */
+const ERR_MAP = [
+{ re:/timestep too small/i, t:'時間步長已縮到極限仍無法收斂',
+  why:['有節點沒有直流路徑接地','脈波的上升／下降時間設成 0','電容電感的值差太多個數量級'],
+  fix:'先確認每個節點都能經由元件走回接地；PULSE 的上升時間別填 0，填 1n。' },
+{ re:/singular matrix|matrix is singular/i, t:'矩陣奇異：這個電路在數學上無解',
+  why:['某個節點沒有任何直流路徑通到接地','兩個電壓源並聯在同一對節點','電感迴路裡沒有電阻'],
+  fix:'最常見的就是忘了放接地，或有一段電路整個浮空。' },
+{ re:/unknown subckt|unknown model|could not find model/i, t:'找不到元件模型',
+  why:['二極體或電晶體的模型名稱跟 .model 對不起來'],
+  fix:'用內建的 DMOD／QMOD 就會自動附上 .model。' },
+{ re:/error on line|syntax error|parse error/i, t:'語法錯誤',
+  why:['某個元件的數值欄位填錯','單位寫錯：M 是「毫」不是「兆」，一百萬要寫 meg'],
+  fix:'點那個元件，看右邊屬性面板的範例格式。' },
+{ re:/no such vector|could not find/i, t:'找不到指定的節點',
+  why:['電路有一段沒接上，節點根本不存在'],
+  fix:'檢查線有沒有真的接到接腳上（接腳有小圓點）。' }
+];
+const NOISE = /can't find the initialization file spinit/i;
+const explain = t => ERR_MAP.filter(e => e.re.test(t));
+function show(kind, title, lines){
+    $('msg').innerHTML = `<div class="msg ${kind}"><b>${title}</b>${
+        lines && lines.length ? '<ul>'+lines.map(l=>`<li>${l}</li>`).join('')+'</ul>' : ''}</div>`;
+}
+function showHints(hints, title){
+    $('msg').innerHTML = `<div class="msg err"><b>${title}</b>` + hints.map(h =>
+        `<b style="margin-top:8px">${h.t}</b><ul>${h.why.map(w=>`<li>${w}</li>`).join('')}</ul>` +
+        `<div style="color:var(--ink-2);margin-top:4px">👉 ${h.fix}</div>`).join('') + '</div>';
+}
+
+/* ---------- 執行 ---------- */
+$('run').onclick = async () => {
+    const r = refreshNet();
+    if (r.warn.length) { show('warn','電路可能還沒完成', r.warn); if (!sch.parts.length) return; }
+    const net = r.text;
     const bad = [...net].find(c => c.charCodeAt(0) > 127);
-    if (bad) return `netlist 裡有非 ASCII 字元「${bad}」。SPICE 只吃英數字，` +
-        `包括註解行也是——中文註解請刪掉或改成英文。`;
+    if (bad) return show('err','netlist 裡有非 ASCII 字元',
+        [`「${bad}」。元件名稱和數值請用英數字。`]);
     const m = net.match(/^\s*\.tran\s+(\S+)\s+(\S+)/mi);
-    if (m){
-        const step = unit(m[1]), stop = unit(m[2]);
-        if (step > 0 && stop > 0){
-            // 先四捨五入再比。0.2/1e-6 的浮點結果是 200000.00000000003，
-            // 不round 的話「剛好 20 萬點」會被誤擋，邊界變得看運氣。
-            const pts = Math.round(stop / step);
-            if (pts > 2e5) return `這組 .tran 會產生約 ${pts.toLocaleString()} 個時間點，` +
-                `太多了（上限 200,000）。把步長調大或把模擬時間縮短。`;
-        }
-    }
-    return null;
-}
-// SPICE 的單位字尾。注意 meg 要先於 m 比對，否則 100meg 會被當成 100m。
-function unit(v){
-    const m = String(v).trim().match(/^([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(meg|mil|[tgkmunpf])?/i);
-    if (!m) return NaN;
-    const mul = { t:1e12, g:1e9, meg:1e6, k:1e3, m:1e-3, mil:25.4e-6,
-                  u:1e-6, n:1e-9, p:1e-12, f:1e-15 };
-    const suf = (m[2] || '').toLowerCase();
-    return parseFloat(m[1]) * (suf ? (mul[suf] ?? 1) : 1);
-}
-
-/* ==========================================================
-   6. 執行
-   ========================================================== */
-let plotData = null;
-$('run').addEventListener('click', async () => {
-    const net = $('net').value;
-    const bad = guard(net);
-    if (bad) return show('err', '先擋下來了', [bad]);
+    if (m){ const st = unit(m[1]), sp = unit(m[2]);
+        if (st>0 && sp>0 && Math.round(sp/st) > 2e5)
+            return show('err','先擋下來了',
+                [`這組 .tran 會產生約 ${Math.round(sp/st).toLocaleString()} 個點，上限 20 萬。`]); }
 
     const btn = $('run'); btn.disabled = true; btn.textContent = '執行中…';
-    $('msg').innerHTML = '';
     try {
         const s = await getSim();
-        s.setNetList(net.endsWith('\n') ? net : net + '\n');
+        s.setNetList(net);
         setStep('正在計算…');
-        const t0 = performance.now();
-        /* 一邊算一邊把 ngspice 自己的輸出貼到進度列。
-           萬一又卡住，至少看得到它最後講到哪一句，不用再猜。 */
         const peek = setInterval(() => {
-            const out = (s.getInfo?.() || '').trim().split('\n').filter(Boolean);
-            if (out.length) setStep('計算中… ngspice：' + out[out.length - 1].slice(0, 60));
+            const o = (s.getInfo?.()||'').trim().split('\n').filter(Boolean);
+            if (o.length) setStep('計算中… ngspice：' + o[o.length-1].slice(0,58));
         }, 700);
+        const t0 = performance.now();
         let res;
-        // 收斂不了的電路會讓 ngspice 一直算下去，所以還是要設逾時
         try { res = await withTimeout(s.runSim(), 45000, '計算'); }
         finally { clearInterval(peek); }
-        const ms = performance.now() - t0;
         setStep('');
-
-        const errs = (s.getError?.() || []).filter(x => x && !NOISE.test(x));
-        const info = (s.getInfo?.() || '').split('\n').filter(l => !NOISE.test(l)).join('\n');
-        $('raw').textContent = info.trim() || '(無輸出)';
-        $('rawBox').style.display = '';
-
-        if (!res || !res.data || !res.data.length){
-            return show('err', '模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
-        }
-        plotData = prepare(res);
-        buildLegend();
-        draw();
+        const ms = performance.now() - t0;
+        const errs = (s.getError?.()||[]).filter(x => x && !NOISE.test(x));
+        const info = (s.getInfo?.()||'').split('\n').filter(l => !NOISE.test(l)).join('\n');
+        $('raw').textContent = info.trim() || '(無輸出)'; $('rawBox').style.display = '';
+        if (!res || !res.data || !res.data.length)
+            return show('err','模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
+        plotData = prepare(res); buildLegend(); drawPlot();
         const hints = explain(errs.join('\n') + '\n' + info);
         if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
             [`${res.numPoints.toLocaleString()} 個資料點，${plotData.traces.length} 條曲線。`]);
-    } catch (e) {
+    } catch(e){
         setStep('');
-        // 失敗時也要把 ngspice 講過的話留下來，否則什麼線索都沒有
-        try {
-            const out = (sim && sim.getInfo?.() || '').trim();
-            const er  = (sim && sim.getError?.() || []).join('\n').trim();
-            if (out || er) {
-                $('raw').textContent = (er ? '[錯誤]\n' + er + '\n\n' : '') + (out || '(無輸出)');
-                $('rawBox').style.display = '';
-                $('rawBox').open = true;
-            }
-        } catch (_) {}
-        const txt = (e && (e.message || e.toString())) || '未知錯誤';
-        const m = txt.match(/^TIMEOUT:(.+)$/);
-        if (m) {
-            show('err', `「${m[1]}」這一步等太久，已中止`, m[1] === '下載'
-                ? ['兩個 CDN（jsDelivr 與 unpkg）都沒回應。校園網路或防火牆可能擋掉了。',
-                   '換行動網路或別的網路再試一次。',
-                   '引擎有 20MB，網路很慢的話也可能單純是還沒下載完。']
-                : m[1] === '啟動'
-                ? ['引擎下載完了但起不來。多半是裝置記憶體不足，關掉其他分頁再試。']
-                : ['如果上面的進度列有出現 ngspice 的訊息，就是電路本身算太久或收斂不了：' +
-                   '把 .tran 的模擬時間縮短、步長調大，或檢查有沒有節點沒接地。',
-                   '如果進度列從頭到尾都沒有出現任何 ngspice 訊息，那是引擎本身沒有回應——' +
-                   '按下面的「重設引擎」再試一次。',
-                   '下方「ngspice 原始輸出」也會保留它最後說的話。']);
-        } else {
-            const hints = explain(txt);
-            if (hints.length) showHints(hints, '模擬失敗');
-            else show('err', '模擬失敗', [txt]);
-        }
-    } finally {
-        btn.disabled = false; btn.textContent = '執行模擬';
-    }
-});
-
-function showHints(hints, title){
-    const html = hints.map(h =>
-        `<b>${h.t}</b><ul>${h.why.map(w => `<li>${w}</li>`).join('')}</ul>` +
-        `<div style="margin-top:6px;color:var(--ink-2)">👉 ${h.fix}</div>`).join('<hr style="border:none;border-top:1px solid var(--rule);margin:10px 0">');
-    $('msg').innerHTML = `<div class="msg err"><b>${title}</b>${html}</div>`;
+        try { const o=(sim&&sim.getInfo?.()||'').trim(), er=(sim&&sim.getError?.()||[]).join('\n').trim();
+              if (o||er){ $('raw').textContent = (er?'[錯誤]\n'+er+'\n\n':'')+(o||'(無輸出)');
+                          $('rawBox').style.display=''; $('rawBox').open=true; } } catch(_){}
+        const txt = (e && (e.message||e.toString())) || '未知錯誤';
+        const tm = txt.match(/^TIMEOUT:(.+)$/);
+        if (tm) show('err', `「${tm[1]}」這一步等太久，已中止`,
+            tm[1]==='下載' ? ['兩個 CDN 都沒回應，換個網路再試。']
+          : tm[1]==='啟動' ? ['引擎起不來，多半是記憶體不足，關掉其他分頁。']
+          : ['進度列有出現 ngspice 訊息 → 電路算太久或收斂不了；完全沒出現 → 按「重設引擎」。']);
+        else { const h = explain(txt); h.length ? showHints(h,'模擬失敗') : show('err','模擬失敗',[txt]); }
+    } finally { btn.disabled = false; btn.textContent = '執行模擬'; }
+};
+function unit(v){
+    const m = String(v).trim().match(/^([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(meg|mil|[tgkmunpf])?/i);
+    if (!m) return NaN;
+    const mul = {t:1e12,g:1e9,meg:1e6,k:1e3,m:1e-3,mil:25.4e-6,u:1e-6,n:1e-9,p:1e-12,f:1e-15};
+    const s = (m[2]||'').toLowerCase();
+    return parseFloat(m[1]) * (s ? (mul[s] ?? 1) : 1);
 }
 
-/* 引擎卡死時的逃生門。模組已經在瀏覽器快取裡，重建一個實例是幾百毫秒的事，
-   不必整頁重新載入、也不必再下載那 20MB。 */
-$('resetBtn').addEventListener('click', () => {
-    sim = null; engineLoading = null; setStep('');
-    show('ok', '已重設引擎', ['下次按「執行模擬」會建立一個全新的引擎實例。']);
-});
-
 /* ==========================================================
-   7. 整理結果
-      .ac 回傳的是複數，要轉成 dB；.tran/.dc 是實數直接用。
+   波形
    ========================================================== */
+let plotData = null, hoverX = null;
 function prepare(res){
     const isC = res.dataType === 'complex';
     const xi = res.data.findIndex(d => /^(time|frequency)$/i.test(d.name) ||
                                        ['time','frequency'].includes(d.type));
     const xd = res.data[xi >= 0 ? xi : 0];
-    const x  = isC ? xd.values.map(v => v.real) : xd.values.slice();
+    const x = isC ? xd.values.map(v=>v.real) : xd.values.slice();
     const logX = /freq/i.test(xd.name) || xd.type === 'frequency';
     const traces = [];
-    res.data.forEach((d, i) => {
-        if (i === (xi >= 0 ? xi : 0)) return;
-        if (isC){
-            traces.push({ name:`dB(${d.name})`, unit:'dB', on:true,
-                y: d.values.map(v => 20 * Math.log10(Math.hypot(v.real, v.img) || 1e-30)) });
-        } else {
-            traces.push({ name:d.name, unit: d.type === 'current' ? 'A' : 'V', on:true,
-                y: d.values.slice() });
-        }
+    res.data.forEach((d,i) => {
+        if (i === (xi>=0?xi:0)) return;
+        if (isC) traces.push({name:`dB(${d.name})`, unit:'dB', on:true,
+            y:d.values.map(v => 20*Math.log10(Math.hypot(v.real,v.img)||1e-30))});
+        else traces.push({name:d.name, unit:d.type==='current'?'A':'V', on:true, y:d.values.slice()});
     });
-    return { x, logX, xname: xd.name, traces };
+    return {x, logX, xname:xd.name, traces};
 }
-
 const COLORS = ['--t1','--t2','--t3','--t4','--t5','--t6'];
-const cvar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-
 function buildLegend(){
-    $('legend').innerHTML = plotData.traces.map((t, i) =>
-        `<span class="lg" data-i="${i}"><i style="background:${cvar(COLORS[i % 6])}"></i>${t.name}</span>`
-    ).join('');
-    $('legend').querySelectorAll('.lg').forEach(el => el.addEventListener('click', () => {
-        const i = +el.dataset.i;
-        plotData.traces[i].on = !plotData.traces[i].on;
-        el.classList.toggle('off', !plotData.traces[i].on);
-        draw();
-    }));
+    $('legend').innerHTML = plotData.traces.map((t,i) =>
+        `<span class="lg" data-i="${i}"><i style="background:${cvar(COLORS[i%6])}"></i>${t.name}</span>`).join('');
+    $('legend').querySelectorAll('.lg').forEach(el => el.onclick = () => {
+        const i = +el.dataset.i; plotData.traces[i].on = !plotData.traces[i].on;
+        el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); });
 }
-
-/* ==========================================================
-   8. 畫圖
-      這裡刻意不引入圖表函式庫：只有兩三百行，而且多一個 CDN 相依
-      就多一個「對方掛掉整頁就壞掉」的風險。
-   ========================================================== */
-const PAD = { l:58, r:12, t:12, b:34 };
-function niceTicks(lo, hi, n){
-    if (!isFinite(lo) || !isFinite(hi) || lo === hi) return [lo];
-    const raw = (hi - lo) / n;
-    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
-    const step = [1,2,2.5,5,10].find(s => s * mag >= raw) * mag;
-    const out = [];
-    for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-6; v += step) out.push(v);
+const PAD = {l:56, r:12, t:12, b:32};
+function niceTicks(lo,hi,n){
+    if (!isFinite(lo)||!isFinite(hi)||lo===hi) return [lo];
+    const raw = (hi-lo)/n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    const st = [1,2,2.5,5,10].find(s => s*mag >= raw)*mag;
+    const out = []; for (let v = Math.ceil(lo/st)*st; v <= hi+st*1e-6; v += st) out.push(v);
     return out;
 }
 function eng(v){
-    if (v === 0) return '0';
+    if (v===0) return '0';
     const a = Math.abs(v);
-    const u = [[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']];
-    for (const [m, s] of u) if (a >= m) {
-        const x = v / m;
-        return (Math.abs(x) < 10 ? x.toFixed(2) : Math.abs(x) < 100 ? x.toFixed(1) : x.toFixed(0)) + s;
-    }
+    for (const [m,s] of [[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']])
+        if (a >= m){ const x = v/m;
+            return (Math.abs(x)<10?x.toFixed(2):Math.abs(x)<100?x.toFixed(1):x.toFixed(0))+s; }
     return v.toExponential(1);
 }
-
-let hoverX = null;
-function draw(){
-    const cv = $('plot'), dpr = devicePixelRatio || 1;
-    const W = cv.clientWidth, H = 330;
-    cv.width = W * dpr; cv.height = H * dpr;
-    const g = cv.getContext('2d');
-    g.setTransform(dpr, 0, 0, dpr, 0, 0);
-    g.clearRect(0, 0, W, H);
-    if (!plotData) return;
-
-    const on = plotData.traces.filter(t => t.on);
-    const xs = plotData.x;
-    const lx = plotData.logX && xs.every(v => v > 0);
-    const x0 = lx ? Math.log10(xs[0]) : xs[0];
-    const x1 = lx ? Math.log10(xs[xs.length - 1]) : xs[xs.length - 1];
-    let lo = Infinity, hi = -Infinity;
-    for (const t of on) for (const v of t.y) { if (v < lo) lo = v; if (v > hi) hi = v; }
-    if (!isFinite(lo)) { lo = 0; hi = 1; }
-    if (lo === hi) { lo -= 1; hi += 1; }
-    const pad = (hi - lo) * 0.08; lo -= pad; hi += pad;
-
-    const PX = v => PAD.l + (W - PAD.l - PAD.r) * ((lx ? Math.log10(v) : v) - x0) / ((x1 - x0) || 1);
-    const PY = v => H - PAD.b - (H - PAD.t - PAD.b) * (v - lo) / ((hi - lo) || 1);
-
+function drawPlot(){
+    const c = $('plot'), dpr = devicePixelRatio||1, W = c.clientWidth, H = 300;
+    c.width = W*dpr; c.height = H*dpr;
+    const p = c.getContext('2d'); p.setTransform(dpr,0,0,dpr,0,0); p.clearRect(0,0,W,H);
+    if (!plotData) { p.fillStyle = cvar('--ink-3'); p.font = '13px system-ui'; p.textAlign='center';
+        p.fillText('按「執行模擬」後這裡會出現波形', W/2, H/2); return; }
+    const on = plotData.traces.filter(t=>t.on), xs = plotData.x;
+    const lx = plotData.logX && xs.every(v=>v>0);
+    const x0 = lx?Math.log10(xs[0]):xs[0], x1 = lx?Math.log10(xs[xs.length-1]):xs[xs.length-1];
+    let lo=Infinity, hi=-Infinity;
+    for (const t of on) for (const v of t.y){ if(v<lo)lo=v; if(v>hi)hi=v; }
+    if (!isFinite(lo)){ lo=0; hi=1; } if (lo===hi){ lo-=1; hi+=1; }
+    const pd=(hi-lo)*0.08; lo-=pd; hi+=pd;
+    const PX = v => PAD.l + (W-PAD.l-PAD.r)*((lx?Math.log10(v):v)-x0)/((x1-x0)||1);
+    const PY = v => H-PAD.b - (H-PAD.t-PAD.b)*(v-lo)/((hi-lo)||1);
     const rule = cvar('--rule'), ink3 = cvar('--ink-3');
-    g.strokeStyle = rule; g.fillStyle = ink3; g.lineWidth = 1;
-    g.font = '11px ui-monospace,Menlo,monospace';
-
-    // Y 軸
-    for (const v of niceTicks(lo, hi, 5)){
-        const y = PY(v);
-        g.beginPath(); g.moveTo(PAD.l, y); g.lineTo(W - PAD.r, y); g.stroke();
-        g.textAlign = 'right'; g.fillText(eng(v), PAD.l - 6, y + 4);
-    }
-    // X 軸
-    const xticks = lx
-        ? (() => { const o = []; for (let e = Math.ceil(x0); e <= Math.floor(x1); e++) o.push(Math.pow(10, e)); return o; })()
-        : niceTicks(xs[0], xs[xs.length - 1], 6);
-    g.textAlign = 'center';
-    for (const v of xticks){
-        const x = PX(v);
-        if (x < PAD.l - 1 || x > W - PAD.r + 1) continue;
-        g.beginPath(); g.moveTo(x, PAD.t); g.lineTo(x, H - PAD.b); g.stroke();
-        g.fillText(eng(v), x, H - PAD.b + 15);
-    }
-    g.textAlign = 'left';
-    g.fillText(plotData.xname + (lx ? ' (log)' : ''), PAD.l, H - 6);
-
-    // 曲線
-    plotData.traces.forEach((t, i) => {
-        if (!t.on) return;
-        g.strokeStyle = cvar(COLORS[i % 6]); g.lineWidth = 1.8;
-        g.beginPath();
-        for (let k = 0; k < xs.length; k++){
-            const px = PX(xs[k]), py = PY(t.y[k]);
-            k ? g.lineTo(px, py) : g.moveTo(px, py);
-        }
-        g.stroke();
-    });
-
-    // 游標
+    p.strokeStyle = rule; p.fillStyle = ink3; p.lineWidth = 1; p.font = '11px ui-monospace,Menlo,monospace';
+    for (const v of niceTicks(lo,hi,5)){ const y = PY(v);
+        p.beginPath(); p.moveTo(PAD.l,y); p.lineTo(W-PAD.r,y); p.stroke();
+        p.textAlign='right'; p.fillText(eng(v), PAD.l-6, y+4); }
+    const xt = lx ? (()=>{const o=[];for(let e=Math.ceil(x0);e<=Math.floor(x1);e++)o.push(10**e);return o;})()
+                  : niceTicks(xs[0], xs[xs.length-1], 6);
+    p.textAlign='center';
+    for (const v of xt){ const x = PX(v); if (x<PAD.l-1||x>W-PAD.r+1) continue;
+        p.beginPath(); p.moveTo(x,PAD.t); p.lineTo(x,H-PAD.b); p.stroke();
+        p.fillText(eng(v), x, H-PAD.b+15); }
+    p.textAlign='left'; p.fillText(plotData.xname + (lx?' (log)':''), PAD.l, H-5);
+    plotData.traces.forEach((t,i) => { if(!t.on) return;
+        p.strokeStyle = cvar(COLORS[i%6]); p.lineWidth = 1.8; p.beginPath();
+        for (let k=0;k<xs.length;k++){ const a=PX(xs[k]), b=PY(t.y[k]); k?p.lineTo(a,b):p.moveTo(a,b); }
+        p.stroke(); });
     if (hoverX != null){
-        const idx = nearest(hoverX);
-        if (idx >= 0){
-            const px = PX(xs[idx]);
-            g.strokeStyle = ink3; g.setLineDash([3,3]); g.lineWidth = 1;
-            g.beginPath(); g.moveTo(px, PAD.t); g.lineTo(px, H - PAD.b); g.stroke();
-            g.setLineDash([]);
-            plotData.traces.forEach((t, i) => {
-                if (!t.on) return;
-                g.fillStyle = cvar(COLORS[i % 6]);
-                g.beginPath(); g.arc(px, PY(t.y[idx]), 3.2, 0, 7); g.fill();
-            });
-            $('readout').textContent =
-                `${plotData.xname} = ${eng(xs[idx])}\n` +
-                plotData.traces.filter(t => t.on)
-                    .map(t => `${t.name} = ${eng(t.y[idx])}${t.unit}`).join('\n');
+        let best=-1, bd=1e9;
+        for (let k=0;k<xs.length;k++){ const d=Math.abs(PX(xs[k])-hoverX); if(d<bd){bd=d;best=k;} }
+        if (bd < 40 && best >= 0){ const px = PX(xs[best]);
+            p.strokeStyle = ink3; p.setLineDash([3,3]);
+            p.beginPath(); p.moveTo(px,PAD.t); p.lineTo(px,H-PAD.b); p.stroke(); p.setLineDash([]);
+            plotData.traces.forEach((t,i)=>{ if(!t.on) return; p.fillStyle = cvar(COLORS[i%6]);
+                p.beginPath(); p.arc(px,PY(t.y[best]),3.2,0,7); p.fill(); });
+            $('readout').textContent = `${plotData.xname} = ${eng(xs[best])}\n` +
+                plotData.traces.filter(t=>t.on).map(t=>`${t.name} = ${eng(t.y[best])}${t.unit}`).join('\n');
         }
-    }
-    function nearest(cx){
-        let best = -1, bd = Infinity;
-        for (let k = 0; k < xs.length; k++){
-            const d = Math.abs(PX(xs[k]) - cx);
-            if (d < bd) { bd = d; best = k; }
-        }
-        return bd < 40 ? best : -1;
     }
 }
-const cv = $('plot');
-const moveH = e => {
-    const r = cv.getBoundingClientRect();
-    const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-    hoverX = cx; draw();
-};
-cv.addEventListener('mousemove', moveH);
-cv.addEventListener('touchstart', moveH, { passive:true });
-cv.addEventListener('touchmove', moveH, { passive:true });
-cv.addEventListener('mouseleave', () => { hoverX = null; $('readout').textContent = ''; draw(); });
-addEventListener('resize', () => draw());
-new MutationObserver(() => draw()).observe(document.documentElement,
-    { attributes:true, attributeFilter:['class'] });   // 切換深淺色時重畫
+const pmove = e => { const r = $('plot').getBoundingClientRect();
+    hoverX = (e.touches?e.touches[0].clientX:e.clientX) - r.left; drawPlot(); };
+$('plot').addEventListener('mousemove', pmove);
+$('plot').addEventListener('touchstart', pmove, {passive:true});
+$('plot').addEventListener('touchmove', pmove, {passive:true});
+$('plot').addEventListener('mouseleave', () => { hoverX=null; $('readout').textContent=''; drawPlot(); });
 
 /* ==========================================================
-   9. 存檔與分享
-      私人草稿存在 users/{uid}/circuits，只有本人讀得到（星族也不行）。
+   存檔與分享
    ========================================================== */
-$('saveBtn').addEventListener('click', async () => {
-    if (!me) return show('warn', '要先登入才能存檔', ['回小黑貓首頁登入後再回來，這一頁會沿用登入狀態。']);
-    const path = PU('circuits');
-    if (!path) return;
-    const name = prompt('這個電路要叫什麼名字？', '未命名電路');
-    if (name === null) return;
-    try {
-        await addDoc(collection(db, path),
-            { name: (name || '未命名電路').slice(0, 60), netlist: $('net').value.slice(0, MAX_CHARS),
-              updatedAt: Date.now() });
-        show('ok', '已存檔', []);
-        renderMine();
-    } catch (e) { show('err', '存檔失敗', [e.message || String(e)]); }
-});
-
-async function renderMine(){
-    const box = $('myList');
-    const path = PU('circuits');
-    if (!path) { box.innerHTML = '<span class="hint">登入後才能存檔。</span>'; return; }
-    try {
-        const snap = await getDocs(collection(db, path));
-        if (snap.empty) { box.innerHTML = '<span class="hint">還沒有存過電路。</span>'; return; }
-        box.innerHTML = '';
-        snap.forEach(d => {
-            const el = document.createElement('button');
-            el.textContent = d.data().name || '未命名';
-            el.style.minHeight = '38px'; el.style.fontSize = '13px';
-            el.addEventListener('click', () => {
-                $('net').value = d.data().netlist || '';
-                show('ok', '已載入「' + (d.data().name || '未命名') + '」', []);
-            });
-            box.appendChild(el);
-        });
-    } catch (e) { box.innerHTML = '<span class="hint">讀取失敗：' + (e.message || e) + '</span>'; }
+const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
+    { s:sch, a:$('anaSel').value, v:anaVals }))));
+function unpack(str){
+    const o = JSON.parse(decodeURIComponent(escape(atob(str))));
+    sch = o.s || {parts:[],wires:[]}; seq = (sch.parts.length||0)+1; sel = null;
+    $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
+    inspect(); refreshNet(); fit();
 }
-
-/* 分享：把 netlist 壓進網址。不經過伺服器，任何人打開連結就看到同一份電路。 */
-$('shareBtn').addEventListener('click', async () => {
-    const enc = btoa(unescape(encodeURIComponent($('net').value)));
-    const url = location.origin + location.pathname + '?n=' + encodeURIComponent(enc);
-    if (url.length > 8000) return show('warn', '這個電路太長，沒辦法放進網址', ['請改用「存到我的」。']);
-    try { await navigator.clipboard.writeText(url); show('ok', '連結已複製', [url]); }
-    catch (e) { show('ok', '連結（請手動複製）', [url]); }
-});
-
-// 開站時如果網址帶了電路就載進來
-(function fromUrl(){
-    const q = new URLSearchParams(location.search).get('n');
-    if (!q) return;
+$('saveBtn').onclick = async () => {
+    if (!me) return show('warn','要先登入才能存檔',['回小黑貓首頁登入後再回來，這頁會沿用登入狀態。']);
+    const path = PU('circuits'); if (!path) return;
+    const name = prompt('這個電路要叫什麼名字？','未命名電路'); if (name === null) return;
+    try { await addDoc(collection(db,path), { name:(name||'未命名電路').slice(0,60),
+            data: pack().slice(0, 60000), updatedAt: Date.now() });
+          show('ok','已存檔',[]); renderMine(); }
+    catch(e){ show('err','存檔失敗',[e.message||String(e)]); }
+};
+async function renderMine(){
+    const box = $('myList'), path = PU('circuits');
+    if (!path){ box.innerHTML = '<span class="sub">登入後才能存檔。</span>'; return; }
     try {
-        const s = decodeURIComponent(escape(atob(q)));
-        if (s.trim()) { $('net').value = s; show('ok', '已從分享連結載入電路', []); }
-    } catch (e) { show('warn', '分享連結解不開', ['連結可能在傳送過程中被截斷了。']); }
-})();
+        const snap = await getDocs(collection(db,path));
+        if (snap.empty){ box.innerHTML = '<span class="sub">還沒有存過電路。</span>'; return; }
+        box.innerHTML = '';
+        snap.forEach(d => { const b = document.createElement('button');
+            b.className = 'btn'; b.style.minHeight = '34px'; b.style.fontSize = '13px';
+            b.textContent = d.data().name || '未命名';
+            b.onclick = () => { try { unpack(d.data().data); show('ok','已載入「'+b.textContent+'」',[]); }
+                                catch(e){ show('err','這筆存檔讀不開',[e.message||String(e)]); } };
+            box.appendChild(b); });
+    } catch(e){ box.innerHTML = '<span class="sub">讀取失敗：'+(e.message||e)+'</span>'; }
+}
+$('shareBtn').onclick = async () => {
+    const url = location.origin + location.pathname + '?c=' + encodeURIComponent(pack());
+    if (url.length > 8000) return show('warn','這張電路圖太大，放不進網址',['請改用「存到我的」。']);
+    try { await navigator.clipboard.writeText(url); show('ok','連結已複製',[url]); }
+    catch(e){ show('ok','連結（請手動複製）',[url]); }
+};
 
-draw();
+/* ==========================================================
+   啟動
+   ========================================================== */
+addEventListener('resize', () => { drawSheet(); drawPlot(); });
+new MutationObserver(() => { paintPalette(); drawSheet(); drawPlot(); })
+    .observe(document.documentElement, {attributes:true, attributeFilter:['class']});
+
+paintPalette();
+const q = new URLSearchParams(location.search).get('c');
+if (q){ try { unpack(q); show('ok','已從分享連結載入電路',[]); }
+        catch(e){ show('warn','分享連結解不開',['連結可能被截斷了。']); loadExample('RC 低通（步階）'); } }
+else loadExample('RC 低通（步階）');
+drawPlot();
 </script>
 </body>
 </html>
