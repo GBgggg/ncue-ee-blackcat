@@ -125,6 +125,13 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .pop h3{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
 .pop[hidden]{display:none}
 
+#cmpMeas h3{font-size:12px;margin:12px 0 4px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
+.cmp-tbl{border-collapse:collapse;width:100%;font:11.5px ui-monospace,Menlo,Consolas,monospace}
+.cmp-tbl th,.cmp-tbl td{padding:3px 6px;text-align:right;white-space:nowrap;
+                        border-bottom:1px solid var(--rule)}
+.cmp-tbl th{color:var(--ink-3);font-weight:600}
+.cmp-tbl td:first-child,.cmp-tbl th:first-child{text-align:left;color:var(--ink-2);font-weight:700}
+
 /* ---- 樣式：手機擋門 ---- */
 #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
       padding:24px;background:var(--paper)}
@@ -1469,7 +1476,9 @@ $('mProbe').onclick = () => setMode('probe');
 $('rotBtn').onclick = rotate;
 $('delBtn').onclick = del;
 $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
-    pushUndo(); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = []; inspect(); refreshNet(); drawSheet(); };
+    pushUndo(); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = [];
+    simData = null; cursorIdx = null;   // 舊的模擬結果已經對不上新的節點編號了
+    inspect(); refreshNet(); drawSheet(); };
 $('fitBtn').onclick = fit;
 $('undoBtn').onclick = undo;
 $('redoBtn').onclick = redo;
@@ -1556,6 +1565,7 @@ function inspect(){
         <button class="btn" id="ip_rot">旋轉</button>
         <button class="btn" id="ip_del">刪除</button>
       </div>
+      <div id="cmpMeas"></div>
       <p class="sub">型別：${T.label}（${p.type}）${
         realMode && p.type === 'E'
           ? '<br><b>現實模式下這個增益欄位不生效</b>，運放改用內建的巨觀模型。' : ''}${
@@ -1567,6 +1577,60 @@ function inspect(){
     $('ip_val').oninput = e => { once(); p.val = e.target.value; refreshNet(); drawSheet(); };
     $('ip_rot').onclick = rotate;
     $('ip_del').onclick = del;
+    renderCmpMeas(p);
+}
+
+/* 元件量測區。統計值用整段模擬算，游標那一格的瞬時值另外顯示，
+   而且是由 drawPlot() 直接改那一行文字、不重畫整個面板——
+   不然滑鼠一動就會把正在編輯的輸入框重建掉，游標和輸入到一半的字都會不見。 */
+function renderCmpMeas(p){
+    const box = $('cmpMeas');
+    if (!box) return;
+    const ser = partSeries(p);
+    if (!ser){
+        box.innerHTML = simData
+            ? `<p class="sub" style="margin-top:8px">這個元件的電壓電流沒辦法直接推算${
+                 /^[DQE]$/.test(p.type)
+                   ? '：非線性元件沒有封閉解。要看它的電流，可以在旁邊串一顆很小的電阻去量' : ''}。</p>`
+            : '<p class="sub" style="margin-top:8px">按「執行模擬」之後，這裡會顯示這個元件的電壓與電流。</p>';
+        return;
+    }
+    const uv = ser.ac ? '' : 'V';
+    const mv = measure(simData.x, ser.dv);
+    const mi = ser.cur ? measure(simData.x, ser.cur) : null;
+    const row = (lab, m, u) => m
+        ? `<tr><td>${lab}</td><td>${eng(m.mean)}${u}</td><td>${eng(m.pp)}${u}</td>` +
+          `<td>${eng(m.rms)}${u}</td><td>${eng(m.min)}${u}</td><td>${eng(m.max)}${u}</td></tr>`
+        : `<tr><td>${lab}</td><td colspan="5">—</td></tr>`;
+    box.innerHTML = `
+      <h3 style="margin-top:12px">這個元件（本次模擬）</h3>
+      <p class="sub">跨壓 = V(${ser.nodes[0]}) − V(${ser.nodes[1]})，
+         電流以 ${ser.nodes[0]} → ${ser.nodes[1]} 的方向為正。</p>
+      <div class="meas-scroll"><table class="cmp-tbl">
+        <thead><tr><th></th><th>平均</th><th>峰對峰</th><th>RMS</th><th>最小</th><th>最大</th></tr></thead>
+        <tbody>${row('電壓', mv, uv)}${row('電流', mi, 'A')}</tbody>
+      </table></div>
+      <p class="sub" id="cmpNow"></p>
+      ${ser.note ? `<p class="sub">電流：${ser.note}。</p>` : ''}
+      ${ser.ac ? '<p class="sub">交流分析顯示的是振幅，電流不做推算。</p>' : ''}`;
+    updateCmpNow();
+}
+/** 只改一行文字，成本很低，可以在每次重畫波形時呼叫。 */
+function updateCmpNow(){
+    const el = $('cmpNow'); if (!el) return;
+    const one = selOne();
+    if (!one || one.kind !== 'part' || !simData){
+        el.textContent = ''; return;
+    }
+    if (cursorIdx == null){
+        el.textContent = '把游標移到波形圖上，可以看某一刻的瞬時值。'; return;
+    }
+    const ser = partSeries(sch.parts[one.i]);
+    if (!ser){ el.textContent = ''; return; }
+    const i = Math.min(cursorIdx, ser.dv.length - 1);
+    const v = ser.dv[i], c = ser.cur ? ser.cur[i] : null;
+    el.textContent = `${simData.xname} = ${eng(simData.x[i])}　→　電壓 ${eng(v)}${ser.ac?'':'V'}` +
+        (c == null ? '' : `　電流 ${eng(c)}A　功率 ${eng(v*c)}W`);
 }
 inspect();
 
@@ -1729,7 +1793,9 @@ $('run').onclick = async () => {
         $('raw').textContent = info.trim() || '(無輸出)'; $('rawBox').style.display = '';
         if (!res || !res.data || !res.data.length)
             return show('err','模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
+        simData = indexResult(res); cursorIdx = null;
         plotData = prepare(res); buildLegend(); showWave(true); drawPlot(); renderMeas();
+        inspect();          // 選著元件時，跑完就直接把它的電壓電流帶出來
         const hints = explain(errs.join('\n') + '\n' + info);
         if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
@@ -1782,6 +1848,91 @@ function prepare(res){
         ['電路可能改過了，節點編號跟著變。移除探針重插一次。']);
     return {x, logX, xname:xd.name, traces};
 }
+/* ==========================================================
+   單一元件的電壓與電流
+
+   ngspice 預設只回傳節點電壓和「電壓源」的支路電流，其他元件的電流要另外
+   下 .save 才有。與其去猜引擎支援哪些寫法，不如直接從節點電壓推算——
+   對 R／C／L 這三個元件，推算是有封閉解的，而且學生也看得懂是怎麼來的：
+
+     R:  i = Δv / R                  歐姆定律
+     C:  i = C · d(Δv)/dt            中央差分。取樣不等距，一定要用真正的時間差
+     L:  i = (1/L) ∫ Δv dt           梯形累加；.tran 預設從零狀態起跑，所以 i(0)=0
+
+   方向約定：**從 pin0 流向 pin1 為正**。畫面上會標出是哪兩個節點，
+   免得正負號要用猜的。
+
+   二極體、電晶體、運放沒有封閉解，電流留空並說明原因，不硬給一個數字。
+   ========================================================== */
+let simData = null, cursorIdx = null;
+
+/** 把 ngspice 的結果整理成「向量名稱 → 數列」。名稱一律轉小寫。 */
+function indexResult(res){
+    const isC = res.dataType === 'complex';
+    const xi = res.data.findIndex(d => /^(time|frequency)$/i.test(d.name) ||
+                                       ['time','frequency'].includes(d.type));
+    const xd = res.data[xi >= 0 ? xi : 0];
+    const val = d => isC ? d.values.map(v => Math.hypot(v.real, v.img)) : d.values.slice();
+    const by = new Map();
+    res.data.forEach((d,i) => { if (i !== (xi>=0?xi:0)) by.set(d.name.toLowerCase().replace(/\s/g,''), val(d)); });
+    return { x: isC ? xd.values.map(v=>v.real) : xd.values.slice(), by, isC, xname: xd.name };
+}
+/** 取某個節點的電壓數列。ngspice 有時叫 V(n2)、有時直接叫 n2，兩種都試。 */
+function nodeSeries(name){
+    if (!simData) return null;
+    if (name === '0') return new Array(simData.x.length).fill(0);
+    const k = name.toLowerCase();
+    return simData.by.get(`v(${k})`) || simData.by.get(k) || null;
+}
+/** 從跨壓推算流過元件的電流。純函式，方便單獨測。 */
+function deriveCurrent(type, val, dv, xs){
+    const n = dv.length, v = unit(val);
+    if (!isFinite(v) || v === 0 || n < 2) return null;
+    if (type === 'R') return dv.map(d => d / v);
+    if (type === 'C'){
+        const out = new Array(n);
+        for (let i=0;i<n;i++){
+            const a = Math.max(0,i-1), b = Math.min(n-1,i+1);
+            const dt = xs[b] - xs[a];
+            out[i] = dt ? v * (dv[b]-dv[a]) / dt : 0;
+        }
+        return out;
+    }
+    if (type === 'L'){
+        const out = new Array(n); let acc = 0; out[0] = 0;
+        for (let i=1;i<n;i++){
+            acc += (dv[i]+dv[i-1])/2 * (xs[i]-xs[i-1]);
+            out[i] = acc / v;
+        }
+        return out;
+    }
+    return null;
+}
+const CURRENT_NOTE = {
+    R:'由歐姆定律推算', C:'由 C·dv/dt 推算', L:'由 (1/L)∫v dt 推算，假設初始電流為 0',
+    V:'ngspice 直接給的支路電流'
+};
+/** 回傳選取元件在本次模擬中的跨壓與電流數列。沒有結果或算不出來就回 null。 */
+function partSeries(p){
+    if (!simData || !p) return null;
+    const T = TYPES[p.type];
+    if (!T || p.type === 'GND' || T.pins.length !== 2) return null;
+    const nd = buildNodes();
+    const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+    const a = nodeSeries(ns[0]), b = nodeSeries(ns[1]);
+    if (!a || !b) return null;
+    const dv = a.map((v,i) => v - b[i]);
+    let cur = null, note = null;
+    if (p.type === 'V'){
+        cur = simData.by.get(`${(p.ref||'').toLowerCase()}#branch`) || null;
+        if (cur) note = CURRENT_NOTE.V;
+    } else if (!simData.isC){
+        cur = deriveCurrent(p.type, p.val, dv, simData.x);
+        if (cur) note = CURRENT_NOTE[p.type];
+    }
+    return { nodes: ns, dv, cur, note, ac: simData.isC };
+}
+
 const COLORS = ['--t1','--t2','--t3','--t4','--t5','--t6'];
 function buildLegend(){
     $('legend').innerHTML = plotData.traces.map((t,i) =>
@@ -1838,9 +1989,11 @@ function drawPlot(){
         p.strokeStyle = cvar(COLORS[i%6]); p.lineWidth = 1.8; p.beginPath();
         for (let k=0;k<xs.length;k++){ const a=PX(xs[k]), b=PY(t.y[k]); k?p.lineTo(a,b):p.moveTo(a,b); }
         p.stroke(); });
+    cursorIdx = null;
     if (hoverX != null){
         let best=-1, bd=1e9;
         for (let k=0;k<xs.length;k++){ const d=Math.abs(PX(xs[k])-hoverX); if(d<bd){bd=d;best=k;} }
+        cursorIdx = (bd < 40 && best >= 0) ? best : null;
         if (bd < 40 && best >= 0){ const px = PX(xs[best]);
             p.strokeStyle = ink3; p.setLineDash([3,3]);
             p.beginPath(); p.moveTo(px,PAD.t); p.lineTo(px,H-PAD.b); p.stroke(); p.setLineDash([]);
@@ -1850,6 +2003,7 @@ function drawPlot(){
                 plotData.traces.filter(t=>t.on).map(t=>`${t.name} = ${eng(t.y[best])}${t.unit}`).join('\n');
         }
     }
+    updateCmpNow();
 }
 /* ==========================================================
    自動量測
