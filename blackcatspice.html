@@ -1107,12 +1107,34 @@ const toggleSel = (kind,i) => {
     const k = sel.findIndex(x => x.kind===kind && x.i===i);
     if (k >= 0) sel.splice(k,1); else sel.push({kind,i});
 };
+/* ★ 焦點釋放必須是全域的，不能只綁在畫布上。
+
+   鍵盤處理器的第一行是「焦點在輸入框裡就不接管按鍵」——這是對的，不然在
+   屬性面板打字時按到 W 就會跳去連線模式。但輸入框不會自己失焦，所以一定要有
+   人主動放掉，否則熱鍵會整組卡死。
+
+   舊版面所有控制項都在畫布旁邊，下一個動作幾乎一定是點畫布，所以把 blur 寫在
+   畫布的 pointerdown 就夠用。改成全螢幕之後這個假設就不成立了：範例選單在工具列、
+   分析與元件模型在彈出面板、netlist 在另一個彈出面板，而波形是一個獨立的浮動視窗。
+   於是「改完模擬設定 → 去點波形視窗看結果」這個再自然不過的動線，會讓焦點一直
+   留在那個 <select> 上，接下來所有熱鍵（包含 Delete）全部失效。
+
+   現在改成：只要按在「不是表單控制項」的任何地方，就把焦點放掉。 */
+const isField = el => !!el && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
+/** 按在 target 上時要不要放掉目前的焦點。獨立成函式是為了能單獨測。 */
+function releaseFocus(target){
+    const ae = document.activeElement;
+    if (!isField(ae)) return false;                    // 本來就沒有欄位握著焦點
+    if (target === ae) return false;                   // 點的就是它自己
+    if (isField(target)) return false;                 // 換到另一個欄位，交給瀏覽器
+    if (target && target.closest && target.closest('label')) return false;  // label 會把焦點導回欄位
+    ae.blur();
+    return true;
+}
+addEventListener('pointerdown', e => { releaseFocus(e.target); }, true);
+
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
-    /* canvas 不可聚焦，所以點它不會讓輸入框失焦。不主動 blur 的話，
-       在屬性面板改完數值再回來點畫布，Delete 之類的熱鍵會一直被守門擋掉。 */
-    const ae = document.activeElement;
-    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur();
     cv.setPointerCapture(e.pointerId);
     const r = cv.getBoundingClientRect();
     const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
@@ -1290,7 +1312,7 @@ const actionFor = code => {
 };
 
 addEventListener('keydown', e => {
-    if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
+    if (isField(document.activeElement)) return;   // 在欄位裡打字，不要接管按鍵
     if (grabbing) return;                       // 正在設定熱鍵，交給那邊處理（見下方 pointerdown 會清掉）
     if (e.key === 'Escape'){
         closePop();
@@ -1965,6 +1987,8 @@ const POPS = [['btnSim','popSim'], ['btnProbes','popProbes'], ['btnNet','popNet'
 let openPop = null;
 function closePop(){
     if (!openPop) return;
+    // 面板一藏起來，裡面若還握著焦點就再也點不到它，熱鍵會被守門一直擋著
+    if (isField(document.activeElement)) document.activeElement.blur();
     $(openPop[1]).hidden = true;
     $(openPop[0]).classList.remove('on');
     $(openPop[0]).setAttribute('aria-expanded','false');
@@ -2066,8 +2090,11 @@ dragify($('waveGrip'), (s0,dx,dy) => {
 (function restoreWave(){
     let o = null;
     try { o = JSON.parse(localStorage.getItem(WAVE_KEY) || 'null'); } catch(e){}
-    waveWin.style.left = ((o && o.x) ?? Math.max(60, innerWidth-700)) + 'px';
-    waveWin.style.top  = ((o && o.y) ?? 130) + 'px';
+    /* 預設位置刻意避開右側的屬性面板（300px）並靠下，
+       不然一跑完模擬就把參數欄位整個蓋住，還得先搬視窗才能改東西。 */
+    const dw = 640, dh = 400;
+    waveWin.style.left = ((o && o.x) ?? Math.max(20, innerWidth - 300 - dw - 24)) + 'px';
+    waveWin.style.top  = ((o && o.y) ?? Math.max(150, innerHeight - dh - 46)) + 'px';
     if (o && o.w) waveWin.style.width  = Math.max(340, o.w) + 'px';
     if (o && o.h) waveWin.style.height = Math.max(220, o.h) + 'px';
     showWave(o ? !!o.open : false);
