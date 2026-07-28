@@ -306,13 +306,13 @@ const TYPES = {
   D:{ label:'二極體', pre:'D', pins:[[0,-20],[0,20]], val:'DMOD', model:'.model DMOD D(IS=1e-14 N=1)',
       draw(g){ ln(g,0,-20,0,-7); g.beginPath(); g.moveTo(-8,-7); g.lineTo(8,-7);
         g.lineTo(0,7); g.closePath(); g.stroke(); ln(g,-8,7,8,7); ln(g,0,7,0,20); } },
-  Q:{ label:'NPN', pre:'Q', pins:[[-20,0],[14,-18],[14,18]], order:'CBE', val:'QMOD',
+  Q:{ label:'NPN', pre:'Q', pins:[[20,-20],[-20,0],[20,20]], order:'CBE', val:'QMOD',
       model:'.model QMOD NPN(BF=200 IS=1e-15)',
-      draw(g){ ln(g,-20,0,-6,0); ln(g,-6,-14,-6,14); ln(g,-6,-7,14,-18); ln(g,-6,7,14,18);
-        g.beginPath(); g.moveTo(8,10); g.lineTo(14,18); g.lineTo(5,15); g.closePath();
+      draw(g){ ln(g,-20,0,-6,0); ln(g,-6,-14,-6,14); ln(g,-6,-8,20,-20); ln(g,-6,8,20,20);
+        g.beginPath(); g.moveTo(12,11); g.lineTo(20,20); g.lineTo(9,17); g.closePath();
         g.fillStyle=g.strokeStyle; g.fill(); } },
-  E:{ label:'運放', pre:'E', pins:[[-18,-10],[-18,10],[20,0]], order:'+-o', val:'1e6',
-      draw(g){ ln(g,-18,-10,-12,-10); ln(g,-18,10,-12,10);
+  E:{ label:'運放', pre:'E', pins:[[-20,-10],[-20,10],[20,0]], order:'+-o', val:'1e6',
+      draw(g){ ln(g,-20,-10,-12,-10); ln(g,-20,10,-12,10);
         g.beginPath(); g.moveTo(-12,-18); g.lineTo(-12,18); g.lineTo(14,0); g.closePath(); g.stroke();
         ln(g,14,0,20,0); ln(g,-9,-10,-5,-10); ln(g,-7,-12,-7,-8); ln(g,-9,10,-5,10); } },
   GND:{label:'接地', pre:'', pins:[[0,0]], val:'',
@@ -339,6 +339,47 @@ const pinsOf = p => TYPES[p.type].pins.map(([a,b]) => {
     const [u,v] = rotPt(a,b,p.rot); return [p.x+u, p.y+v];
 });
 const snap = v => Math.round(v/G)*G;
+
+/* ==========================================================
+   磁吸
+   只對齊格點是不夠的——使用者永遠不確定剛才那一下有沒有接上。
+   靠近接腳或線端就吸過去，並且在畫面上標出來。
+   半徑用螢幕像素換算回世界座標，所以放大縮小時「吸力範圍」看起來一樣大。
+   ========================================================== */
+const SNAP_PX = 13;
+function snapTargets(){
+    const t = [];
+    sch.parts.forEach((p,i) => pinsOf(p).forEach(([x,y],k) => t.push({x,y,kind:'pin',part:i,pin:k})));
+    sch.wires.forEach((w,i) => { t.push({x:w.x1,y:w.y1,kind:'end',wire:i});
+                                 t.push({x:w.x2,y:w.y2,kind:'end',wire:i}); });
+    return t;
+}
+function nearestTarget(wx,wy){
+    let best = null, bd = SNAP_PX / view.z;
+    for (const t of snapTargets()){
+        const d = Math.hypot(t.x-wx, t.y-wy);
+        if (d < bd){ bd = d; best = t; }
+    }
+    return best;
+}
+const snapPoint = (wx,wy) => {
+    const t = nearestTarget(wx,wy);
+    return t ? {x:t.x, y:t.y, on:true} : {x:snap(wx), y:snap(wy), on:false};
+};
+/* 轉角方向跟著拖曳的主要方向走。以前寫死「先水平再垂直」，
+   想拉一條先垂直的線只能分兩次點。 */
+const elbow = (a,b) => (a.x===b.x || a.y===b.y) ? [[a.x,a.y],[b.x,b.y]]
+    : Math.abs(b.x-a.x) >= Math.abs(b.y-a.y)
+        ? [[a.x,a.y],[b.x,a.y],[b.x,b.y]]
+        : [[a.x,a.y],[a.x,b.y],[b.x,b.y]];
+function commitWire(a,b){
+    const pts = elbow(a,b);
+    for (let i=0;i<pts.length-1;i++){
+        const [x1,y1]=pts[i], [x2,y2]=pts[i+1];
+        if (x1!==x2 || y1!==y2) sch.wires.push({x1,y1,x2,y2});
+    }
+    refreshNet();
+}
 
 /* ==========================================================
    節點萃取：把接腳與線段合併成節點
@@ -504,13 +545,25 @@ function drawSheet(){
         pinsOf(p).forEach(([x,y]) => { const [a,b]=W2S(x,y);
             g.beginPath(); g.arc(a,b,2,0,7); g.fill(); });
     });
-    // 正在拉的線
-    if (mode==='wire' && wireFrom){
-        g.strokeStyle = selc; g.setLineDash([4,4]); g.lineWidth = 1.6;
-        const [a,b] = W2S(wireFrom.x, wireFrom.y);
-        const [c,d] = W2S(snap(mouseW.x), snap(mouseW.y));
-        g.beginPath(); g.moveTo(a,b); g.lineTo(c,b); g.lineTo(c,d); g.stroke();
-        g.setLineDash([]);
+    // 正在拉的線（連線模式，或在選取模式下從接腳直接拖出來）
+    const from = wireFrom || quick;
+    if (from){
+        const to = snapPoint(mouseW.x, mouseW.y);
+        g.strokeStyle = selc; g.setLineDash([4,4]); g.lineWidth = 1.7;
+        g.beginPath();
+        elbow(from, to).forEach(([x,y],i) => { const [a,b] = W2S(x,y);
+            i ? g.lineTo(a,b) : g.moveTo(a,b); });
+        g.stroke(); g.setLineDash([]);
+        const [sx,sy] = W2S(from.x, from.y);
+        g.fillStyle = selc; g.beginPath(); g.arc(sx,sy,3.5,0,7); g.fill();
+    }
+    // 磁吸點的高亮：接得到什麼，眼睛要看得見
+    if (hoverPt){
+        const [hx,hy] = W2S(hoverPt.x, hoverPt.y);
+        g.strokeStyle = selc; g.lineWidth = 2;
+        g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.stroke();
+        g.globalAlpha = .18; g.fillStyle = selc;
+        g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.fill(); g.globalAlpha = 1;
     }
     // 預覽要放的元件
     if (mode==='place' && placing){
@@ -521,9 +574,11 @@ function drawSheet(){
     }
     $('hud').textContent =
         mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，R 旋轉，Esc 取消`
-      : mode==='wire'  ? (wireFrom ? '再點一下決定終點，Esc 取消' : '點一個接腳或空白處開始拉線')
-      : sel ? '已選取：Delete 刪除、R 旋轉、拖曳可移動'
-      : '點元件選取；中鍵或空白鍵拖曳可平移；滾輪縮放';
+      : quick          ? '放開滑鼠就接上'
+      : mode==='wire'  ? (wireFrom ? '再點一下決定終點；Esc 結束這條線' : '點接腳或空白處開始拉線')
+      : hoverPt        ? '從這個接點直接拖曳就能拉線'
+      : sel            ? '已選取：Delete 刪除、R 旋轉、拖曳可移動'
+      : '點元件選取；接腳上直接拖曳可拉線；中鍵或空白鍵平移、滾輪縮放';
 }
 
 /* ---------- 命中測試 ---------- */
@@ -547,7 +602,7 @@ function hitWire(wx,wy){
 }
 
 /* ---------- 滑鼠與鍵盤 ---------- */
-let dragging = null, panning = null, spaceDown = false;
+let dragging = null, panning = null, spaceDown = false, quick = null, hoverPt = null;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId);
@@ -558,17 +613,15 @@ cv.addEventListener('pointerdown', e => {
     }
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
     if (mode === 'wire'){
-        const px = snap(wx), py = snap(wy);
-        if (!wireFrom){ wireFrom = {x:px, y:py}; }
-        else {
-            // 兩段直角：先水平再垂直
-            if (wireFrom.x !== px) sch.wires.push({x1:wireFrom.x,y1:wireFrom.y,x2:px,y2:wireFrom.y});
-            if (wireFrom.y !== py) sch.wires.push({x1:px,y1:wireFrom.y,x2:px,y2:py});
-            wireFrom = {x:px, y:py};      // 連續拉線
-            refreshNet();
-        }
+        const p = snapPoint(wx,wy);
+        if (!wireFrom) wireFrom = {x:p.x, y:p.y};
+        else { commitWire(wireFrom, p); wireFrom = {x:p.x, y:p.y}; }   // 連續拉線
         drawSheet(); return;
     }
+    /* 選取模式下，按在接腳或線端上就直接開始拉線——不必先切模式。
+       接腳的判定半徑比元件本體小，所以想搬移元件時抓本體中段即可。 */
+    const t = nearestTarget(wx,wy);
+    if (t){ quick = {x:t.x, y:t.y}; drawSheet(); return; }
     const pi = hitPart(wx,wy);
     if (pi >= 0){ sel = {kind:'part', i:pi};
         dragging = { i:pi, dx:wx - sch.parts[pi].x, dy:wy - sch.parts[pi].y };
@@ -586,9 +639,22 @@ cv.addEventListener('pointermove', e => {
     if (dragging){ const p = sch.parts[dragging.i];
         p.x = snap(wx - dragging.dx); p.y = snap(wy - dragging.dy);
         refreshNet(); drawSheet(); return; }
-    if (mode==='wire' || mode==='place') drawSheet();
+    const was = hoverPt && hoverPt.x + ',' + hoverPt.y;
+    hoverPt = (mode === 'place') ? null : nearestTarget(wx,wy);
+    const now = hoverPt && hoverPt.x + ',' + hoverPt.y;
+    cv.style.cursor = mode === 'sel' ? (hoverPt ? 'crosshair' : 'default') : 'crosshair';
+    if (quick || was !== now || mode !== 'sel') drawSheet();
 });
-addEventListener('pointerup', () => { dragging = null; panning = null; });
+addEventListener('pointerup', () => {
+    if (quick){
+        const p = snapPoint(mouseW.x, mouseW.y);
+        // 沒有真的拖出去就當作只是點了一下，不要留下零長度的線
+        if (Math.abs(p.x-quick.x) + Math.abs(p.y-quick.y) >= G) commitWire(quick, p);
+        quick = null; drawSheet();
+    }
+    dragging = null; panning = null;
+});
+cv.addEventListener('pointerleave', () => { if (!quick){ hoverPt = null; drawSheet(); } });
 cv.addEventListener('wheel', e => {
     e.preventDefault();
     const r = cv.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
@@ -602,7 +668,12 @@ cv.addEventListener('wheel', e => {
 addEventListener('keydown', e => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
     if (e.code === 'Space'){ spaceDown = true; e.preventDefault(); }
-    if (e.key === 'Escape'){ setMode('sel'); sel = null; inspect(); drawSheet(); }
+    if (e.key === 'Escape'){
+        // 第一次先結束目前這條線，還留在連線模式；第二次才離開。
+        // 以前一按就跳出，畫完一條就得重按 W，很煩。
+        if (mode === 'wire' && wireFrom){ wireFrom = null; drawSheet(); }
+        else { setMode('sel'); sel = null; inspect(); drawSheet(); }
+    }
     if (e.key === 'w' || e.key === 'W') setMode('wire');
     if (e.key === 'r' || e.key === 'R') rotate();
     if (e.key === 'Delete' || e.key === 'Backspace'){ del(); e.preventDefault(); }
@@ -751,9 +822,9 @@ const EXAMPLES = {
  '反相放大器（理想運放）': () => ({ ana:'tran', v:{stop:'3m',step:'20u'}, parts:[
     ['V',60,150,0,'V1','SIN(0 0.1 1k)'], ['R',140,130,1,'R1','10k'],
     ['R',215,70,1,'Rf','100k'], ['E',250,120,0,'E1','1e6'],
-    ['GND',60,210,0,'',''], ['GND',232,80,0,'','']],
-    wires:[[60,130,120,130],[160,130,232,130],[195,130,195,70],
-           [235,70,270,70],[270,70,270,120],[232,110,232,80],[60,170,60,210]] })
+    ['GND',60,210,0,'',''], ['GND',230,80,0,'','']],
+    wires:[[60,130,120,130],[160,130,230,130],[195,130,195,70],
+           [235,70,270,70],[270,70,270,120],[230,110,230,80],[60,170,60,210]] })
 };
 Object.keys(EXAMPLES).forEach(k => $('exSel').insertAdjacentHTML('beforeend',
     `<option value="${k}">${k}</option>`));
