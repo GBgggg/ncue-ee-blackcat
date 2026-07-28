@@ -396,6 +396,32 @@ function isConnected(x, y, selfPart, selfPin){
     return false;
 }
 
+/* ==========================================================
+   交叉但不相連的點
+   兩條線交叉時，到底有沒有接在一起？光看畫面是分不出來的，
+   所以照電路圖的慣例畫一個「跨線橋」（小半圓）表示「只是路過，沒接」。
+
+   判準剛好就是節點萃取的反面：只有當交點**嚴格落在兩條線的內部**
+   （不是任何一端的端點、也沒有接腳在那裡）時，兩條線才是不相連的。
+   只要有一端剛好落在交點上，那就是 T 接，是真的接在一起，不畫橋。
+   ========================================================== */
+function crossings(){
+    const out = [];
+    const isH = w => w.y1 === w.y2, isV = w => w.x1 === w.x2;
+    for (let i = 0; i < sch.wires.length; i++){
+        const h = sch.wires[i];
+        if (!isH(h) || isV(h)) continue;
+        const hx1 = Math.min(h.x1,h.x2), hx2 = Math.max(h.x1,h.x2), y = h.y1;
+        for (const v of sch.wires){
+            if (!isV(v) || isH(v)) continue;
+            const x = v.x1, vy1 = Math.min(v.y1,v.y2), vy2 = Math.max(v.y1,v.y2);
+            if (x > hx1 && x < hx2 && y > vy1 && y < vy2 && !pinAt(x,y))
+                out.push({ wire:i, x, y });
+        }
+    }
+    return out;
+}
+
 /* 該格點上是不是剛好有接腳或線端。用完全相等判斷，不是「附近」——
    接腳都在格點上，所以這是精確命中，游標不會被拉走。 */
 function pinAt(x,y){
@@ -537,12 +563,40 @@ function drawSheet(){
         const x0 = ((view.x % step) + step) % step, y0 = ((view.y % step) + step) % step;
         for (let x = x0; x < w; x += step) for (let y = y0; y < h; y += step) g.fillRect(x,y,1,1);
     }
-    // 線
+    // 線。水平線遇到「交叉但不相連」的地方要斷開並補一個跨線橋。
     g.lineWidth = 1.8; g.strokeStyle = wire;
+    const hopAt = new Map();
+    for (const c of crossings()){
+        if (!hopAt.has(c.wire)) hopAt.set(c.wire, []);
+        hopAt.get(c.wire).push(c.x);
+    }
+    // 橋的半徑：看起來約 7px，但不能超過半個格距，否則缺口會吃到旁邊的接點
+    const hopR = Math.min(4.5, 7/view.z);
     sch.wires.forEach((wr,i) => {
         g.strokeStyle = (sel && sel.kind==='wire' && sel.i===i) ? selc : wire;
-        const [a,b] = W2S(wr.x1,wr.y1), [c,d] = W2S(wr.x2,wr.y2);
-        g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke();
+        const xs = hopAt.get(i);
+        if (!xs){
+            const [a,b] = W2S(wr.x1,wr.y1), [c,d] = W2S(wr.x2,wr.y2);
+            g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke();
+            return;
+        }
+        const y = wr.y1, dir = wr.x2 >= wr.x1 ? 1 : -1;
+        const list = xs.slice().sort((p,q) => dir*(p-q));
+        g.beginPath();
+        let cur = wr.x1;
+        for (const cx of list){
+            const [sx,sy] = W2S(cur, y), [ex,ey] = W2S(cx - dir*hopR, y);
+            g.moveTo(sx,sy); g.lineTo(ex,ey);
+            cur = cx + dir*hopR;
+        }
+        const [sx,sy] = W2S(cur,y), [ex,ey] = W2S(wr.x2, y);
+        g.moveTo(sx,sy); g.lineTo(ex,ey);
+        g.stroke();
+        // 半圓往上凸。canvas 的 y 是往下的，所以 π→2π 這段才是螢幕上的上方。
+        for (const cx of list){
+            const [hx,hy] = W2S(cx, y);
+            g.beginPath(); g.arc(hx, hy, hopR*view.z, Math.PI, 0, false); g.stroke();
+        }
     });
     // 接點（三條以上共點才畫實心點）
     const cnt = new Map();
