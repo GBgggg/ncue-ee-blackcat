@@ -55,13 +55,6 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .spacer{flex:1}
 .chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
       background:var(--accent-soft);color:var(--accent);white-space:nowrap}
-.chip-btn{border:none;cursor:pointer;min-height:28px}
-.chip-btn:hover{filter:brightness(.95)}
-#engineChip[data-s="loading"]{background:var(--rule);color:var(--ink-2)}
-#engineChip[data-s="ready"]{background:var(--accent-soft);color:var(--ok)}
-#engineChip[data-s="fail"]{background:var(--accent-soft);color:var(--warn)}
-#engineChip[data-s="off"]{background:transparent;color:var(--ink-3);
-                          box-shadow:inset 0 0 0 1px var(--rule)}
 
 /* ---- 樣式：logo 下拉選單（行為與主站一致） ---- */
 #logoWrap{position:relative;flex:none}
@@ -302,8 +295,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
 
     <div class="spacer"></div>
-    <button class="chip chip-btn" id="engineChip" type="button"
-            title="模擬引擎的狀態">引擎：未載入</button>
     <span class="chip" id="whoami">載入中…</span>
     <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
     <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
@@ -339,6 +330,8 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="waveHead">
     <span>波形</span>
     <div class="spacer"></div>
+    <button class="btn tiny" id="scopeBtn" type="button"
+            title="像示波器一樣持續掃描，改元件值會即時重算">示波器 ▶</button>
     <button class="btn tiny" id="csvBtn" type="button">CSV</button>
     <button class="btn tiny" id="pngBtn" type="button">PNG</button>
     <button class="icb tiny" id="waveClose" title="關閉" aria-label="關閉">✕</button>
@@ -530,6 +523,14 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
 /* ==========================================================
    文件模型
    ========================================================== */
+/* ★ 示波器掃描的狀態必須宣告在這裡，不能放到下面那段程式旁邊。
+   模組載入時會執行 buildAna() → syncDirective() → refreshNet() → scopeDirty()，
+   而 const／let 有暫時性死區：只要宣告在那一行「之後」，模組就會在載入當下
+   整個炸掉，所有功能一起死。node --check 看不出來（語法完全合法），
+   是冒煙測試把它抓出來的。 */
+const scope = { on:false, t0:0, span:0, raf:null, last:0 };
+let autoTimer = null;
+
 let sch = { parts:[], wires:[], probes:[] };   // probes: [{kind:'v'|'i', x,y | ref}]
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
@@ -951,7 +952,7 @@ function syncDirective(){ $('directive').textContent = directive(); refreshNet()
 $('anaSel').onchange = buildAna;
 buildAna();
 
-function refreshNet(){ const r = toNetlist(); $('net').value = r.text; autosave(); return r; }
+function refreshNet(){ const r = toNetlist(); $('net').value = r.text; autosave(); scopeDirty(); return r; }
 
 const MODE_NOTE = {
     ideal: '運放虛短路虛斷路、電容電感沒有寄生、電源沒有內阻、電晶體 β 為常數且沒有 Early 效應。' +
@@ -1487,6 +1488,7 @@ $('delBtn').onclick = del;
 $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
     pushUndo(); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = [];
     simData = null; cursorIdx = null;   // 舊的模擬結果已經對不上新的節點編號了
+    scopeStop();
     inspect(); refreshNet(); drawSheet(); };
 $('fitBtn').onclick = fit;
 $('undoBtn').onclick = undo;
@@ -1695,18 +1697,8 @@ const ENGINE_URLS = [
     'https://unpkg.com/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs'
 ];
 let sim = null, engineLoading = null, step = '', tick = null;
-/* 背景預熱時不要把大大的載入條推到畫面上搶注意力，只更新工具列上那顆小標籤。
-   使用者自己按了「執行模擬」才把進度攤開來——那時候他是真的在等。 */
-let quiet = false;
-const ENGINE_LABEL = { off:'引擎：未載入（點一下先載）', loading:'引擎：準備中…',
-                       ready:'引擎：就緒', fail:'引擎：沒載到，點一下重試' };
-function setEngine(state){
-    const el = $('engineChip'); if (!el) return;
-    el.dataset.s = state; el.textContent = ENGINE_LABEL[state] || ENGINE_LABEL.off;
-}
-function unquiet(){ quiet = false; if (step) $('loadbar').style.display = ''; }
 function setStep(s){
-    step = s; $('loadbar').style.display = (s && !quiet) ? '' : 'none';
+    step = s; $('loadbar').style.display = s ? '' : 'none';
     if (tick){ clearInterval(tick); tick = null; }
     if (!s) return;
     const t0 = Date.now();
@@ -1739,45 +1731,15 @@ async function getSim(){
            但迴圈要再跑一段才會抵達「等待下一次執行」的等待點。若 runSim() 早於
            那個時間點被呼叫，觸發信號就送給了不存在的等待者，雙方互等到天荒地老。 */
         await sleep(150);
-        setStep(''); sim = s; setEngine('ready'); return s;
+        setStep(''); sim = s; return s;
     })();
-    setEngine('loading');
     try { return await engineLoading; }
-    catch(e){ setStep(''); setEngine('fail'); throw e; }
+    catch(e){ setStep(''); throw e; }
     finally { engineLoading = null; }
 }
-$('resetBtn').onclick = () => { sim = null; engineLoading = null; setStep(''); setEngine('off');
+$('resetBtn').onclick = () => { sim = null; engineLoading = null; setStep('');
     show('ok','已重設引擎',['下次按「執行模擬」會建立一個全新的引擎實例。']); };
 
-/* ==========================================================
-   預熱：一進頁面就在背景把引擎準備好
-
-   引擎是 20MB 的 WASM，第一次要下載＋初始化。以前是按下「執行模擬」才開始，
-   等十幾秒才看得到第一條波形——而這正是最該立刻有回饋的一刻。
-   現在改成開頁面就在閒置時間偷偷載，按下去通常就直接算了。
-
-   兩件事要節制：
-     - 使用者開了「節省流量」或是 2G，就不要自作主張下載 20MB。
-     - 用 requestIdleCallback，不要跟首次繪製搶資源；沒有這個 API 就退回 setTimeout。
-   ========================================================== */
-function prewarm(){
-    if (GATED || sim || engineLoading) return;
-    const c = navigator.connection;
-    if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))){
-        setEngine('off');            // 省流量模式：等使用者自己按
-        return;
-    }
-    quiet = true;
-    getSim().catch(() => {})         // 背景失敗不要跳錯，狀態標籤說明就好
-            .finally(() => { quiet = false; });
-}
-$('engineChip').onclick = () => {
-    if (sim) return show('ok','引擎已經就緒',['按「執行模擬」會直接開始計算。']);
-    unquiet(); getSim().catch(e => fatal('引擎載入失敗', e));
-};
-(('requestIdleCallback' in window)
-    ? cb => requestIdleCallback(cb, { timeout: 3000 })
-    : cb => setTimeout(cb, 1200))(prewarm);
 
 /* ---------- 錯誤中文化 ---------- */
 const ERR_MAP = [
@@ -1810,10 +1772,12 @@ function showHints(hints, title){
 }
 
 /* ---------- 執行 ---------- */
+let running = false, lastRunMs = 0, autoRun = false;
 $('run').onclick = async () => {
-    unquiet();                       // 使用者在等了，進度要看得到
+    if (running) return;                         // 上一次還沒跑完就不要疊上去
     const r = refreshNet();
-    if (r.warn.length) { show('warn','電路可能還沒完成', r.warn); if (!sch.parts.length) return; }
+    if (r.warn.length && !autoRun) { show('warn','電路可能還沒完成', r.warn); }
+    if (r.warn.length && !sch.parts.length) return;
     const net = r.text;
     const bad = [...net].find(c => c.charCodeAt(0) > 127);
     if (bad) return show('err','netlist 裡有非 ASCII 字元',
@@ -1825,6 +1789,7 @@ $('run').onclick = async () => {
                 [`這組 .tran 會產生約 ${Math.round(sp/st).toLocaleString()} 個點，上限 20 萬。`]); }
 
     const btn = $('run'); btn.disabled = true; btn.textContent = '執行中…';
+    running = true;
     try {
         const s = await getSim();
         s.setNetList(net);
@@ -1844,11 +1809,19 @@ $('run').onclick = async () => {
         $('raw').textContent = info.trim() || '(無輸出)'; $('rawBox').style.display = '';
         if (!res || !res.data || !res.data.length)
             return show('err','模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
+        lastRunMs = ms;
         simData = indexResult(res); cursorIdx = null;
-        plotData = prepare(res); buildLegend(); showWave(true); drawPlot(); renderMeas();
-        inspect();          // 選著元件時，跑完就直接把它的電壓電流帶出來
+        plotData = prepare(res); buildLegend(); showWave(true); renderMeas();
+        scopeReframe();                  // 示波器模式要重新對齊掃描視窗
+        drawPlot();
+        /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
+           正在打字的內容和游標位置都會不見。只更新量測那一塊就好。 */
+        if (autoRun){ const one = selOne();
+                      if (one && one.kind === 'part') renderCmpMeas(sch.parts[one.i]); }
+        else inspect();
         const hints = explain(errs.join('\n') + '\n' + info);
-        if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
+        if (autoRun) { /* 連續模式下不要每一輪都洗一次訊息 */ }
+        else if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
             [`${res.numPoints.toLocaleString()} 個資料點，${plotData.traces.length} 條曲線。`]);
     } catch(e){
@@ -1863,7 +1836,8 @@ $('run').onclick = async () => {
           : tm[1]==='啟動' ? ['引擎起不來，多半是記憶體不足，關掉其他分頁。']
           : ['進度列有出現 ngspice 訊息 → 電路算太久或收斂不了；完全沒出現 → 按「重設引擎」。']);
         else { const h = explain(txt); h.length ? showHints(h,'模擬失敗') : show('err','模擬失敗',[txt]); }
-    } finally { btn.disabled = false; btn.textContent = '執行模擬'; }
+        scopeStop('模擬失敗，已停止連續掃描');
+    } finally { running = false; btn.disabled = false; btn.textContent = '執行模擬'; }
 };
 function unit(v){
     const m = String(v).trim().match(/^([-+]?[\d.]+(?:[eE][-+]?\d+)?)\s*(meg|mil|[tgkmunpf])?/i);
@@ -1992,6 +1966,80 @@ function buildLegend(){
         const i = +el.dataset.i; plotData.traces[i].on = !plotData.traces[i].on;
         el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); renderMeas(); });
 }
+/* ==========================================================
+   示波器模式：畫面持續掃描，改值即時反應
+
+   ngspice 的 .tran 每次都從 t=0、同樣的初始條件算起，所以「一直重跑」
+   畫出來會是同一張靜止的圖。真正的自由執行示波器看起來會動，是因為
+   顯示視窗一直在往前推。所以這裡拆成兩件獨立的事：
+
+     1. 掃描（純畫面）——一次算出整段紀錄，畫面上一個較窄的視窗持續右移、
+        到底就繞回開頭。不重算，成本只有重畫，60fps 也不心疼。
+     2. 即時重算（真的重跑）——電路一改就排一次重跑，滑鼠滾輪換電阻值時
+        波形跟著變。這才是有教學價值的部分。
+
+   垂直刻度**用整段紀錄去算，不是只看視窗內**。只看視窗的話，掃到平坦的
+   區段時 Y 軸會自己放大、波形上下跳動，非常難看也難讀。
+   ========================================================== */
+const SWEEP_SEC = 4;          // 掃過一個視窗寬度要幾秒
+const SCOPE_WIN = 0.25;       // 視窗寬度佔整段紀錄的比例
+
+function scopeReframe(){
+    if (!plotData || !plotData.x.length){ scope.span = 0; return; }
+    const xs = plotData.x, T = xs[xs.length-1] - xs[0];
+    scope.span = T * SCOPE_WIN;
+    if (!(scope.t0 >= xs[0] && scope.t0 <= xs[xs.length-1] - scope.span)) scope.t0 = xs[0];
+}
+function scopeFrame(now){
+    if (!scope.on) return;
+    const xs = plotData && plotData.x;
+    if (!xs || !xs.length || !scope.span){ scope.raf = requestAnimationFrame(scopeFrame); return; }
+    const dt = Math.min(0.1, (now - scope.last) / 1000);   // 分頁切回來時可能是好幾秒，夾住
+    scope.last = now;
+    const travel = xs[xs.length-1] - scope.span - xs[0];
+    if (travel > 0){
+        scope.t0 += (scope.span / SWEEP_SEC) * dt;
+        if (scope.t0 > xs[0] + travel) scope.t0 = xs[0];    // 到底就繞回開頭
+    }
+    drawPlot();
+    scope.raf = requestAnimationFrame(scopeFrame);
+}
+function scopeStart(){
+    if (!plotData) return show('warn','還沒有波形',['先按一次「執行模擬」。']);
+    if (plotData.logX) return show('warn','頻率響應不適用示波器模式',
+        ['橫軸是對數頻率，不是時間。請改用時域 .tran 分析。']);
+    scope.on = true; scope.last = performance.now();
+    scopeReframe();
+    $('scopeBtn').classList.add('on');
+    $('scopeBtn').textContent = '掃描中 ⏸';
+    scope.raf = requestAnimationFrame(scopeFrame);
+}
+function scopeStop(msg){
+    if (!scope.on) return;
+    scope.on = false;
+    if (scope.raf) cancelAnimationFrame(scope.raf);
+    scope.raf = null;
+    $('scopeBtn').classList.remove('on');
+    $('scopeBtn').textContent = '示波器 ▶';
+    drawPlot();
+    if (msg) show('warn', msg, []);
+}
+
+/* 電路一改就排一次重跑。三道閘：
+     - 上一次跑超過 400ms 就不自動重跑，免得一邊拖曳一邊卡死。
+     - 正在跑就不疊上去（$('run').onclick 自己也會擋）。
+     - 250ms 防抖，拖曳和連續滾輪只會在停下來之後跑一次。 */
+function scopeDirty(){
+    if (!scope.on) return;
+    if (lastRunMs > 400) return;
+    clearTimeout(autoTimer);
+    autoTimer = setTimeout(() => {
+        if (!scope.on || running) return;
+        autoRun = true;
+        Promise.resolve($('run').onclick()).finally(() => { autoRun = false; });
+    }, 250);
+}
+
 const PAD = {l:56, r:12, t:12, b:32};
 function niceTicks(lo,hi,n){
     if (!isFinite(lo)||!isFinite(hi)||lo===hi) return [lo];
@@ -2017,7 +2065,9 @@ function drawPlot(){
         p.fillText('按「執行模擬」後這裡會出現波形', W/2, H/2); return; }
     const on = plotData.traces.filter(t=>t.on), xs = plotData.x;
     const lx = plotData.logX && xs.every(v=>v>0);
-    const x0 = lx?Math.log10(xs[0]):xs[0], x1 = lx?Math.log10(xs[xs.length-1]):xs[xs.length-1];
+    let x0 = lx?Math.log10(xs[0]):xs[0], x1 = lx?Math.log10(xs[xs.length-1]):xs[xs.length-1];
+    // 示波器模式：只顯示掃描視窗這一段。垂直範圍仍然用整段紀錄算（見上面說明）。
+    if (scope.on && !lx && scope.span > 0){ x0 = scope.t0; x1 = scope.t0 + scope.span; }
     let lo=Infinity, hi=-Infinity;
     for (const t of on) for (const v of t.y){ if(v<lo)lo=v; if(v>hi)hi=v; }
     if (!isFinite(lo)){ lo=0; hi=1; } if (lo===hi){ lo-=1; hi+=1; }
@@ -2036,10 +2086,15 @@ function drawPlot(){
         p.beginPath(); p.moveTo(x,PAD.t); p.lineTo(x,H-PAD.b); p.stroke();
         p.fillText(eng(v), x, H-PAD.b+15); }
     p.textAlign='left'; p.fillText(plotData.xname + (lx?' (log)':''), PAD.l, H-5);
+    /* 一定要裁切。掃描時視窗外的點會被算到繪圖區以外，沒裁的話線條會蓋掉
+       座標軸文字，整張圖看起來像壞掉。 */
+    p.save();
+    p.beginPath(); p.rect(PAD.l, PAD.t, W-PAD.l-PAD.r, H-PAD.t-PAD.b); p.clip();
     plotData.traces.forEach((t,i) => { if(!t.on) return;
         p.strokeStyle = cvar(COLORS[i%6]); p.lineWidth = 1.8; p.beginPath();
         for (let k=0;k<xs.length;k++){ const a=PX(xs[k]), b=PY(t.y[k]); k?p.lineTo(a,b):p.moveTo(a,b); }
         p.stroke(); });
+    p.restore();
     cursorIdx = null;
     if (hoverX != null){
         let best=-1, bd=1e9;
@@ -2286,6 +2341,11 @@ try { setSide(localStorage.getItem(SIDE_KEY) === '1'); } catch(e){ setSide(false
 function fitCanvas(){ drawSheet(); }
 new ResizeObserver(() => drawSheet()).observe($('sheetBox'));
 addEventListener('resize', () => { drawSheet(); drawPlot(); closePop(); });
+/* 分頁切走時 requestAnimationFrame 本來就會停，但回來的第一幀 now-last
+   會是好幾秒，掃描視窗會瞬間跳一大段。回來時重設時間基準。 */
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && scope.on) scope.last = performance.now();
+});
 
 /* ---- 浮動波形視窗 ---- */
 /* 版本號往上跳一號：舊的存檔會鎖住舊的小尺寸，不換 key 的話
@@ -2307,6 +2367,7 @@ function saveWave(){
         open:!waveWin.classList.contains('hidden') })); } catch(e){}
 }
 function showWave(on){
+    if (!on) scopeStop();          // 視窗關了還在背景跑 rAF 是純浪費
     waveWin.classList.toggle('hidden', !on);
     $('waveBtn').classList.toggle('on', on);
     if (on){ clampWave(); drawPlot(); }
@@ -2314,6 +2375,7 @@ function showWave(on){
 }
 $('waveBtn').onclick = () => showWave(waveWin.classList.contains('hidden'));
 $('waveClose').onclick = () => showWave(false);
+$('scopeBtn').onclick = () => scope.on ? scopeStop() : scopeStart();
 
 /* 拖曳標題列搬視窗、拖曳右下角改大小。用 pointer 事件＋setPointerCapture，
    滑鼠移出視窗外也不會斷掉。 */
