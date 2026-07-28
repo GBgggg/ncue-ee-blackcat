@@ -91,7 +91,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 #waveBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:8px 10px}
 /* height:0 + flex 讓 canvas 跟著視窗長高，而不是被自身內容撐著 */
 #plot{flex:1 1 0;height:0;min-height:150px;width:100%;display:block}
-#waveGrip{position:absolute;right:1px;bottom:1px;width:16px;height:16px;cursor:nwse-resize;
+#waveGrip{position:absolute;right:0;bottom:0;width:20px;height:20px;z-index:2;cursor:nwse-resize;
           background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
                      var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
 
@@ -2063,6 +2063,12 @@ $('waveClose').onclick = () => showWave(false);
 function dragify(handle, onMove){
     handle.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
+        /* ★ 標題列上有按鈕（CSV／PNG／關閉）。
+           在 pointerdown 上呼叫 preventDefault() 會連帶取消瀏覽器後續發出的
+           mousedown／mouseup／click 相容事件，那幾顆按鈕就永遠按不下去；
+           setPointerCapture 也會把之後的指標事件全部導到標題列上，click 更不會成立。
+           所以按在互動元素上時，這裡完全不要接手。 */
+        if (e.target.closest && e.target.closest('button, a, input, select, textarea, label')) return;
         e.preventDefault();
         handle.setPointerCapture(e.pointerId);
         const start = { x:e.clientX, y:e.clientY,
