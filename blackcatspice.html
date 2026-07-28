@@ -359,16 +359,13 @@ const snap = v => Math.round(v/G)*G;
    第三次回到直線。這樣走線是你決定的，不是它猜的。
    ========================================================== */
 const snapPoint = (wx,wy) => ({ x:snap(wx), y:snap(wy) });
-let bend = 0;                       // 0 直線／1 先水平／2 先垂直
-const BEND_NAME = ['直線','轉彎（先水平）','轉彎（先垂直）'];
+/* 一律走直線：只沿位移較大的那一軸走一段，另一軸的位移直接捨去。
+   要轉彎就按「確定這一段」（預設空白鍵）——它會把目前這段虛線定下來，
+   然後從那個端點接著畫，下一段自然就是另一個方向。轉彎是你按出來的。 */
 function route(a,b){
     if (a.x === b.x && a.y === b.y) return [[a.x,a.y]];
-    if (bend === 0)                 // 直線：投影到位移較大的那一軸
-        return Math.abs(b.x-a.x) >= Math.abs(b.y-a.y)
-            ? [[a.x,a.y],[b.x,a.y]] : [[a.x,a.y],[a.x,b.y]];
-    if (a.x === b.x || a.y === b.y) return [[a.x,a.y],[b.x,b.y]];
-    return bend === 1 ? [[a.x,a.y],[b.x,a.y],[b.x,b.y]]
-                      : [[a.x,a.y],[a.x,b.y],[b.x,b.y]];
+    return Math.abs(b.x-a.x) >= Math.abs(b.y-a.y)
+        ? [[a.x,a.y],[b.x,a.y]] : [[a.x,a.y],[a.x,b.y]];
 }
 function commitWire(a,b){
     const pts = route(a,b);
@@ -379,6 +376,26 @@ function commitWire(a,b){
     refreshNet();
     return pts[pts.length-1];       // 連續拉線要從實際的終點接下去
 }
+/* 這個點有沒有接到任何東西：別的接腳、線的端點、或落在某條線上。
+   用來標示浮空的接腳——沒接東西的畫空心圈，接了的畫實心點。
+   浮空是最常見的錯誤來源，眼睛要先看得到，不必等 SPICE 報矩陣奇異。 */
+function isConnected(x, y, selfPart, selfPin){
+    for (let i=0;i<sch.parts.length;i++){
+        const pins = pinsOf(sch.parts[i]);
+        for (let k=0;k<pins.length;k++){
+            if (i===selfPart && k===selfPin) continue;
+            if (pins[k][0]===x && pins[k][1]===y) return true;
+        }
+    }
+    for (const w of sch.wires){
+        if ((w.x1===x&&w.y1===y) || (w.x2===x&&w.y2===y)) return true;
+        const inx = x>=Math.min(w.x1,w.x2) && x<=Math.max(w.x1,w.x2);
+        const iny = y>=Math.min(w.y1,w.y2) && y<=Math.max(w.y1,w.y2);
+        if (inx && iny && Math.abs((w.x2-w.x1)*(y-w.y1)-(w.y2-w.y1)*(x-w.x1)) < 0.5) return true;
+    }
+    return false;
+}
+
 /* 該格點上是不是剛好有接腳或線端。用完全相等判斷，不是「附近」——
    接腳都在格點上，所以這是精確命中，游標不會被拉走。 */
 function pinAt(x,y){
@@ -507,7 +524,7 @@ function drawSheet(){
     const w = cv.clientWidth, h = cv.clientHeight;
     g.clearRect(0,0,w,h);
     const ink = cvar('--ink'), rule = cvar('--rule'), wire = cvar('--wire'),
-          selc = cvar('--sel'), ink3 = cvar('--ink-3');
+          selc = cvar('--sel'), ink3 = cvar('--ink-3'), warnc = cvar('--warn');
     // 格點
     const step = G*view.z;
     if (step > 5){
@@ -548,10 +565,17 @@ function drawSheet(){
             g.fillText(`${p.ref}`, sx + 16*view.z, sy - 2);
             g.fillText(`${p.val}`, sx + 16*view.z, sy + 11*view.z);
         }
-        // 接腳小圈
-        g.fillStyle = wire;
-        pinsOf(p).forEach(([x,y]) => { const [a,b]=W2S(x,y);
-            g.beginPath(); g.arc(a,b,2,0,7); g.fill(); });
+        // 接腳：浮空的畫空心圈提醒，接上的畫實心點
+        pinsOf(p).forEach(([x,y],k) => {
+            const [a,b] = W2S(x,y);
+            if (isConnected(x,y,i,k)){
+                g.fillStyle = wire;
+                g.beginPath(); g.arc(a,b,2.2,0,7); g.fill();
+            } else {
+                g.strokeStyle = warnc; g.lineWidth = 1.6;
+                g.beginPath(); g.arc(a,b,4,0,7); g.stroke();
+            }
+        });
     });
     // 正在拉的線（連線模式，或在選取模式下從接腳直接拖出來）
     const from = wireFrom || quick;
@@ -575,11 +599,11 @@ function drawSheet(){
     const kn = a => keyName(keys[a]);
     const drawing = wireFrom || quick;
     $('hud').textContent =
-        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，${kn('rot')} 旋轉，Esc 取消`
-      : drawing        ? `${BEND_NAME[bend]}　按 ${kn('bend')} 換走線方式`
-      : mode==='wire'  ? `點一下開始拉線；拉線時按 ${kn('bend')} 轉彎`
+        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，${kn('rot')} 旋轉，右鍵或 Esc 取消`
+      : drawing        ? `按 ${kn('bend')} 定下這一段並轉彎；點一下結束這條線；右鍵取消`
+      : mode==='wire'  ? `點一下開始拉線（手不用一直按著）；右鍵退出連線模式`
       : sel            ? `已選取：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
-      : `點元件選取；接腳上直接拖曳可拉線；中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
+      : `點元件選取；接腳上按一下就能開始拉線；中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
 }
 
 /* ---------- 命中測試 ---------- */
@@ -606,23 +630,34 @@ function hitWire(wx,wy){
 let dragging = null, panning = null, panKey = false, quick = null;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
+    /* canvas 不可聚焦，所以點它不會讓輸入框失焦。不主動 blur 的話，
+       在屬性面板改完數值再回來點畫布，Delete 之類的熱鍵會一直被守門擋掉。 */
+    const ae = document.activeElement;
+    if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur();
     cv.setPointerCapture(e.pointerId);
     const r = cv.getBoundingClientRect();
     const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
-    if (e.button === 1 || panKey || e.button === 2){
+    if (e.button === 2){
+        // 右鍵：正在畫線就取消這條線，在連線模式就退出；其餘情況才拿來平移
+        if (wireFrom || quick){ wireFrom = null; quick = null; drawSheet(); return; }
+        if (mode !== 'sel'){ setMode('sel'); return; }
+        panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
+    }
+    if (e.button === 1 || panKey){
         panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
     }
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
     if (mode === 'wire'){
         const p = snapPoint(wx,wy);
-        if (!wireFrom){ wireFrom = p; bend = 0; }
-        else { const end = commitWire(wireFrom, p); wireFrom = {x:end[0], y:end[1]}; bend = 0; }
+        // 點一下＝把這一段定下來並結束這條線（要接著轉彎請按確定鍵）
+        if (!wireFrom) wireFrom = p;
+        else { commitWire(wireFrom, p); wireFrom = null; }
         drawSheet(); return;
     }
     /* 選取模式下，按在「剛好有接腳或線端的格點」上就直接開始拉線，不必先切模式。
        用完全相等判斷，所以游標不會被莫名其妙拉走。 */
     const p = snapPoint(wx,wy);
-    if (pinAt(p.x,p.y)){ quick = p; bend = 0; drawSheet(); return; }
+    if (pinAt(p.x,p.y)){ quick = p; drawSheet(); return; }
     const pi = hitPart(wx,wy);
     if (pi >= 0){ sel = {kind:'part', i:pi};
         dragging = { i:pi, dx:wx - sch.parts[pi].x, dy:wy - sch.parts[pi].y };
@@ -648,9 +683,14 @@ cv.addEventListener('pointermove', e => {
 addEventListener('pointerup', () => {
     if (quick){
         const p = snapPoint(mouseW.x, mouseW.y);
-        // 沒有真的拖出去就當作只是點了一下，不要留下零長度的線
-        if (Math.abs(p.x-quick.x) + Math.abs(p.y-quick.y) >= G) commitWire(quick, p);
-        quick = null; drawSheet();
+        if (Math.abs(p.x-quick.x) + Math.abs(p.y-quick.y) >= G){
+            commitWire(quick, p); quick = null;
+        } else {
+            /* 原地放開＝改用「點一下開始、再點一下結束」的方式繼續，
+               手不必一直按著。兩種畫法都能用。 */
+            const from = quick; quick = null; setMode('wire'); wireFrom = from;
+        }
+        drawSheet();
     }
     dragging = null; panning = null;
 });
@@ -674,7 +714,7 @@ const ACTIONS = [
     ['sel', '選取模式','KeyS'],
     ['rot', '旋轉',    'KeyR'],
     ['del', '刪除',    'Delete'],
-    ['bend','拉線時轉彎','Space'],
+    ['bend','確定這一段（轉彎）','Space'],
     ['pan', '按住平移','AltLeft'],
     ['fit', '置中',    'KeyF'],
     ['run', '執行模擬','Enter']
@@ -697,7 +737,7 @@ const actionFor = code => ACTIONS.find(([a]) => keys[a] === code)?.[0];
 
 addEventListener('keydown', e => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
-    if (grabbing) return;                       // 正在設定熱鍵，交給那邊處理
+    if (grabbing) return;                       // 正在設定熱鍵，交給那邊處理（見下方 pointerdown 會清掉）
     if (e.key === 'Escape'){
         // 第一次先結束目前這條線，還留在連線模式；第二次才離開。
         if ((mode === 'wire' && wireFrom) || quick){ wireFrom = null; quick = null; drawSheet(); }
@@ -708,8 +748,16 @@ addEventListener('keydown', e => {
     if (!a) return;
     if (a === 'pan'){ panKey = true; e.preventDefault(); return; }
     if (a === 'bend'){
-        // 只有正在拉線時才有意義；沒在拉線就不要吃掉這個鍵
-        if (wireFrom || quick){ bend = (bend+1) % 3; e.preventDefault(); drawSheet(); }
+        /* 把目前這段虛線定下來，然後從它的終點接著畫。
+           因為走線一律是直線，接著畫的下一段自然是另一個方向——轉彎就是這樣來的。 */
+        const from = wireFrom || quick;
+        if (from){
+            const end = commitWire(from, snapPoint(mouseW.x, mouseW.y));
+            wireFrom = {x:end[0], y:end[1]}; quick = null;
+            mode = 'wire'; setMode('wire');       // 從拖曳接手成連續拉線，手可以放開
+            wireFrom = {x:end[0], y:end[1]};
+            e.preventDefault(); drawSheet();
+        }
         return;
     }
     e.preventDefault();
@@ -746,6 +794,12 @@ addEventListener('keydown', e => {
 }, true);
 $('keyReset').onclick = () => { ACTIONS.forEach(([a,,d]) => keys[a] = d);
     saveKeys(); renderKeys(); };
+/* ★ 點了「按一個鍵…」之後如果沒按鍵就跑掉，grabbing 會一直卡著，
+   主鍵盤處理器第一行就 return，等於所有熱鍵全部失效（Delete 也不能用）。
+   所以點到面板以外的地方就要放棄設定。 */
+addEventListener('pointerdown', e => {
+    if (grabbing && !e.target.closest('#keyList')){ grabbing = null; renderKeys(); }
+}, true);
 renderKeys();
 
 /* ---------- 操作 ---------- */
