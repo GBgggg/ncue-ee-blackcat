@@ -278,22 +278,21 @@ onAuthStateChanged(auth, async (user) => {
    ========================================================== */
 const EXAMPLES = [
 { n:'RC 低通：步階響應', d:'V(out) 在 t=RC=1ms 時應為 0.632V', s:
-`* RC 低通：步階響應
-* 時間常數 RC = 1k x 1u = 1ms
+`RC low-pass step response
 V1 in 0 PULSE(0 1 0 1n 1n 1 2)
 R1 in out 1k
 C1 out 0 1u
 .tran 2u 5m
 .end`},
 { n:'RC 低通：頻率響應', d:'−3dB 應落在 1/(2πRC) ≈ 159Hz', s:
-`* RC 低通：頻率響應（AC 分析）
+`RC low-pass AC response
 V1 in 0 AC 1
 R1 in out 1k
 C1 out 0 1u
 .ac dec 20 1 100k
 .end`},
 { n:'RLC 串聯諧振', d:'諧振頻率 1/(2π√LC) ≈ 5033Hz', s:
-`* RLC 串聯諧振
+`RLC series resonance
 V1 in 0 AC 1
 R1 in a 10
 L1 a b 10m
@@ -301,14 +300,14 @@ C1 b 0 100n
 .ac dec 50 100 100k
 .end`},
 { n:'分壓器：直流掃描', d:'V(mid) 應為輸入的 2/3', s:
-`* 分壓器：直流掃描
+`Resistive divider DC sweep
 V1 in 0 DC 0
 R1 in mid 1k
 R2 mid 0 2k
 .dc V1 0 10 0.1
 .end`},
 { n:'二極體半波整流', d:'輸出被電容濾成接近直流，比峰值低一個二極體壓降', s:
-`* 二極體半波整流 + 濾波電容
+`Half-wave rectifier with filter cap
 V1 in 0 SIN(0 5 1k)
 D1 in out DMOD
 R1 out 0 1k
@@ -316,8 +315,8 @@ C1 out 0 10u
 .model DMOD D(IS=1e-14 N=1)
 .tran 10u 5m
 .end`},
-{ n:'共射放大器（BJT）', d:'小訊號增益約 −RC/RE(交流) ，輸出與輸入反相', s:
-`* 共射放大器
+{ n:'共射放大器（BJT）', d:'輸出與輸入反相，小訊號有明顯增益', s:
+`Common emitter amplifier
 VCC vcc 0 12
 Vin in 0 SIN(0 10m 1k)
 R1 vcc b 100k
@@ -332,8 +331,8 @@ Q1 c b e QMOD
 .model QMOD NPN(BF=200 IS=1e-15)
 .tran 20u 5m
 .end`},
-{ n:'反相放大器（理想運放）', d:'增益 −Rf/R1 = −10，輸出應為輸入的十倍且反相', s:
-`* 反相放大器：用 VCVS 當理想運放
+{ n:'反相放大器（理想運放）', d:'增益 −Rf/R1 = −10，輸出為輸入的十倍且反相', s:
+`Inverting amplifier, VCVS as ideal opamp
 Vin in 0 SIN(0 0.1 1k)
 R1 in m 10k
 Rf m out 100k
@@ -455,6 +454,11 @@ async function getSim(){
 const MAX_CHARS = 20000;
 function guard(net){
     if (net.length > MAX_CHARS) return `netlist 太長（${net.length} 字元，上限 ${MAX_CHARS}）。`;
+    // netlist 是原封不動餵給 C 寫的 ngspice 的，非 ASCII 位元組在那裡是未知數。
+    // 與其讓它靜靜卡死，不如先擋下來講清楚。
+    const bad = [...net].find(c => c.charCodeAt(0) > 127);
+    if (bad) return `netlist 裡有非 ASCII 字元「${bad}」。SPICE 只吃英數字，` +
+        `包括註解行也是——中文註解請刪掉或改成英文。`;
     const m = net.match(/^\s*\.tran\s+(\S+)\s+(\S+)/mi);
     if (m){
         const step = unit(m[1]), stop = unit(m[2]);
