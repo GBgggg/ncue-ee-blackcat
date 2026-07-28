@@ -514,6 +514,20 @@ const TYPES = {
       draw(g){ ln(g,-20,-10,-12,-10); ln(g,-20,10,-12,10);
         g.beginPath(); g.moveTo(-12,-18); g.lineTo(-12,18); g.lineTo(14,0); g.closePath(); g.stroke();
         ln(g,14,0,20,0); ln(g,-9,-10,-5,-10); ln(g,-7,-12,-7,-8); ln(g,-9,10,-5,10); } },
+  /* 手動開關（單刀單擲）。SPICE 的 S 元件是電壓控制開關、要四個接點又要模型，
+     對「按一下讓它通或不通」這件事來說太繞。這裡直接在產生 netlist 時
+     換成一顆電阻：閉合是很小的導通電阻，斷開是很大的電阻。
+     好處是不需要 .model、不會有收斂問題，而且電流可以照歐姆定律推算。 */
+  SW:{ label:'開關', pre:'S', pins:[[0,-20],[0,20]], val:'on',
+      draw(g,p){
+        const open = p && p.val === 'off';
+        ln(g,0,-20,0,-9); ln(g,0,9,0,20);
+        g.fillStyle = g.strokeStyle;
+        g.beginPath(); g.arc(0,-9,2,0,7); g.fill();
+        g.beginPath(); g.arc(0,9,2,0,7); g.fill();
+        if (open) ln(g,0,-9,11,7);          // 搖臂拉起來，看得出是斷的
+        else      ln(g,0,-9,0,9);
+      } },
   GND:{label:'接地', pre:'', pins:[[0,0]], val:'',
       draw(g){ ln(g,0,0,0,8); ln(g,-9,8,9,8); ln(g,-5,12,5,12); ln(g,-2,16,2,16); } }
 };
@@ -739,6 +753,8 @@ const REAL = {
     // 741 等級的運放：開迴路增益 100dB、增益頻寬積 1MHz、輸出阻抗 75Ω。
     OP_A0: 1e5, OP_GBW: 1e6, OP_ROUT: 75, OP_RIN: 2e6
 };
+/* 開關的等效電阻。現實模式給接點電阻與漏電流，理想模式當成理想導線／絕緣。 */
+const SW_R = { ideal:{ on:1e-3, off:1e9 }, real:{ on:0.05, off:1e8 } };
 const MODELS = {
     ideal: {
         // 定壓降模型：IS=1e-14、N=1 時 1mA 下的順向壓降約 0.65V，接近課本的 0.7V。
@@ -775,6 +791,13 @@ function toNetlist(){
         if (T.model){
             const std = MODELS[realMode?'real':'ideal'][p.type];
             models.add(std && /^(DMOD|QMOD)$/i.test(String(p.val).trim()) ? std : T.model);
+        }
+        if (p.type === 'SW'){
+            /* 名稱前綴用 R，因為 SPICE 看到 S 開頭會當成電壓控制開關而要求四個接點。
+               畫面上仍然叫 S1，netlist 裡是 R_S1，跟寄生元件的命名方式一致。 */
+            const r = SW_R[realMode ? 'real' : 'ideal'][p.val === 'off' ? 'off' : 'on'];
+            lines.push(`R_${ref} ${ns[0]} ${ns[1]} ${r}`);
+            continue;
         }
         if (realMode && p.type === 'C'){
             /* 真實電容 = 理想電容 + ESR + ESL 串聯。
@@ -1053,7 +1076,7 @@ function drawSheet(){
         g.translate(sx,sy); g.scale(view.z,view.z); g.rotate(p.rot*Math.PI/2);
         g.strokeStyle = on ? selc : ink; g.lineWidth = 1.7/1;
         g.lineCap='round'; g.lineJoin='round';
-        TYPES[p.type].draw(g);
+        TYPES[p.type].draw(g, p);
         g.restore();
         // 標籤不跟著轉，才讀得順
         if (p.type !== 'GND'){
@@ -1115,7 +1138,7 @@ function drawSheet(){
         g.save(); const [sx,sy] = W2S(snap(mouseW.x), snap(mouseW.y));
         g.globalAlpha = .5; g.translate(sx,sy); g.scale(view.z,view.z);
         g.rotate(placeRot*Math.PI/2); g.strokeStyle = selc; g.lineWidth = 1.7;
-        TYPES[placing].draw(g); g.restore();
+        TYPES[placing].draw(g, {val:TYPES[placing].val}); g.restore();
     }
     const kn = a => keyName(keys[a]);
     const drawing = wireFrom || quick;
@@ -1182,6 +1205,12 @@ function releaseFocus(target){
 }
 addEventListener('pointerdown', e => { releaseFocus(e.target); }, true);
 
+cv.addEventListener('dblclick', e => {
+    const r = cv.getBoundingClientRect();
+    const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
+    const i = hitPart(wx,wy);
+    if (i >= 0 && sch.parts[i].type === 'SW'){ e.preventDefault(); toggleSwitch(i); }
+});
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId);
@@ -1460,6 +1489,18 @@ function moveSelection(dx,dy){
         w.x1 += dx; w.y1 += dy; w.x2 += dx; w.y2 += dy; });
 }
 
+/* 切換開關。走完整的 pushUndo → refreshNet 流程，所以復原鍵有效，
+   而且在示波器模式下會自動重跑——按一下開關就能看到 RC 充放電，
+   這正是這個元件最有價值的用法。 */
+function toggleSwitch(i){
+    const p = sch.parts[i];
+    if (!p || p.type !== 'SW') return false;
+    pushUndo();
+    p.val = p.val === 'off' ? 'on' : 'off';
+    inspect(); refreshNet(); drawSheet();
+    return true;
+}
+
 function del(){
     if (!sel.length) return;
     pushUndo();
@@ -1525,7 +1566,7 @@ function paintPalette(){
         cg.translate(30,20); cg.scale(0.72,0.72);
         cg.strokeStyle = el.classList.contains('on') ? '#fff' : cvar('--ink');
         cg.lineWidth = 2.2; cg.lineCap='round'; cg.lineJoin='round';
-        TYPES[k].draw(cg);
+        TYPES[k].draw(cg, {val:TYPES[k].val});
     });
 }
 document.querySelectorAll('.pi').forEach(el =>
@@ -1561,6 +1602,28 @@ function inspect(){
         $('ip_del').onclick = del; return;
     }
     const p = sch.parts[one.i], T = TYPES[p.type];
+    if (p.type === 'SW'){
+        const open = p.val === 'off';
+        box.innerHTML = `
+          <div class="field"><label for="ip_ref">名稱</label>
+            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+          <p class="sub">目前是<b>${open ? '斷開' : '閉合'}</b>。
+             在電路圖上<b>連點兩下</b>也可以切換。</p>
+          <div class="palette" style="margin-top:8px">
+            <button class="btn ${open ? '' : 'primary'}" id="ip_sw">${open ? '閉合' : '斷開'}</button>
+            <button class="btn" id="ip_rot">旋轉</button>
+            <button class="btn" id="ip_del">刪除</button>
+          </div>
+          <div id="cmpMeas"></div>
+          <p class="sub">型別：開關（SW）。閉合時是很小的導通電阻，斷開時是很大的電阻，
+             不需要 SPICE 模型。${realMode ? '現實模式下有接點電阻與漏電流。' : ''}</p>`;
+        $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
+                                     refreshNet(); drawSheet(); };
+        $('ip_sw').onclick = () => toggleSwitch(one.i);
+        $('ip_rot').onclick = rotate; $('ip_del').onclick = del;
+        renderCmpMeas(p);
+        return;
+    }
     if (p.type === 'GND'){
         box.innerHTML = '<p class="sub">接地（0 節點）。SPICE 一定要有它。</p>' +
             '<button class="btn" id="ip_del" style="margin-top:6px">刪除</button>';
@@ -1654,6 +1717,11 @@ const EXAMPLES = {
     ['C',220,120,0,'C1','1u'], ['GND',60,180,0,'',''], ['GND',220,180,0,'','']],
     wires:[[60,100,60,80],[60,80,120,80],[160,80,220,80],[220,80,220,100],
            [60,140,60,180],[220,140,220,180]] }),
+ '開關 RC 充放電': () => ({ ana:'tran', v:{stop:'8m',step:'4u'}, parts:[
+    ['V',60,140,0,'V1','DC 5'], ['SW',60,90,0,'S1','on'], ['R',140,60,1,'R1','1k'],
+    ['C',220,100,0,'C1','1u'], ['GND',60,200,0,'',''], ['GND',220,160,0,'','']],
+    wires:[[60,120,60,110],[60,70,60,60],[60,60,120,60],[160,60,220,60],[220,60,220,80],
+           [60,160,60,200],[220,120,220,160]] }),
  'RC 低通（頻率響應）': () => ({ ana:'ac', v:{sweep:'dec',pts:'20',f1:'1',f2:'100k'}, parts:[
     ['V',60,120,0,'V1','AC 1'], ['R',140,80,1,'R1','1k'],
     ['C',220,120,0,'C1','1u'], ['GND',60,180,0,'',''], ['GND',220,180,0,'','']],
@@ -1951,6 +2019,10 @@ function partSeries(p){
     if (p.type === 'V'){
         cur = simData.by.get(`${(p.ref||'').toLowerCase()}#branch`) || null;
         if (cur) note = CURRENT_NOTE.V;
+    } else if (p.type === 'SW'){
+        const r = SW_R[realMode ? 'real' : 'ideal'][p.val === 'off' ? 'off' : 'on'];
+        cur = simData.isC ? null : deriveCurrent('R', String(r), dv, simData.x);
+        if (cur) note = `由歐姆定律推算（目前等效電阻 ${eng(r)}Ω）`;
     } else if (!simData.isC){
         cur = deriveCurrent(p.type, p.val, dv, simData.x);
         if (cur) note = CURRENT_NOTE[p.type];
