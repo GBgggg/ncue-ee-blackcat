@@ -9,8 +9,11 @@
  * 結果每次發布後，所有人看到的都還是上一版，而且會一直停在那裡，
  * 因為新版只默默寫進快取、要等下一次開啟才生效。這是刻意修掉的行為。
  */
-const CACHE = 'blackcat-v4';
-const CORE = ['./', './index.html', './image.png', './manifest.json'];
+/* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
+   新加的檔案永遠不會進預快取。 */
+const CACHE = 'blackcat-v5';
+const CORE = ['./', './index.html', './image.png', './manifest.json',
+              './blackcatspice.html'];   // 電路模擬器（獨立頁）
 const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
 
 self.addEventListener('install', (e) => {

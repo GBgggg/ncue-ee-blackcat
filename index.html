@@ -338,6 +338,37 @@
         .bg-sky-600 { background-color: #4c5578 !important; }
         .text-sky-100 { color: rgba(255, 255, 255, 0.82) !important; }
 
+        /* ---- 點 logo 展開的下拉選單 ----
+           顏色一律走 token。這裡不用 Tailwind 的顏色類別，因為頁首底色是由
+           #mainHeader 這個 id 選擇器決定的（見下方分頁那段的教訓），
+           寫死顏色會在某一個模式下消失。 */
+        #logoChev {
+            font-size: 12px; line-height: 1; opacity: .6;
+            transition: transform .18s ease;
+            color: rgba(255, 255, 255, .8);
+        }
+        html:not(.dark) #logoChev { color: var(--ink-3); }
+        #logoBtn[aria-expanded="true"] #logoChev { transform: rotate(180deg); opacity: 1; }
+        #logoMenu {
+            position: absolute; left: 0; top: 100%; margin-top: 8px; z-index: 60;
+            min-width: 232px; border-radius: 16px; overflow: hidden;
+            background: var(--paper-raised);
+            border: 1px solid var(--rule);
+            box-shadow: 0 10px 28px rgba(26, 24, 21, .22);
+        }
+        .logo-menu-item {
+            display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
+            width: 100%; min-height: 52px; padding: 10px 16px;
+            font-size: 14px; font-weight: 700; text-align: left; text-decoration: none;
+            color: var(--ink) !important; background: transparent !important;
+            border: none; cursor: pointer;
+        }
+        .logo-menu-item small {
+            font-size: 11.5px; font-weight: 600; color: var(--ink-3); margin-top: 1px;
+        }
+        .logo-menu-item:hover { background: var(--accent-soft) !important; }
+        .logo-menu-item + .logo-menu-item { border-top: 1px solid var(--rule); }
+
         /* ---- 大分頁：現在在哪一頁 ----
            這組規則之前根本不存在。JS 有把 .is-active 加上去（NAV_ACTIVE），
            但沒有任何 CSS 在畫它，所以六個分頁長得一模一樣，看不出在哪頁。
@@ -1169,11 +1200,21 @@
     <header id="mainHeader" class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30 transition-transform duration-300 ease-in-out transform translate-y-0">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
 
-            <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 w-full md:w-auto cursor-pointer group">
-                <img src="image.png" alt="彰師電子小黑貓 Logo" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
-                <div class="flex flex-col">
-                    <h1 class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">彰師電子小黑貓</h1>
-                    <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">NCUE EE Black Cat</span>
+            <div id="logoWrap" class="relative w-full md:w-auto">
+                <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 cursor-pointer group"
+                     role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
+                    <img src="image.png" alt="彰師電子小黑貓 Logo" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
+                    <div class="flex flex-col">
+                        <h1 class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">彰師電子小黑貓</h1>
+                        <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">NCUE EE Black Cat</span>
+                    </div>
+                    <span id="logoChev" aria-hidden="true">▾</span>
+                </div>
+                <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
+                    <button type="button" class="logo-menu-item" data-go="home" role="menuitem">回首頁</button>
+                    <a class="logo-menu-item" href="blackcatspice.html" role="menuitem">
+                        電路模擬器<small>免安裝，手機也能跑</small>
+                    </a>
                 </div>
             </div>
 
@@ -2561,6 +2602,7 @@
                 date: '2026-07-27',
                 title: '操作介面',
                 items: [
+                    ['多了一個電路模擬器', '點頁首的 logo 會展開選單，裡面有「電路模擬器」。它是一個獨立的頁面，共用同一組帳號——從主站點進去不用再登入一次。引擎是 ngspice 編成的 WebAssembly，整個跑在你自己的裝置上，電路內容不會上傳到任何地方。實測 iPhone 上算一條 RC 電路只要 14 毫秒，比桌機還快，所以「改個電阻值就重跑」是即時的。內建七個範例（RC 步階與頻率響應、RLC 諧振、分壓器直流掃描、二極體整流、共射放大器、反相放大器），每個都標了預期結果，可以自己對答案。ngspice 的錯誤訊息也翻成中文了，而且會附上常見原因和建議——像「Timestep too small」會告訴你多半是浮空節點或脈波上升時間設成 0。可以把電路存進帳號，或用「分享連結」把整個電路壓進網址傳給同學。為了保護手機，模擬規模有上限：.tran 超過二十萬個時間點會先擋下來。第一次執行要下載約 20MB 的引擎，之後走瀏覽器快取。'],
                     ['有記住登入的話，載入畫面會等登入完成再收掉', '以前開站是「首頁三份資料到齊就收掉載入畫面」，但 Firebase 還原登入狀態是非同步的，還原完之後還要再去讀個人資料和課表。結果就是畫面先露出訪客版首頁，過一下才整個換成登入版，閃一下很難看。現在多等一項「登入這關有回音」。沒有記住登入的人不會因此變慢——那條路不需要讀任何東西，幾乎立刻就有回音，行為和以前完全一樣。另外要注意的是登入流程裡有兩個提早 return 的錯誤分支（讀不到使用者資料、建立資料失敗），所以「有回音」是寫在 try/finally 裡的，不是寫在函式尾巴，否則一旦走進錯誤分支就會把人鎖在載入畫面。'],
                     ['載入畫面又修了三處', '一、肚子下面那個奇怪的突出：收腹是逐欄按離地高度切的，在「腿」和「肚子」相鄰的地方會留下一小截短鈍的殘餘。修法是把下緣的離地高度沿水平方向做灰階閉運算，比視窗窄的凹陷填平、寬的腿保留。二、深色模式那圈橘色光暈：原本用兩層 drop-shadow 當輪廓光，但 7px 模糊的那層在實機上糊成一團，整隻貓像蒙了層霧；改成直接在路徑上描邊，一樣是身體暗、邊緣亮，但邊界是銳利的。三、耳朵大小不一：原片每格的耳朵量到 10～19 原始像素不等，現在以耳朵最大那一格的頭頂輪廓當範本，其餘各格以耳尖為水平基準、頸線為垂直基準換上同一個形狀，統一後是 19～20。順帶一提，範本視窗不能往前伸到鼻樑，不然在只有鬍鬚的細欄補材料會長出一根刺——第一版就長出來了。'],
                     ['載入畫面的貓跑起來順了', '錄了一段畫面回頭逐格分析才抓到，而且真正的元凶不是腿的動畫，是整隻貓在上下抽動。原因是我先前為了讓腳踩住 logo，把每一格的「最低點」都硬釘到地面——但最低點常常換成另一隻腳，一換整隻貓就被垂直拉動一大段，實測相鄰位移到了 −16／+24／−12／+16 原始像素，換算到畫面是 5.4px 的彈跳，而貓總高才 31px。現在改成把地面錨點沿著循環做環狀平滑，最深那格剛好觸地，其餘離地 0～3.4px（奔跑本來就有騰空相，十格裡有三格是真的踩著的）。另外抽格也從「照時間等距」改成「照形狀變化量等距」，因為原片的動作在時間上不均勻，有幾段幾乎不動、有幾段跳很大；作法是先用距離場插值把一輪加密成 80 格，再取十個累積形狀變化量相等的點。還有一個是我自己造成的：收腹的強度原本是 0,0,0,0.06,0.97,1,0.72,0.13,0,0，等於在第 4 到第 5 格之間從幾乎不收直接跳到全收，憑空製造一次形狀突變，現在改成平滑曲線。三件事加起來，相鄰格變化量的落差從 0.225 降到 0.133，最小相似度從 0.564 升到 0.699。'],
@@ -5873,7 +5915,33 @@
         }
 
         function bindStaticButtons() {
-            bind('logoBtn', () => switchTab('home'));
+            /* 點 logo 改成展開選單。以前是直接回首頁，現在「回首頁」變成選單的
+               第一項，所以原本的用法沒有消失，只是多按一下。
+               關閉的三條路：點選單外面、按 Esc、選了任何一項。 */
+            const logoMenu = $('logoMenu'), logoBtn = $('logoBtn');
+            const setLogoMenu = (open) => {
+                logoMenu.classList.toggle('hidden', !open);
+                logoBtn.setAttribute('aria-expanded', String(open));
+            };
+            bind('logoBtn', () => setLogoMenu(logoMenu.classList.contains('hidden')));
+            logoBtn.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setLogoMenu(logoMenu.classList.contains('hidden'));
+                }
+            });
+            logoMenu.querySelector('[data-go="home"]').addEventListener('click', () => {
+                setLogoMenu(false); switchTab('home');
+            });
+            // 點外面關掉。判斷用 #logoWrap 而不是 #logoBtn，
+            // 否則點選單本身也會被當成「點外面」而立刻關閉。
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('#logoWrap')) setLogoMenu(false);
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') setLogoMenu(false);
+            });
+
             bind('backToTopBtn', scrollTopSmooth);
             bind('importArticlesBtn', importArticles);
             // 點任一單字彈出英英小卡（可堆疊）；點小卡外關閉全部、Esc 關閉最上面那張
