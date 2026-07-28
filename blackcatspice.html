@@ -162,6 +162,7 @@ pre{
         <button class="primary" id="run">執行模擬</button>
         <button id="saveBtn">存到我的</button>
         <button id="shareBtn">分享連結</button>
+        <button id="resetBtn" title="丟掉目前的引擎實例，重新建立一個">重設引擎</button>
       </div>
       <div id="loadbar" style="display:none;margin-top:12px">
         <div class="skel"><i></i></div>
@@ -419,9 +420,16 @@ function setStep(s){
         `${step}（已經 ${((Date.now() - t0) / 1000).toFixed(0)} 秒）`; };
     paint(); tick = setInterval(paint, 1000);
 }
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 function withTimeout(p, ms, what){
-    return Promise.race([p, new Promise((_, rej) =>
-        setTimeout(() => rej(new Error(`TIMEOUT:${what}`)), ms))]);
+    // 計時器一定要清掉。不清的話，工作成功之後那個 setTimeout 還是會照樣觸發，
+    // 去 reject 一個已經沒人在等的 promise，變成「無主的拒絕」，
+    // 然後被全域攔截器抓到，畫面莫名其妙跳出錯誤。
+    let id;
+    const timer = new Promise((_, rej) => {
+        id = setTimeout(() => rej(new Error(`TIMEOUT:${what}`)), ms);
+    });
+    return Promise.race([p, timer]).finally(() => clearTimeout(id));
 }
 
 async function getSim(){
@@ -440,6 +448,15 @@ async function getSim(){
         setStep('正在啟動引擎…');
         const s = new mod.Simulation();
         await withTimeout(s.start(), INIT_TIMEOUT, '啟動');
+        /* ★ 這個等待不能拿掉。
+           引擎內部是一個迴圈：start() 的 promise 在「初始化完成」時就解決了，
+           但迴圈要再跑一段才會抵達「等待下一次執行」的等待點。
+           如果 runSim() 在它抵達等待點之前被呼叫，觸發信號就送給了一個
+           還不存在的等待者，然後雙方互等到天荒地老——症狀就是
+           runSim() 永遠不回來，也不丟錯。
+           驗證頁之所以沒事，是因為它在 start() 和 runSim() 之間還做了
+           好幾件事（更新畫面、讀啟動訊息），剛好把時間讓出去了。 */
+        await sleep(150);
         setStep('');
         sim = s;
         return s;
@@ -498,8 +515,16 @@ $('run').addEventListener('click', async () => {
         s.setNetList(net.endsWith('\n') ? net : net + '\n');
         setStep('正在計算…');
         const t0 = performance.now();
-        // 也要設逾時：收斂不了的電路有可能讓 ngspice 一直算下去
-        const res = await withTimeout(s.runSim(), 120000, '計算');
+        /* 一邊算一邊把 ngspice 自己的輸出貼到進度列。
+           萬一又卡住，至少看得到它最後講到哪一句，不用再猜。 */
+        const peek = setInterval(() => {
+            const out = (s.getInfo?.() || '').trim().split('\n').filter(Boolean);
+            if (out.length) setStep('計算中… ngspice：' + out[out.length - 1].slice(0, 60));
+        }, 700);
+        let res;
+        // 收斂不了的電路會讓 ngspice 一直算下去，所以還是要設逾時
+        try { res = await withTimeout(s.runSim(), 45000, '計算'); }
+        finally { clearInterval(peek); }
         const ms = performance.now() - t0;
         setStep('');
 
@@ -520,6 +545,16 @@ $('run').addEventListener('click', async () => {
             [`${res.numPoints.toLocaleString()} 個資料點，${plotData.traces.length} 條曲線。`]);
     } catch (e) {
         setStep('');
+        // 失敗時也要把 ngspice 講過的話留下來，否則什麼線索都沒有
+        try {
+            const out = (sim && sim.getInfo?.() || '').trim();
+            const er  = (sim && sim.getError?.() || []).join('\n').trim();
+            if (out || er) {
+                $('raw').textContent = (er ? '[錯誤]\n' + er + '\n\n' : '') + (out || '(無輸出)');
+                $('rawBox').style.display = '';
+                $('rawBox').open = true;
+            }
+        } catch (_) {}
         const txt = (e && (e.message || e.toString())) || '未知錯誤';
         const m = txt.match(/^TIMEOUT:(.+)$/);
         if (m) {
@@ -529,8 +564,11 @@ $('run').addEventListener('click', async () => {
                    '引擎有 20MB，網路很慢的話也可能單純是還沒下載完。']
                 : m[1] === '啟動'
                 ? ['引擎下載完了但起不來。多半是裝置記憶體不足，關掉其他分頁再試。']
-                : ['這個電路算太久了。把 .tran 的模擬時間縮短，或把步長調大。',
-                   '也可能是電路收斂不了——檢查有沒有節點沒接地。']);
+                : ['如果上面的進度列有出現 ngspice 的訊息，就是電路本身算太久或收斂不了：' +
+                   '把 .tran 的模擬時間縮短、步長調大，或檢查有沒有節點沒接地。',
+                   '如果進度列從頭到尾都沒有出現任何 ngspice 訊息，那是引擎本身沒有回應——' +
+                   '按下面的「重設引擎」再試一次。',
+                   '下方「ngspice 原始輸出」也會保留它最後說的話。']);
         } else {
             const hints = explain(txt);
             if (hints.length) showHints(hints, '模擬失敗');
@@ -547,6 +585,13 @@ function showHints(hints, title){
         `<div style="margin-top:6px;color:var(--ink-2)">👉 ${h.fix}</div>`).join('<hr style="border:none;border-top:1px solid var(--rule);margin:10px 0">');
     $('msg').innerHTML = `<div class="msg err"><b>${title}</b>${html}</div>`;
 }
+
+/* 引擎卡死時的逃生門。模組已經在瀏覽器快取裡，重建一個實例是幾百毫秒的事，
+   不必整頁重新載入、也不必再下載那 20MB。 */
+$('resetBtn').addEventListener('click', () => {
+    sim = null; engineLoading = null; setStep('');
+    show('ok', '已重設引擎', ['下次按「執行模擬」會建立一個全新的引擎實例。']);
+});
 
 /* ==========================================================
    7. 整理結果
