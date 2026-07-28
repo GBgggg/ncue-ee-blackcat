@@ -55,6 +55,13 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .spacer{flex:1}
 .chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
       background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+.chip-btn{border:none;cursor:pointer;min-height:28px}
+.chip-btn:hover{filter:brightness(.95)}
+#engineChip[data-s="loading"]{background:var(--rule);color:var(--ink-2)}
+#engineChip[data-s="ready"]{background:var(--accent-soft);color:var(--ok)}
+#engineChip[data-s="fail"]{background:var(--accent-soft);color:var(--warn)}
+#engineChip[data-s="off"]{background:transparent;color:var(--ink-3);
+                          box-shadow:inset 0 0 0 1px var(--rule)}
 
 /* ---- 樣式：logo 下拉選單（行為與主站一致） ---- */
 #logoWrap{position:relative;flex:none}
@@ -101,8 +108,8 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
            border-top:1px solid var(--rule);background:var(--paper-raised)}
 
 /* ---- 樣式：浮動波形視窗 ---- */
-#waveWin{position:fixed;z-index:60;left:60px;top:120px;width:620px;height:400px;
-         min-width:340px;min-height:220px;display:flex;flex-direction:column;
+#waveWin{position:fixed;z-index:60;left:60px;top:120px;width:800px;height:520px;
+         min-width:380px;min-height:260px;display:flex;flex-direction:column;
          background:var(--paper-raised);border:1px solid var(--rule);border-radius:13px;
          box-shadow:0 14px 46px rgba(0,0,0,.30)}
 #waveWin.hidden{display:none}
@@ -112,7 +119,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .btn.tiny,.icb.tiny{min-height:26px;min-width:26px;padding:0 8px;font-size:12px;border-radius:8px}
 #waveBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:8px 10px}
 /* height:0 + flex 讓 canvas 跟著視窗長高，而不是被自身內容撐著 */
-#plot{flex:1 1 0;height:0;min-height:150px;width:100%;display:block}
+#plot{flex:1 1 0;height:0;min-height:200px;width:100%;display:block}
 #waveGrip{position:absolute;right:0;bottom:0;width:20px;height:20px;z-index:2;cursor:nwse-resize;
           background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
                      var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
@@ -295,6 +302,8 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
 
     <div class="spacer"></div>
+    <button class="chip chip-btn" id="engineChip" type="button"
+            title="模擬引擎的狀態">引擎：未載入</button>
     <span class="chip" id="whoami">載入中…</span>
     <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
     <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
@@ -1686,8 +1695,18 @@ const ENGINE_URLS = [
     'https://unpkg.com/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs'
 ];
 let sim = null, engineLoading = null, step = '', tick = null;
+/* 背景預熱時不要把大大的載入條推到畫面上搶注意力，只更新工具列上那顆小標籤。
+   使用者自己按了「執行模擬」才把進度攤開來——那時候他是真的在等。 */
+let quiet = false;
+const ENGINE_LABEL = { off:'引擎：未載入（點一下先載）', loading:'引擎：準備中…',
+                       ready:'引擎：就緒', fail:'引擎：沒載到，點一下重試' };
+function setEngine(state){
+    const el = $('engineChip'); if (!el) return;
+    el.dataset.s = state; el.textContent = ENGINE_LABEL[state] || ENGINE_LABEL.off;
+}
+function unquiet(){ quiet = false; if (step) $('loadbar').style.display = ''; }
 function setStep(s){
-    step = s; $('loadbar').style.display = s ? '' : 'none';
+    step = s; $('loadbar').style.display = (s && !quiet) ? '' : 'none';
     if (tick){ clearInterval(tick); tick = null; }
     if (!s) return;
     const t0 = Date.now();
@@ -1720,14 +1739,45 @@ async function getSim(){
            但迴圈要再跑一段才會抵達「等待下一次執行」的等待點。若 runSim() 早於
            那個時間點被呼叫，觸發信號就送給了不存在的等待者，雙方互等到天荒地老。 */
         await sleep(150);
-        setStep(''); sim = s; return s;
+        setStep(''); sim = s; setEngine('ready'); return s;
     })();
+    setEngine('loading');
     try { return await engineLoading; }
-    catch(e){ setStep(''); throw e; }
+    catch(e){ setStep(''); setEngine('fail'); throw e; }
     finally { engineLoading = null; }
 }
-$('resetBtn').onclick = () => { sim = null; engineLoading = null; setStep('');
+$('resetBtn').onclick = () => { sim = null; engineLoading = null; setStep(''); setEngine('off');
     show('ok','已重設引擎',['下次按「執行模擬」會建立一個全新的引擎實例。']); };
+
+/* ==========================================================
+   預熱：一進頁面就在背景把引擎準備好
+
+   引擎是 20MB 的 WASM，第一次要下載＋初始化。以前是按下「執行模擬」才開始，
+   等十幾秒才看得到第一條波形——而這正是最該立刻有回饋的一刻。
+   現在改成開頁面就在閒置時間偷偷載，按下去通常就直接算了。
+
+   兩件事要節制：
+     - 使用者開了「節省流量」或是 2G，就不要自作主張下載 20MB。
+     - 用 requestIdleCallback，不要跟首次繪製搶資源；沒有這個 API 就退回 setTimeout。
+   ========================================================== */
+function prewarm(){
+    if (GATED || sim || engineLoading) return;
+    const c = navigator.connection;
+    if (c && (c.saveData || /(^|-)2g$/.test(c.effectiveType || ''))){
+        setEngine('off');            // 省流量模式：等使用者自己按
+        return;
+    }
+    quiet = true;
+    getSim().catch(() => {})         // 背景失敗不要跳錯，狀態標籤說明就好
+            .finally(() => { quiet = false; });
+}
+$('engineChip').onclick = () => {
+    if (sim) return show('ok','引擎已經就緒',['按「執行模擬」會直接開始計算。']);
+    unquiet(); getSim().catch(e => fatal('引擎載入失敗', e));
+};
+(('requestIdleCallback' in window)
+    ? cb => requestIdleCallback(cb, { timeout: 3000 })
+    : cb => setTimeout(cb, 1200))(prewarm);
 
 /* ---------- 錯誤中文化 ---------- */
 const ERR_MAP = [
@@ -1761,6 +1811,7 @@ function showHints(hints, title){
 
 /* ---------- 執行 ---------- */
 $('run').onclick = async () => {
+    unquiet();                       // 使用者在等了，進度要看得到
     const r = refreshNet();
     if (r.warn.length) { show('warn','電路可能還沒完成', r.warn); if (!sch.parts.length) return; }
     const net = r.text;
@@ -2237,7 +2288,9 @@ new ResizeObserver(() => drawSheet()).observe($('sheetBox'));
 addEventListener('resize', () => { drawSheet(); drawPlot(); closePop(); });
 
 /* ---- 浮動波形視窗 ---- */
-const WAVE_KEY = 'blackcatspice-wave';
+/* 版本號往上跳一號：舊的存檔會鎖住舊的小尺寸，不換 key 的話
+   已經開過這一頁的人永遠看不到新的預設大小。 */
+const WAVE_KEY = 'blackcatspice-wave2';
 const waveWin = $('waveWin');
 function clampWave(){
     const w = waveWin.offsetWidth, h = waveWin.offsetHeight;
@@ -2293,20 +2346,25 @@ dragify($('waveHead'), (s0,dx,dy) => {
     waveWin.style.left = (s0.l+dx) + 'px'; waveWin.style.top = (s0.t+dy) + 'px';
 });
 dragify($('waveGrip'), (s0,dx,dy) => {
-    waveWin.style.width  = Math.max(340, s0.w+dx) + 'px';
-    waveWin.style.height = Math.max(220, s0.h+dy) + 'px';
+    waveWin.style.width  = Math.max(380, s0.w+dx) + 'px';
+    waveWin.style.height = Math.max(260, s0.h+dy) + 'px';
     drawPlot();
 });
 (function restoreWave(){
     let o = null;
     try { o = JSON.parse(localStorage.getItem(WAVE_KEY) || 'null'); } catch(e){}
-    /* 預設位置刻意避開右側的屬性面板（300px）並靠下，
-       不然一跑完模擬就把參數欄位整個蓋住，還得先搬視窗才能改東西。 */
-    const dw = 640, dh = 400;
+    /* 預設大小跟著螢幕走：小螢幕不要爆出畫面，大螢幕也別只開一個小方塊。
+       位置則刻意避開右側的屬性面板（300px）並靠下，不然一跑完模擬就把參數欄位
+       整個蓋住，還得先搬視窗才能改東西。 */
+    const clamp = (lo,v,hi) => Math.max(lo, Math.min(v, hi));
+    const dw = clamp(560, Math.round(innerWidth  * 0.56), 980);
+    const dh = clamp(380, Math.round(innerHeight * 0.58), 680);
+    if (!(o && o.w)) waveWin.style.width  = dw + 'px';
+    if (!(o && o.h)) waveWin.style.height = dh + 'px';
     waveWin.style.left = ((o && o.x) ?? Math.max(20, innerWidth - 300 - dw - 24)) + 'px';
     waveWin.style.top  = ((o && o.y) ?? Math.max(150, innerHeight - dh - 46)) + 'px';
-    if (o && o.w) waveWin.style.width  = Math.max(340, o.w) + 'px';
-    if (o && o.h) waveWin.style.height = Math.max(220, o.h) + 'px';
+    if (o && o.w) waveWin.style.width  = Math.max(380, o.w) + 'px';
+    if (o && o.h) waveWin.style.height = Math.max(260, o.h) + 'px';
     showWave(o ? !!o.open : false);
 })();
 
