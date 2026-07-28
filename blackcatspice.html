@@ -109,6 +109,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 #waveHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
           border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
           cursor:move;user-select:none;touch-action:none}
+#scopeInfo{font-weight:600;font-size:11px;color:var(--ink-3);white-space:nowrap}
 .btn.tiny,.icb.tiny{min-height:26px;min-width:26px;padding:0 8px;font-size:12px;border-radius:8px}
 #waveBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:8px 10px}
 /* height:0 + flex 讓 canvas 跟著視窗長高，而不是被自身內容撐著 */
@@ -329,6 +330,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 <div id="waveWin" class="hidden" role="dialog" aria-label="波形">
   <div id="waveHead">
     <span>波形</span>
+    <span id="scopeInfo"></span>
     <div class="spacer"></div>
     <button class="btn tiny" id="scopeBtn" type="button"
             title="像示波器一樣持續掃描，改元件值會即時重算">示波器 ▶</button>
@@ -543,7 +545,8 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
    整個炸掉，所有功能一起死。node --check 看不出來（語法完全合法），
    是冒煙測試把它抓出來的。 */
 const scope = { on:false, t0:0, span:0, raf:null, last:0 };
-let autoTimer = null, autoPending = false, quietNet = false, hintedManual = false;
+let quietNet = false, hintedManual = false;
+let autoRuns = 0;   // 自動重跑了幾次，顯示在波形視窗標題列上
 
 let sch = { parts:[], wires:[], probes:[] };   // probes: [{kind:'v'|'i', x,y | ref}]
 let seq = 1;
@@ -1902,6 +1905,8 @@ $('run').onclick = async () => {
         if (!res || !res.data || !res.data.length)
             return show('err','模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
         lastRunMs = ms;
+        if (autoRun){ autoRuns++; }
+        scopeInfo();
         simData = indexResult(res); cursorIdx = null;
         plotData = prepare(res); buildLegend(); showWave(true); renderMeas();
         scopeReframe();                  // 示波器模式要重新對齊掃描視窗
@@ -2078,7 +2083,6 @@ function buildLegend(){
    區段時 Y 軸會自己放大、波形上下跳動，非常難看也難讀。
    ========================================================== */
 const SWEEP_SEC = 4;          // 掃過一個視窗寬度要幾秒
-const SLOW_MS = 2000;         // 一次模擬慢到這個程度就別再自動重跑了
 const SCOPE_WIN = 0.25;       // 視窗寬度佔整段紀錄的比例
 
 function scopeReframe(){
@@ -2098,8 +2102,16 @@ function scopeFrame(now){
         scope.t0 += (scope.span / SWEEP_SEC) * dt;
         if (scope.t0 > xs[0] + travel) scope.t0 = xs[0];    // 到底就繞回開頭
     }
+    // 電路改過就重跑。放在這裡而不是計時器裡，見上面 scopeDirty 的說明。
+    if (dirtyAt && !running && now - dirtyAt >= autoDelay()){ dirtyAt = 0; runAuto(); }
     drawPlot();
     scope.raf = requestAnimationFrame(scopeFrame);
+}
+function scopeInfo(){
+    const el = $('scopeInfo'); if (!el) return;
+    el.textContent = scope.on
+        ? `· 自動重跑 ${autoRuns} 次${lastRunMs ? '，上次 ' + lastRunMs.toFixed(0) + ' ms' : ''}`
+        : '';
 }
 function scopeStart(){
     if (!plotData) return show('warn','還沒有波形',['先按一次「執行模擬」。']);
@@ -2109,6 +2121,7 @@ function scopeStart(){
     scopeReframe();
     $('scopeBtn').classList.add('on');
     $('scopeBtn').textContent = '掃描中 ⏸';
+    autoRuns = 0; dirtyAt = 0; scopeInfo();
     scope.raf = requestAnimationFrame(scopeFrame);
 }
 function scopeStop(msg){
@@ -2118,6 +2131,7 @@ function scopeStop(msg){
     scope.raf = null;
     $('scopeBtn').classList.remove('on');
     $('scopeBtn').textContent = '示波器 ▶';
+    scopeInfo();
     drawPlot();
     if (msg) show('warn', msg, []);
 }
@@ -2126,26 +2140,24 @@ function scopeStop(msg){
      - 上一次跑超過 400ms 就不自動重跑，免得一邊拖曳一邊卡死。
      - 正在跑就不疊上去（$('run').onclick 自己也會擋）。
      - 250ms 防抖，拖曳和連續滾輪只會在停下來之後跑一次。 */
-function scopeDirty(){
-    if (!scope.on) return;
-    if (running){ autoPending = true; return; }   // 跑完再補一次，不要把這次改動吞掉
-    /* 防抖時間跟著上一次的實際耗時走，而不是「太慢就永遠不自動跑」。
-       第一次 runSim 因為 WASM 還沒熱，可能要一秒以上，之後就掉到幾十毫秒；
-       寫成硬性門檻的話，只要第一次慢，這個功能就永遠不會再啟動。 */
-    if (lastRunMs > SLOW_MS){
-        scopeStop(`這個電路一次要算 ${lastRunMs.toFixed(0)} ms，太慢了，已停止連續掃描`);
-        return;
-    }
-    clearTimeout(autoTimer);
-    autoTimer = setTimeout(runAuto, Math.max(250, lastRunMs));
-}
+/* ★ 自動重跑掛在動畫迴圈上，不另外開計時器。
+
+   上一版用 setTimeout 排程，而且有三個「會靜默停掉」的分支（正在跑、上一次太慢、
+   旗標互相打架）。實際回報是：切了開關，什麼都沒發生，畫面上也沒有任何線索。
+   問題是這條鏈上任何一環斷掉，症狀都一樣是「沒反應」，很難查。
+
+   現在改成：scopeDirty() 只記一個時間戳，真正的觸發放在 scopeFrame() 裡——
+   那個迴圈只要還在掃描就一定在跑（使用者看得到波形在動，就是它活著的證據）。
+   少一個獨立的計時器，就少一種會斷掉又不出聲的東西。 */
+let dirtyAt = 0;
+function scopeDirty(){ if (scope.on) dirtyAt = performance.now(); }
+function autoDelay(){ return Math.max(250, Math.min(lastRunMs, 1500)); }
 function runAuto(){
     if (!scope.on || running) return;
     autoRun = true;
-    Promise.resolve($('run').onclick()).finally(() => {
-        autoRun = false;
-        if (autoPending){ autoPending = false; scopeDirty(); }
-    });
+    Promise.resolve($('run').onclick())
+        .catch(() => {})
+        .finally(() => { autoRun = false; });
 }
 
 const PAD = {l:56, r:12, t:12, b:32};
