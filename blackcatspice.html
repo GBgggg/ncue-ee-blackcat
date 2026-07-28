@@ -209,6 +209,20 @@ import { getFirestore, collection, doc, addDoc, getDoc, getDocs, setDoc, deleteD
 
 const $ = id => document.getElementById(id);
 
+/* 非同步的錯誤如果沒有人接，瀏覽器只會默默印在主控台，
+   使用者看到的就是一個永遠停在「執行中…」的按鈕。全部攤到畫面上。 */
+function fatal(where, err){
+    const t = (err && (err.stack || err.message)) || String(err);
+    const box = document.getElementById('msg');
+    if (box) box.innerHTML =
+        `<div class="msg err"><b>${where}</b><pre style="margin-top:6px">${
+            t.replace(/[<&]/g, c => ({'<':'&lt;','&':'&amp;'}[c]))}</pre></div>`;
+    const b = document.getElementById('run');
+    if (b) { b.disabled = false; b.textContent = '執行模擬'; }
+}
+addEventListener('error', e => fatal('頁面發生未攔截的錯誤', e.error || e.message));
+addEventListener('unhandledrejection', e => fatal('有一個非同步工作失敗了', e.reason));
+
 /* ==========================================================
    1. 主題：跟主站共用同一個 localStorage 鍵，兩頁之間切換不會閃
    ========================================================== */
@@ -384,24 +398,55 @@ function show(kind, title, lines){
 /* ==========================================================
    5. 引擎：第一次按執行才載，不要讓沒用到的人白付 20MB
    ========================================================== */
-const ENGINE_URL = 'https://cdn.jsdelivr.net/npm/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs';
+/* 兩個來源。第一個卡住或掛掉就換第二個——校園網路擋掉某一家 CDN 是常態，
+   而 20MB 的請求一旦停住是「不會報錯的無限等待」，不設逾時就會卡在「執行中…」。 */
+const ENGINE_URLS = [
+    'https://cdn.jsdelivr.net/npm/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs',
+    'https://unpkg.com/eecircuit-engine@1.7.0/dist/eecircuit-engine.mjs'
+];
+const DL_TIMEOUT = 90000, INIT_TIMEOUT = 60000;
 let sim = null, engineLoading = null;
+
+// 目前進行到哪一步，卡住時要靠它才知道死在哪
+let step = '';
+let tick = null;
+function setStep(s){
+    step = s;
+    $('loadbar').style.display = s ? '' : 'none';
+    if (tick) { clearInterval(tick); tick = null; }
+    if (!s) return;
+    const t0 = Date.now();
+    const paint = () => { $('loadtxt').textContent =
+        `${step}（已經 ${((Date.now() - t0) / 1000).toFixed(0)} 秒）`; };
+    paint(); tick = setInterval(paint, 1000);
+}
+function withTimeout(p, ms, what){
+    return Promise.race([p, new Promise((_, rej) =>
+        setTimeout(() => rej(new Error(`TIMEOUT:${what}`)), ms))]);
+}
 
 async function getSim(){
     if (sim) return sim;
     if (engineLoading) return engineLoading;
     engineLoading = (async () => {
-        $('loadbar').style.display = '';
-        $('loadtxt').textContent = '正在下載模擬引擎…（第一次比較久）';
-        const { Simulation } = await import(ENGINE_URL);
-        $('loadtxt').textContent = '正在啟動引擎…';
-        const s = new Simulation();
-        await s.start();
-        $('loadbar').style.display = 'none';
+        let mod = null, lastErr = null;
+        for (const url of ENGINE_URLS){
+            try {
+                setStep(`正在下載模擬引擎（約 20MB）… 來源 ${new URL(url).hostname}`);
+                mod = await withTimeout(import(/* @vite-ignore */ url), DL_TIMEOUT, '下載');
+                break;
+            } catch (e) { lastErr = e; }
+        }
+        if (!mod) throw lastErr || new Error('所有 CDN 都拿不到引擎');
+        setStep('正在啟動引擎…');
+        const s = new mod.Simulation();
+        await withTimeout(s.start(), INIT_TIMEOUT, '啟動');
+        setStep('');
         sim = s;
         return s;
     })();
     try { return await engineLoading; }
+    catch (e) { setStep(''); throw e; }
     finally { engineLoading = null; }
 }
 
@@ -447,9 +492,12 @@ $('run').addEventListener('click', async () => {
     try {
         const s = await getSim();
         s.setNetList(net.endsWith('\n') ? net : net + '\n');
+        setStep('正在計算…');
         const t0 = performance.now();
-        const res = await s.runSim();
+        // 也要設逾時：收斂不了的電路有可能讓 ngspice 一直算下去
+        const res = await withTimeout(s.runSim(), 120000, '計算');
         const ms = performance.now() - t0;
+        setStep('');
 
         const errs = (s.getError?.() || []).filter(x => x && !NOISE.test(x));
         const info = (s.getInfo?.() || '').split('\n').filter(l => !NOISE.test(l)).join('\n');
@@ -467,10 +515,23 @@ $('run').addEventListener('click', async () => {
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
             [`${res.numPoints.toLocaleString()} 個資料點，${plotData.traces.length} 條曲線。`]);
     } catch (e) {
+        setStep('');
         const txt = (e && (e.message || e.toString())) || '未知錯誤';
-        const hints = explain(txt);
-        if (hints.length) showHints(hints, '模擬失敗');
-        else show('err', '模擬失敗', [txt]);
+        const m = txt.match(/^TIMEOUT:(.+)$/);
+        if (m) {
+            show('err', `「${m[1]}」這一步等太久，已中止`, m[1] === '下載'
+                ? ['兩個 CDN（jsDelivr 與 unpkg）都沒回應。校園網路或防火牆可能擋掉了。',
+                   '換行動網路或別的網路再試一次。',
+                   '引擎有 20MB，網路很慢的話也可能單純是還沒下載完。']
+                : m[1] === '啟動'
+                ? ['引擎下載完了但起不來。多半是裝置記憶體不足，關掉其他分頁再試。']
+                : ['這個電路算太久了。把 .tran 的模擬時間縮短，或把步長調大。',
+                   '也可能是電路收斂不了——檢查有沒有節點沒接地。']);
+        } else {
+            const hints = explain(txt);
+            if (hints.length) showHints(hints, '模擬失敗');
+            else show('err', '模擬失敗', [txt]);
+        }
     } finally {
         btn.disabled = false; btn.textContent = '執行模擬';
     }
