@@ -129,6 +129,20 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
         animation:sweep 1.1s ease-in-out infinite}
 @keyframes sweep{0%{left:-34%}100%{left:100%}}
 @media(prefers-reduced-motion:reduce){ .skel i{animation:none;left:0;width:100%;opacity:.5} }
+/* 自動量測表：手機上橫向捲動，不要把整頁撐寬 */
+.meas-head { display:flex; align-items:center; justify-content:space-between;
+             gap:8px; flex-wrap:wrap; margin-top:12px; }
+.meas-head h3 { font-size:14px; margin:0; color:var(--ink-2); }
+.meas-scroll { overflow-x:auto; margin-top:6px; }
+#measTbl { border-collapse:collapse; width:100%; min-width:520px;
+           font:12px ui-monospace,Menlo,Consolas,monospace; }
+#measTbl th, #measTbl td { padding:5px 8px; text-align:right; white-space:nowrap;
+                           border-bottom:1px solid var(--rule); }
+#measTbl th { color:var(--ink-3); font-weight:600; }
+#measTbl td:first-child, #measTbl th:first-child { text-align:left; }
+#measTbl td:first-child { display:flex; align-items:center; gap:6px; }
+#measTbl td i { width:9px; height:9px; border-radius:2px; flex:none; }
+
 </style>
 </head>
 <body>
@@ -155,8 +169,11 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
       <div class="palette" style="margin-bottom:10px">
         <button class="btn" id="mSel">選取</button>
         <button class="btn" id="mWire">連線 <small style="opacity:.7">W</small></button>
+        <button class="btn" id="mProbe">探針 <small style="opacity:.7">P</small></button>
         <button class="btn" id="rotBtn">旋轉 <small style="opacity:.7">R</small></button>
         <button class="btn" id="delBtn">刪除 <small style="opacity:.7">Del</small></button>
+        <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
+        <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
         <button class="btn" id="clrBtn">清空</button>
         <button class="btn" id="fitBtn">置中</button>
         <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
@@ -183,6 +200,16 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
       <canvas id="plot" height="300" aria-label="模擬波形圖"></canvas>
       <div class="legend" id="legend"></div>
       <div id="readout"></div>
+      <div id="measWrap" style="display:none">
+        <div class="meas-head">
+          <h3>自動量測</h3>
+          <div class="palette">
+            <button class="btn" id="csvBtn" type="button">匯出 CSV</button>
+            <button class="btn" id="pngBtn" type="button">存成圖片</button>
+          </div>
+        </div>
+        <div class="meas-scroll"><table id="measTbl"></table></div>
+      </div>
       <details id="rawBox" style="display:none">
         <summary>ngspice 原始輸出</summary>
         <pre id="raw"></pre>
@@ -218,11 +245,20 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </div>
 
     <div class="card" style="margin-top:12px">
+      <h2>探針</h2>
+      <div id="probeList" class="legend"></div>
+    </div>
+
+    <div class="card" style="margin-top:12px">
       <h2>熱鍵</h2>
       <div id="keyList"></div>
       <button class="btn" id="keyReset" style="min-height:34px;margin-top:4px">還原預設</button>
       <p class="sub">點右邊的按鍵再按一個新的鍵就會改掉，設定存在這台裝置上。
-        Esc 固定是取消，不開放更改。</p>
+        Esc（取消）和 Ctrl+Z／Ctrl+Shift+Z（復原／重做）固定不變，不開放更改。</p>
+      <p class="sub" style="margin-top:8px">滑鼠還有這些：<br>
+        ・拖曳空白處＝框選一整組，Shift 點擊＝加選或退選<br>
+        ・游標停在電阻／電容／電感上滾滾輪＝數值照 E12 換一檔<br>
+        ・空白處以外滾滾輪＝縮放，按住 Alt 拖曳＝平移</p>
     </div>
 
     <div class="card" style="margin-top:12px">
@@ -332,9 +368,11 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
 /* ==========================================================
    文件模型
    ========================================================== */
-let sch = { parts:[], wires:[] };
+let sch = { parts:[], wires:[], probes:[] };   // probes: [{kind:'v'|'i', x,y | ref}]
 let seq = 1;
-let sel = null;                         // {kind:'part'|'wire', i}
+let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
+const selOne = () => sel.length === 1 ? sel[0] : null;
+const isSel = (kind,i) => sel.some(x => x.kind===kind && x.i===i);
 let mode = 'sel';                       // sel | wire | place
 let placing = null;                     // 要放的元件型別
 let placeRot = 0;
@@ -347,6 +385,45 @@ const pinsOf = p => TYPES[p.type].pins.map(([a,b]) => {
     const [u,v] = rotPt(a,b,p.rot); return [p.x+u, p.y+v];
 });
 const snap = v => Math.round(v/G)*G;
+
+/* ==========================================================
+   復原與自動存檔
+   資料模型很小（幾十個元件），直接存整份快照就好，不必做差異比對。
+   每個「會改變電路」的動作在**動手之前**呼叫 pushUndo()。
+   ========================================================== */
+const DOC_KEY = 'blackcatspice-doc';
+const UNDO_MAX = 50;
+let undoStack = [], redoStack = [], lastSaved = '';
+const snapshot = () => JSON.stringify(sch);
+function pushUndo(){
+    undoStack.push(snapshot());
+    if (undoStack.length > UNDO_MAX) undoStack.shift();
+    redoStack.length = 0;                       // 有新動作就不能再重做了
+}
+function applySnap(str){
+    sch = JSON.parse(str); sch.probes = sch.probes || [];
+    sel = []; inspect(); refreshNet(); drawSheet();
+}
+function undo(){
+    if (!undoStack.length) return show('warn','沒有可以復原的動作',[]);
+    redoStack.push(snapshot()); applySnap(undoStack.pop());
+}
+function redo(){
+    if (!redoStack.length) return show('warn','沒有可以重做的動作',[]);
+    undoStack.push(snapshot()); applySnap(redoStack.pop());
+}
+/* 自動存檔：改動後延遲寫入，避免拖曳時每一格都寫一次 localStorage。 */
+let saveTimer = null;
+function autosave(){
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+        try {
+            const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals, t:Date.now() });
+            if (data === lastSaved) return;
+            localStorage.setItem(DOC_KEY, data); lastSaved = data;
+        } catch(e) {}    // 空間滿了或被停用就算了，不要吵使用者
+    }, 400);
+}
 
 /* ==========================================================
    拉線的路徑
@@ -368,6 +445,7 @@ function route(a,b){
         ? [[a.x,a.y],[b.x,a.y]] : [[a.x,a.y],[a.x,b.y]];
 }
 function commitWire(a,b){
+    pushUndo();
     const pts = route(a,b);
     for (let i=0;i<pts.length-1;i++){
         const [x1,y1]=pts[i], [x2,y2]=pts[i+1];
@@ -497,6 +575,95 @@ function toNetlist(){
 }
 
 /* ==========================================================
+   滾輪改元件數值（E12 系列）
+   CircuitJS1 最有教學價值的設計：游標停在電阻上滾一下就換一檔，
+   波形立刻重算。學生會開始「玩」，而不是打開一次就關掉。
+   我們模擬只要幾十毫秒，撐得住即時重算。
+   ========================================================== */
+const E12 = [1.0,1.2,1.5,1.8,2.2,2.7,3.3,3.9,4.7,5.6,6.8,8.2];
+const SI  = [[1e12,'T'],[1e9,'G'],[1e6,'meg'],[1e3,'k'],[1,''],
+             [1e-3,'m'],[1e-6,'u'],[1e-9,'n'],[1e-12,'p'],[1e-15,'f']];
+function fmtSI(v){
+    if (!isFinite(v) || v === 0) return '0';
+    for (const [m,suf] of SI) if (Math.abs(v) >= m*0.999){
+        const x = v/m;
+        return (Math.round(x*100)/100).toString() + suf;
+    }
+    return v.toExponential(2);
+}
+/* 把一個數值往 E12 的上／下一檔移動。回傳新的字串，看不懂就回 null。 */
+function stepE12(str, dir){
+    const v = unit(str);
+    if (!isFinite(v) || v <= 0) return null;
+    const dec = Math.floor(Math.log10(v));
+    const mant = v / Math.pow(10, dec);
+    // 找出目前落在 E12 的哪一格（允許一點浮點誤差）
+    let idx = E12.findIndex(e => Math.abs(e - mant) < 0.02);
+    let exp = dec;
+    if (idx >= 0){
+        idx += dir;                    // 已經是標準值：直接換一檔
+    } else {
+        /* 不是標準值：往上就取「大於它的最近一檔」，往下就取「小於它的最近一檔」。
+           注意這裡不能再加一次 dir——靠檔本身就已經是移動了。 */
+        if (dir > 0){
+            idx = E12.findIndex(e => e > mant + 1e-9);
+            if (idx < 0){ idx = 0; exp += 1; }
+        } else {
+            idx = 0;
+            for (let i=0;i<E12.length;i++) if (E12[i] < mant - 1e-9) idx = i;
+        }
+    }
+    if (idx >= E12.length){ idx = 0; exp += 1; }
+    if (idx < 0){ idx = E12.length-1; exp -= 1; }
+    return fmtSI(E12[idx] * Math.pow(10, exp));
+}
+
+/* ==========================================================
+   探針
+   ngspice 本來就會回傳所有節點電壓，所以探針不影響 netlist，
+   它只是「要顯示哪幾條」的篩選器——這也是為什麼它很便宜。
+   沒插任何探針時維持全部顯示，不會讓人第一次用就看到空圖。
+
+   電流只支援電壓源：ngspice 預設只輸出電源的支路電流（V1#branch），
+   其他元件要另外下 .save 才有，先不做。
+   ========================================================== */
+function probeNodeName(x, y){
+    const nd = buildNodes();
+    return nd.nameOf(nd.key(x, y));
+}
+function addProbe(kind, a, b){
+    pushUndo();
+    if (kind === 'v'){
+        const same = sch.probes.findIndex(p => p.kind==='v' && p.x===a && p.y===b);
+        if (same >= 0) sch.probes.splice(same,1); else sch.probes.push({kind:'v', x:a, y:b});
+    } else {
+        const same = sch.probes.findIndex(p => p.kind==='i' && p.ref===a);
+        if (same >= 0) sch.probes.splice(same,1); else sch.probes.push({kind:'i', ref:a});
+    }
+    refreshNet(); drawSheet(); renderProbes();
+}
+/* 探針要顯示哪些曲線名稱。ngspice 的節點電壓叫 v(n1)，電源電流叫 v1#branch。 */
+function probeKeys(){
+    return sch.probes.map(p => p.kind === 'v'
+        ? { label:`V(${probeNodeName(p.x,p.y)})`, match:`v(${probeNodeName(p.x,p.y)})`.toLowerCase() }
+        : { label:`I(${p.ref})`, match:`${p.ref}#branch`.toLowerCase() });
+}
+function renderProbes(){
+    const box = $('probeList');
+    if (!sch.probes.length){
+        box.innerHTML = '<span class="sub">沒有插探針時會畫出全部節點。' +
+            '插了之後就只畫你插的那幾個。</span>'; return;
+    }
+    box.innerHTML = probeKeys().map((k,i) =>
+        `<span class="lg" data-p="${i}" title="點一下移除">
+            <i style="background:${cvar(COLORS[i%6])}"></i>${k.label} ✕</span>`).join('');
+    box.querySelectorAll('[data-p]').forEach(el => el.onclick = () => {
+        pushUndo(); sch.probes.splice(+el.dataset.p, 1);
+        refreshNet(); drawSheet(); renderProbes();
+    });
+}
+
+/* ==========================================================
    模擬儀表板：圖形化欄位 → 即時生成 SPICE 指令
    ========================================================== */
 const ANA = {
@@ -530,7 +697,7 @@ function syncDirective(){ $('directive').textContent = directive(); refreshNet()
 $('anaSel').onchange = buildAna;
 buildAna();
 
-function refreshNet(){ const r = toNetlist(); $('net').value = r.text; return r; }
+function refreshNet(){ const r = toNetlist(); $('net').value = r.text; autosave(); return r; }
 
 /* ==========================================================
    畫布：格點、元件、線、選取
@@ -573,7 +740,7 @@ function drawSheet(){
     // 橋的半徑：看起來約 7px，但不能超過半個格距，否則缺口會吃到旁邊的接點
     const hopR = Math.min(4.5, 7/view.z);
     sch.wires.forEach((wr,i) => {
-        g.strokeStyle = (sel && sel.kind==='wire' && sel.i===i) ? selc : wire;
+        g.strokeStyle = isSel('wire', i) ? selc : wire;
         const xs = hopAt.get(i);
         if (!xs){
             const [a,b] = W2S(wr.x1,wr.y1), [c,d] = W2S(wr.x2,wr.y2);
@@ -608,7 +775,7 @@ function drawSheet(){
         const [sx,sy] = W2S(x,y); g.beginPath(); g.arc(sx,sy,PIN_R,0,7); g.fill(); } });
     // 元件
     sch.parts.forEach((p,i) => {
-        const on = sel && sel.kind==='part' && sel.i===i;
+        const on = isSel('part', i);
         g.save();
         const [sx,sy] = W2S(p.x,p.y);
         g.translate(sx,sy); g.scale(view.z,view.z); g.rotate(p.rot*Math.PI/2);
@@ -636,6 +803,29 @@ function drawSheet(){
             }
         });
     });
+    if (marquee){
+        const [a,b] = W2S(marquee.x1, marquee.y1), [c,d] = W2S(marquee.x2, marquee.y2);
+        const rx = Math.min(a,c), ry = Math.min(b,d), rw = Math.abs(c-a), rh = Math.abs(d-b);
+        g.globalAlpha = .10; g.fillStyle = selc; g.fillRect(rx,ry,rw,rh); g.globalAlpha = 1;
+        g.strokeStyle = selc; g.lineWidth = 1; g.setLineDash([4,3]);
+        g.strokeRect(rx,ry,rw,rh); g.setLineDash([]);
+    }
+    // 探針標記：顏色跟波形圖的圖例對應，看圖時不必猜哪條是哪個節點
+    sch.probes.forEach((pr,i) => {
+        g.strokeStyle = g.fillStyle = cvar(COLORS[i%6]); g.lineWidth = 2;
+        if (pr.kind === 'v'){
+            const [px,py] = W2S(pr.x, pr.y);
+            g.beginPath(); g.arc(px, py-9, 5, 0, 7); g.stroke();
+            g.beginPath(); g.moveTo(px, py-4); g.lineTo(px, py); g.stroke();
+        } else {
+            const part = sch.parts.find(q => q.ref === pr.ref);
+            if (!part) return;
+            const [px,py] = W2S(part.x, part.y);
+            g.beginPath(); g.arc(px+14, py-14, 6, 0, 7); g.stroke();
+            g.font = 'bold 9px system-ui'; g.textAlign='center';
+            g.fillText('I', px+14, py-11);
+        }
+    });
     // 正在拉的線（連線模式，或在選取模式下從接腳直接拖出來）
     const from = wireFrom || quick;
     if (from){
@@ -660,8 +850,9 @@ function drawSheet(){
     $('hud').textContent =
         mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，${kn('rot')} 旋轉，右鍵或 Esc 取消`
       : drawing        ? `按 ${kn('bend')} 定下這一段並轉彎；點一下結束這條線；右鍵取消`
+      : mode==='probe' ? `點導線或接腳量電壓，點電壓源量電流；再點一次可移除`
       : mode==='wire'  ? `點一下開始拉線（手不用一直按著）；右鍵退出連線模式`
-      : sel            ? `已選取：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
+      : sel.length     ? `已選取 ${sel.length} 個：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
       : `點元件選取；接腳上按一下就能開始拉線；中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
 }
 
@@ -686,7 +877,13 @@ function hitWire(wx,wy){
 }
 
 /* ---------- 滑鼠與鍵盤 ---------- */
-let dragging = null, panning = null, panKey = false, quick = null;
+let dragging = null, panning = null, panKey = false, quick = null, marquee = null;
+/* Shift 點一下＝加選／退選。這比「按住 Ctrl 拉出第二個框」直覺得多，
+   也跟大部分繪圖軟體一致。 */
+const toggleSel = (kind,i) => {
+    const k = sel.findIndex(x => x.kind===kind && x.i===i);
+    if (k >= 0) sel.splice(k,1); else sel.push({kind,i});
+};
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
     /* canvas 不可聚焦，所以點它不會讓輸入框失焦。不主動 blur 的話，
@@ -706,6 +903,15 @@ cv.addEventListener('pointerdown', e => {
         panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
     }
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
+    if (mode === 'probe'){
+        const pi = hitPart(wx,wy);
+        if (pi >= 0 && sch.parts[pi].type === 'V'){ addProbe('i', sch.parts[pi].ref); return; }
+        const pt = snapPoint(wx,wy);
+        const wi = hitWire(wx,wy);
+        if (wi >= 0 || pinAt(pt.x,pt.y)) addProbe('v', pt.x, pt.y);
+        else show('warn','這裡沒有東西可以量',['點一條導線或接腳量電壓，點電壓源量電流。']);
+        return;
+    }
     if (mode === 'wire'){
         const p = snapPoint(wx,wy);
         // 點一下＝把這一段定下來並結束這條線（要接著轉彎請按確定鍵）
@@ -718,11 +924,24 @@ cv.addEventListener('pointerdown', e => {
     const p = snapPoint(wx,wy);
     if (pinAt(p.x,p.y)){ quick = p; drawSheet(); return; }
     const pi = hitPart(wx,wy);
-    if (pi >= 0){ sel = {kind:'part', i:pi};
-        dragging = { i:pi, dx:wx - sch.parts[pi].x, dy:wy - sch.parts[pi].y };
-        inspect(); drawSheet(); return; }
+    if (pi >= 0){
+        if (e.shiftKey) toggleSel('part', pi);
+        else if (!isSel('part', pi)) sel = [{kind:'part', i:pi}];
+        // 點在「已經被選起來的東西」上就整組一起搬，不要把選取打掉重來。
+        // Shift 點了一下把它退選的話就不該進入拖曳，否則會用一個沒被選中的
+        // 元件當基準去搬別人，位移會算不完。
+        if (isSel('part', pi)) dragging = { ax:snap(wx), ay:snap(wy) };
+        inspect(); drawSheet(); return;
+    }
     const wi = hitWire(wx,wy);
-    sel = wi >= 0 ? {kind:'wire', i:wi} : null;
+    if (wi >= 0){
+        if (e.shiftKey) toggleSel('wire', wi);
+        else if (!isSel('wire', wi)) sel = [{kind:'wire', i:wi}];
+        if (isSel('wire', wi)) dragging = { ax:snap(wx), ay:snap(wy) };
+        inspect(); drawSheet(); return;
+    }
+    if (!e.shiftKey) sel = [];
+    marquee = { x1:wx, y1:wy, x2:wx, y2:wy };   // 空白處按下＝開始框選
     inspect(); drawSheet();
 });
 cv.addEventListener('pointermove', e => {
@@ -732,9 +951,19 @@ cv.addEventListener('pointermove', e => {
     mouseW = {x:wx, y:wy};
     if (panning){ view.x = panning.ox + (e.clientX-panning.sx);
                   view.y = panning.oy + (e.clientY-panning.sy); drawSheet(); return; }
-    if (dragging){ const p = sch.parts[dragging.i];
-        p.x = snap(wx - dragging.dx); p.y = snap(wy - dragging.dy);
-        refreshNet(); drawSheet(); return; }
+    if (dragging){
+        /* 用「格點對格點的相對位移」搬，不是把元件貼到游標上。
+           這樣抓元件的哪個角落都不會跳，而且線也能一起搬。 */
+        const nx = snap(wx), ny = snap(wy);
+        const dx = nx - dragging.ax, dy = ny - dragging.ay;
+        if (dx || dy){
+            if (!dragging.moved){ pushUndo(); dragging.moved = true; }   // 真的動了才記一次
+            moveSelection(dx, dy);
+            dragging.ax = nx; dragging.ay = ny;
+            refreshNet();
+        }
+        drawSheet(); return; }
+    if (marquee){ marquee.x2 = wx; marquee.y2 = wy; drawSheet(); return; }
     // 只有跨到別的格點才重畫，不然每一個像素都在重畫整張圖
     const after = snapPoint(wx,wy);
     if (before.x !== after.x || before.y !== after.y || mode === 'place') drawSheet();
@@ -751,11 +980,44 @@ addEventListener('pointerup', () => {
         }
         drawSheet();
     }
+    if (marquee){
+        const x1 = Math.min(marquee.x1, marquee.x2), x2 = Math.max(marquee.x1, marquee.x2);
+        const y1 = Math.min(marquee.y1, marquee.y2), y2 = Math.max(marquee.y1, marquee.y2);
+        marquee = null;
+        if (Math.abs(x2-x1) > 3 || Math.abs(y2-y1) > 3){
+            sch.parts.forEach((pt,i) => {
+                if (pt.x>=x1 && pt.x<=x2 && pt.y>=y1 && pt.y<=y2 && !isSel('part',i))
+                    sel.push({kind:'part', i});
+            });
+            /* 線要「整條」都在框裡才算選到。只碰到一角就選，會在框一小塊時
+               把橫跨整張圖的長線也拖進來，非常難用。 */
+            sch.wires.forEach((w,i) => {
+                if (w.x1>=x1 && w.x1<=x2 && w.y1>=y1 && w.y1<=y2 &&
+                    w.x2>=x1 && w.x2<=x2 && w.y2>=y1 && w.y2<=y2 && !isSel('wire',i))
+                    sel.push({kind:'wire', i});
+            });
+        }
+        inspect(); drawSheet();
+    }
     dragging = null; panning = null;
 });
+const WHEELABLE = ['R','L','C'];
 cv.addEventListener('wheel', e => {
     e.preventDefault();
-    const r = cv.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
+    const r0 = cv.getBoundingClientRect();
+    {   // 游標停在 R/L/C 上 → 改數值，不縮放
+        const [wx,wy] = S2W(e.clientX-r0.left, e.clientY-r0.top);
+        const pi = hitPart(wx,wy);
+        if (pi >= 0 && WHEELABLE.includes(sch.parts[pi].type)){
+            const next = stepE12(sch.parts[pi].val, e.deltaY < 0 ? 1 : -1);
+            if (next){
+                pushUndo(); sch.parts[pi].val = next;
+                sel = [{kind:'part', i:pi}]; inspect(); refreshNet(); drawSheet();
+            }
+            return;
+        }
+    }
+    const r = r0, mx = e.clientX-r.left, my = e.clientY-r.top;
     const [bx,by] = S2W(mx,my);
     view.z = Math.min(3, Math.max(0.35, view.z * (e.deltaY < 0 ? 1.12 : 1/1.12)));
     const [ax,ay] = S2W(mx,my);
@@ -771,6 +1033,7 @@ cv.addEventListener('wheel', e => {
 const ACTIONS = [
     ['wire','連線模式','KeyW'],
     ['sel', '選取模式','KeyS'],
+    ['probe','探針模式','KeyP'],
     ['rot', '旋轉',    'KeyR'],
     ['del', '刪除',    'Delete'],
     ['bend','確定這一段（轉彎）','Space'],
@@ -800,9 +1063,16 @@ addEventListener('keydown', e => {
     if (e.key === 'Escape'){
         // 第一次先結束目前這條線，還留在連線模式；第二次才離開。
         if ((mode === 'wire' && wireFrom) || quick){ wireFrom = null; quick = null; drawSheet(); }
-        else { setMode('sel'); sel = null; inspect(); drawSheet(); }
+        else { setMode('sel'); sel = []; inspect(); drawSheet(); }
         return;
     }
+    /* 復原／重做跟 Esc 一樣不開放綁定：Ctrl+Z 是全世界共通的肌肉記憶，
+       讓它可以被改掉只會製造困惑。 */
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ'){
+        e.preventDefault(); e.shiftKey ? redo() : undo(); return;
+    }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY'){ e.preventDefault(); redo(); return; }
+    if (e.ctrlKey || e.metaKey) return;          // 其他組合鍵留給瀏覽器
     const a = actionFor(e.code);
     if (!a) return;
     if (a === 'pan'){ panKey = true; e.preventDefault(); return; }
@@ -822,6 +1092,7 @@ addEventListener('keydown', e => {
     e.preventDefault();
     if (a === 'wire') setMode('wire');
     if (a === 'sel')  setMode('sel');
+    if (a === 'probe') setMode('probe');
     if (a === 'rot')  rotate();
     if (a === 'del')  del();
     if (a === 'fit')  fit();
@@ -863,25 +1134,43 @@ renderKeys();
 
 /* ---------- 操作 ---------- */
 function addPart(type, x, y, rot){
+    pushUndo();
     const T = TYPES[type];
     const p = { type, x, y, rot, ref: type==='GND' ? '' : T.pre + (seq++), val: T.val };
-    sch.parts.push(p); sel = {kind:'part', i:sch.parts.length-1};
+    sch.parts.push(p); sel = [{kind:'part', i:sch.parts.length-1}];
     setMode('sel'); inspect(); refreshNet(); drawSheet();
 }
 function rotate(){
     if (mode === 'place'){ placeRot = (placeRot+1)%4; drawSheet(); return; }
-    if (sel && sel.kind==='part'){ sch.parts[sel.i].rot = (sch.parts[sel.i].rot+1)%4;
-        refreshNet(); drawSheet(); }
+    const ps = sel.filter(x => x.kind==='part');
+    if (!ps.length) return;
+    pushUndo();
+    ps.forEach(x => sch.parts[x.i].rot = (sch.parts[x.i].rot+1)%4);
+    refreshNet(); drawSheet();
 }
+function moveSelection(dx,dy){
+    const parts = new Set(sel.filter(x=>x.kind==='part').map(x=>x.i));
+    const wires = new Set(sel.filter(x=>x.kind==='wire').map(x=>x.i));
+    parts.forEach(i => { sch.parts[i].x += dx; sch.parts[i].y += dy; });
+    wires.forEach(i => { const w = sch.wires[i];
+        w.x1 += dx; w.y1 += dy; w.x2 += dx; w.y2 += dy; });
+}
+
 function del(){
-    if (!sel) return;
-    if (sel.kind==='part') sch.parts.splice(sel.i,1); else sch.wires.splice(sel.i,1);
-    sel = null; inspect(); refreshNet(); drawSheet();
+    if (!sel.length) return;
+    pushUndo();
+    // 由後往前刪，索引才不會在刪除過程中位移
+    sel.filter(x=>x.kind==='part').map(x=>x.i).sort((a,b)=>b-a)
+       .forEach(i => sch.parts.splice(i,1));
+    sel.filter(x=>x.kind==='wire').map(x=>x.i).sort((a,b)=>b-a)
+       .forEach(i => sch.wires.splice(i,1));
+    sel = []; inspect(); refreshNet(); drawSheet();
 }
 function setMode(m, type){
     mode = m; placing = type || null; wireFrom = null;
     $('mSel').classList.toggle('on', m==='sel');
     $('mWire').classList.toggle('on', m==='wire');
+    $('mProbe').classList.toggle('on', m==='probe');
     document.querySelectorAll('.pi').forEach(el =>
         el.classList.toggle('on', m==='place' && el.dataset.t===type));
     cv.style.cursor = m==='sel' ? 'default' : 'crosshair';
@@ -889,11 +1178,14 @@ function setMode(m, type){
 }
 $('mSel').onclick = () => setMode('sel');
 $('mWire').onclick = () => setMode('wire');
+$('mProbe').onclick = () => setMode('probe');
 $('rotBtn').onclick = rotate;
 $('delBtn').onclick = del;
 $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
-    sch = {parts:[],wires:[]}; seq = 1; sel = null; inspect(); refreshNet(); drawSheet(); };
+    pushUndo(); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = []; inspect(); refreshNet(); drawSheet(); };
 $('fitBtn').onclick = fit;
+$('undoBtn').onclick = undo;
+$('redoBtn').onclick = redo;
 function fit(){
     if (!sch.parts.length && !sch.wires.length){ view = {x:cv.clientWidth/2, y:cv.clientHeight/2, z:1};
         drawSheet(); return; }
@@ -943,15 +1235,25 @@ const VAL_HINT = {
 };
 function inspect(){
     const box = $('insp');
-    if (!sel){ box.innerHTML = '<p class="sub">點畫布上的元件或線，這裡就會顯示它的參數。<br>' +
-        '沒有彈出視窗，改完立刻生效。</p>'; return; }
-    if (sel.kind === 'wire'){
+    if (!sel.length){ box.innerHTML = '<p class="sub">點畫布上的元件或線，這裡就會顯示它的參數。<br>' +
+        '沒有彈出視窗，改完立刻生效。<br>拖曳空白處可以框選一整組，Shift 點擊可加選。<br>' +
+        '游標停在電阻／電容／電感上滾滑鼠，數值會照 E12 換檔。</p>'; return; }
+    if (sel.length > 1){
+        box.innerHTML = `<p class="sub">已選取 <b>${sel.length}</b> 個物件，可以整組搬移。</p>
+          <div class="palette" style="margin-top:8px">
+            <button class="btn" id="ip_rot">整組旋轉</button>
+            <button class="btn" id="ip_del">整組刪除</button>
+          </div>`;
+        $('ip_rot').onclick = rotate; $('ip_del').onclick = del; return;
+    }
+    const one = sel[0];
+    if (one.kind === 'wire'){
         box.innerHTML = '<p class="sub">選取的是一段導線。</p>';
         box.insertAdjacentHTML('beforeend',
             '<button class="btn" id="ip_del" style="margin-top:6px">刪除這段線</button>');
         $('ip_del').onclick = del; return;
     }
-    const p = sch.parts[sel.i], T = TYPES[p.type];
+    const p = sch.parts[one.i], T = TYPES[p.type];
     if (p.type === 'GND'){
         box.innerHTML = '<p class="sub">接地（0 節點）。SPICE 一定要有它。</p>' +
             '<button class="btn" id="ip_del" style="margin-top:6px">刪除</button>';
@@ -968,8 +1270,10 @@ function inspect(){
         <button class="btn" id="ip_del">刪除</button>
       </div>
       <p class="sub">型別：${T.label}（${p.type}）</p>`;
-    $('ip_ref').oninput = e => { p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
-    $('ip_val').oninput = e => { p.val = e.target.value; refreshNet(); drawSheet(); };
+    let typed = false;      // 連續打字只記一次復原點，不然每按一個字都是一步
+    const once = () => { if (!typed){ pushUndo(); typed = true; } };
+    $('ip_ref').oninput = e => { once(); p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
+    $('ip_val').oninput = e => { once(); p.val = e.target.value; refreshNet(); drawSheet(); };
     $('ip_rot').onclick = rotate;
     $('ip_del').onclick = del;
 }
@@ -1011,12 +1315,12 @@ Object.keys(EXAMPLES).forEach(k => $('exSel').insertAdjacentHTML('beforeend',
     `<option value="${k}">${k}</option>`));
 $('exSel').onchange = () => loadExample($('exSel').value);
 function loadExample(k){
-    const e = EXAMPLES[k](); sch = {parts:[],wires:[]}; seq = 1; sel = null;
+    const e = EXAMPLES[k](); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = [];
     e.parts.forEach(([t,x,y,r,ref,val]) => sch.parts.push({type:t,x,y,rot:r,ref,val}));
     e.wires.forEach(([a,b,c,d]) => sch.wires.push({x1:a,y1:b,x2:c,y2:d}));
     seq = sch.parts.length + 1;
     $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); buildAna();
-    inspect(); refreshNet(); fit();
+    inspect(); refreshNet(); renderProbes(); fit();
 }
 
 /* ==========================================================
@@ -1134,7 +1438,7 @@ $('run').onclick = async () => {
         $('raw').textContent = info.trim() || '(無輸出)'; $('rawBox').style.display = '';
         if (!res || !res.data || !res.data.length)
             return show('err','模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
-        plotData = prepare(res); buildLegend(); drawPlot();
+        plotData = prepare(res); buildLegend(); drawPlot(); renderMeas();
         const hints = explain(errs.join('\n') + '\n' + info);
         if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
@@ -1172,13 +1476,19 @@ function prepare(res){
     const xd = res.data[xi >= 0 ? xi : 0];
     const x = isC ? xd.values.map(v=>v.real) : xd.values.slice();
     const logX = /freq/i.test(xd.name) || xd.type === 'frequency';
+    /* 有插探針就只畫探針指定的那幾條。沒插就全部畫——
+       不然第一次用的人按下執行會看到一張空圖。 */
+    const want = probeKeys().map(k => k.match);
     const traces = [];
     res.data.forEach((d,i) => {
         if (i === (xi>=0?xi:0)) return;
+        if (want.length && !want.includes(d.name.toLowerCase().replace(/\s/g,''))) return;
         if (isC) traces.push({name:`dB(${d.name})`, unit:'dB', on:true,
             y:d.values.map(v => 20*Math.log10(Math.hypot(v.real,v.img)||1e-30))});
         else traces.push({name:d.name, unit:d.type==='current'?'A':'V', on:true, y:d.values.slice()});
     });
+    if (want.length && !traces.length) show('warn','探針指定的節點在結果裡找不到',
+        ['電路可能改過了，節點編號跟著變。移除探針重插一次。']);
     return {x, logX, xname:xd.name, traces};
 }
 const COLORS = ['--t1','--t2','--t3','--t4','--t5','--t6'];
@@ -1187,7 +1497,7 @@ function buildLegend(){
         `<span class="lg" data-i="${i}"><i style="background:${cvar(COLORS[i%6])}"></i>${t.name}</span>`).join('');
     $('legend').querySelectorAll('.lg').forEach(el => el.onclick = () => {
         const i = +el.dataset.i; plotData.traces[i].on = !plotData.traces[i].on;
-        el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); });
+        el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); renderMeas(); });
 }
 const PAD = {l:56, r:12, t:12, b:32};
 function niceTicks(lo,hi,n){
@@ -1249,6 +1559,157 @@ function drawPlot(){
         }
     }
 }
+/* ==========================================================
+   自動量測
+   學生看波形時真正想知道的是幾個數字：峰對峰、平均、RMS、頻率、上升時間。
+   自己拿游標讀兩點再相減又慢又不準，所以直接算出來列成一張表。
+
+   演算法都刻意選最不會出錯的那種：
+     - 頻率用「穿越中線」而不是 FFT。取樣點不等距（ngspice 會自動調步長）
+       時 FFT 會算錯，而穿越法只看時間戳記，天生免疫。
+     - 上升時間用標準的 10%→90%，而且是在「第一次上升的那一段」量。
+     - RMS／平均都用梯形法對時間積分，不是把樣本直接平均——
+       不等距取樣時直接平均會被密集區帶偏。
+   ========================================================== */
+function measure(xs, y){
+    const n = Math.min(xs.length, y.length);
+    if (n < 2) return null;
+    let min = Infinity, max = -Infinity;
+    for (let i=0;i<n;i++){
+        const v = y[i];
+        if (!isFinite(v)) return null;   // 收斂失敗時 ngspice 會吐 NaN，整條就別算了
+        if (v<min) min=v; if (v>max) max=v;
+    }
+    const span = xs[n-1] - xs[0];
+    let area = 0, sq = 0;
+    for (let i=0;i<n-1;i++){
+        const dt = xs[i+1]-xs[i];
+        area += (y[i]+y[i+1])/2 * dt;                       // 梯形法
+        sq   += (y[i]*y[i] + y[i+1]*y[i+1])/2 * dt;
+    }
+    const mean = span ? area/span : y[0];
+    const rms  = span ? Math.sqrt(Math.max(0, sq/span)) : Math.abs(y[0]);
+    const out = { min, max, pp:max-min, mean, rms, freq:null, rise:null };
+
+    /* 頻率：數穿過中線的次數，用線性內插求出精確時間。
+       兩個要點，都是踩過坑才知道的：
+         1. 上升、下降兩個方向都要數。只數上升沿的話，剛好模擬兩個週期又從
+            高電位起跑的方波，只會抓到一次上升沿，頻率就變成「算不出來」。
+         2. 只採用「整數個週期」的區間。占空比不對稱時（例如 PULSE 10%），
+            相鄰穿越的間隔是 0.2ms、1.8ms 交替，取奇數段會偏掉。
+       中線附近用 ±2% 的遲滯帶擋雜訊，落在帶內的樣本不算換區。 */
+    const mid = (min+max)/2, amp = max-min;
+    if (amp > 1e-12){
+        const hyst = amp*0.02;
+        const cross = [];
+        let last = 0, prev = 0;             // last: 目前在中線上(+1)還是下(-1)；prev: 上次穿越的索引
+        for (let i=0;i<n;i++){
+            const d = y[i] > mid + hyst ? 1 : y[i] < mid - hyst ? -1 : 0;
+            if (d === 0 || d === last) continue;
+            if (last !== 0){
+                // 往回找真正跨過中線的那一小段（只找到上一個穿越點為止，不會退化成 O(n²)）
+                let j = i;
+                while (j > prev + 1 && (y[j-1]-mid) * (y[j]-mid) > 0) j--;
+                const a = y[j-1], b = y[j];
+                cross.push(a === b ? xs[j] : xs[j-1] + (mid-a)/(b-a)*(xs[j]-xs[j-1]));
+                prev = j;
+            }
+            last = d;
+        }
+        let k = cross.length - 1;
+        if (k % 2) k--;                     // 湊成整數個週期
+        if (k >= 2){
+            const period = (cross[k] - cross[0]) / (k/2);
+            if (period > 0) out.freq = 1/period;
+        }
+        /* 上升時間：第一次從 10% 爬到 90%。找不到完整的一段就留空，
+           不要硬湊一個數字出來。 */
+        const lo = min + amp*0.1, hi = min + amp*0.9;
+        let t10 = null;
+        for (let i=0;i<n-1;i++){
+            const a = y[i], b = y[i+1];
+            if (t10 === null && a <= lo && b > lo)
+                t10 = xs[i] + (lo-a)/((b-a)||1)*(xs[i+1]-xs[i]);
+            else if (t10 !== null && a <= hi && b > hi){
+                out.rise = xs[i] + (hi-a)/((b-a)||1)*(xs[i+1]-xs[i]) - t10;
+                break;
+            }
+        }
+        if (out.rise !== null && !(out.rise > 0)) out.rise = null;
+    }
+    return out;
+}
+const MEAS_COLS = [
+    ['最小',  m => m.min,  'u'], ['最大', m => m.max,  'u'],
+    ['峰對峰', m => m.pp,   'u'], ['平均', m => m.mean, 'u'],
+    ['RMS',   m => m.rms,  'u'], ['頻率', m => m.freq, 'Hz'],
+    ['上升時間', m => m.rise, 's']
+];
+function renderMeas(){
+    const wrap = $('measWrap');
+    if (!plotData || !plotData.traces.length){ wrap.style.display = 'none'; return; }
+    // 交流分析的縱軸是 dB，峰對峰／RMS／上升時間都沒有物理意義，只留極值
+    const isAC = plotData.traces.some(t => t.unit === 'dB');
+    const cols = isAC ? MEAS_COLS.slice(0,2) : MEAS_COLS;
+    const rows = plotData.traces.map((t,i) => {
+        const m = measure(plotData.x, t.y);
+        const tds = cols.map(([,get,u]) => {
+            const v = m ? get(m) : null;
+            return `<td>${v == null ? '—' : eng(v) + (u === 'u' ? t.unit : u)}</td>`;
+        }).join('');
+        return `<tr${t.on ? '' : ' style="opacity:.45"'}>` +
+               `<td><i style="background:${cvar(COLORS[i%6])}"></i>${t.name}</td>${tds}</tr>`;
+    }).join('');
+    $('measTbl').innerHTML =
+        `<thead><tr><th>訊號</th>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>` +
+        `<tbody>${rows}</tbody>`;
+    wrap.style.display = '';
+}
+
+/* ---------- 匯出 ---------- */
+function download(blob, name){
+    const url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    // 立刻 revoke 在 Safari 會讓下載變成空檔，等一下再放
+    setTimeout(() => URL.revokeObjectURL(url), 4000);
+}
+const stamp = () => new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
+$('csvBtn').onclick = () => {
+    if (!plotData) return show('warn','還沒有波形可以匯出',['先按「執行模擬」。']);
+    const on = plotData.traces.filter(t => t.on);
+    if (!on.length) return show('warn','目前沒有顯示中的訊號',['在圖例點一下可以把訊號打開。']);
+    const rows = [[plotData.xname, ...on.map(t=>t.name)].join(',')];
+    for (let i=0;i<plotData.x.length;i++)
+        rows.push([plotData.x[i], ...on.map(t=>t.y[i])].join(','));
+    /* 加 BOM：不加的話 Excel 會把 UTF-8 當成 Big5，中文節點名全變亂碼。
+       這是台灣使用者最常踩到的一個坑。 */
+    download(new Blob(['﻿' + rows.join('\r\n')],
+        {type:'text/csv;charset=utf-8'}), `blackcatspice-${stamp()}.csv`);
+};
+$('pngBtn').onclick = () => {
+    if (!plotData) return show('warn','還沒有波形可以存圖',['先按「執行模擬」。']);
+    const src = $('plot'), pad = 14, legendH = 26;
+    const out = document.createElement('canvas');
+    out.width = src.width; out.height = src.height + (legendH + pad) * (devicePixelRatio||1);
+    const c = out.getContext('2d'), dpr = devicePixelRatio||1;
+    /* 一定要自己填底色。canvas 本身是透明的，直接存出來貼進報告或
+       淺色的 Word 裡，深色模式的白色線條會整條看不見。 */
+    c.fillStyle = cvar('--paper') || '#ffffff';
+    c.fillRect(0,0,out.width,out.height);
+    c.drawImage(src, 0, 0);
+    c.setTransform(dpr,0,0,dpr,0,0);
+    let x = pad; const y = src.height/dpr + pad + 4;
+    c.font = '12px system-ui,sans-serif'; c.textBaseline = 'middle';
+    plotData.traces.forEach((t,i) => {
+        if (!t.on) return;
+        c.fillStyle = cvar(COLORS[i%6]);
+        c.fillRect(x, y-4, 9, 9); x += 13;
+        c.fillStyle = cvar('--ink-2'); c.fillText(t.name, x, y);
+        x += c.measureText(t.name).width + 14;
+    });
+    out.toBlob(b => download(b, `blackcatspice-${stamp()}.png`), 'image/png');
+};
+
 const pmove = e => { const r = $('plot').getBoundingClientRect();
     hoverX = (e.touches?e.touches[0].clientX:e.clientX) - r.left; drawPlot(); };
 $('plot').addEventListener('mousemove', pmove);
@@ -1263,9 +1724,10 @@ const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
     { s:sch, a:$('anaSel').value, v:anaVals }))));
 function unpack(str){
     const o = JSON.parse(decodeURIComponent(escape(atob(str))));
-    sch = o.s || {parts:[],wires:[]}; seq = (sch.parts.length||0)+1; sel = null;
+    sch = o.s || {parts:[],wires:[],probes:[]}; sch.probes = sch.probes || [];
+    seq = (sch.parts.length||0)+1; sel = [];
     $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
-    inspect(); refreshNet(); fit();
+    inspect(); refreshNet(); renderProbes(); fit();
 }
 $('saveBtn').onclick = async () => {
     if (!me) return show('warn','要先登入才能存檔',['回小黑貓首頁登入後再回來，這頁會沿用登入狀態。']);
@@ -1305,11 +1767,31 @@ addEventListener('resize', () => { drawSheet(); drawPlot(); });
 new MutationObserver(() => { paintPalette(); drawSheet(); drawPlot(); })
     .observe(document.documentElement, {attributes:true, attributeFilter:['class']});
 
-paintPalette();
+paintPalette(); renderProbes();
 const q = new URLSearchParams(location.search).get('c');
-if (q){ try { unpack(q); show('ok','已從分享連結載入電路',[]); }
-        catch(e){ show('warn','分享連結解不開',['連結可能被截斷了。']); loadExample('RC 低通（步階）'); } }
-else loadExample('RC 低通（步階）');
+if (q){
+    try { unpack(q); show('ok','已從分享連結載入電路',[]); }
+    catch(e){ show('warn','分享連結解不開',['連結可能被截斷了。']); loadExample('RC 低通（步階）'); }
+} else {
+    /* 接續上次沒存的工作。分享連結優先，因為那是使用者當下明確要看的東西。 */
+    let restored = false;
+    try {
+        const raw = localStorage.getItem(DOC_KEY);
+        if (raw){
+            const o = JSON.parse(raw);
+            if (o.s && (o.s.parts||[]).length){
+                sch = o.s; sch.probes = sch.probes || [];
+                seq = sch.parts.length + 1; sel = [];
+                $('anaSel').value = o.a || 'tran'; anaVals = o.v || {};
+                buildAna(); inspect(); refreshNet(); fit();
+                show('ok','已接續上次編輯的電路',
+                     ['要改用範例請從上面的下拉選單挑一個。']);
+                restored = true;
+            }
+        }
+    } catch(e) {}
+    if (!restored) loadExample('RC 低通（步階）');
+}
 drawPlot();
 </script>
 </body>
