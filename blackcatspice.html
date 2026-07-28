@@ -44,21 +44,43 @@ a{color:var(--accent)}
 html,body{height:100%}
 body{overflow:hidden}
 #app{height:100dvh;display:flex;flex-direction:column;min-height:0}
-header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:7px 0}
-.hbar{margin:0;padding:0 12px;display:flex;align-items:center;gap:10px}
-.hbar img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
-.htitle{font-weight:900;font-size:14px;line-height:1.15}
-.htitle small{display:block;font-weight:600;font-size:10px;color:var(--ink-3);letter-spacing:.16em}
+/* 工具列跟 logo 同一列。放不下時整列換行（flex-wrap），
+   而不是擠壓按鈕或長出捲軸——按鈕被擠窄比多佔一行難用得多。 */
+header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:6px 0}
+.hbar{margin:0;padding:0 10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.hbar .btn{min-height:32px;padding:0 10px;border-radius:9px;font-size:13px}
+.hbar .btn small{opacity:.55;font-weight:700;margin-left:3px}
+.hbar .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:13px}
+.tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
 .spacer{flex:1}
 .chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
       background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 
-#tools{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;
-       padding:6px 10px;border-bottom:1px solid var(--rule);background:var(--paper-raised)}
-#tools .btn{min-height:32px;padding:0 10px;border-radius:9px;font-size:13px}
-#tools .btn small{opacity:.55;font-weight:700;margin-left:3px}
-#tools .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:13px}
-.tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
+/* ---- 樣式：logo 下拉選單（行為與主站一致） ---- */
+#logoWrap{position:relative;flex:none}
+#logoBtn{display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 6px 2px 2px;
+         border-radius:10px}
+#logoBtn:hover{background:var(--accent-soft)}
+#logoBtn img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
+.htitle{font-weight:900;font-size:14px;line-height:1.15;white-space:nowrap}
+.htitle small{display:block;font-weight:600;font-size:10px;color:var(--ink-3);letter-spacing:.16em}
+#logoChev{font-size:11px;line-height:1;opacity:.6;color:var(--ink-3);
+          transition:transform .18s ease}
+#logoBtn[aria-expanded="true"] #logoChev{transform:rotate(180deg);opacity:1}
+#logoMenu{position:absolute;left:0;top:100%;margin-top:8px;z-index:80;
+          min-width:232px;border-radius:14px;overflow:hidden;background:var(--paper-raised);
+          border:1px solid var(--rule);box-shadow:0 10px 28px rgba(26,24,21,.22)}
+#logoMenu.hidden{display:none}
+.logo-menu-item{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+                width:100%;min-height:50px;padding:9px 15px;font-size:14px;font-weight:700;
+                text-align:left;text-decoration:none;color:var(--ink);background:transparent;
+                border:none;cursor:pointer}
+.logo-menu-item small{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:1px}
+.logo-menu-item:hover{background:var(--accent-soft)}
+.logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
+/* 目前所在的那一項不是連結，也不該有游標與 hover 回饋 */
+.logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
+.logo-menu-item.is-here:hover{background:transparent}
 
 #palette{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;
          border-bottom:1px solid var(--rule);background:var(--paper)}
@@ -78,7 +100,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 #statusbar{flex:none;max-height:26vh;overflow:auto;padding:6px 10px;
            border-top:1px solid var(--rule);background:var(--paper-raised)}
 
-/* ---- 浮動波形視窗 ---- */
+/* ---- 樣式：浮動波形視窗 ---- */
 #waveWin{position:fixed;z-index:60;left:60px;top:120px;width:620px;height:400px;
          min-width:340px;min-height:220px;display:flex;flex-direction:column;
          background:var(--paper-raised);border:1px solid var(--rule);border-radius:13px;
@@ -95,7 +117,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
           background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
                      var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
 
-/* ---- 工具列彈出面板 ---- */
+/* ---- 樣式：工具列彈出面板 ---- */
 .pop{position:fixed;z-index:70;width:320px;max-height:min(70vh,560px);overflow:auto;
      background:var(--paper-raised);border:1px solid var(--rule);border-radius:12px;
      padding:12px 14px;box-shadow:0 12px 34px rgba(0,0,0,.26)}
@@ -103,7 +125,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .pop h3{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
 .pop[hidden]{display:none}
 
-/* ---- 手機擋門 ---- */
+/* ---- 樣式：手機擋門 ---- */
 #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
       padding:24px;background:var(--paper)}
 #gate[hidden]{display:none}
@@ -128,7 +150,7 @@ button,select,input{font:inherit;color:var(--ink)}
 
 #side h2,.pop h3{letter-spacing:.14em;font-weight:800}
 
-/* ---- 元件工具列（扁平、向量、先選物件再操作）---- */
+/* ---- 樣式：元件工具列（扁平、向量、先選物件再操作） ---- */
 .palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .pi{display:inline-flex;flex-direction:column;align-items:center;gap:2px;
     min-width:56px;min-height:52px;padding:5px 6px;border-radius:11px;
@@ -147,7 +169,7 @@ button,select,input{font:inherit;color:var(--ink)}
      background:var(--paper-raised);border:1px solid var(--rule);border-radius:8px;
      padding:3px 8px;pointer-events:none;max-width:calc(100% - 20px)}
 
-/* ---- 右側常駐面板 ---- */
+/* ---- 樣式：右側常駐面板 ---- */
 .field{display:flex;align-items:center;gap:8px;margin:7px 0}
 .field label{flex:0 0 76px;font-size:12.5px;color:var(--ink-2);font-weight:700}
 .field input,.field select{flex:1;min-width:0;min-height:36px;border-radius:9px;
@@ -159,7 +181,7 @@ code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 #directive{background:var(--paper);border:1px solid var(--rule);border-radius:9px;
     padding:7px 9px;font:12px/1.5 ui-monospace,Menlo,monospace;word-break:break-all;margin-top:8px}
 
-/* ---- 波形 ---- */
+/* ---- 樣式：波形 ---- */
 canvas#plot{width:100%;display:block;border-radius:12px;background:var(--paper);
     border:1px solid var(--rule);touch-action:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
@@ -227,40 +249,50 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 
 <header>
   <div class="hbar">
-    <a href="index.html" class="icb" title="回小黑貓" aria-label="回小黑貓">←</a>
-    <img src="image.png" alt="">
-    <div class="htitle">小黑貓電路模擬器<small>NCUE EE SPICE</small></div>
+    <!-- logo 的行為跟主站一致：點一下展開選單，不是直接跳頁。
+         關閉的三條路：點選單外面、按 Esc、選了任何一項。 -->
+    <div id="logoWrap">
+      <div id="logoBtn" role="button" tabindex="0"
+           aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
+        <img src="image.png" alt="">
+        <div class="htitle">小黑貓電路模擬器<small>NCUE EE SPICE</small></div>
+        <span id="logoChev" aria-hidden="true">▾</span>
+      </div>
+      <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
+        <a class="logo-menu-item" href="index.html" role="menuitem">回小黑貓首頁</a>
+        <span class="logo-menu-item is-here" role="menuitem" aria-current="page">
+          電路模擬器<small>目前就在這一頁</small></span>
+      </div>
+    </div>
+
+    <span class="tsep"></span>
+    <button class="btn" id="mSel">選取 <small>S</small></button>
+    <button class="btn" id="mWire">連線 <small>W</small></button>
+    <button class="btn" id="mProbe">探針 <small>P</small></button>
+    <span class="tsep"></span>
+    <button class="btn" id="rotBtn">旋轉 <small>R</small></button>
+    <button class="btn" id="delBtn">刪除 <small>Del</small></button>
+    <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
+    <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
+    <button class="btn" id="fitBtn">置中 <small>F</small></button>
+    <button class="btn" id="clrBtn">清空</button>
+    <span class="tsep"></span>
+    <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
+    <button class="btn" id="waveBtn">波形視窗</button>
+    <span class="tsep"></span>
+    <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
+    <button class="btn pop-btn" id="btnProbes" aria-haspopup="true">探針清單 ▾</button>
+    <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
+    <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
+    <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
+    <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
+
     <div class="spacer"></div>
     <span class="chip" id="whoami">載入中…</span>
+    <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
     <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
   </div>
 </header>
-
-<!-- 工具列：模式與動作 -->
-<div id="tools">
-  <button class="btn" id="mSel">選取 <small>S</small></button>
-  <button class="btn" id="mWire">連線 <small>W</small></button>
-  <button class="btn" id="mProbe">探針 <small>P</small></button>
-  <span class="tsep"></span>
-  <button class="btn" id="rotBtn">旋轉 <small>R</small></button>
-  <button class="btn" id="delBtn">刪除 <small>Del</small></button>
-  <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
-  <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
-  <button class="btn" id="fitBtn">置中 <small>F</small></button>
-  <button class="btn" id="clrBtn">清空</button>
-  <span class="tsep"></span>
-  <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
-  <button class="btn" id="waveBtn">波形視窗</button>
-  <span class="tsep"></span>
-  <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
-  <button class="btn pop-btn" id="btnProbes" aria-haspopup="true">探針清單 ▾</button>
-  <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
-  <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
-  <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
-  <div class="spacer"></div>
-  <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
-  <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
-</div>
 
 <!-- 元件盤 -->
 <div id="palette" class="palette"></div>
@@ -1315,7 +1347,7 @@ addEventListener('keydown', e => {
     if (isField(document.activeElement)) return;   // 在欄位裡打字，不要接管按鍵
     if (grabbing) return;                       // 正在設定熱鍵，交給那邊處理（見下方 pointerdown 會清掉）
     if (e.key === 'Escape'){
-        closePop();
+        closePop(); setLogoMenu(false);
         // 第一次先結束目前這條線，還留在連線模式；第二次才離開。
         if ((mode === 'wire' && wireFrom) || quick){ wireFrom = null; quick = null; drawSheet(); }
         else { setMode('sel'); sel = []; inspect(); drawSheet(); }
@@ -1980,6 +2012,24 @@ $('plot').addEventListener('mouseleave', () => { hoverX=null; $('readout').textC
 /* ==========================================================
    全螢幕外殼：彈出面板、浮動波形視窗、畫布尺寸、手機擋門
    ========================================================== */
+
+/* ---- logo 下拉選單 ----
+   跟主站同一套行為：點一下展開，不是直接跳頁。
+   關閉的三條路：點選單外面、按 Esc、選了任何一項。
+   判斷「點外面」時要用 #logoWrap 而不是 #logoBtn，
+   否則點選單本身也會被當成點外面而立刻關掉。 */
+const logoMenu = $('logoMenu'), logoBtn = $('logoBtn');
+const setLogoMenu = open => {
+    logoMenu.classList.toggle('hidden', !open);
+    logoBtn.setAttribute('aria-expanded', String(open));
+};
+logoBtn.onclick = () => setLogoMenu(logoMenu.classList.contains('hidden'));
+logoBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' '){
+        e.preventDefault(); setLogoMenu(logoMenu.classList.contains('hidden'));
+    }
+});
+addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 
 /* ---- 工具列彈出面板 ---- */
 const POPS = [['btnSim','popSim'], ['btnProbes','popProbes'], ['btnNet','popNet'],
