@@ -34,17 +34,84 @@ body{background:var(--paper);color:var(--ink);
      font:15px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
      -webkit-text-size-adjust:100%}
 a{color:var(--accent)}
-.wrap{max-width:1340px;margin:0 auto;padding:0 12px 40px}
+/* ==========================================================
+   全螢幕版面（LTspice 式）
 
-header{position:sticky;top:0;z-index:40;background:var(--paper-raised);
-       border-bottom:1px solid var(--rule);padding:9px 0}
-.hbar{max-width:1340px;margin:0 auto;padding:0 12px;display:flex;align-items:center;gap:10px}
-.hbar img{width:34px;height:34px;border-radius:50%;object-fit:cover;flex:none}
-.htitle{font-weight:900;font-size:15px;line-height:1.15}
+   整頁不捲動：#app 佔滿 100dvh，中間的 #work 用 flex:1 吃掉剩下的高度，
+   畫布再吃掉 #work 的剩餘寬度。要讓 flex 子項可以縮小，min-height/min-width
+   一定要寫 0，否則畫布會被自己的內容撐開、把工具列擠出畫面。
+   ========================================================== */
+html,body{height:100%}
+body{overflow:hidden}
+#app{height:100dvh;display:flex;flex-direction:column;min-height:0}
+header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:7px 0}
+.hbar{margin:0;padding:0 12px;display:flex;align-items:center;gap:10px}
+.hbar img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
+.htitle{font-weight:900;font-size:14px;line-height:1.15}
 .htitle small{display:block;font-weight:600;font-size:10px;color:var(--ink-3);letter-spacing:.16em}
 .spacer{flex:1}
 .chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
       background:var(--accent-soft);color:var(--accent);white-space:nowrap}
+
+#tools{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+       padding:6px 10px;border-bottom:1px solid var(--rule);background:var(--paper-raised)}
+#tools .btn{min-height:32px;padding:0 10px;border-radius:9px;font-size:13px}
+#tools .btn small{opacity:.55;font-weight:700;margin-left:3px}
+#tools .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:13px}
+.tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
+
+#palette{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;
+         border-bottom:1px solid var(--rule);background:var(--paper)}
+
+#work{flex:1;display:flex;min-height:0}
+#sheetBox{flex:1;min-width:0;position:relative;overflow:hidden}
+#sheet{display:block;width:100%;height:100%}
+#hud{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--ink-3);
+     background:var(--paper);padding:3px 8px;border-radius:8px;border:1px solid var(--rule);
+     pointer-events:none;max-width:calc(100% - 20px)}
+
+#side{flex:none;width:300px;min-width:0;overflow:auto;padding:10px 12px;
+      background:var(--paper-raised);border-left:1px solid var(--rule)}
+#side.collapsed{width:0;padding:0;border-left:0;overflow:hidden}
+#side h2{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
+
+#statusbar{flex:none;max-height:26vh;overflow:auto;padding:6px 10px;
+           border-top:1px solid var(--rule);background:var(--paper-raised)}
+
+/* ---- 浮動波形視窗 ---- */
+#waveWin{position:fixed;z-index:60;left:60px;top:120px;width:620px;height:400px;
+         min-width:340px;min-height:220px;display:flex;flex-direction:column;
+         background:var(--paper-raised);border:1px solid var(--rule);border-radius:13px;
+         box-shadow:0 14px 46px rgba(0,0,0,.30)}
+#waveWin.hidden{display:none}
+#waveHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
+          border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
+          cursor:move;user-select:none;touch-action:none}
+.btn.tiny,.icb.tiny{min-height:26px;min-width:26px;padding:0 8px;font-size:12px;border-radius:8px}
+#waveBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:8px 10px}
+/* height:0 + flex 讓 canvas 跟著視窗長高，而不是被自身內容撐著 */
+#plot{flex:1 1 0;height:0;min-height:150px;width:100%;display:block}
+#waveGrip{position:absolute;right:1px;bottom:1px;width:16px;height:16px;cursor:nwse-resize;
+          background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
+                     var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
+
+/* ---- 工具列彈出面板 ---- */
+.pop{position:fixed;z-index:70;width:320px;max-height:min(70vh,560px);overflow:auto;
+     background:var(--paper-raised);border:1px solid var(--rule);border-radius:12px;
+     padding:12px 14px;box-shadow:0 12px 34px rgba(0,0,0,.26)}
+.pop.wide{width:440px}
+.pop h3{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
+.pop[hidden]{display:none}
+
+/* ---- 手機擋門 ---- */
+#gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
+      padding:24px;background:var(--paper)}
+#gate[hidden]{display:none}
+.gate-card{max-width:420px;text-align:center}
+.gate-card img{width:76px;height:76px;border-radius:50%;object-fit:cover;margin-bottom:14px}
+.gate-card h1{font-size:20px;margin:0 0 10px}
+.gate-card p{color:var(--ink-2);line-height:1.7;margin:0 0 10px}
+.gate-card .btn{display:inline-block;margin-top:8px;text-decoration:none;line-height:40px}
 
 button,select,input{font:inherit;color:var(--ink)}
 .btn{font-weight:700;border-radius:11px;min-height:40px;padding:0 14px;
@@ -59,11 +126,7 @@ button,select,input{font:inherit;color:var(--ink)}
      border-radius:11px;cursor:pointer;font-size:17px;text-decoration:none}
 .icb:hover{background:var(--accent-soft);color:var(--ink)}
 
-/* ---- 版面：畫布為主，右側常駐面板 ---- */
-.main{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:12px;margin-top:12px}
-@media(max-width:1040px){ .main{grid-template-columns:1fr} }
-.card{background:var(--paper-raised);border:1px solid var(--rule);border-radius:15px;padding:12px 14px}
-.card h2{font-size:12px;margin:0 0 9px;color:var(--ink-3);letter-spacing:.14em;font-weight:800}
+#side h2,.pop h3{letter-spacing:.14em;font-weight:800}
 
 /* ---- 元件工具列（扁平、向量、先選物件再操作）---- */
 .palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
@@ -147,6 +210,21 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 </head>
 <body>
 
+<!-- 手機擋在門外。電路設計需要精確點擊和同時看到畫布與參數，
+     觸控加上小畫面兩件事都做不到，與其做一個難用的版本不如講清楚。 -->
+<div id="gate" hidden>
+  <div class="gate-card">
+    <img src="image.png" alt="">
+    <h1>電路模擬器需要電腦</h1>
+    <p>畫電路要精確點到格點上的接腳，還要一邊看畫布一邊改參數。
+       手機的觸控精度和畫面大小都撐不住，硬做只會變成一個難用的版本。</p>
+    <p class="sub">請用桌機或筆電開這一頁。小黑貓其他功能在手機上都正常。</p>
+    <a class="btn primary" href="index.html">回小黑貓首頁</a>
+  </div>
+</div>
+
+<div id="app">
+
 <header>
   <div class="hbar">
     <a href="index.html" class="icb" title="回小黑貓" aria-label="回小黑貓">←</a>
@@ -158,126 +236,141 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   </div>
 </header>
 
-<div class="wrap">
-<div class="main">
-
-  <!-- 左：畫布 -->
-  <div>
-    <div class="card">
-      <h2>電路圖</h2>
-      <div class="palette" id="palette"></div>
-      <div class="palette" style="margin-bottom:10px">
-        <button class="btn" id="mSel">選取</button>
-        <button class="btn" id="mWire">連線 <small style="opacity:.7">W</small></button>
-        <button class="btn" id="mProbe">探針 <small style="opacity:.7">P</small></button>
-        <button class="btn" id="rotBtn">旋轉 <small style="opacity:.7">R</small></button>
-        <button class="btn" id="delBtn">刪除 <small style="opacity:.7">Del</small></button>
-        <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
-        <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
-        <button class="btn" id="clrBtn">清空</button>
-        <button class="btn" id="fitBtn">置中</button>
-        <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
-      </div>
-      <div id="sheetBox">
-        <canvas id="sheet"></canvas>
-        <div id="hud"></div>
-      </div>
-      <div class="palette" style="margin-top:10px">
-        <button class="btn primary" id="run">執行模擬</button>
-        <button class="btn" id="saveBtn">存到我的</button>
-        <button class="btn" id="shareBtn">分享連結</button>
-        <button class="btn" id="resetBtn" title="丟掉目前的引擎實例重建">重設引擎</button>
-      </div>
-      <div id="loadbar" style="display:none;margin-top:10px">
-        <div class="skel"><i></i></div>
-        <p class="sub" id="loadtxt"></p>
-      </div>
-      <div id="msg"></div>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-      <h2>波形</h2>
-      <canvas id="plot" height="300" aria-label="模擬波形圖"></canvas>
-      <div class="legend" id="legend"></div>
-      <div id="readout"></div>
-      <div id="measWrap" style="display:none">
-        <div class="meas-head">
-          <h3>自動量測</h3>
-          <div class="palette">
-            <button class="btn" id="csvBtn" type="button">匯出 CSV</button>
-            <button class="btn" id="pngBtn" type="button">存成圖片</button>
-          </div>
-        </div>
-        <div class="meas-scroll"><table id="measTbl"></table></div>
-      </div>
-      <details id="rawBox" style="display:none">
-        <summary>ngspice 原始輸出</summary>
-        <pre id="raw"></pre>
-      </details>
-      <details>
-        <summary>產生的 netlist（唯讀，電路圖改了就會跟著變）</summary>
-        <textarea id="net" spellcheck="false" readonly aria-label="產生的 netlist"></textarea>
-      </details>
-    </div>
-  </div>
-
-  <!-- 右：常駐面板 -->
-  <div>
-    <div class="card">
-      <h2>屬性</h2>
-      <div id="insp"></div>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-      <h2>模擬設定</h2>
-      <div class="field">
-        <label for="anaSel">分析</label>
-        <select id="anaSel">
-          <option value="tran">時域 .tran</option>
-          <option value="ac">頻率響應 .ac</option>
-          <option value="dc">直流掃描 .dc</option>
-          <option value="op">工作點 .op</option>
-        </select>
-      </div>
-      <div id="anaFields"></div>
-      <div id="directive" class="mono"></div>
-      <p class="sub">上面這行就是送給 ngspice 的指令，改欄位會即時同步。</p>
-      <div class="field" style="margin-top:10px">
-        <label for="modeSel">元件模型</label>
-        <select id="modeSel">
-          <option value="ideal">理想 — 電子學／電路學考題的預設</option>
-          <option value="real">現實 — 加上寄生參數與真實模型</option>
-        </select>
-      </div>
-      <div id="modeNote" class="sub"></div>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-      <h2>探針</h2>
-      <div id="probeList" class="legend"></div>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-      <h2>熱鍵</h2>
-      <div id="keyList"></div>
-      <button class="btn" id="keyReset" style="min-height:34px;margin-top:4px">還原預設</button>
-      <p class="sub">點右邊的按鍵再按一個新的鍵就會改掉，設定存在這台裝置上。
-        Esc（取消）和 Ctrl+Z／Ctrl+Shift+Z（復原／重做）固定不變，不開放更改。</p>
-      <p class="sub" style="margin-top:8px">滑鼠還有這些：<br>
-        ・拖曳空白處＝框選一整組，Shift 點擊＝加選或退選<br>
-        ・游標停在電阻／電容／電感上滾滾輪＝數值照 E12 換一檔<br>
-        ・空白處以外滾滾輪＝縮放，按住 Alt 拖曳＝平移</p>
-    </div>
-
-    <div class="card" style="margin-top:12px">
-      <h2>我存的電路</h2>
-      <div id="myList" class="palette" style="gap:6px">
-        <span class="sub">登入後才能存檔。</span>
-      </div>
-    </div>
-  </div>
-
+<!-- 工具列：模式與動作 -->
+<div id="tools">
+  <button class="btn" id="mSel">選取 <small>S</small></button>
+  <button class="btn" id="mWire">連線 <small>W</small></button>
+  <button class="btn" id="mProbe">探針 <small>P</small></button>
+  <span class="tsep"></span>
+  <button class="btn" id="rotBtn">旋轉 <small>R</small></button>
+  <button class="btn" id="delBtn">刪除 <small>Del</small></button>
+  <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
+  <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
+  <button class="btn" id="fitBtn">置中 <small>F</small></button>
+  <button class="btn" id="clrBtn">清空</button>
+  <span class="tsep"></span>
+  <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
+  <button class="btn" id="waveBtn">波形視窗</button>
+  <span class="tsep"></span>
+  <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
+  <button class="btn pop-btn" id="btnProbes" aria-haspopup="true">探針清單 ▾</button>
+  <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
+  <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
+  <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
+  <div class="spacer"></div>
+  <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
+  <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
 </div>
+
+<!-- 元件盤 -->
+<div id="palette" class="palette"></div>
+
+<div id="work">
+  <div id="sheetBox">
+    <canvas id="sheet"></canvas>
+    <div id="hud"></div>
+  </div>
+  <aside id="side">
+    <h2>屬性</h2>
+    <div id="insp"></div>
+  </aside>
+</div>
+
+<div id="statusbar">
+  <div id="loadbar" style="display:none">
+    <div class="skel"><i></i></div>
+    <p class="sub" id="loadtxt"></p>
+  </div>
+  <div id="msg"></div>
+</div>
+
+</div><!-- /#app -->
+
+<!-- 浮動波形視窗（可拖曳、可改大小、位置記在這台裝置上） -->
+<div id="waveWin" class="hidden" role="dialog" aria-label="波形">
+  <div id="waveHead">
+    <span>波形</span>
+    <div class="spacer"></div>
+    <button class="btn tiny" id="csvBtn" type="button">CSV</button>
+    <button class="btn tiny" id="pngBtn" type="button">PNG</button>
+    <button class="icb tiny" id="waveClose" title="關閉" aria-label="關閉">✕</button>
+  </div>
+  <div id="waveBody">
+    <canvas id="plot" aria-label="模擬波形圖"></canvas>
+    <div class="legend" id="legend"></div>
+    <div id="readout"></div>
+    <div id="measWrap" style="display:none">
+      <div class="meas-head"><h3>自動量測</h3></div>
+      <div class="meas-scroll"><table id="measTbl"></table></div>
+    </div>
+    <details id="rawBox" style="display:none">
+      <summary>ngspice 原始輸出</summary>
+      <pre id="raw"></pre>
+    </details>
+  </div>
+  <div id="waveGrip" title="拖曳改變大小"></div>
+</div>
+
+<!-- 工具列彈出面板 -->
+<div class="pop" id="popSim" hidden>
+  <div class="field">
+    <label for="anaSel">分析</label>
+    <select id="anaSel">
+      <option value="tran">時域 .tran</option>
+      <option value="ac">頻率響應 .ac</option>
+      <option value="dc">直流掃描 .dc</option>
+      <option value="op">工作點 .op</option>
+    </select>
+  </div>
+  <div id="anaFields"></div>
+  <div id="directive" class="mono"></div>
+  <p class="sub">上面這行就是送給 ngspice 的指令，改欄位會即時同步。</p>
+  <div class="field" style="margin-top:10px">
+    <label for="modeSel">元件模型</label>
+    <select id="modeSel">
+      <option value="ideal">理想 — 電子學／電路學考題的預設</option>
+      <option value="real">現實 — 加上寄生參數與真實模型</option>
+    </select>
+  </div>
+  <div id="modeNote" class="sub"></div>
+</div>
+
+<div class="pop" id="popProbes" hidden>
+  <h3>探針</h3>
+  <div id="probeList" class="legend"></div>
+  <p class="sub">切到探針模式後，點導線或接腳量電壓、點電壓源量電流；
+    沒插任何探針時波形圖會顯示全部節點。</p>
+</div>
+
+<div class="pop wide" id="popNet" hidden>
+  <h3>產生的 netlist</h3>
+  <textarea id="net" spellcheck="false" readonly aria-label="產生的 netlist"></textarea>
+  <p class="sub">唯讀。電路圖或元件模型改了就會跟著變。</p>
+</div>
+
+<div class="pop" id="popMine" hidden>
+  <div class="palette">
+    <button class="btn" id="saveBtn">存到我的</button>
+    <button class="btn" id="shareBtn">分享連結</button>
+    <button class="btn" id="resetBtn" title="丟掉目前的引擎實例重建">重設引擎</button>
+  </div>
+  <h3 style="margin-top:10px">我存的電路</h3>
+  <div id="myList" class="palette" style="gap:6px">
+    <span class="sub">登入後才能存檔。</span>
+  </div>
+</div>
+
+<div class="pop" id="popKeys" hidden>
+  <h3>熱鍵</h3>
+  <div id="keyList"></div>
+  <button class="btn" id="keyReset" style="min-height:34px;margin-top:4px">還原預設</button>
+  <p class="sub">點右邊的按鍵再按一個新的鍵就會改掉，設定存在這台裝置上。
+    Esc（取消）和 Ctrl+Z／Ctrl+Shift+Z（復原／重做）固定不變，不開放更改。</p>
+  <p class="sub" style="margin-top:8px">滑鼠還有這些：<br>
+    ・拖曳空白處＝框選一整組，Shift 點擊＝加選或退選<br>
+    ・游標停在電阻／電容／電感上滾滾輪＝數值照 E12 換一檔<br>
+    ・其餘位置滾滾輪＝縮放，按住 Alt 拖曳或中鍵拖曳＝平移<br>
+    ・在接腳上直接按下就能開始拉線，不必先切模式</p>
 </div>
 
 <script type="module">
@@ -287,6 +380,19 @@ import { getFirestore, collection, doc, addDoc, getDoc, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
+
+/* ==========================================================
+   手機擋門
+   用能力偵測而不是 User-Agent：粗指標（手指）而且沒有 hover 的裝置，
+   就是點不準格點、也沒辦法靠移到元件上顯示提示的那一類。
+   接觸筆電（有觸控也有滑鼠）不會被擋，因為它 hover 是有的。
+   ========================================================== */
+const GATED = matchMedia('(pointer: coarse) and (hover: none)').matches;
+if (GATED){
+    document.getElementById('gate').hidden = false;
+    document.getElementById('app').style.display = 'none';
+    document.getElementById('waveWin').style.display = 'none';
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* 非同步的錯誤如果沒人接，只會默默印在主控台，畫面上就是一個永遠沒反應的按鈕。全部攤出來。 */
@@ -778,7 +884,7 @@ const ANA = {
 };
 let anaVals = {};
 function buildAna(){
-    const a = ANA[$('anaSel').value];
+    const a = ANA[$('anaSel').value] || ANA.tran;
     $('anaFields').innerHTML = a.f.map(([k,lab,def]) =>
         k === 'sweep'
         ? `<div class="field"><label for="f_${k}">${lab}</label><select id="f_${k}">
@@ -791,7 +897,7 @@ function buildAna(){
         el.oninput = el.onchange = () => { anaVals[k] = el.value; syncDirective(); }; });
     syncDirective();
 }
-function directive(){ const v = {}; (ANA[$('anaSel').value].f).forEach(([k,,d]) => v[k] = anaVals[k] ?? d);
+function directive(){ const v = {}; ((ANA[$('anaSel').value]||ANA.tran).f).forEach(([k,,d]) => v[k] = anaVals[k] ?? d);
     return ANA[$('anaSel').value].make(v); }
 function syncDirective(){ $('directive').textContent = directive(); refreshNet(); }
 $('anaSel').onchange = buildAna;
@@ -1187,6 +1293,7 @@ addEventListener('keydown', e => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
     if (grabbing) return;                       // 正在設定熱鍵，交給那邊處理（見下方 pointerdown 會清掉）
     if (e.key === 'Escape'){
+        closePop();
         // 第一次先結束目前這條線，還留在連線模式；第二次才離開。
         if ((mode === 'wire' && wireFrom) || quick){ wireFrom = null; quick = null; drawSheet(); }
         else { setMode('sel'); sel = []; inspect(); drawSheet(); }
@@ -1568,7 +1675,7 @@ $('run').onclick = async () => {
         $('raw').textContent = info.trim() || '(無輸出)'; $('rawBox').style.display = '';
         if (!res || !res.data || !res.data.length)
             return show('err','模擬沒有回傳資料', errs.length ? errs : ['請看下方原始輸出。']);
-        plotData = prepare(res); buildLegend(); drawPlot(); renderMeas();
+        plotData = prepare(res); buildLegend(); showWave(true); drawPlot(); renderMeas();
         const hints = explain(errs.join('\n') + '\n' + info);
         if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
@@ -1646,7 +1753,8 @@ function eng(v){
     return v.toExponential(1);
 }
 function drawPlot(){
-    const c = $('plot'), dpr = devicePixelRatio||1, W = c.clientWidth, H = 300;
+    const c = $('plot'), dpr = devicePixelRatio||1;
+    const W = c.clientWidth || 520, H = Math.max(150, c.clientHeight || 240);
     c.width = W*dpr; c.height = H*dpr;
     const p = c.getContext('2d'); p.setTransform(dpr,0,0,dpr,0,0); p.clearRect(0,0,W,H);
     if (!plotData) { p.fillStyle = cvar('--ink-3'); p.font = '13px system-ui'; p.textAlign='center';
@@ -1848,6 +1956,124 @@ $('plot').addEventListener('touchmove', pmove, {passive:true});
 $('plot').addEventListener('mouseleave', () => { hoverX=null; $('readout').textContent=''; drawPlot(); });
 
 /* ==========================================================
+   全螢幕外殼：彈出面板、浮動波形視窗、畫布尺寸、手機擋門
+   ========================================================== */
+
+/* ---- 工具列彈出面板 ---- */
+const POPS = [['btnSim','popSim'], ['btnProbes','popProbes'], ['btnNet','popNet'],
+              ['btnMine','popMine'], ['btnKeys','popKeys']];
+let openPop = null;
+function closePop(){
+    if (!openPop) return;
+    $(openPop[1]).hidden = true;
+    $(openPop[0]).classList.remove('on');
+    $(openPop[0]).setAttribute('aria-expanded','false');
+    openPop = null;
+}
+function togglePop(pair){
+    const wasOpen = openPop && openPop[1] === pair[1];
+    closePop();
+    if (wasOpen) return;
+    const pop = $(pair[1]), btn = $(pair[0]);
+    pop.hidden = false; btn.classList.add('on'); btn.setAttribute('aria-expanded','true');
+    openPop = pair;
+    // 先顯示再量尺寸，然後夾在畫面裡——按鈕在工具列右端時面板才不會掉出視窗外
+    const r = btn.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+    pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+    pop.style.top  = Math.max(8, Math.min(r.bottom + 6, innerHeight - h - 8)) + 'px';
+}
+POPS.forEach(pair => { $(pair[0]).onclick = e => { e.stopPropagation(); togglePop(pair); }; });
+addEventListener('pointerdown', e => {
+    if (!openPop) return;
+    if (e.target.closest('.pop') || e.target.closest('.pop-btn')) return;
+    closePop();
+}, true);
+
+/* ---- 屬性面板收合 ---- */
+const SIDE_KEY = 'blackcatspice-side';
+function setSide(collapsed){
+    $('side').classList.toggle('collapsed', collapsed);
+    $('sideBtn').textContent = collapsed ? '◀' : '▶';
+    $('sideBtn').title = collapsed ? '展開屬性面板' : '收合屬性面板';
+    try { localStorage.setItem(SIDE_KEY, collapsed ? '1' : '0'); } catch(e){}
+    fitCanvas();
+}
+$('sideBtn').onclick = () => setSide(!$('side').classList.contains('collapsed'));
+try { setSide(localStorage.getItem(SIDE_KEY) === '1'); } catch(e){ setSide(false); }
+
+/* ---- 畫布尺寸 ----
+   畫布現在是被 flex 撐出來的，尺寸會因為工具列換行、視窗縮放、面板收合而變。
+   drawSheet() 每次都會依 clientWidth/Height 重設點陣尺寸，所以這裡只要重畫。 */
+function fitCanvas(){ drawSheet(); }
+new ResizeObserver(() => drawSheet()).observe($('sheetBox'));
+addEventListener('resize', () => { drawSheet(); drawPlot(); closePop(); });
+
+/* ---- 浮動波形視窗 ---- */
+const WAVE_KEY = 'blackcatspice-wave';
+const waveWin = $('waveWin');
+function clampWave(){
+    const w = waveWin.offsetWidth, h = waveWin.offsetHeight;
+    // 至少留 60px 在畫面裡，不然視窗會被拖到抓不回來
+    waveWin.style.left = Math.max(-w + 120, Math.min(parseFloat(waveWin.style.left)||60,
+                                                     innerWidth - 120)) + 'px';
+    waveWin.style.top  = Math.max(0, Math.min(parseFloat(waveWin.style.top)||120,
+                                              innerHeight - 60)) + 'px';
+}
+function saveWave(){
+    try { localStorage.setItem(WAVE_KEY, JSON.stringify({
+        x:parseFloat(waveWin.style.left)||60, y:parseFloat(waveWin.style.top)||120,
+        w:waveWin.offsetWidth, h:waveWin.offsetHeight,
+        open:!waveWin.classList.contains('hidden') })); } catch(e){}
+}
+function showWave(on){
+    waveWin.classList.toggle('hidden', !on);
+    $('waveBtn').classList.toggle('on', on);
+    if (on){ clampWave(); drawPlot(); }
+    saveWave();
+}
+$('waveBtn').onclick = () => showWave(waveWin.classList.contains('hidden'));
+$('waveClose').onclick = () => showWave(false);
+
+/* 拖曳標題列搬視窗、拖曳右下角改大小。用 pointer 事件＋setPointerCapture，
+   滑鼠移出視窗外也不會斷掉。 */
+function dragify(handle, onMove){
+    handle.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return;
+        e.preventDefault();
+        handle.setPointerCapture(e.pointerId);
+        const start = { x:e.clientX, y:e.clientY,
+                        l:parseFloat(waveWin.style.left)||waveWin.offsetLeft,
+                        t:parseFloat(waveWin.style.top)||waveWin.offsetTop,
+                        w:waveWin.offsetWidth, h:waveWin.offsetHeight };
+        const move = ev => onMove(start, ev.clientX-start.x, ev.clientY-start.y);
+        const up = () => {
+            handle.removeEventListener('pointermove', move);
+            handle.removeEventListener('pointerup', up);
+            clampWave(); saveWave(); drawPlot();
+        };
+        handle.addEventListener('pointermove', move);
+        handle.addEventListener('pointerup', up);
+    });
+}
+dragify($('waveHead'), (s0,dx,dy) => {
+    waveWin.style.left = (s0.l+dx) + 'px'; waveWin.style.top = (s0.t+dy) + 'px';
+});
+dragify($('waveGrip'), (s0,dx,dy) => {
+    waveWin.style.width  = Math.max(340, s0.w+dx) + 'px';
+    waveWin.style.height = Math.max(220, s0.h+dy) + 'px';
+    drawPlot();
+});
+(function restoreWave(){
+    let o = null;
+    try { o = JSON.parse(localStorage.getItem(WAVE_KEY) || 'null'); } catch(e){}
+    waveWin.style.left = ((o && o.x) ?? Math.max(60, innerWidth-700)) + 'px';
+    waveWin.style.top  = ((o && o.y) ?? 130) + 'px';
+    if (o && o.w) waveWin.style.width  = Math.max(340, o.w) + 'px';
+    if (o && o.h) waveWin.style.height = Math.max(220, o.h) + 'px';
+    showWave(o ? !!o.open : false);
+})();
+
+/* ==========================================================
    存檔與分享
    ========================================================== */
 const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
@@ -1903,6 +2129,8 @@ const q = new URLSearchParams(location.search).get('c');
 if (q){
     try { unpack(q); show('ok','已從分享連結載入電路',[]); }
     catch(e){ show('warn','分享連結解不開',['連結可能被截斷了。']); loadExample('RC 低通（步階）'); }
+} else if (GATED){
+    // 擋在門外，不用還原任何東西
 } else {
     /* 接續上次沒存的工作。分享連結優先，因為那是使用者當下明確要看的東西。 */
     let restored = false;
