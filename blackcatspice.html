@@ -218,6 +218,14 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </div>
 
     <div class="card" style="margin-top:12px">
+      <h2>熱鍵</h2>
+      <div id="keyList"></div>
+      <button class="btn" id="keyReset" style="min-height:34px;margin-top:4px">還原預設</button>
+      <p class="sub">點右邊的按鍵再按一個新的鍵就會改掉，設定存在這台裝置上。
+        Esc 固定是取消，不開放更改。</p>
+    </div>
+
+    <div class="card" style="margin-top:12px">
       <h2>我存的電路</h2>
       <div id="myList" class="palette" style="gap:6px">
         <span class="sub">登入後才能存檔。</span>
@@ -341,44 +349,44 @@ const pinsOf = p => TYPES[p.type].pins.map(([a,b]) => {
 const snap = v => Math.round(v/G)*G;
 
 /* ==========================================================
-   磁吸
-   只對齊格點是不夠的——使用者永遠不確定剛才那一下有沒有接上。
-   靠近接腳或線端就吸過去，並且在畫面上標出來。
-   半徑用螢幕像素換算回世界座標，所以放大縮小時「吸力範圍」看起來一樣大。
+   拉線的路徑
+   不做磁吸——游標只對齊格點。所有元件的接腳都落在格點上，
+   所以對齊格點就等於對得到接腳，不需要額外的吸引力。
+   （新增元件時務必讓接腳座標是 G 的倍數，否則那個元件會接不上線。）
+
+   預設是「直線」：只沿主軸走一段，垂直方向的位移直接捨去。
+   要轉彎必須按轉彎鍵（預設空白鍵），按一次先水平、再按一次先垂直、
+   第三次回到直線。這樣走線是你決定的，不是它猜的。
    ========================================================== */
-const SNAP_PX = 13;
-function snapTargets(){
-    const t = [];
-    sch.parts.forEach((p,i) => pinsOf(p).forEach(([x,y],k) => t.push({x,y,kind:'pin',part:i,pin:k})));
-    sch.wires.forEach((w,i) => { t.push({x:w.x1,y:w.y1,kind:'end',wire:i});
-                                 t.push({x:w.x2,y:w.y2,kind:'end',wire:i}); });
-    return t;
+const snapPoint = (wx,wy) => ({ x:snap(wx), y:snap(wy) });
+let bend = 0;                       // 0 直線／1 先水平／2 先垂直
+const BEND_NAME = ['直線','轉彎（先水平）','轉彎（先垂直）'];
+function route(a,b){
+    if (a.x === b.x && a.y === b.y) return [[a.x,a.y]];
+    if (bend === 0)                 // 直線：投影到位移較大的那一軸
+        return Math.abs(b.x-a.x) >= Math.abs(b.y-a.y)
+            ? [[a.x,a.y],[b.x,a.y]] : [[a.x,a.y],[a.x,b.y]];
+    if (a.x === b.x || a.y === b.y) return [[a.x,a.y],[b.x,b.y]];
+    return bend === 1 ? [[a.x,a.y],[b.x,a.y],[b.x,b.y]]
+                      : [[a.x,a.y],[a.x,b.y],[b.x,b.y]];
 }
-function nearestTarget(wx,wy){
-    let best = null, bd = SNAP_PX / view.z;
-    for (const t of snapTargets()){
-        const d = Math.hypot(t.x-wx, t.y-wy);
-        if (d < bd){ bd = d; best = t; }
-    }
-    return best;
-}
-const snapPoint = (wx,wy) => {
-    const t = nearestTarget(wx,wy);
-    return t ? {x:t.x, y:t.y, on:true} : {x:snap(wx), y:snap(wy), on:false};
-};
-/* 轉角方向跟著拖曳的主要方向走。以前寫死「先水平再垂直」，
-   想拉一條先垂直的線只能分兩次點。 */
-const elbow = (a,b) => (a.x===b.x || a.y===b.y) ? [[a.x,a.y],[b.x,b.y]]
-    : Math.abs(b.x-a.x) >= Math.abs(b.y-a.y)
-        ? [[a.x,a.y],[b.x,a.y],[b.x,b.y]]
-        : [[a.x,a.y],[a.x,b.y],[b.x,b.y]];
 function commitWire(a,b){
-    const pts = elbow(a,b);
+    const pts = route(a,b);
     for (let i=0;i<pts.length-1;i++){
         const [x1,y1]=pts[i], [x2,y2]=pts[i+1];
         if (x1!==x2 || y1!==y2) sch.wires.push({x1,y1,x2,y2});
     }
     refreshNet();
+    return pts[pts.length-1];       // 連續拉線要從實際的終點接下去
+}
+/* 該格點上是不是剛好有接腳或線端。用完全相等判斷，不是「附近」——
+   接腳都在格點上，所以這是精確命中，游標不會被拉走。 */
+function pinAt(x,y){
+    for (const p of sch.parts) for (const [px,py] of pinsOf(p))
+        if (px===x && py===y) return true;
+    for (const w of sch.wires)
+        if ((w.x1===x&&w.y1===y) || (w.x2===x&&w.y2===y)) return true;
+    return false;
 }
 
 /* ==========================================================
@@ -551,19 +559,11 @@ function drawSheet(){
         const to = snapPoint(mouseW.x, mouseW.y);
         g.strokeStyle = selc; g.setLineDash([4,4]); g.lineWidth = 1.7;
         g.beginPath();
-        elbow(from, to).forEach(([x,y],i) => { const [a,b] = W2S(x,y);
+        route(from, to).forEach(([x,y],i) => { const [a,b] = W2S(x,y);
             i ? g.lineTo(a,b) : g.moveTo(a,b); });
         g.stroke(); g.setLineDash([]);
         const [sx,sy] = W2S(from.x, from.y);
         g.fillStyle = selc; g.beginPath(); g.arc(sx,sy,3.5,0,7); g.fill();
-    }
-    // 磁吸點的高亮：接得到什麼，眼睛要看得見
-    if (hoverPt){
-        const [hx,hy] = W2S(hoverPt.x, hoverPt.y);
-        g.strokeStyle = selc; g.lineWidth = 2;
-        g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.stroke();
-        g.globalAlpha = .18; g.fillStyle = selc;
-        g.beginPath(); g.arc(hx, hy, 7, 0, 7); g.fill(); g.globalAlpha = 1;
     }
     // 預覽要放的元件
     if (mode==='place' && placing){
@@ -572,13 +572,14 @@ function drawSheet(){
         g.rotate(placeRot*Math.PI/2); g.strokeStyle = selc; g.lineWidth = 1.7;
         TYPES[placing].draw(g); g.restore();
     }
+    const kn = a => keyName(keys[a]);
+    const drawing = wireFrom || quick;
     $('hud').textContent =
-        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，R 旋轉，Esc 取消`
-      : quick          ? '放開滑鼠就接上'
-      : mode==='wire'  ? (wireFrom ? '再點一下決定終點；Esc 結束這條線' : '點接腳或空白處開始拉線')
-      : hoverPt        ? '從這個接點直接拖曳就能拉線'
-      : sel            ? '已選取：Delete 刪除、R 旋轉、拖曳可移動'
-      : '點元件選取；接腳上直接拖曳可拉線；中鍵或空白鍵平移、滾輪縮放';
+        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，${kn('rot')} 旋轉，Esc 取消`
+      : drawing        ? `${BEND_NAME[bend]}　按 ${kn('bend')} 換走線方式`
+      : mode==='wire'  ? `點一下開始拉線；拉線時按 ${kn('bend')} 轉彎`
+      : sel            ? `已選取：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
+      : `點元件選取；接腳上直接拖曳可拉線；中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
 }
 
 /* ---------- 命中測試 ---------- */
@@ -602,26 +603,26 @@ function hitWire(wx,wy){
 }
 
 /* ---------- 滑鼠與鍵盤 ---------- */
-let dragging = null, panning = null, spaceDown = false, quick = null, hoverPt = null;
+let dragging = null, panning = null, panKey = false, quick = null;
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
     cv.setPointerCapture(e.pointerId);
     const r = cv.getBoundingClientRect();
     const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
-    if (e.button === 1 || spaceDown || e.button === 2){
+    if (e.button === 1 || panKey || e.button === 2){
         panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
     }
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
     if (mode === 'wire'){
         const p = snapPoint(wx,wy);
-        if (!wireFrom) wireFrom = {x:p.x, y:p.y};
-        else { commitWire(wireFrom, p); wireFrom = {x:p.x, y:p.y}; }   // 連續拉線
+        if (!wireFrom){ wireFrom = p; bend = 0; }
+        else { const end = commitWire(wireFrom, p); wireFrom = {x:end[0], y:end[1]}; bend = 0; }
         drawSheet(); return;
     }
-    /* 選取模式下，按在接腳或線端上就直接開始拉線——不必先切模式。
-       接腳的判定半徑比元件本體小，所以想搬移元件時抓本體中段即可。 */
-    const t = nearestTarget(wx,wy);
-    if (t){ quick = {x:t.x, y:t.y}; drawSheet(); return; }
+    /* 選取模式下，按在「剛好有接腳或線端的格點」上就直接開始拉線，不必先切模式。
+       用完全相等判斷，所以游標不會被莫名其妙拉走。 */
+    const p = snapPoint(wx,wy);
+    if (pinAt(p.x,p.y)){ quick = p; bend = 0; drawSheet(); return; }
     const pi = hitPart(wx,wy);
     if (pi >= 0){ sel = {kind:'part', i:pi};
         dragging = { i:pi, dx:wx - sch.parts[pi].x, dy:wy - sch.parts[pi].y };
@@ -633,17 +634,16 @@ cv.addEventListener('pointerdown', e => {
 cv.addEventListener('pointermove', e => {
     const r = cv.getBoundingClientRect();
     const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
+    const before = snapPoint(mouseW.x, mouseW.y);
     mouseW = {x:wx, y:wy};
     if (panning){ view.x = panning.ox + (e.clientX-panning.sx);
                   view.y = panning.oy + (e.clientY-panning.sy); drawSheet(); return; }
     if (dragging){ const p = sch.parts[dragging.i];
         p.x = snap(wx - dragging.dx); p.y = snap(wy - dragging.dy);
         refreshNet(); drawSheet(); return; }
-    const was = hoverPt && hoverPt.x + ',' + hoverPt.y;
-    hoverPt = (mode === 'place') ? null : nearestTarget(wx,wy);
-    const now = hoverPt && hoverPt.x + ',' + hoverPt.y;
-    cv.style.cursor = mode === 'sel' ? (hoverPt ? 'crosshair' : 'default') : 'crosshair';
-    if (quick || was !== now || mode !== 'sel') drawSheet();
+    // 只有跨到別的格點才重畫，不然每一個像素都在重畫整張圖
+    const after = snapPoint(wx,wy);
+    if (before.x !== after.x || before.y !== after.y || mode === 'place') drawSheet();
 });
 addEventListener('pointerup', () => {
     if (quick){
@@ -654,7 +654,6 @@ addEventListener('pointerup', () => {
     }
     dragging = null; panning = null;
 });
-cv.addEventListener('pointerleave', () => { if (!quick){ hoverPt = null; drawSheet(); } });
 cv.addEventListener('wheel', e => {
     e.preventDefault();
     const r = cv.getBoundingClientRect(), mx = e.clientX-r.left, my = e.clientY-r.top;
@@ -665,20 +664,89 @@ cv.addEventListener('wheel', e => {
     drawSheet();
 }, { passive:false });
 
+/* ==========================================================
+   熱鍵：可自訂，存在瀏覽器裡
+   用 e.code（實體按鍵位置）而不是 e.key，這樣切換中英文輸入法時不會失效。
+   Esc 刻意不開放綁定——任何介面都需要一個一定有效的取消鍵。
+   ========================================================== */
+const ACTIONS = [
+    ['wire','連線模式','KeyW'],
+    ['sel', '選取模式','KeyS'],
+    ['rot', '旋轉',    'KeyR'],
+    ['del', '刪除',    'Delete'],
+    ['bend','拉線時轉彎','Space'],
+    ['pan', '按住平移','AltLeft'],
+    ['fit', '置中',    'KeyF'],
+    ['run', '執行模擬','Enter']
+];
+const KEY_STORE = 'blackcatspice-keys';
+let keys = {};
+(function loadKeys(){
+    ACTIONS.forEach(([a,,d]) => keys[a] = d);
+    try { Object.assign(keys, JSON.parse(localStorage.getItem(KEY_STORE) || '{}')); } catch(e){}
+})();
+const saveKeys = () => { try { localStorage.setItem(KEY_STORE, JSON.stringify(keys)); } catch(e){} };
+function keyName(code){
+    if (!code) return '—';
+    return ({ Space:'空白鍵', Enter:'Enter', Delete:'Delete', Backspace:'Backspace',
+              AltLeft:'Alt', AltRight:'右Alt', ShiftLeft:'Shift', ShiftRight:'右Shift',
+              ControlLeft:'Ctrl', ControlRight:'右Ctrl', Tab:'Tab' })[code]
+        || code.replace(/^Key/,'').replace(/^Digit/,'').replace(/^Numpad/,'數字鍵');
+}
+const actionFor = code => ACTIONS.find(([a]) => keys[a] === code)?.[0];
+
 addEventListener('keydown', e => {
     if (/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) return;
-    if (e.code === 'Space'){ spaceDown = true; e.preventDefault(); }
+    if (grabbing) return;                       // 正在設定熱鍵，交給那邊處理
     if (e.key === 'Escape'){
         // 第一次先結束目前這條線，還留在連線模式；第二次才離開。
-        // 以前一按就跳出，畫完一條就得重按 W，很煩。
-        if (mode === 'wire' && wireFrom){ wireFrom = null; drawSheet(); }
+        if ((mode === 'wire' && wireFrom) || quick){ wireFrom = null; quick = null; drawSheet(); }
         else { setMode('sel'); sel = null; inspect(); drawSheet(); }
+        return;
     }
-    if (e.key === 'w' || e.key === 'W') setMode('wire');
-    if (e.key === 'r' || e.key === 'R') rotate();
-    if (e.key === 'Delete' || e.key === 'Backspace'){ del(); e.preventDefault(); }
+    const a = actionFor(e.code);
+    if (!a) return;
+    if (a === 'pan'){ panKey = true; e.preventDefault(); return; }
+    if (a === 'bend'){
+        // 只有正在拉線時才有意義；沒在拉線就不要吃掉這個鍵
+        if (wireFrom || quick){ bend = (bend+1) % 3; e.preventDefault(); drawSheet(); }
+        return;
+    }
+    e.preventDefault();
+    if (a === 'wire') setMode('wire');
+    if (a === 'sel')  setMode('sel');
+    if (a === 'rot')  rotate();
+    if (a === 'del')  del();
+    if (a === 'fit')  fit();
+    if (a === 'run')  $('run').click();
 });
-addEventListener('keyup', e => { if (e.code === 'Space') spaceDown = false; });
+addEventListener('keyup', e => { if (actionFor(e.code) === 'pan') panKey = false; });
+
+/* ---- 設定面板 ---- */
+let grabbing = null;
+function renderKeys(){
+    $('keyList').innerHTML = ACTIONS.map(([a,lab]) =>
+        `<div class="field"><label>${lab}</label>
+           <button class="btn keybtn" data-a="${a}" style="min-height:34px">${
+             grabbing===a ? '按一個鍵…' : keyName(keys[a])}</button></div>`).join('');
+    $('keyList').querySelectorAll('.keybtn').forEach(b => b.onclick = () => {
+        grabbing = b.dataset.a; renderKeys();
+    });
+    drawSheet();
+}
+addEventListener('keydown', e => {
+    if (!grabbing) return;
+    e.preventDefault(); e.stopPropagation();
+    if (e.key === 'Escape'){ grabbing = null; renderKeys(); return; }
+    // 撞號就把原本佔用的那個動作讓出來，不要兩個動作綁同一顆鍵
+    const clash = ACTIONS.find(([a]) => a !== grabbing && keys[a] === e.code);
+    if (clash) keys[clash[0]] = null;
+    keys[grabbing] = e.code;
+    grabbing = null; saveKeys(); renderKeys();
+}, true);
+$('keyReset').onclick = () => { ACTIONS.forEach(([a,,d]) => keys[a] = d);
+    saveKeys(); renderKeys(); };
+renderKeys();
 
 /* ---------- 操作 ---------- */
 function addPart(type, x, y, rot){
