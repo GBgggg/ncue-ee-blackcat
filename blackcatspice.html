@@ -543,7 +543,7 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
    整個炸掉，所有功能一起死。node --check 看不出來（語法完全合法），
    是冒煙測試把它抓出來的。 */
 const scope = { on:false, t0:0, span:0, raf:null, last:0 };
-let autoTimer = null;
+let autoTimer = null, autoPending = false, quietNet = false, hintedManual = false;
 
 let sch = { parts:[], wires:[], probes:[] };   // probes: [{kind:'v'|'i', x,y | ref}]
 let seq = 1;
@@ -975,7 +975,14 @@ function syncDirective(){ $('directive').textContent = directive(); refreshNet()
 $('anaSel').onchange = buildAna;
 buildAna();
 
-function refreshNet(){ const r = toNetlist(); $('net').value = r.text; autosave(); scopeDirty(); return r; }
+function refreshNet(){
+    const r = toNetlist(); $('net').value = r.text; autosave();
+    /* quietNet 是給「執行模擬」自己用的。它一開始也會呼叫 refreshNet()，
+       如果那一次也算成「電路改了」，就會排下一次自動重跑，而那一次又會再排
+       下一次——變成永遠停不下來的重跑迴圈。 */
+    if (!quietNet) scopeDirty();
+    return r;
+}
 
 const MODE_NOTE = {
     ideal: '運放虛短路虛斷路、電容電感沒有寄生、電源沒有內阻、電晶體 β 為常數且沒有 Early 效應。' +
@@ -1336,6 +1343,7 @@ cv.addEventListener('wheel', e => {
             if (next){
                 pushUndo(); sch.parts[pi].val = next;
                 sel = [{kind:'part', i:pi}]; inspect(); refreshNet(); drawSheet();
+                hintStale();
             }
             return;
         }
@@ -1498,7 +1506,19 @@ function toggleSwitch(i){
     pushUndo();
     p.val = p.val === 'off' ? 'on' : 'off';
     inspect(); refreshNet(); drawSheet();
+    hintStale();
     return true;
+}
+
+/* 改了電路、但沒開示波器模式時，波形還是上一次的結果。
+   這件事不講的話，使用者會以為是壞掉了——實際上就是還沒重算。
+   一個工作階段只提醒一次，不然會變成雜訊。 */
+function hintStale(){
+    if (scope.on || !plotData || hintedManual) return;
+    hintedManual = true;
+    show('ok','電路改了，但波形還是上一次的結果',
+         ['按「執行模擬」重算一次，',
+          '或在波形視窗按「示波器」——開著的時候，每次改動都會自動重跑。']);
 }
 
 function del(){
@@ -1608,7 +1628,9 @@ function inspect(){
           <div class="field"><label for="ip_ref">名稱</label>
             <input id="ip_ref" class="mono" value="${p.ref}"></div>
           <p class="sub">目前是<b>${open ? '斷開' : '閉合'}</b>。
-             在電路圖上<b>連點兩下</b>也可以切換。</p>
+             在電路圖上<b>連點兩下</b>也可以切換。<br>
+             ${scope.on ? '示波器模式開著，切換之後會自動重跑。'
+                        : '切換之後要按「執行模擬」才會重算；開著示波器模式的話會自動重跑。'}</p>
           <div class="palette" style="margin-top:8px">
             <button class="btn ${open ? '' : 'primary'}" id="ip_sw">${open ? '閉合' : '斷開'}</button>
             <button class="btn" id="ip_rot">旋轉</button>
@@ -1843,7 +1865,9 @@ function showHints(hints, title){
 let running = false, lastRunMs = 0, autoRun = false;
 $('run').onclick = async () => {
     if (running) return;                         // 上一次還沒跑完就不要疊上去
+    quietNet = true;                             // 這一次的 refreshNet 不算「電路改了」
     const r = refreshNet();
+    quietNet = false;
     if (r.warn.length && !autoRun) { show('warn','電路可能還沒完成', r.warn); }
     if (r.warn.length && !sch.parts.length) return;
     const net = r.text;
@@ -2054,6 +2078,7 @@ function buildLegend(){
    區段時 Y 軸會自己放大、波形上下跳動，非常難看也難讀。
    ========================================================== */
 const SWEEP_SEC = 4;          // 掃過一個視窗寬度要幾秒
+const SLOW_MS = 2000;         // 一次模擬慢到這個程度就別再自動重跑了
 const SCOPE_WIN = 0.25;       // 視窗寬度佔整段紀錄的比例
 
 function scopeReframe(){
@@ -2103,13 +2128,24 @@ function scopeStop(msg){
      - 250ms 防抖，拖曳和連續滾輪只會在停下來之後跑一次。 */
 function scopeDirty(){
     if (!scope.on) return;
-    if (lastRunMs > 400) return;
+    if (running){ autoPending = true; return; }   // 跑完再補一次，不要把這次改動吞掉
+    /* 防抖時間跟著上一次的實際耗時走，而不是「太慢就永遠不自動跑」。
+       第一次 runSim 因為 WASM 還沒熱，可能要一秒以上，之後就掉到幾十毫秒；
+       寫成硬性門檻的話，只要第一次慢，這個功能就永遠不會再啟動。 */
+    if (lastRunMs > SLOW_MS){
+        scopeStop(`這個電路一次要算 ${lastRunMs.toFixed(0)} ms，太慢了，已停止連續掃描`);
+        return;
+    }
     clearTimeout(autoTimer);
-    autoTimer = setTimeout(() => {
-        if (!scope.on || running) return;
-        autoRun = true;
-        Promise.resolve($('run').onclick()).finally(() => { autoRun = false; });
-    }, 250);
+    autoTimer = setTimeout(runAuto, Math.max(250, lastRunMs));
+}
+function runAuto(){
+    if (!scope.on || running) return;
+    autoRun = true;
+    Promise.resolve($('run').onclick()).finally(() => {
+        autoRun = false;
+        if (autoPending){ autoPending = false; scopeDirty(); }
+    });
 }
 
 const PAD = {l:56, r:12, t:12, b:32};
