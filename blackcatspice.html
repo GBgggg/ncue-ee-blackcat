@@ -547,6 +547,31 @@ const TYPES = {
       draw(g){ ln(g,-20,-10,-12,-10); ln(g,-20,10,-12,10);
         g.beginPath(); g.moveTo(-12,-18); g.lineTo(-12,18); g.lineTo(14,0); g.closePath(); g.stroke();
         ln(g,14,0,20,0); ln(g,-9,-10,-5,-10); ln(g,-7,-12,-7,-8); ln(g,-9,10,-5,10); } },
+  /* 三用電表。三個檔位在 SPICE 裡是三種完全不同的接法，這也正是實驗課
+     一直在強調、學生一直搞錯的事：
+
+       電壓檔 V：**並聯**在待測兩點上。理想電表內阻無限大，所以放一顆很大的
+                 電阻（現實模式用 10MΩ——那是真實三用電表的輸入阻抗，
+                 拿它去量高阻抗電路就會看到「電表把電壓吃掉」的負載效應）。
+       電流檔 A：**串聯**在待測支路上。理想電流表內阻為零，所以放一個 DC 0V 的
+                 電壓源——SPICE 本來就會給出流過電壓源的電流，這是標準作法。
+                 現實模式再串一顆 0.1Ω 的分流電阻（burden）。
+       電阻檔 Ω：**不能在通電的電路上量**。按下按鈕會另外跑一次「把所有獨立電源
+                 歸零」的分析，那量到的就是戴維寧等效電阻。
+
+     電流檔的元件在 netlist 裡叫 V_M1，所以它也可以直接拿來當流控電源的控制源——
+     「串一個 0V 電壓源當電流計」這句話，現在有一個真的元件可以用了。 */
+  M:{ label:'三用電表', pre:'M', pins:[[0,-20],[0,20]], val:'V',
+      draw(g,p){
+        const r = (p && p.val) || 'V';
+        ln(g,0,-20,0,-13); ln(g,0,13,0,20);
+        g.beginPath(); g.arc(0,0,13,0,7); g.stroke();
+        g.fillStyle = g.strokeStyle;
+        g.font = 'bold 15px ui-monospace,Menlo,monospace';
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(r === 'A' ? 'A' : r === 'R' ? 'Ω' : 'V', 0, 1);
+      } },
+
   /* ---- 相依電源（受控源）----
      電路學第 3、4、19 章的地基。SPICE 有四種，差別只在「被什麼控制、輸出什麼」：
 
@@ -828,6 +853,9 @@ const REAL = {
     // 741 等級的運放：開迴路增益 100dB、增益頻寬積 1MHz、輸出阻抗 75Ω。
     OP_A0: 1e5, OP_GBW: 1e6, OP_ROUT: 75, OP_RIN: 2e6
 };
+/* 三用電表各檔的等效電路。理想模式當成完美的儀器；現實模式用真實三用電表的
+   輸入阻抗與分流電阻，這樣才看得到「量測本身會影響電路」這件事。 */
+const METER = { ideal:{ vin:1e9, burden:0 }, real:{ vin:1e7, burden:0.1 } };
 /* 開關的等效電阻。現實模式給接點電阻與漏電流，理想模式當成理想導線／絕緣。 */
 const SW_R = { ideal:{ on:1e-3, off:1e9 }, real:{ on:0.05, off:1e8 } };
 const MODELS = {
@@ -849,7 +877,8 @@ const MODELS = {
 const srcR = val => /^\s*(dc\b|[-+.\d])/i.test(String(val)) ? REAL.V_DC_R : REAL.V_SIG_R;
 
 /* ---------- 產生 netlist ---------- */
-function toNetlist(){
+function toNetlist(opts){
+    opts = opts || {};
     const nd = buildNodes();
     const lines = ['Blackcat SPICE schematic' + (realMode ? ' (real)' : '')];
     const used = {}, models = new Set(); const warn = [];
@@ -867,6 +896,28 @@ function toNetlist(){
             const std = MODELS[realMode?'real':'ideal'][p.type];
             models.add(std && /^(DMOD|QMOD)$/i.test(String(p.val).trim()) ? std : T.model);
         }
+        if (opts.zero && p.type === 'V'){
+            lines.push(`${ref} ${ns[0]} ${ns[1]} DC 0`);   // 電壓源歸零＝短路
+            continue;
+        }
+        if (opts.zero && p.type === 'I') continue;         // 電流源歸零＝斷路
+        if (p.type === 'M'){
+            const m = METER[realMode ? 'real' : 'ideal'];
+            if (p.val === 'A'){
+                // 電流檔：串聯，理想內阻為零，所以用 0V 電壓源當電流計
+                if (m.burden){
+                    const x = hid();
+                    lines.push(`V_${ref} ${ns[0]} ${x} DC 0`);
+                    lines.push(`R_${ref}_b ${x} ${ns[1]} ${m.burden}`);
+                } else {
+                    lines.push(`V_${ref} ${ns[0]} ${ns[1]} DC 0`);
+                }
+            } else {
+                // 電壓檔與電阻檔：並聯，理想內阻無限大
+                lines.push(`R_${ref} ${ns[0]} ${ns[1]} ${m.vin}`);
+            }
+            continue;
+        }
         if (p.type === 'EE' || p.type === 'G'){
             // 壓控：Xname 輸出+ 輸出- 控制+ 控制- 增益
             lines.push(`${ref} ${ns[0]} ${ns[1]} ${ns[2]} ${ns[3]} ${p.val}`);
@@ -877,7 +928,8 @@ function toNetlist(){
                所以這裡要引用一個 V 元件的名稱，而不是接兩支腳。 */
             const c = (p.ctrl || '').trim();
             if (!c) warn.push(`${ref} 還沒指定控制用的電壓源。`);
-            else if (!sch.parts.some(q => q.type === 'V' && (q.ref||'') === c))
+            else if (!sch.parts.some(q => (q.type === 'V' && (q.ref||'') === c) ||
+                                         (q.type === 'M' && q.val === 'A' && `V_${q.ref}` === c)))
                 warn.push(`${ref} 指定的控制源「${c}」在電路裡找不到。` +
                           `想量某條支路的電流，可以在那裡串一個 DC 0 的電壓源當電流計。`);
             lines.push(`${ref} ${ns[0]} ${ns[1]} ${c || 'V?'} ${p.val}`);
@@ -936,7 +988,15 @@ function toNetlist(){
         else                      lines.push(`${ref} ${ns[0]} ${ns[1]} ${p.val}`);
     }
     models.forEach(m => lines.push(m));
-    lines.push(directive());
+    if (opts.inject){
+        /* 灌 1A 進去量電阻。兩個注入點各補一顆 1GΩ 對地，保證有直流路徑——
+           少了它，只要待測網路本身沒接地就會直接踩到矩陣奇異。
+           1GΩ 並聯進去對讀值的影響可以忽略。 */
+        lines.push(`Iprobe ${opts.inject.a} ${opts.inject.b} DC 1`);
+        lines.push(`Rprobea ${opts.inject.a} 0 1G`);
+        lines.push(`Rprobeb ${opts.inject.b} 0 1G`);
+    }
+    lines.push(opts.directive || directive());
     lines.push('.end');
     if (!hasGnd) warn.push('電路裡沒有接地符號。SPICE 一定要有 0 節點，請放一個接地。');
     if (!sch.parts.some(p => p.type==='V' || p.type==='I')) warn.push('沒有任何電源，模擬不會有東西可看。');
@@ -1701,6 +1761,17 @@ document.querySelectorAll('.pi').forEach(el =>
 /* ==========================================================
    常駐屬性面板：點元件直接改，不跳彈窗
    ========================================================== */
+const METER_HINT = {
+  V:'電壓表要**並聯**在待測的兩點上。理想電壓表內阻無限大，不會從電路吸走電流；' +
+    '現實模式用 10MΩ，那是真實三用電表的輸入阻抗——拿它去量高阻抗的電路，' +
+    '就會看到教科書講的「量測本身把電壓拉低了」。',
+  A:'電流表要**串聯**在待測支路上，也就是把線剪斷、讓電流從電表流過。' +
+    '理想電流表內阻為零。它在 netlist 裡是一個 0V 的電壓源，' +
+    '所以也可以直接被流控電源（H、F）指定為控制源。',
+  R:'**不能在通電的電路上量電阻**——這是實驗課的鐵則，也是真實三用電表會燒掉的原因。' +
+    '按下「量電阻」會另外跑一次分析，把所有獨立電源歸零（電壓源短路、電流源斷路），' +
+    '再從兩支腳看進去。量到的就是戴維寧等效電阻 R_th。'
+};
 const DEP_HINT = {
   EE:'輸出電壓 = 增益 × 控制端兩點的電壓差。控制端不吃電流（輸入阻抗無限大）。',
   G:'輸出電流 = 轉導 × 控制端兩點的電壓差。電流方向由上往下流出。',
@@ -1735,16 +1806,49 @@ function inspect(){
         $('ip_del').onclick = del; return;
     }
     const p = sch.parts[one.i], T = TYPES[p.type];
+    if (p.type === 'M'){
+        const RANGE = { V:'直流／交流電壓（並聯）', A:'電流（串聯）', R:'電阻（電源歸零）' };
+        box.innerHTML = `
+          <div class="field"><label for="ip_ref">名稱</label>
+            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+          <div class="field"><label for="ip_val">檔位</label>
+            <select id="ip_val">${Object.entries(RANGE).map(([k,v]) =>
+              `<option value="${k}"${p.val===k?' selected':''}>${v}</option>`).join('')}</select></div>
+          <p class="sub">${METER_HINT[p.val] || ''}</p>
+          ${p.val === 'R' ? '<button class="btn" id="ip_ohm" style="margin-top:6px">量電阻</button>' +
+            '<div id="ohmOut" class="sub"></div>' : ''}
+          <div class="palette" style="margin-top:8px">
+            <button class="btn" id="ip_rot">旋轉</button>
+            <button class="btn" id="ip_del">刪除</button>
+          </div>
+          <div id="cmpMeas"></div>
+          <p class="sub">型別：三用電表（M）。${realMode
+            ? `現實模式：電壓檔輸入阻抗 ${eng(METER.real.vin)}Ω、電流檔分流電阻 ${METER.real.burden}Ω。`
+            : '理想模式：電壓檔內阻無限大、電流檔內阻為零。'}</p>`;
+        $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
+                                     refreshNet(); drawSheet(); };
+        $('ip_val').onchange = e => { pushUndo(); p.val = e.target.value;
+                                      inspect(); refreshNet(); drawSheet(); hintStale(); };
+        if (p.val === 'R') $('ip_ohm').onclick = () => measureOhm(one.i);
+        $('ip_rot').onclick = rotate; $('ip_del').onclick = del;
+        renderCmpMeas(p);
+        return;
+    }
     if (/^(EE|G|H|F)$/.test(p.type)){
         const isCC = p.type === 'H' || p.type === 'F';
-        const vs = sch.parts.filter(q => q.type === 'V' && q.ref);
+        /* 電流檔的三用電表在 netlist 裡就是一個 0V 電壓源，所以它也能當控制源。
+           這正是課本教的「想量某條支路的電流，就在那裡串一個電流計」。 */
+        const vs = sch.parts.filter(q => q.type === 'V' && q.ref)
+            .map(q => ({ name:q.ref, label:q.ref }))
+            .concat(sch.parts.filter(q => q.type === 'M' && q.val === 'A' && q.ref)
+                .map(q => ({ name:`V_${q.ref}`, label:`${q.ref}（電流檔）` })));
         box.innerHTML = `
           <div class="field"><label for="ip_ref">名稱</label>
             <input id="ip_ref" class="mono" value="${p.ref}"></div>
           ${isCC ? `<div class="field"><label for="ip_ctrl">控制源</label>
             <select id="ip_ctrl">${
-              vs.length ? vs.map(q => `<option value="${q.ref}"${q.ref===p.ctrl?' selected':''}>${q.ref}</option>`).join('')
-                        : '<option value="">（電路裡沒有電壓源）</option>'}</select></div>` : ''}
+              vs.length ? vs.map(q => `<option value="${q.name}"${q.name===p.ctrl?' selected':''}>${q.label}</option>`).join('')
+                        : '<option value="">（電路裡沒有電壓源或電流表）</option>'}</select></div>` : ''}
           <div class="field"><label for="ip_val">${T.unitName}</label>
             <input id="ip_val" class="mono" value="${p.val}"></div>
           <p class="sub">${DEP_HINT[p.type]}</p>
@@ -2217,6 +2321,10 @@ function partSeries(p){
     if (p.type === 'V'){
         cur = simData.by.get(`${(p.ref||'').toLowerCase()}#branch`) || null;
         if (cur) note = CURRENT_NOTE.V;
+    } else if (p.type === 'M'){
+        // 電流檔在 netlist 裡是 V_M1，支路電流引擎會直接給
+        cur = p.val === 'A' ? (simData.by.get(`v_${(p.ref||'').toLowerCase()}#branch`) || null) : null;
+        if (cur) note = 'ngspice 直接給的支路電流（電流表就是一個 0V 電壓源）';
     } else if (p.type === 'SW'){
         const r = SW_R[realMode ? 'real' : 'ideal'][p.val === 'off' ? 'off' : 'on'];
         cur = simData.isC ? null : deriveCurrent('R', String(r), dv, simData.x);
@@ -2694,6 +2802,52 @@ function renderAnswer(){
     box.innerHTML = at + ansNodes(k) + ansParts(k) + ansBalance(k) +
         '<p class="ans-why" style="margin-top:10px">這些是模擬算出來的數值，' +
         '拿來對自己手算的結果。有證明題、推導題的部分模擬給不了，那要自己寫。</p>';
+}
+
+/* ==========================================================
+   電阻檔：另外跑一次「電源歸零」的分析
+
+   量電阻不能在通電的電路上做。標準作法是把所有獨立電源歸零
+   （電壓源短路、電流源斷路），再從待測兩點灌一個已知電流進去，
+   量出電壓差，R = ΔV / I。這正好就是戴維寧等效電阻的定義。
+
+   這一次是獨立的分析，不會動到主電路，也不會蓋掉波形。
+   ========================================================== */
+async function measureOhm(i){
+    const out = $('ohmOut');
+    const p = sch.parts[i];
+    if (!p || p.type !== 'M') return;
+    if (running){ if (out) out.textContent = '模擬正在跑，等一下再按。'; return; }
+    const nd = buildNodes();
+    const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+    if (ns[0] === ns[1]){
+        if (out) out.textContent = '兩支腳接在同一個節點上，量不出東西。';
+        return;
+    }
+    const r = toNetlist({ zero:true, inject:{ a:ns[1], b:ns[0], amps:1 }, directive:'.op' });
+    const bad = [...r.text].find(c => c.charCodeAt(0) > 127);
+    if (bad){ if (out) out.textContent = `netlist 裡有非 ASCII 字元「${bad}」。`; return; }
+    if (out) out.textContent = '量測中…';
+    running = true;
+    try {
+        const sim2 = await getSim();
+        sim2.setNetList(r.text);
+        const res = await withTimeout(sim2.runSim(), 20000, '計算');
+        const idx = indexResult(res);
+        const va = idx.by.get(`v(${ns[0].toLowerCase()})`) || idx.by.get(ns[0].toLowerCase());
+        const vb = idx.by.get(`v(${ns[1].toLowerCase()})`) || idx.by.get(ns[1].toLowerCase());
+        const A = ns[0] === '0' ? 0 : (va ? va[0] : NaN);
+        const B = ns[1] === '0' ? 0 : (vb ? vb[0] : NaN);
+        const ohm = A - B;                       // 灌 1A，所以電壓差的數值就是電阻值
+        if (!isFinite(ohm)){ out.textContent = '讀不到結果，請看 netlist。'; return; }
+        out.innerHTML = `<b style="color:var(--ink)">R = ${eng(Math.abs(ohm))}Ω</b><br>` +
+            `從 ${ns[0]} 看到 ${ns[1]}，所有獨立電源已歸零。<br>` +
+            `作法：灌入 1A 定電流，量得 ΔV = ${eng(Math.abs(ohm))}V，` +
+            `R = ΔV / I = ${eng(Math.abs(ohm))} ÷ 1 = ${eng(Math.abs(ohm))}Ω。<br>` +
+            `這個值就是這兩點的戴維寧等效電阻 R<sub>th</sub>。`;
+    } catch(e){
+        out.textContent = '量測失敗：' + ((e && e.message) || e);
+    } finally { running = false; }
 }
 
 /* ---------- 匯出 ---------- */
