@@ -248,7 +248,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <h1>電路模擬器需要電腦</h1>
     <p>畫電路要精確點到格點上的接腳，還要一邊看畫布一邊改參數。
        手機的觸控精度和畫面大小都撐不住，硬做只會變成一個難用的版本。</p>
-    <p class="sub">請用桌機或筆電開這一頁。小黑貓其他功能在手機上都正常。</p>
+    <p class="sub" id="gateWhy"></p>
     <a class="btn primary" href="index.html">回小黑貓首頁</a>
   </div>
 </div>
@@ -426,16 +426,34 @@ const $ = id => document.getElementById(id);
 
 /* ==========================================================
    手機擋門
-   用能力偵測而不是 User-Agent：粗指標（手指）而且沒有 hover 的裝置，
-   就是點不準格點、也沒辦法靠移到元件上顯示提示的那一類。
-   接觸筆電（有觸控也有滑鼠）不會被擋，因為它 hover 是有的。
+
+   兩個條件，任一成立就擋下來：
+
+     1. 粗指標（手指）而且沒有 hover——點不準格點、也沒辦法靠移到元件上看提示。
+     2. 視窗寬度小於 820px——同時放不下畫布和參數面板，只能盲改。
+
+   第二條不是多餘的。只有第一條的話，手機上按一下「切換成電腦版網站」，
+   瀏覽器就會回報自己有滑鼠、有 hover，整個擋門直接被繞過去。
+   寬度是繞不掉的：畫面就是那麼大。
+
+   觸控裝置是硬擋（連初始化都不做）；視窗太窄則是軟擋——桌機使用者把視窗拉寬
+   就會自動回來，不必重新整理。
    ========================================================== */
-const GATED = matchMedia('(pointer: coarse) and (hover: none)').matches;
-if (GATED){
-    document.getElementById('gate').hidden = false;
-    document.getElementById('app').style.display = 'none';
-    document.getElementById('waveWin').style.display = 'none';
+const TOUCH_ONLY = matchMedia('(pointer: coarse) and (hover: none)').matches;
+const MIN_W = 820;
+const GATED = TOUCH_ONLY;                     // 只有這個會讓啟動流程整個跳過
+const gateOn = () => TOUCH_ONLY || innerWidth < MIN_W;
+function applyGate(){
+    const on = gateOn();
+    document.getElementById('gate').hidden = !on;
+    document.getElementById('app').style.display = on ? 'none' : '';
+    document.getElementById('waveWin').style.display = on ? 'none' : '';
+    const why = document.getElementById('gateWhy');
+    if (why) why.textContent = TOUCH_ONLY
+        ? '請用桌機或筆電開這一頁。小黑貓的其他功能在手機上都正常。'
+        : `目前視窗只有 ${innerWidth}px 寬。把視窗拉寬到 ${MIN_W}px 以上就會自動回來，不必重新整理。`;
 }
+applyGate();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /* 非同步的錯誤如果沒人接，只會默默印在主控台，畫面上就是一個永遠沒反應的按鈕。全部攤出來。 */
@@ -544,7 +562,7 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
    而 const／let 有暫時性死區：只要宣告在那一行「之後」，模組就會在載入當下
    整個炸掉，所有功能一起死。node --check 看不出來（語法完全合法），
    是冒煙測試把它抓出來的。 */
-const scope = { on:false, t0:0, span:0, raf:null, last:0 };
+const scope = { on:false, t0:0, span:0, raf:null, last:0, stop:0, capped:false };
 let quietNet = false, hintedManual = false;
 let autoRuns = 0;   // 自動重跑了幾次，顯示在波形視窗標題列上
 
@@ -972,9 +990,20 @@ function buildAna(){
         el.oninput = el.onchange = () => { anaVals[k] = el.value; syncDirective(); }; });
     syncDirective();
 }
-function directive(){ const v = {}; ((ANA[$('anaSel').value]||ANA.tran).f).forEach(([k,,d]) => v[k] = anaVals[k] ?? d);
-    return ANA[$('anaSel').value].make(v); }
-function syncDirective(){ $('directive').textContent = directive(); refreshNet(); }
+function directive(){
+    const key = $('anaSel').value;
+    const v = {}; ((ANA[key]||ANA.tran).f).forEach(([k,,d]) => v[k] = anaVals[k] ?? d);
+    /* 示波器往前滾的時候要有更長的紀錄可以走，所以這裡用延長過的模擬時間。
+       只在送給 ngspice 的指令裡換掉，不去動使用者在面板上填的值——
+       關掉示波器就回到原本的設定，不會莫名其妙被改掉。 */
+    if (key === 'tran' && scope.on && scope.stop) v.stop = scope.stop.toExponential(6);
+    return (ANA[key]||ANA.tran).make(v);
+}
+function syncDirective(){
+    // 使用者自己改了模擬時間或步長，延長就從新的設定重新起算
+    scope.stop = 0; scope.capped = false;
+    $('directive').textContent = directive(); refreshNet();
+}
 $('anaSel').onchange = buildAna;
 buildAna();
 
@@ -1928,7 +1957,7 @@ $('run').onclick = async () => {
         scopeInfo();
         simData = indexResult(res); cursorIdx = null;
         plotData = prepare(res); buildLegend(); showWave(true); renderMeas();
-        scopeReframe();                  // 示波器模式要重新對齊掃描視窗
+        scopeReframe(false);             // 只夾住範圍，時基和目前位置都保留
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
            正在打字的內容和游標位置都會不見。只更新量測那一塊就好。 */
@@ -2104,11 +2133,16 @@ function buildLegend(){
 const SWEEP_SEC = 4;          // 掃過一個視窗寬度要幾秒
 const SCOPE_WIN = 0.25;       // 視窗寬度佔整段紀錄的比例
 
-function scopeReframe(){
+/* 視窗寬度（時基）只在開始掃描時決定一次。紀錄變長時不能跟著變寬，
+   不然畫面會愈看愈遠，就不是示波器了——真的示波器是時基固定、時間往前跑。 */
+function scopeReframe(reset){
     if (!plotData || !plotData.x.length){ scope.span = 0; return; }
-    const xs = plotData.x, T = xs[xs.length-1] - xs[0];
-    scope.span = T * SCOPE_WIN;
-    if (!(scope.t0 >= xs[0] && scope.t0 <= xs[xs.length-1] - scope.span)) scope.t0 = xs[0];
+    const xs = plotData.x;
+    if (reset || !scope.span){
+        scope.span = (xs[xs.length-1] - xs[0]) * SCOPE_WIN;
+        scope.t0 = xs[0];
+    }
+    scope.t0 = Math.max(xs[0], Math.min(scope.t0, xs[xs.length-1] - scope.span));
 }
 function scopeFrame(now){
     if (!scope.on) return;
@@ -2116,20 +2150,42 @@ function scopeFrame(now){
     if (!xs || !xs.length || !scope.span){ scope.raf = requestAnimationFrame(scopeFrame); return; }
     const dt = Math.min(0.1, (now - scope.last) / 1000);   // 分頁切回來時可能是好幾秒，夾住
     scope.last = now;
-    const travel = xs[xs.length-1] - scope.span - xs[0];
-    if (travel > 0){
-        scope.t0 += (scope.span / SWEEP_SEC) * dt;
-        if (scope.t0 > xs[0] + travel) scope.t0 = xs[0];    // 到底就繞回開頭
-    }
+    /* 時間一直往前走，不繞回開頭。快走到紀錄尾端時就把模擬時間加長再算一次，
+       這樣時間軸是真的在往後跑，不是同一段循環播放。 */
+    const end = xs[xs.length-1];
+    scope.t0 += (scope.span / SWEEP_SEC) * dt;
+    if (scope.t0 + scope.span >= end - scope.span * 0.35) scopeExtend();
+    if (scope.t0 + scope.span > end) scope.t0 = Math.max(xs[0], end - scope.span);
     // 電路改過就重跑。放在這裡而不是計時器裡，見上面 scopeDirty 的說明。
     if (dirtyAt && !running && now - dirtyAt >= autoDelay()){ dirtyAt = 0; runAuto(); }
     drawPlot();
     scope.raf = requestAnimationFrame(scopeFrame);
 }
+/* 延長模擬時間。每次加倍，所以重算次數是對數成長，不是每一幀都在重算。
+   兩個上限：資料點數（保護手機記憶體）和單次耗時（保護手感）。
+   撞到上限就停在原地並說明，不會偷偷卡住讓人以為壞了。 */
+const MAX_POINTS = 1.2e5;
+function scopeExtend(){
+    if (!scope.on || scope.capped || running || dirtyAt) return;
+    if ($('anaSel').value !== 'tran') return;
+    const step = unit(anaVals.step ?? '2u');
+    const next = (scope.stop || unit(anaVals.stop ?? '5m')) * 2;
+    if (!(step > 0) || !isFinite(next)) return;
+    if (next / step > MAX_POINTS || lastRunMs > 800){
+        scope.capped = true; scopeInfo();
+        show('ok','已到模擬長度上限，時間停在這裡',
+             ['再往前就要算太多點了。要看更後面，可以把「模擬設定」的步長調大一點。']);
+        return;
+    }
+    scope.stop = next;
+    dirtyAt = performance.now() - autoDelay();   // 立刻重算，不必再等防抖
+}
+
 function scopeInfo(){
     const el = $('scopeInfo'); if (!el) return;
     el.textContent = scope.on
-        ? `· 自動重跑 ${autoRuns} 次${lastRunMs ? '，上次 ' + lastRunMs.toFixed(0) + ' ms' : ''}`
+        ? `· 自動重跑 ${autoRuns} 次${lastRunMs ? '，上次 ' + lastRunMs.toFixed(0) + ' ms' : ''}` +
+          (scope.capped ? '，已達長度上限' : '')
         : '';
 }
 function scopeStart(){
@@ -2137,7 +2193,8 @@ function scopeStart(){
     if (plotData.logX) return show('warn','頻率響應不適用示波器模式',
         ['橫軸是對數頻率，不是時間。請改用時域 .tran 分析。']);
     scope.on = true; scope.last = performance.now();
-    scopeReframe();
+    scope.stop = 0; scope.capped = false;      // 每次重新開始都從使用者設定的長度起算
+    scopeReframe(true);
     $('scopeBtn').classList.add('on');
     $('scopeBtn').textContent = '掃描中 ⏸';
     autoRuns = 0; dirtyAt = 0; scopeInfo();
@@ -2150,7 +2207,8 @@ function scopeStop(msg){
     scope.raf = null;
     $('scopeBtn').classList.remove('on');
     $('scopeBtn').textContent = '示波器 ▶';
-    scopeInfo();
+    scope.stop = 0; scope.capped = false;
+    scopeInfo(); refreshNet();                 // 指令回到使用者填的模擬時間
     drawPlot();
     if (msg) show('warn', msg, []);
 }
@@ -2479,7 +2537,11 @@ try { setSide(localStorage.getItem(SIDE_KEY) === '1'); } catch(e){ setSide(false
    drawSheet() 每次都會依 clientWidth/Height 重設點陣尺寸，所以這裡只要重畫。 */
 function fitCanvas(){ drawSheet(); }
 new ResizeObserver(() => drawSheet()).observe($('sheetBox'));
-addEventListener('resize', () => { drawSheet(); drawPlot(); closePop(); });
+addEventListener('resize', () => {
+    applyGate();
+    if (gateOn()) return;                     // 被擋著就不用畫了
+    drawSheet(); drawPlot(); closePop();
+});
 /* 分頁切走時 requestAnimationFrame 本來就會停，但回來的第一幀 now-last
    會是好幾秒，掃描視窗會瞬間跳一大段。回來時重設時間基準。 */
 document.addEventListener('visibilitychange', () => {
