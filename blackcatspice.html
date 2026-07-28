@@ -118,6 +118,29 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
           background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
                      var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
 
+/* ---- 樣式：浮動三用電表 ---- */
+#dmmWin{position:fixed;z-index:62;left:40px;top:150px;width:270px;
+        display:flex;flex-direction:column;background:var(--paper-raised);
+        border:1px solid var(--rule);border-radius:13px;
+        box-shadow:0 14px 46px rgba(0,0,0,.30)}
+#dmmWin.hidden{display:none}
+#dmmHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
+         border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
+         cursor:move;user-select:none;touch-action:none}
+#dmmBody{padding:10px 12px 12px}
+#dmmScreen{display:flex;align-items:baseline;justify-content:flex-end;gap:5px;
+           background:var(--paper);border:1px solid var(--rule);border-radius:9px;
+           padding:8px 11px;margin-bottom:9px;min-height:44px}
+#dmmVal{font:800 25px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);
+        letter-spacing:.02em}
+#dmmUnit{font:700 13px ui-monospace,Menlo,monospace;color:var(--ink-3)}
+#dmmPins{margin-top:8px}
+#dmmPins .btn.on{background:var(--accent-fill);color:#fff;border-color:transparent}
+.lead{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;
+      vertical-align:-1px}
+.lead.red{background:#c0392b}
+.lead.black{background:#333;box-shadow:inset 0 0 0 1px var(--rule)}
+
 /* ---- 樣式：工具列彈出面板 ---- */
 .pop{position:fixed;z-index:70;width:320px;max-height:min(70vh,560px);overflow:auto;
      background:var(--paper-raised);border:1px solid var(--rule);border-radius:12px;
@@ -294,6 +317,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <span class="tsep"></span>
     <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
     <button class="btn" id="waveBtn">波形視窗</button>
+    <button class="btn" id="dmmBtn">三用電表</button>
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
     <button class="btn pop-btn" id="btnProbes" aria-haspopup="true">探針清單 ▾</button>
@@ -360,6 +384,35 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </details>
   </div>
   <div id="waveGrip" title="拖曳改變大小"></div>
+</div>
+
+<!-- 浮動三用電表（讀數面板）。跟「三用電表元件」是兩種東西：
+     元件要接進電路、會影響電路；這一台是外掛的理想儀器，只讀已經算出來的結果，
+     完全不動電路，所以想量哪裡就點哪裡。 -->
+<div id="dmmWin" class="hidden" role="dialog" aria-label="三用電表">
+  <div id="dmmHead">
+    <span>三用電表</span>
+    <div class="spacer"></div>
+    <button class="icb tiny" id="dmmClose" title="關閉" aria-label="關閉">✕</button>
+  </div>
+  <div id="dmmBody">
+    <div id="dmmScreen"><span id="dmmVal">－ － －</span><small id="dmmUnit"></small></div>
+    <div class="field"><label for="dmmRange">檔位</label>
+      <select id="dmmRange">
+        <option value="DCV">直流電壓 DCV</option>
+        <option value="ACV">交流電壓 ACV（真有效值）</option>
+        <option value="DCA">直流電流 DCA</option>
+        <option value="ACA">交流電流 ACA（真有效值）</option>
+        <option value="OHM">電阻 Ω（電源歸零）</option>
+      </select>
+    </div>
+    <div class="palette" id="dmmPins">
+      <button class="btn tiny" id="dmmA"><i class="lead red"></i>紅棒</button>
+      <button class="btn tiny" id="dmmB"><i class="lead black"></i>黑棒</button>
+      <button class="btn tiny" id="dmmClr">清除</button>
+    </div>
+    <p class="sub" id="dmmWhy"></p>
+  </div>
 </div>
 
 <!-- 工具列彈出面板 -->
@@ -644,6 +697,14 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
 const scope = { on:false, t0:0, span:0, raf:null, last:0, stop:0, capped:false };
 let quietNet = false, hintedManual = false;
 let autoRuns = 0;   // 自動重跑了幾次，顯示在波形視窗標題列上
+/* 三用電表（讀數面板）的狀態。跟 scope 一樣必須宣告在這裡：
+   載入時 renderKeys() → drawSheet() 就會用到 isCurRange，而 const 有暫時性死區，
+   放到下面那段程式旁邊的話，模組會在載入當下整個炸掉。
+   冒煙測試第二次抓到同一件事——這條規則值得再貼一次。 */
+const dmm = { range:'DCV', a:null, b:null, part:-1, ohm:null };
+let dmmPick = null;                       // 'a' | 'b' | 'part'
+const DMM_UNIT = { DCV:'V', ACV:'V', DCA:'A', ACA:'A', OHM:'Ω' };
+const isCurRange = r => r === 'DCA' || r === 'ACA';
 
 let sch = { parts:[], wires:[], probes:[] };   // probes: [{kind:'v'|'i', x,y | ref}]
 let seq = 1;
@@ -1274,6 +1335,20 @@ function drawSheet(){
         g.strokeStyle = selc; g.lineWidth = 1; g.setLineDash([4,3]);
         g.strokeRect(rx,ry,rw,rh); g.setLineDash([]);
     }
+    /* 三用電表的表棒。畫成紅黑兩點，跟真實儀器一致；電流檔則把選中的元件框起來。 */
+    if (!$('dmmWin').classList.contains('hidden')){
+        const mark = (pt, col) => { if (!pt) return;
+            const [mx,my] = W2S(pt.x, pt.y);
+            g.fillStyle = col; g.beginPath(); g.arc(mx,my,4.5,0,7); g.fill();
+            g.strokeStyle = cvar('--paper'); g.lineWidth = 1.4; g.stroke(); };
+        if (!isCurRange(dmm.range)){ mark(dmm.a, '#c0392b'); mark(dmm.b, '#333'); }
+        else if (dmm.part >= 0 && sch.parts[dmm.part]){
+            const q = sch.parts[dmm.part], [mx,my] = W2S(q.x, q.y);
+            g.strokeStyle = '#c0392b'; g.lineWidth = 1.6; g.setLineDash([4,3]);
+            g.strokeRect(mx-16*view.z, my-24*view.z, 32*view.z, 48*view.z);
+            g.setLineDash([]);
+        }
+    }
     // 探針標記：顏色跟波形圖的圖例對應，看圖時不必猜哪條是哪個節點
     sch.probes.forEach((pr,i) => {
         g.strokeStyle = g.fillStyle = cvar(COLORS[i%6]); g.lineWidth = 2;
@@ -1394,6 +1469,7 @@ cv.addEventListener('pointerdown', e => {
     if (e.button === 1 || panKey){
         panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
     }
+    if (dmmClick(wx, wy)) return;          // 正在選表棒，這一下給電表
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
     if (mode === 'probe'){
         const pi = hitPart(wx,wy);
@@ -1716,6 +1792,7 @@ $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
     pushUndo(); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = [];
     simData = null; cursorIdx = null;   // 舊的模擬結果已經對不上新的節點編號了
     scopeStop();
+    dmm.a = dmm.b = null; dmm.part = -1; dmm.ohm = null;
     inspect(); refreshNet(); drawSheet(); };
 $('fitBtn').onclick = fit;
 $('undoBtn').onclick = undo;
@@ -1958,6 +2035,7 @@ function renderCmpMeas(p){
 }
 /** 只改一行文字，成本很低，可以在每次重畫波形時呼叫。 */
 function updateCmpNow(){
+    if (!$('dmmWin').classList.contains('hidden')) dmmRender();
     const el = $('cmpNow'); if (!el) return;
     const one = selOne();
     if (!one || one.kind !== 'part' || !simData){
@@ -2174,6 +2252,7 @@ $('run').onclick = async () => {
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
            正在打字的內容和游標位置都會不見。只更新量測那一塊就好。 */
+        dmmRender();
         if (autoRun){ const one = selOne();
                       if (one && one.kind === 'part') renderCmpMeas(sch.parts[one.i]); }
         else inspect();
@@ -2850,6 +2929,149 @@ async function measureOhm(i){
     } finally { running = false; }
 }
 
+/* ==========================================================
+   浮動三用電表（讀數面板）
+
+   跟「三用電表元件」是兩種不同的東西，這個差別本身就是要教的：
+
+     元件版：接進電路，**會影響電路**。現實模式下 10MΩ 的輸入阻抗會把高阻抗
+             節點的電壓拉低——這是真實量測一定會有的負載效應。
+     面板版：外掛的理想儀器，**完全不動電路**，只是去讀已經算出來的結果。
+             想量哪裡就點哪裡，不必先把線剪斷。
+
+   兩台並排看，就會知道「理論值」和「量到的值」為什麼不一樣。
+
+   交流檔用的是真有效值而且**扣掉直流成分**：√(RMS² − 平均²)。
+   真實的三用電表交流檔是交流耦合的，量一個 5V 直流上疊 1V 弦波，
+   它顯示的是 0.707V 不是 5.05V。這個細節不做的話，讀數會跟實驗課的儀器對不起來。
+   ========================================================== */
+
+function dmmShow(on){
+    $('dmmWin').classList.toggle('hidden', !on);
+    $('dmmBtn').classList.toggle('on', on);
+    if (!on) dmmPick = null;
+    dmmRender(); drawSheet();
+}
+$('dmmBtn').onclick = () => dmmShow($('dmmWin').classList.contains('hidden'));
+$('dmmClose').onclick = () => dmmShow(false);
+$('dmmRange').onchange = () => { dmm.range = $('dmmRange').value; dmm.ohm = null;
+                                 dmmPick = null; dmmRender(); drawSheet(); };
+$('dmmA').onclick = () => { dmmPick = isCurRange(dmm.range) ? 'part' : 'a'; dmmRender(); };
+$('dmmB').onclick = () => { dmmPick = isCurRange(dmm.range) ? 'part' : 'b'; dmmRender(); };
+$('dmmClr').onclick = () => { dmm.a = dmm.b = null; dmm.part = -1; dmm.ohm = null;
+                              dmmPick = null; dmmRender(); drawSheet(); };
+
+/** 畫布上點下去時，如果正在選表棒就接上去。回傳 true 代表這一下被電表吃掉了。 */
+function dmmClick(wx, wy){
+    if (!dmmPick) return false;
+    if (dmmPick === 'part'){
+        const i = hitPart(wx, wy);
+        if (i < 0){ dmmSay('請點一個元件——電流檔量的是「流過某個元件」的電流。'); return true; }
+        dmm.part = i;
+    } else {
+        dmm[dmmPick] = snapPoint(wx, wy);
+    }
+    dmmPick = null; dmmRender(); drawSheet();
+    return true;
+}
+function dmmSay(msg){ $('dmmWhy').textContent = msg; }
+function dmmNode(pt){
+    if (!pt) return null;
+    const nd = buildNodes();
+    return nd.nameOf(nd.key(pt.x, pt.y));
+}
+/** 取一條數列在目前取樣點的讀數。直流看平均，交流看扣掉直流後的真有效值。 */
+function dmmValue(series){
+    if (!series) return null;
+    const ac = dmm.range === 'ACV' || dmm.range === 'ACA';
+    const m = measure(simData.x, series);
+    if (!m) return { v: series[Math.min(ansIndex(), series.length-1)], how:'單一取樣點' };
+    if (!ac) return { v: m.mean, how:`整段的平均值（直流檔讀的就是平均）` };
+    /* 交流檔要「先扣掉直流再取有效值」。
+       數學上等於 √(RMS² − 平均²)，但那個式子在純直流訊號上會災難性抵消——
+       兩個幾乎相等的大數相減，實測 3V 直流會讀到 875nV 而不是 0。
+       直接對扣掉平均之後的訊號積分就沒有這個問題。 */
+    return { v: acRms(simData.x, series, m.mean),
+             how:`先扣掉直流成分 ${eng(m.mean)}，再取真有效值（交流檔是交流耦合的，` +
+                 `量 5V 直流疊 1V 弦波時讀的是 0.707V，不是 5.05V）` };
+}
+/** 扣掉直流之後的真有效值。對 (y − mean)² 用梯形法積分，避免大數相減的抵消。 */
+function acRms(xs, y, mean){
+    const n = Math.min(xs.length, y.length);
+    if (n < 2) return 0;
+    const span = xs[n-1] - xs[0];
+    if (!(span > 0)) return 0;
+    let sq = 0;
+    for (let i=0;i<n-1;i++){
+        const a = y[i]-mean, b = y[i+1]-mean;
+        sq += (a*a + b*b)/2 * (xs[i+1]-xs[i]);
+    }
+    return Math.sqrt(Math.max(0, sq/span));
+}
+function dmmRender(){
+    const val = $('dmmVal'), unit = $('dmmUnit');
+    $('dmmA').classList.toggle('on', dmmPick === 'a' || (dmmPick === 'part'));
+    $('dmmB').classList.toggle('on', dmmPick === 'b');
+    $('dmmA').innerHTML = isCurRange(dmm.range)
+        ? '<i class="lead red"></i>選元件' : '<i class="lead red"></i>紅棒';
+    $('dmmB').style.display = isCurRange(dmm.range) ? 'none' : '';
+    unit.textContent = DMM_UNIT[dmm.range];
+
+    const set = (t, why) => { val.textContent = t; dmmSay(why); };
+    if (dmmPick) return dmmSay(dmmPick === 'part'
+        ? '在電路圖上點一個元件。' : '在電路圖上點一個接點或線上的位置。');
+    if (dmm.range === 'OHM'){
+        if (!dmm.a || !dmm.b) return set('－ － －', '接上紅黑兩支表棒，再按「量電阻」。');
+        if (dmm.ohm == null){
+            val.textContent = '－ － －';
+            $('dmmWhy').innerHTML = '按這裡量：<button class="btn tiny" id="dmmGo">量電阻</button>' +
+                '<br>會把所有獨立電源歸零之後再量，也就是戴維寧等效電阻。';
+            $('dmmGo').onclick = () => dmmOhm();
+            return;
+        }
+        return set(eng(dmm.ohm), `把所有獨立電源歸零（電壓源短路、電流源斷路），` +
+            `從 ${dmmNode(dmm.a)} 灌 1A 到 ${dmmNode(dmm.b)}，量得 ΔV = ${eng(dmm.ohm)}V，` +
+            `所以 R = ΔV / 1A = ${eng(dmm.ohm)}Ω。這就是這兩點的戴維寧等效電阻。`);
+    }
+    if (!simData) return set('－ － －', '先按「執行模擬」，這台表才有東西可以讀。');
+    if (isCurRange(dmm.range)){
+        if (dmm.part < 0 || !sch.parts[dmm.part]) return set('－ － －', '按「選元件」再點一個元件。');
+        const p = sch.parts[dmm.part], ser = partSeries(p);
+        if (!ser || !ser.cur) return set('－ － －',
+            `${p.ref || p.type} 的電流推算不出來（二極體、電晶體這類非線性元件沒有封閉解）。`);
+        const r = dmmValue(ser.cur);
+        return set(eng(r.v), `流過 ${p.ref || p.type} 的電流，方向由 ${ser.nodes[0]} 到 ${ser.nodes[1]}。${r.how}`);
+    }
+    if (!dmm.a || !dmm.b) return set('－ － －', '紅棒接高電位那點、黑棒接低電位那點（或接地）。');
+    const na = dmmNode(dmm.a), nb = dmmNode(dmm.b);
+    const A = nodeSeries(na), B = nodeSeries(nb);
+    if (!A || !B) return set('－ － －', '這兩點在這次的結果裡找不到，電路可能改過了。');
+    const r = dmmValue(A.map((v,i) => v - B[i]));
+    set(eng(r.v), `V(${na}) − V(${nb})。${r.how}。` +
+        `這台是外掛的理想電表，不會影響電路——想看真實電表的負載效應，請改用「三用電表」元件。`);
+}
+async function dmmOhm(){
+    if (running) return dmmSay('模擬正在跑，等一下再按。');
+    const na = dmmNode(dmm.a), nb = dmmNode(dmm.b);
+    if (na === nb) return dmmSay('兩支表棒接在同一個節點上，量不出東西。');
+    const r = toNetlist({ zero:true, inject:{ a:nb, b:na, amps:1 }, directive:'.op' });
+    dmmSay('量測中…');
+    running = true;
+    try {
+        const s2 = await getSim();
+        s2.setNetList(r.text);
+        const res = await withTimeout(s2.runSim(), 20000, '計算');
+        const idx = indexResult(res);
+        const get = n => n === '0' ? [0]
+            : (idx.by.get(`v(${n.toLowerCase()})`) || idx.by.get(n.toLowerCase()) || [NaN]);
+        const d = get(na)[0] - get(nb)[0];
+        if (!isFinite(d)) return dmmSay('讀不到結果，請看 netlist。');
+        dmm.ohm = Math.abs(d);
+        dmmRender();
+    } catch(e){ dmmSay('量測失敗：' + ((e && e.message) || e)); }
+    finally { running = false; }
+}
+
 /* ---------- 匯出 ---------- */
 function download(blob, name){
     const url = URL.createObjectURL(blob), a = document.createElement('a');
@@ -3016,7 +3238,7 @@ $('scopeBtn').onclick = () => scope.on ? scopeStop() : scopeStart();
 
 /* 拖曳標題列搬視窗、拖曳右下角改大小。用 pointer 事件＋setPointerCapture，
    滑鼠移出視窗外也不會斷掉。 */
-function dragify(handle, onMove){
+function dragify(win, handle, onMove){
     handle.addEventListener('pointerdown', e => {
         if (e.button !== 0) return;
         /* ★ 標題列上有按鈕（CSV／PNG／關閉）。
@@ -3028,9 +3250,9 @@ function dragify(handle, onMove){
         e.preventDefault();
         handle.setPointerCapture(e.pointerId);
         const start = { x:e.clientX, y:e.clientY,
-                        l:parseFloat(waveWin.style.left)||waveWin.offsetLeft,
-                        t:parseFloat(waveWin.style.top)||waveWin.offsetTop,
-                        w:waveWin.offsetWidth, h:waveWin.offsetHeight };
+                        l:parseFloat(win.style.left)||win.offsetLeft,
+                        t:parseFloat(win.style.top)||win.offsetTop,
+                        w:win.offsetWidth, h:win.offsetHeight };
         const move = ev => onMove(start, ev.clientX-start.x, ev.clientY-start.y);
         const up = () => {
             handle.removeEventListener('pointermove', move);
@@ -3041,14 +3263,20 @@ function dragify(handle, onMove){
         handle.addEventListener('pointerup', up);
     });
 }
-dragify($('waveHead'), (s0,dx,dy) => {
+dragify(waveWin, $('waveHead'), (s0,dx,dy) => {
     waveWin.style.left = (s0.l+dx) + 'px'; waveWin.style.top = (s0.t+dy) + 'px';
 });
-dragify($('waveGrip'), (s0,dx,dy) => {
+dragify(waveWin, $('waveGrip'), (s0,dx,dy) => {
     waveWin.style.width  = Math.max(380, s0.w+dx) + 'px';
     waveWin.style.height = Math.max(260, s0.h+dy) + 'px';
     drawPlot();
 });
+dragify($('dmmWin'), $('dmmHead'), (s0,dx,dy) => {
+    const w = $('dmmWin');
+    w.style.left = Math.max(0, Math.min(s0.l+dx, innerWidth-120)) + 'px';
+    w.style.top  = Math.max(0, Math.min(s0.t+dy, innerHeight-60)) + 'px';
+});
+
 (function restoreWave(){
     let o = null;
     try { o = JSON.parse(localStorage.getItem(WAVE_KEY) || 'null'); } catch(e){}
@@ -3147,6 +3375,7 @@ if (q){
     if (!restored) loadExample('RC 低通（步階）');
 }
 applyMode();          // 不論走哪條路都要把模式說明填上、netlist 重算一次
+dmmRender();
 drawPlot();
 </script>
 </body>
