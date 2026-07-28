@@ -52,6 +52,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .hbar .btn small{opacity:.55;font-weight:700;margin-left:3px}
 .hbar .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:13px}
 .tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
+.hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
 .spacer{flex:1}
 .chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
       background:var(--accent-soft);color:var(--accent);white-space:nowrap}
@@ -114,6 +115,10 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 #waveBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:8px 10px}
 /* height:0 + flex 讓 canvas 跟著視窗長高，而不是被自身內容撐著 */
 #plot{flex:1 1 0;height:0;min-height:200px;width:100%;display:block}
+/* ★ flex 直向排列時，子項預設 flex-shrink:1——空間不夠就會被壓到比內容還矮，
+   內容溢出去疊在下一個元素上（實測讀值列被壓成 18px 但內容有 75px，
+   整段字直接蓋在量測表上）。除了要伸縮的波形本身，其餘一律 flex:none。 */
+#waveBody > *:not(#plot){flex:none}
 #waveGrip{position:absolute;right:0;bottom:0;width:20px;height:20px;z-index:2;cursor:nwse-resize;
           background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
                      var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
@@ -139,7 +144,8 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .lead{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;
       vertical-align:-1px}
 .lead.red{background:#c0392b}
-.lead.black{background:#333;box-shadow:inset 0 0 0 1px var(--rule)}
+/* 黑棒在深色底上會整顆消失，所以外面加一圈對比色的環。 */
+.lead.black{background:#2b2b2b;box-shadow:0 0 0 1.5px var(--ink-3)}
 
 /* ---- 樣式：工具列彈出面板 ---- */
 .pop{position:fixed;z-index:70;width:320px;max-height:min(70vh,560px);overflow:auto;
@@ -327,10 +333,13 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
     <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
 
-    <div class="spacer"></div>
-    <span class="chip" id="whoami">載入中…</span>
-    <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
-    <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
+    <!-- 右側群組要包成一個，不然工具列換行時 spacer 失效，
+         這三顆會掉到第二行的最左邊，看起來像斷掉的。 -->
+    <div class="hbar-right">
+      <span class="chip" id="whoami">載入中…</span>
+      <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
+      <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
+    </div>
   </div>
 </header>
 
@@ -881,9 +890,23 @@ function buildNodes(){
     const gnd = new Set();
     sch.parts.forEach((p,i) => { if (p.type==='GND') pinsOf(p).forEach(([x,y]) => gnd.add(find(key(x,y)))); });
     const name = new Map(); let n = 1;
+    /* ★ 節點編號必須「一次全部決定」，不能等人來問才發號碼牌。
+
+       原本的寫法是懶惰命名：誰先被問到誰拿 N1。產生 netlist 時是照
+       sch.parts 的順序從頭問到尾，所以編號正確；但元件量測、解題卡、
+       三用電表都只問「自己那兩支腳」，於是那一支腳就被當成 N1——
+       實測電容明明接在 N2，量測面板卻去讀 v(n1)，跨壓顯示 1.00V
+       而不是 396mV。數字看起來很正常，只是完全是別的節點的值。
+
+       現在先照跟 netlist 完全相同的順序把所有節點命名完，nameOf 只負責查表。 */
+    const assign = k => { const r = find(k);
+        if (gnd.has(r) || name.has(r)) return;
+        name.set(r, 'N' + (n++)); };
+    sch.parts.forEach(p => { if (p.type === 'GND') return;
+        pinsOf(p).forEach(([x,y]) => assign(key(x,y))); });
     const nameOf = k => { const r = find(k);
         if (gnd.has(r)) return '0';
-        if (!name.has(r)) name.set(r, 'N' + (n++));
+        if (!name.has(r)) name.set(r, 'N' + (n++));   // 保底：線上的點不屬於任何元件
         return name.get(r); };
     return { nameOf, key, find, gnd };
 }
@@ -1136,7 +1159,8 @@ function addProbe(kind, a, b){
 function probeKeys(){
     return sch.probes.map(p => p.kind === 'v'
         ? { label:`V(${probeNodeName(p.x,p.y)})`, match:`v(${probeNodeName(p.x,p.y)})`.toLowerCase() }
-        : { label:`I(${p.ref})`, match:`${p.ref}#branch`.toLowerCase() });
+        : { label:`I(${p.ref})`, match:[`i(${p.ref})`.toLowerCase(),
+                                          `${p.ref}#branch`.toLowerCase()] });
 }
 function renderProbes(){
     const box = $('probeList');
@@ -1340,7 +1364,8 @@ function drawSheet(){
         const mark = (pt, col) => { if (!pt) return;
             const [mx,my] = W2S(pt.x, pt.y);
             g.fillStyle = col; g.beginPath(); g.arc(mx,my,4.5,0,7); g.fill();
-            g.strokeStyle = cvar('--paper'); g.lineWidth = 1.4; g.stroke(); };
+            /* 描邊用 --ink-3 而不是紙色：深色模式下紙色是暗的，黑棒會整顆消失。 */
+            g.strokeStyle = cvar('--ink-3'); g.lineWidth = 1.4; g.stroke(); };
         if (!isCurRange(dmm.range)){ mark(dmm.a, '#c0392b'); mark(dmm.b, '#333'); }
         else if (dmm.part >= 0 && sch.parts[dmm.part]){
             const q = sch.parts[dmm.part], [mx,my] = W2S(q.x, q.y);
@@ -2297,18 +2322,21 @@ function prepare(res){
     const logX = /freq/i.test(xd.name) || xd.type === 'frequency';
     /* 有插探針就只畫探針指定的那幾條。沒插就全部畫——
        不然第一次用的人按下執行會看到一張空圖。 */
-    const want = probeKeys().map(k => k.match);
+    const want = probeKeys().map(k => Array.isArray(k.match) ? k.match : [k.match]);
     const traces = [];
     res.data.forEach((d,i) => {
         if (i === (xi>=0?xi:0)) return;
-        if (want.length && !want.includes(d.name.toLowerCase().replace(/\s/g,''))) return;
+        if (want.length && !want.some(w => w.includes(d.name.toLowerCase().replace(/\s/g,'')))) return;
         if (isC){
             /* 交流分析的結果是複數。以前只留振幅、把相位整個丟掉，但相量問題
                （第 9、10 章）要的就是角度，波德圖也少了下半張。現在兩個都留，
                用 pane 標記分成上下兩格畫。 */
-            traces.push({name:`dB(${d.name})`, unit:'dB', on:true, pane:0,
+            /* 電流的 dB 值跟電壓差好幾十 dB（實測 −60 對 0），擠在同一格的話
+               自動縮放會把電壓曲線壓成一條直線。電流預設關掉，需要再從圖例打開。 */
+            const isCur = d.type === 'current' || /^i\(/i.test(d.name);
+            traces.push({name:`dB(${d.name})`, unit:'dB', on:!isCur, pane:0,
                 y:d.values.map(v => 20*Math.log10(Math.hypot(v.real,v.img)||1e-30))});
-            traces.push({name:`∠${d.name}`, unit:'°', on:true, pane:1,
+            traces.push({name:`∠${d.name}`, unit:'°', on:!isCur, pane:1,
                 y:unwrapPhase(d.values.map(v => Math.atan2(v.img, v.real) * 180/Math.PI)),
                 mag:d.values.map(v => Math.hypot(v.real,v.img))});
         }
@@ -2350,6 +2378,16 @@ function indexResult(res){
     const by = new Map();
     res.data.forEach((d,i) => { if (i !== (xi>=0?xi:0)) by.set(d.name.toLowerCase().replace(/\s/g,''), val(d)); });
     return { x: isC ? xd.values.map(v=>v.real) : xd.values.slice(), by, isC, xname: xd.name };
+}
+/** 取某個電壓源的支路電流。
+    ★ 這裡踩過坑：SPICE 文件寫的是 `V1#branch`，但這個 WASM 版實際回傳的名稱是
+    `i(v1)`。只認 #branch 的話，電壓源的電流永遠是「—」——解題卡、三用電表的
+    電流檔、電流探針、功率守恆檢查會一起失效，而且畫面上完全看不出原因。
+    兩種寫法都試，以後換引擎版本也不會再中一次。 */
+function branchSeries(ref){
+    if (!simData || !ref) return null;
+    const r = ref.toLowerCase();
+    return simData.by.get(`i(${r})`) || simData.by.get(`${r}#branch`) || null;
 }
 /** 取某個節點的電壓數列。ngspice 有時叫 V(n2)、有時直接叫 n2，兩種都試。 */
 function nodeSeries(name){
@@ -2398,11 +2436,11 @@ function partSeries(p){
     const dv = a.map((v,i) => v - b[i]);
     let cur = null, note = null;
     if (p.type === 'V'){
-        cur = simData.by.get(`${(p.ref||'').toLowerCase()}#branch`) || null;
+        cur = branchSeries(p.ref);
         if (cur) note = CURRENT_NOTE.V;
     } else if (p.type === 'M'){
         // 電流檔在 netlist 裡是 V_M1，支路電流引擎會直接給
-        cur = p.val === 'A' ? (simData.by.get(`v_${(p.ref||'').toLowerCase()}#branch`) || null) : null;
+        cur = p.val === 'A' ? branchSeries(`V_${p.ref}`) : null;
         if (cur) note = 'ngspice 直接給的支路電流（電流表就是一個 0V 電壓源）';
     } else if (p.type === 'SW'){
         const r = SW_R[realMode ? 'real' : 'ideal'][p.val === 'off' ? 'off' : 'on'];
@@ -2675,7 +2713,9 @@ function readoutAt(k){
             const nm = t.name.replace(/^∠/,'');
             const db = on.find(u => u.name === `dB(${nm})`);
             const ang = ((t.y[k] % 360) + 540) % 360 - 180;      // 讀值收回 ±180°
-            const amp = t.mag ? `${eng(t.mag[k])}` : (db ? `${eng(db.y[k])}dB` : '');
+            // 電流曲線的名稱是 i(v1) 這種形式，單位要跟著換，不能一律標 V
+            const u = /^i\(/i.test(nm) ? 'A' : 'V';
+            const amp = t.mag ? `${eng(t.mag[k])}${u}` : (db ? `${eng(db.y[k])}dB` : '');
             return `${nm} = ${amp} ∠ ${ang.toFixed(1)}°` +
                    (db ? `　(${db.y[k].toFixed(2)} dB)` : '');
         }).join('\n');
