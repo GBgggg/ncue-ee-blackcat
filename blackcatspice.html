@@ -132,6 +132,13 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
                         border-bottom:1px solid var(--rule)}
 .cmp-tbl th{color:var(--ink-3);font-weight:600}
 .cmp-tbl td:first-child,.cmp-tbl th:first-child{text-align:left;color:var(--ink-2);font-weight:700}
+#ansBox h4{font-size:12px;margin:12px 0 5px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
+#ansBox h4:first-child{margin-top:0}
+.ans-tbl{border-collapse:collapse;width:100%;font:12px ui-monospace,Menlo,Consolas,monospace}
+.ans-tbl th,.ans-tbl td{padding:4px 7px;border-bottom:1px solid var(--rule);vertical-align:top}
+.ans-tbl th{color:var(--ink-3);font-weight:600;text-align:left;white-space:nowrap}
+.ans-tbl td.n{text-align:right;white-space:nowrap;font-weight:700}
+.ans-why{color:var(--ink-3);font-size:11px;line-height:1.55}
 
 /* ---- 樣式：手機擋門 ---- */
 #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
@@ -290,6 +297,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
     <button class="btn pop-btn" id="btnProbes" aria-haspopup="true">探針清單 ▾</button>
+    <button class="btn pop-btn" id="btnAns" aria-haspopup="true">解題卡 ▾</button>
     <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
     <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
     <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
@@ -383,6 +391,11 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="probeList" class="legend"></div>
   <p class="sub">切到探針模式後，點導線或接腳量電壓、點電壓源量電流；
     沒插任何探針時波形圖會顯示全部節點。</p>
+</div>
+
+<div class="pop wide" id="popAns" hidden>
+  <h3>解題卡</h3>
+  <div id="ansBox"></div>
 </div>
 
 <div class="pop wide" id="popNet" hidden>
@@ -534,6 +547,32 @@ const TYPES = {
       draw(g){ ln(g,-20,-10,-12,-10); ln(g,-20,10,-12,10);
         g.beginPath(); g.moveTo(-12,-18); g.lineTo(-12,18); g.lineTo(14,0); g.closePath(); g.stroke();
         ln(g,14,0,20,0); ln(g,-9,-10,-5,-10); ln(g,-7,-12,-7,-8); ln(g,-9,10,-5,10); } },
+  /* ---- 相依電源（受控源）----
+     電路學第 3、4、19 章的地基。SPICE 有四種，差別只在「被什麼控制、輸出什麼」：
+
+       E 壓控電壓源 VCVS：輸出電壓 = 增益 × 控制端電壓      增益無單位
+       G 壓控電流源 VCCS：輸出電流 = 轉導 × 控制端電壓      單位西門子 S
+       H 流控電壓源 CCVS：輸出電壓 = 轉阻 × 某個電壓源的電流  單位歐姆 Ω
+       F 流控電流源 CCCS：輸出電流 = 增益 × 某個電壓源的電流  增益無單位
+
+     壓控的兩種有四支腳：輸出兩支在上下（可以直接串進電路），
+     控制兩支往左邊伸出去，只感測電壓、不吃電流。
+     流控的兩種只有兩支腳，因為 SPICE 規定控制量是「流過某個電壓源的電流」，
+     所以要在屬性面板指定是哪一個電壓源——這一點是 SPICE 的限制，不是我們的選擇。
+     想量某條支路的電流，標準作法就是在那裡串一個 0V 的電壓源當電流計。 */
+  EE:{ label:'壓控電壓源', pre:'E', pins:[[0,-20],[0,20],[-30,-10],[-30,10]],
+      val:'2', unitName:'增益（無單位）',
+      draw(g){ dep(g); ctrlLeads(g); } },
+  G:{ label:'壓控電流源', pre:'G', pins:[[0,-20],[0,20],[-30,-10],[-30,10]],
+      val:'1m', unitName:'轉導 S',
+      draw(g){ dep(g,true); ctrlLeads(g); } },
+  H:{ label:'流控電壓源', pre:'H', pins:[[0,-20],[0,20]],
+      val:'100', unitName:'轉阻 Ω', ctrl:'V1',
+      draw(g){ dep(g); } },
+  F:{ label:'流控電流源', pre:'F', pins:[[0,-20],[0,20]],
+      val:'2', unitName:'電流增益（無單位）', ctrl:'V1',
+      draw(g){ dep(g,true); } },
+
   /* 手動開關（單刀單擲）。SPICE 的 S 元件是電壓控制開關、要四個接點又要模型，
      對「按一下讓它通或不通」這件事來說太繞。這裡直接在產生 netlist 時
      換成一顆電阻：閉合是很小的導通電阻，斷開是很大的電阻。
@@ -552,6 +591,21 @@ const TYPES = {
       draw(g){ ln(g,0,0,0,8); ln(g,-9,8,9,8); ln(g,-5,12,5,12); ln(g,-2,16,2,16); } }
 };
 function ln(g,a,b,c,d){ g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke(); }
+/* 受控源用菱形，跟獨立電源的圓形分開——課本就是這樣畫的，
+   一眼就能看出「這顆是被別人控制的」。 */
+function dep(g, isCurrent){
+    ln(g,0,-20,0,-12); ln(g,0,12,0,20);
+    g.beginPath(); g.moveTo(0,-12); g.lineTo(11,0); g.lineTo(0,12); g.lineTo(-11,0);
+    g.closePath(); g.stroke();
+    if (isCurrent){ ln(g,0,6,0,-6); ln(g,-3,-2,0,-6); ln(g,3,-2,0,-6); }
+    else { ln(g,-4,-5,4,-5); ln(g,0,-9,0,-1); ln(g,-4,5,4,5); }
+}
+/* 控制端：只感測電壓，不吃電流，所以畫成沒有接到菱形的兩條短線。 */
+function ctrlLeads(g){
+    ln(g,-30,-10,-17,-10); ln(g,-30,10,-17,10);
+    ln(g,-15,-12,-15,-8); ln(g,-17,-10,-13,-10);   // ＋
+    ln(g,-17,10,-13,10);                            // －
+}
 function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
 
 /* ==========================================================
@@ -812,6 +866,22 @@ function toNetlist(){
         if (T.model){
             const std = MODELS[realMode?'real':'ideal'][p.type];
             models.add(std && /^(DMOD|QMOD)$/i.test(String(p.val).trim()) ? std : T.model);
+        }
+        if (p.type === 'EE' || p.type === 'G'){
+            // 壓控：Xname 輸出+ 輸出- 控制+ 控制- 增益
+            lines.push(`${ref} ${ns[0]} ${ns[1]} ${ns[2]} ${ns[3]} ${p.val}`);
+            continue;
+        }
+        if (p.type === 'H' || p.type === 'F'){
+            /* 流控：SPICE 規定控制量是「流過某個電壓源的電流」，
+               所以這裡要引用一個 V 元件的名稱，而不是接兩支腳。 */
+            const c = (p.ctrl || '').trim();
+            if (!c) warn.push(`${ref} 還沒指定控制用的電壓源。`);
+            else if (!sch.parts.some(q => q.type === 'V' && (q.ref||'') === c))
+                warn.push(`${ref} 指定的控制源「${c}」在電路裡找不到。` +
+                          `想量某條支路的電流，可以在那裡串一個 DC 0 的電壓源當電流計。`);
+            lines.push(`${ref} ${ns[0]} ${ns[1]} ${c || 'V?'} ${p.val}`);
+            continue;
         }
         if (p.type === 'SW'){
             /* 名稱前綴用 R，因為 SPICE 看到 S 開頭會當成電壓控制開關而要求四個接點。
@@ -1510,6 +1580,10 @@ function addPart(type, x, y, rot){
     pushUndo();
     const T = TYPES[type];
     const p = { type, x, y, rot, ref: type==='GND' ? '' : T.pre + (seq++), val: T.val };
+    /* 流控電源預設指到電路裡第一個電壓源，省得放下去就先跳一個警告。
+       電路裡還沒有電壓源就留空，netlist 會提醒。 */
+    if (T.ctrl !== undefined)
+        p.ctrl = (sch.parts.find(q => q.type === 'V' && q.ref) || {}).ref || '';
     sch.parts.push(p); sel = [{kind:'part', i:sch.parts.length-1}];
     setMode('sel'); inspect(); refreshNet(); drawSheet();
 }
@@ -1627,6 +1701,13 @@ document.querySelectorAll('.pi').forEach(el =>
 /* ==========================================================
    常駐屬性面板：點元件直接改，不跳彈窗
    ========================================================== */
+const DEP_HINT = {
+  EE:'輸出電壓 = 增益 × 控制端兩點的電壓差。控制端不吃電流（輸入阻抗無限大）。',
+  G:'輸出電流 = 轉導 × 控制端兩點的電壓差。電流方向由上往下流出。',
+  H:'輸出電壓 = 轉阻 × 流過控制源的電流。',
+  F:'輸出電流 = 增益 × 流過控制源的電流。想量某條支路的電流，' +
+    '可以在那裡串一個 DC 0 的電壓源當電流計，再指定它。'
+};
 const VAL_HINT = {
   R:'例：1k、4.7k、100', C:'例：1u、100n、10p', L:'例：10m、1u',
   V:'例：DC 5、SIN(0 1 1k)、PULSE(0 1 0 1n 1n 1m 2m)、AC 1',
@@ -1654,6 +1735,34 @@ function inspect(){
         $('ip_del').onclick = del; return;
     }
     const p = sch.parts[one.i], T = TYPES[p.type];
+    if (/^(EE|G|H|F)$/.test(p.type)){
+        const isCC = p.type === 'H' || p.type === 'F';
+        const vs = sch.parts.filter(q => q.type === 'V' && q.ref);
+        box.innerHTML = `
+          <div class="field"><label for="ip_ref">名稱</label>
+            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+          ${isCC ? `<div class="field"><label for="ip_ctrl">控制源</label>
+            <select id="ip_ctrl">${
+              vs.length ? vs.map(q => `<option value="${q.ref}"${q.ref===p.ctrl?' selected':''}>${q.ref}</option>`).join('')
+                        : '<option value="">（電路裡沒有電壓源）</option>'}</select></div>` : ''}
+          <div class="field"><label for="ip_val">${T.unitName}</label>
+            <input id="ip_val" class="mono" value="${p.val}"></div>
+          <p class="sub">${DEP_HINT[p.type]}</p>
+          <div class="palette" style="margin-top:8px">
+            <button class="btn" id="ip_rot">旋轉</button>
+            <button class="btn" id="ip_del">刪除</button>
+          </div>
+          <div id="cmpMeas"></div>
+          <p class="sub">型別：${T.label}（${p.type === 'EE' ? 'E' : p.type}）</p>`;
+        let typed = false;
+        const once = () => { if (!typed){ pushUndo(); typed = true; } };
+        $('ip_ref').oninput = e => { once(); p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
+        $('ip_val').oninput = e => { once(); p.val = e.target.value; refreshNet(); drawSheet(); };
+        if (isCC) $('ip_ctrl').onchange = e => { pushUndo(); p.ctrl = e.target.value; refreshNet(); drawSheet(); };
+        $('ip_rot').onclick = rotate; $('ip_del').onclick = del;
+        renderCmpMeas(p);
+        return;
+    }
     if (p.type === 'SW'){
         const open = p.val === 'off';
         box.innerHTML = `
@@ -2010,10 +2119,22 @@ function prepare(res){
     res.data.forEach((d,i) => {
         if (i === (xi>=0?xi:0)) return;
         if (want.length && !want.includes(d.name.toLowerCase().replace(/\s/g,''))) return;
-        if (isC) traces.push({name:`dB(${d.name})`, unit:'dB', on:true,
-            y:d.values.map(v => 20*Math.log10(Math.hypot(v.real,v.img)||1e-30))});
-        else traces.push({name:d.name, unit:d.type==='current'?'A':'V', on:true, y:d.values.slice()});
+        if (isC){
+            /* 交流分析的結果是複數。以前只留振幅、把相位整個丟掉，但相量問題
+               （第 9、10 章）要的就是角度，波德圖也少了下半張。現在兩個都留，
+               用 pane 標記分成上下兩格畫。 */
+            traces.push({name:`dB(${d.name})`, unit:'dB', on:true, pane:0,
+                y:d.values.map(v => 20*Math.log10(Math.hypot(v.real,v.img)||1e-30))});
+            traces.push({name:`∠${d.name}`, unit:'°', on:true, pane:1,
+                y:unwrapPhase(d.values.map(v => Math.atan2(v.img, v.real) * 180/Math.PI)),
+                mag:d.values.map(v => Math.hypot(v.real,v.img))});
+        }
+        else traces.push({name:d.name, unit:d.type==='current'?'A':'V', on:true, pane:0,
+                          y:d.values.slice()});
     });
+    // 振幅與相位是同一個節點的兩面，配同一個顏色才看得出配對
+    let n = 0;
+    traces.forEach(t => { t.ci = t.pane === 1 ? Math.max(0, n-1) : n++; });
     if (want.length && !traces.length) show('warn','探針指定的節點在結果裡找不到',
         ['電路可能改過了，節點編號跟著變。移除探針重插一次。']);
     return {x, logX, xname:xd.name, traces};
@@ -2107,10 +2228,24 @@ function partSeries(p){
     return { nodes: ns, dv, cur, note, ac: simData.isC };
 }
 
+/* atan2 回傳的角度會在 ±180° 之間跳。二階以上的系統相位會掃過 180°，
+   不解繞的話波德圖下半張會出現一條垂直的假線，看起來像電路壞了。
+   相鄰兩點差超過 180° 就補一圈回去。 */
+function unwrapPhase(deg){
+    const out = deg.slice();
+    let off = 0;
+    for (let i=1;i<out.length;i++){
+        const d = deg[i] - deg[i-1];
+        if (d > 180) off -= 360; else if (d < -180) off += 360;
+        out[i] = deg[i] + off;
+    }
+    return out;
+}
 const COLORS = ['--t1','--t2','--t3','--t4','--t5','--t6'];
 function buildLegend(){
+    /* 振幅和相位是同一個節點的兩面，配同一個顏色才看得出配對。 */
     $('legend').innerHTML = plotData.traces.map((t,i) =>
-        `<span class="lg" data-i="${i}"><i style="background:${cvar(COLORS[i%6])}"></i>${t.name}</span>`).join('');
+        `<span class="lg" data-i="${i}"><i style="background:${cvar(COLORS[t.ci%6])}"></i>${t.name}</span>`).join('');
     $('legend').querySelectorAll('.lg').forEach(el => el.onclick = () => {
         const i = +el.dataset.i; plotData.traces[i].on = !plotData.traces[i].on;
         el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); renderMeas(); });
@@ -2260,54 +2395,107 @@ function drawPlot(){
     const p = c.getContext('2d'); p.setTransform(dpr,0,0,dpr,0,0); p.clearRect(0,0,W,H);
     if (!plotData) { p.fillStyle = cvar('--ink-3'); p.font = '13px system-ui'; p.textAlign='center';
         p.fillText('按「執行模擬」後這裡會出現波形', W/2, H/2); return; }
-    const on = plotData.traces.filter(t=>t.on), xs = plotData.x;
+    const xs = plotData.x;
     const lx = plotData.logX && xs.every(v=>v>0);
     let x0 = lx?Math.log10(xs[0]):xs[0], x1 = lx?Math.log10(xs[xs.length-1]):xs[xs.length-1];
     // 示波器模式：只顯示掃描視窗這一段。垂直範圍仍然用整段紀錄算（見上面說明）。
     if (scope.on && !lx && scope.span > 0){ x0 = scope.t0; x1 = scope.t0 + scope.span; }
-    let lo=Infinity, hi=-Infinity;
-    for (const t of on) for (const v of t.y){ if(v<lo)lo=v; if(v>hi)hi=v; }
-    if (!isFinite(lo)){ lo=0; hi=1; } if (lo===hi){ lo-=1; hi+=1; }
-    const pd=(hi-lo)*0.08; lo-=pd; hi+=pd;
     const PX = v => PAD.l + (W-PAD.l-PAD.r)*((lx?Math.log10(v):v)-x0)/((x1-x0)||1);
-    const PY = v => H-PAD.b - (H-PAD.t-PAD.b)*(v-lo)/((hi-lo)||1);
+
+    /* 交流分析會有「相位」這一組曲線，要另外開一格畫。
+       硬塞在同一格是不行的：dB 和度數的數量級差太多，一起自動縮放的話
+       其中一條一定會被壓成一條直線。上下分格才是波德圖該有的樣子。 */
+    const shown = plotData.traces.filter(t => t.on);
+    const hasPhase = shown.some(t => t.pane === 1);
+    const top = PAD.t, bottom = H - PAD.b, gap = hasPhase ? 26 : 0;
+    const h0 = hasPhase ? (bottom - top - gap) * 0.58 : (bottom - top);
+    const panes = hasPhase
+        ? [{ pane:0, y:top, h:h0 }, { pane:1, y:top + h0 + gap, h:bottom - top - gap - h0 }]
+        : [{ pane:0, y:top, h:h0 }];
+
     const rule = cvar('--rule'), ink3 = cvar('--ink-3');
-    p.strokeStyle = rule; p.fillStyle = ink3; p.lineWidth = 1; p.font = '11px ui-monospace,Menlo,monospace';
-    for (const v of niceTicks(lo,hi,5)){ const y = PY(v);
-        p.beginPath(); p.moveTo(PAD.l,y); p.lineTo(W-PAD.r,y); p.stroke();
-        p.textAlign='right'; p.fillText(eng(v), PAD.l-6, y+4); }
+    p.font = '11px ui-monospace,Menlo,Consolas,monospace';
     const xt = lx ? (()=>{const o=[];for(let e=Math.ceil(x0);e<=Math.floor(x1);e++)o.push(10**e);return o;})()
                   : niceTicks(xs[0], xs[xs.length-1], 6);
-    p.textAlign='center';
+
+    for (const pane of panes){
+        const ts = shown.filter(t => (t.pane||0) === pane.pane);
+        let lo=Infinity, hi=-Infinity;
+        for (const t of ts) for (const v of t.y){ if(v<lo)lo=v; if(v>hi)hi=v; }
+        if (!isFinite(lo)){ lo=0; hi=1; } if (lo===hi){ lo-=1; hi+=1; }
+        const pd=(hi-lo)*0.08; lo-=pd; hi+=pd;
+        const PY = v => pane.y + pane.h - pane.h*(v-lo)/((hi-lo)||1);
+        pane.PY = PY; pane.lo = lo; pane.hi = hi;
+
+        p.strokeStyle = rule; p.fillStyle = ink3; p.lineWidth = 1;
+        for (const v of niceTicks(lo,hi,pane.h < 120 ? 3 : 5)){
+            const y = PY(v); if (y < pane.y-1 || y > pane.y+pane.h+1) continue;
+            p.beginPath(); p.moveTo(PAD.l,y); p.lineTo(W-PAD.r,y); p.stroke();
+            p.textAlign='right'; p.fillText(eng(v), PAD.l-6, y+4);
+        }
+        for (const v of xt){ const x = PX(v); if (x<PAD.l-1||x>W-PAD.r+1) continue;
+            p.beginPath(); p.moveTo(x,pane.y); p.lineTo(x,pane.y+pane.h); p.stroke(); }
+
+        /* 一定要裁切。掃描時視窗外的點會被算到繪圖區以外，沒裁的話線條會蓋掉
+           座標軸文字，整張圖看起來像壞掉。分成兩格之後更重要——不裁的話
+           上面那格的線會畫進下面那格。 */
+        p.save();
+        p.beginPath(); p.rect(PAD.l, pane.y, W-PAD.l-PAD.r, pane.h); p.clip();
+        for (const t of ts){
+            p.strokeStyle = cvar(COLORS[t.ci%6]); p.lineWidth = 1.8; p.beginPath();
+            for (let k=0;k<xs.length;k++){ const a=PX(xs[k]), b=PY(t.y[k]); k?p.lineTo(a,b):p.moveTo(a,b); }
+            p.stroke();
+        }
+        p.restore();
+
+        if (hasPhase){
+            p.fillStyle = ink3; p.textAlign='left';
+            p.fillText(pane.pane === 0 ? '振幅 dB' : '相位 °', PAD.l+4, pane.y+11);
+        }
+    }
+
+    p.strokeStyle = rule; p.fillStyle = ink3; p.textAlign='center';
     for (const v of xt){ const x = PX(v); if (x<PAD.l-1||x>W-PAD.r+1) continue;
-        p.beginPath(); p.moveTo(x,PAD.t); p.lineTo(x,H-PAD.b); p.stroke();
         p.fillText(eng(v), x, H-PAD.b+15); }
     p.textAlign='left'; p.fillText(plotData.xname + (lx?' (log)':''), PAD.l, H-5);
-    /* 一定要裁切。掃描時視窗外的點會被算到繪圖區以外，沒裁的話線條會蓋掉
-       座標軸文字，整張圖看起來像壞掉。 */
-    p.save();
-    p.beginPath(); p.rect(PAD.l, PAD.t, W-PAD.l-PAD.r, H-PAD.t-PAD.b); p.clip();
-    plotData.traces.forEach((t,i) => { if(!t.on) return;
-        p.strokeStyle = cvar(COLORS[i%6]); p.lineWidth = 1.8; p.beginPath();
-        for (let k=0;k<xs.length;k++){ const a=PX(xs[k]), b=PY(t.y[k]); k?p.lineTo(a,b):p.moveTo(a,b); }
-        p.stroke(); });
-    p.restore();
+
     cursorIdx = null;
     if (hoverX != null){
         let best=-1, bd=1e9;
         for (let k=0;k<xs.length;k++){ const d=Math.abs(PX(xs[k])-hoverX); if(d<bd){bd=d;best=k;} }
         cursorIdx = (bd < 40 && best >= 0) ? best : null;
-        if (bd < 40 && best >= 0){ const px = PX(xs[best]);
+        if (cursorIdx != null){ const px = PX(xs[best]);
             p.strokeStyle = ink3; p.setLineDash([3,3]);
             p.beginPath(); p.moveTo(px,PAD.t); p.lineTo(px,H-PAD.b); p.stroke(); p.setLineDash([]);
-            plotData.traces.forEach((t,i)=>{ if(!t.on) return; p.fillStyle = cvar(COLORS[i%6]);
-                p.beginPath(); p.arc(px,PY(t.y[best]),3.2,0,7); p.fill(); });
-            $('readout').textContent = `${plotData.xname} = ${eng(xs[best])}\n` +
-                plotData.traces.filter(t=>t.on).map(t=>`${t.name} = ${eng(t.y[best])}${t.unit}`).join('\n');
+            for (const pane of panes) for (const t of shown.filter(t=>(t.pane||0)===pane.pane)){
+                p.fillStyle = cvar(COLORS[t.ci%6]);
+                p.beginPath(); p.arc(px,pane.PY(t.y[best]),3.2,0,7); p.fill();
+            }
+            $('readout').textContent = readoutAt(best);
         }
     }
     updateCmpNow();
 }
+/* 游標讀值。交流分析特別寫成「振幅 ∠ 相角」的相量形式——
+   第 9、10 章的答案就是長這樣，看到什麼就能直接對答案，不必自己換算。 */
+function readoutAt(k){
+    const xs = plotData.x;
+    const head = `${plotData.xname} = ${eng(xs[k])}\n`;
+    const on = plotData.traces.filter(t => t.on);
+    const phase = on.filter(t => t.pane === 1);
+    if (phase.length){
+        return head + phase.map(t => {
+            const nm = t.name.replace(/^∠/,'');
+            const db = on.find(u => u.name === `dB(${nm})`);
+            const ang = ((t.y[k] % 360) + 540) % 360 - 180;      // 讀值收回 ±180°
+            const amp = t.mag ? `${eng(t.mag[k])}` : (db ? `${eng(db.y[k])}dB` : '');
+            return `${nm} = ${amp} ∠ ${ang.toFixed(1)}°` +
+                   (db ? `　(${db.y[k].toFixed(2)} dB)` : '');
+        }).join('\n');
+    }
+    return head + on.map(t=>`${t.name} = ${eng(t.y[k])}${t.unit}`).join('\n');
+}
+
 /* ==========================================================
    自動量測
    學生看波形時真正想知道的是幾個數字：峰對峰、平均、RMS、頻率、上升時間。
@@ -2397,7 +2585,7 @@ const MEAS_COLS = [
 function renderMeas(){
     const wrap = $('measWrap');
     if (!plotData || !plotData.traces.length){ wrap.style.display = 'none'; return; }
-    // 交流分析的縱軸是 dB，峰對峰／RMS／上升時間都沒有物理意義，只留極值
+    // 交流分析的縱軸是 dB 或度，峰對峰／RMS／上升時間都沒有物理意義，只留極值
     const isAC = plotData.traces.some(t => t.unit === 'dB');
     const cols = isAC ? MEAS_COLS.slice(0,2) : MEAS_COLS;
     const rows = plotData.traces.map((t,i) => {
@@ -2407,12 +2595,105 @@ function renderMeas(){
             return `<td>${v == null ? '—' : eng(v) + (u === 'u' ? t.unit : u)}</td>`;
         }).join('');
         return `<tr${t.on ? '' : ' style="opacity:.45"'}>` +
-               `<td><i style="background:${cvar(COLORS[i%6])}"></i>${t.name}</td>${tds}</tr>`;
+               `<td><i style="background:${cvar(COLORS[t.ci%6])}"></i>${t.name}</td>${tds}</tr>`;
     }).join('');
     $('measTbl').innerHTML =
         `<thead><tr><th>訊號</th>${cols.map(c=>`<th>${c[0]}</th>`).join('')}</tr></thead>` +
         `<tbody>${rows}</tbody>`;
     wrap.style.display = '';
+}
+
+/* ==========================================================
+   解題卡
+
+   使用者要的不只是數字，是「這個數字怎麼來的」——看到公式和代進去的值，
+   才對得出自己手算是哪一步錯了。所以每一列都附一行推導，而且是把**實際的
+   數值代進去**，不是印一條乾淨的公式。
+
+   取值的時間點：時域取游標所在那一格（沒放游標就取最後一點，也就是穩態），
+   交流取游標所在的頻率，直流工作點只有一個點。畫面上會標出取的是哪一點，
+   不然「這個電壓是哪一刻的」會變成新的困惑。
+   ========================================================== */
+function ansIndex(){
+    if (!simData || !simData.x.length) return -1;
+    return cursorIdx != null ? Math.min(cursorIdx, simData.x.length-1) : simData.x.length-1;
+}
+/** 節點電壓一覽。SPICE 的答案本來就是以節點電壓為主，其他都是從它推出來的。 */
+function ansNodes(k){
+    const nd = buildNodes(), seen = new Map();
+    sch.parts.forEach(p => { if (p.type === 'GND') return;
+        pinsOf(p).forEach(([x,y]) => { const n = nd.nameOf(nd.key(x,y));
+            if (n !== '0' && !seen.has(n)) seen.set(n, nodeSeries(n)); }); });
+    const rows = [...seen.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, {numeric:true}))
+        .filter(([,v]) => v)
+        .map(([n,v]) => `<tr><td>V(${n})</td><td class="n">${eng(v[k])}${simData.isC?'':'V'}</td></tr>`)
+        .join('');
+    return rows ? `<h4>節點電壓</h4><table class="ans-tbl">
+        <tr><th>節點</th><th style="text-align:right">數值</th></tr>${rows}</table>
+        <p class="ans-why">接地是 0 V，其餘節點都是相對於它量的。SPICE 解的就是這組值，
+           下面每個元件的電壓電流都是從這裡推出來的。</p>` : '';
+}
+/** 每個元件的跨壓、電流、功率，附上用了哪條式子。 */
+function ansParts(k){
+    const rows = [];
+    for (const p of sch.parts){
+        const ser = partSeries(p);
+        if (!ser) continue;
+        const v = ser.dv[k], i = ser.cur ? ser.cur[k] : null;
+        const [a,b] = ser.nodes;
+        let why = `V = V(${a}) − V(${b})`;
+        if (i != null){
+            if (p.type === 'R')  why += `　　I = V/R = ${eng(v)}V ÷ ${p.val}Ω = ${eng(i)}A`;
+            else if (p.type === 'C') why += `　　I = C·dV/dt（電容電流由電壓的變化率決定，電壓不變就沒有電流）`;
+            else if (p.type === 'L') why += `　　I = (1/L)∫V dt（假設起始電流為 0）`;
+            else if (p.type === 'V') why += `　　I 由 ngspice 直接給（電壓源的支路電流）`;
+            else if (p.type === 'SW') why += `　　I = V/R，開關目前的等效電阻`;
+            why += `　　P = V·I = ${eng(v)} × ${eng(i)} = ${eng(v*i)}W`;
+        }
+        rows.push(`<tr><td>${p.ref || p.type}</td><td class="n">${eng(v)}${simData.isC?'':'V'}</td>` +
+                  `<td class="n">${i == null ? '—' : eng(i)+'A'}</td>` +
+                  `<td class="n">${i == null ? '—' : eng(v*i)+'W'}</td></tr>` +
+                  `<tr><td colspan="4" class="ans-why">${why}</td></tr>`);
+    }
+    return rows.length ? `<h4>各元件</h4><table class="ans-tbl">
+        <tr><th>元件</th><th style="text-align:right">跨壓</th>
+            <th style="text-align:right">電流</th><th style="text-align:right">功率</th></tr>
+        ${rows.join('')}</table>
+        <p class="ans-why">電流方向以元件第一支腳流向第二支腳為正；功率為正代表這個元件在
+           <b>吸收</b>功率，為負代表在<b>提供</b>功率。整個電路的功率總和應該是 0，
+           這是檢查答案最快的方法（第 1 章的功率守恆）。</p>` : '';
+}
+/** 功率守恆檢查：所有元件的功率加起來應該接近 0。 */
+function ansBalance(k){
+    let sum = 0, ok = true;
+    for (const p of sch.parts){
+        const ser = partSeries(p);
+        if (!ser || !ser.cur){ if (p.type !== 'GND') ok = false; continue; }
+        sum += ser.dv[k] * ser.cur[k];
+    }
+    if (!ok) return `<p class="ans-why">（電路裡有無法推算電流的元件，功率總和先不檢查。）</p>`;
+    return `<h4>功率守恆檢查</h4>
+        <p class="ans-why">Σ P = ${eng(sum)}W。理論上應該是 0——吸收的等於提供的。
+           不是 0 的話多半是數值誤差，除非差得很離譜。</p>`;
+}
+function renderAnswer(){
+    const box = $('ansBox');
+    if (!box) return;
+    if (!simData){
+        box.innerHTML = '<p class="sub">先按「執行模擬」，這裡就會列出這個電路的所有答案，' +
+                        '而且每個數字都會附上是怎麼算出來的。</p>';
+        return;
+    }
+    const k = ansIndex();
+    if (k < 0){ box.innerHTML = '<p class="sub">這次的結果沒有資料點。</p>'; return; }
+    const at = simData.x.length > 1
+        ? `<p class="sub">取樣點：${simData.xname} = <b>${eng(simData.x[k])}</b>` +
+          (cursorIdx != null ? '（游標所在）' : '（最後一點，也就是穩態）') +
+          '。把游標移到波形圖上可以換一個時間點。</p>'
+        : '<p class="sub">直流工作點（.op），只有一組值。</p>';
+    box.innerHTML = at + ansNodes(k) + ansParts(k) + ansBalance(k) +
+        '<p class="ans-why" style="margin-top:10px">這些是模擬算出來的數值，' +
+        '拿來對自己手算的結果。有證明題、推導題的部分模擬給不了，那要自己寫。</p>';
 }
 
 /* ---------- 匯出 ---------- */
@@ -2451,7 +2732,7 @@ $('pngBtn').onclick = () => {
     c.font = '12px system-ui,sans-serif'; c.textBaseline = 'middle';
     plotData.traces.forEach((t,i) => {
         if (!t.on) return;
-        c.fillStyle = cvar(COLORS[i%6]);
+        c.fillStyle = cvar(COLORS[t.ci%6]);
         c.fillRect(x, y-4, 9, 9); x += 13;
         c.fillStyle = cvar('--ink-2'); c.fillText(t.name, x, y);
         x += c.measureText(t.name).width + 14;
@@ -2489,8 +2770,8 @@ logoBtn.addEventListener('keydown', e => {
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 
 /* ---- 工具列彈出面板 ---- */
-const POPS = [['btnSim','popSim'], ['btnProbes','popProbes'], ['btnNet','popNet'],
-              ['btnMine','popMine'], ['btnKeys','popKeys']];
+const POPS = [['btnSim','popSim'], ['btnProbes','popProbes'], ['btnAns','popAns'],
+              ['btnNet','popNet'], ['btnMine','popMine'], ['btnKeys','popKeys']];
 let openPop = null;
 function closePop(){
     if (!openPop) return;
@@ -2505,6 +2786,7 @@ function togglePop(pair){
     const wasOpen = openPop && openPop[1] === pair[1];
     closePop();
     if (wasOpen) return;
+    if (pair[1] === 'popAns') renderAnswer();   // 每次打開都用最新的模擬結果重算
     const pop = $(pair[1]), btn = $(pair[0]);
     pop.hidden = false; btn.classList.add('on'); btn.setAttribute('aria-expanded','true');
     openPop = pair;
