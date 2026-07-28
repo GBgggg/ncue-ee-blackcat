@@ -556,7 +556,7 @@ function drawSheet(){
        兩種狀態的大小才一致，差別只在填滿與否。
        跟著縮放走但夾住上下限——完全固定的話縮小時會蓋住元件、放大時又太小。 */
     const clamp = (v,lo,hi) => Math.max(lo, Math.min(hi, v));
-    const PIN_R = clamp(8*view.z, 6, 12);
+    const PIN_R = clamp(5*view.z, 3.8, 7.5);
     const step = G*view.z;
     if (step > 5){
         g.fillStyle = rule;
