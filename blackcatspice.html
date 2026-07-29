@@ -3200,15 +3200,22 @@ function ansLoad(k){
         const iR = meas && meas.i != null ? meas.i : (vR != null && RLv ? vR / RLv : null);
         /* 符號一律照課本：戴維寧那一組下標 Th，負載那一組下標 L。
            不要自己發明（本來寫成 R_i、V_R），學生對照課本時會多一層轉換。 */
+        /* 電壓一定要標出「誰減誰」。浮接的負載（兩端都不接地）很容易出現負值，
+           那不是算錯，是參考方向剛好相反——但畫面上只寫「負載兩端的電壓 = −8V」
+           會讓人以為壞了。實測就踩到這個。 */
+        const NM = n => n === '0' ? '接地' : 'V(' + n + ')';
+        const dir = `${NM(na)} − ${NM(nb)}`;
         const rows = [
             ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—',
-             '戴維寧電壓＝把負載拿掉之後，這兩點的開路電壓'],
+             `戴維寧電壓＝把負載拿掉之後的開路電壓，方向是 ${dir}`],
             ['R<sub>Th</sub>', eng(R) + 'Ω',
              '戴維寧等效電阻，也就是內阻。把獨立電源歸零，從負載這兩點看進去'],
             ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val, `負載 ${p.ref} 本身的電阻`],
-            ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—', '負載兩端的電壓'],
-            ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—', '流過負載的電流'],
-            ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—', '負載消耗的功率'],
+            ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—', `負載兩端的電壓，方向是 ${dir}`],
+            ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—',
+             `流過負載的電流，從 ${p.ref} 的第一支腳流向第二支腳為正`],
+            ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—',
+             '負載消耗的功率（電壓與電流同號，所以一定是正的）'],
         ];
         body = `<table class="ans-tbl">
             <tr><th>量</th><th style="text-align:right">數值</th><th>是什麼</th></tr>
@@ -3217,6 +3224,12 @@ function ansLoad(k){
              .join('')}</table>`;
 
         const why = [];
+        /* 負號只代表參考方向，不是算錯。轉 180° 就全部翻正——講清楚，
+           不然學生會以為工具壞了，或是把負號抄進答案。 */
+        if (Vth != null && Vth < 0)
+            why.push(`<b>V<sub>Th</sub> 是負的，這不是算錯</b>：方向取 ${dir}，` +
+                     `而實際上 ${NM(nb)} 比 ${NM(na)} 高。把 ${p.ref} 轉 180° 就會全部變正號，` +
+                     `功率 P<sub>L</sub> 不受方向影響，永遠是正的。`);
         why.push(`等效電路：一個 <b>V<sub>Th</sub> = ${Vth != null ? eng(Vth) : '?'}V</b> 的電壓源，` +
                  `串一個 <b>R<sub>Th</sub> = ${eng(R)}Ω</b> 的內阻，接上 R<sub>L</sub> = ${p.val}Ω。` +
                  `原電路裡除了 ${p.ref} 以外的所有東西，對 ${p.ref} 來說就只是這兩樣。`);
