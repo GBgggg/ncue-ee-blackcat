@@ -712,6 +712,14 @@ let hotNode = null, hotColor = null;
 const DMM_UNIT = { DCV:'V', ACV:'V', DCA:'A', ACA:'A', OHM:'Ω' };
 const isCurRange = r => r === 'DCA' || r === 'ACA';
 
+/* 現實模式會插入隱藏節點（X1、X2…）和寄生元件（R_C1_esr、L_C1_esl…）。
+   那些是實作細節，不該出現在圖例和量測表裡——實測會冒出 v(x1)、i(l_c1_esl)，
+   學生完全不知道那是什麼。用「產生時就記下來」而不是事後猜名稱，
+   因為 R_S1（開關）和 V_M1（電流表）也長得像內部元件，但它們是使用者放的。 */
+let hiddenVectors = new Set();
+/* ★ 這個宣告必須放在狀態區：toNetlist() 會寫它，而 refreshNet() 在模組載入時
+   就會被 buildAna() → syncDirective() 呼叫到。第四次踩到同一條暫時性死區的規則了。 */
+
 let sch = { parts:[], wires:[] };
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
@@ -966,7 +974,9 @@ function toNetlist(opts){
     let hasGnd = sch.parts.some(p => p.type === 'GND');
     // 現實模式插進去的隱藏節點。用 X 開頭，不會跟 N 開頭的真實節點撞名。
     let hidden = 0;
-    const hid = () => 'X' + (++hidden);
+    const inner = new Set();                       // 這一次插入的隱藏節點與寄生元件
+    const hid = () => { const n = 'X' + (++hidden); inner.add(n.toLowerCase()); return n; };
+    const para = name => { inner.add(name.toLowerCase()); return name; };
     for (const p of sch.parts){
         const T = TYPES[p.type];
         if (p.type === 'GND') continue;
@@ -996,7 +1006,7 @@ function toNetlist(opts){
                 if (m.burden){
                     const x = hid();
                     lines.push(`V_${ref} ${ns[0]} ${x} DC 0`);
-                    lines.push(`R_${ref}_b ${x} ${ns[1]} ${m.burden}`);
+                    lines.push(`${para(`R_${ref}_b`)} ${x} ${ns[1]} ${m.burden}`);
                 } else {
                     lines.push(`V_${ref} ${ns[0]} ${ns[1]} DC 0`);
                 }
@@ -1035,8 +1045,8 @@ function toNetlist(opts){
                外面兩個接點維持原節點，所以波形和量測完全不受影響。 */
             const a = hid(), b = hid();
             lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
-            lines.push(`R_${ref}_esr ${a} ${b} ${REAL.C_ESR}`);
-            lines.push(`L_${ref}_esl ${b} ${ns[1]} ${REAL.C_ESL}`);
+            lines.push(`${para(`R_${ref}_esr`)} ${a} ${b} ${REAL.C_ESR}`);
+            lines.push(`${para(`L_${ref}_esl`)} ${b} ${ns[1]} ${REAL.C_ESL}`);
             continue;
         }
         if (realMode && p.type === 'L'){
@@ -1046,13 +1056,13 @@ function toNetlist(opts){
             const dcr = isFinite(h) ? Math.max(REAL.L_DCR_MIN, h * REAL.L_DCR_PER_H)
                                     : REAL.L_DCR_MIN;
             lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
-            lines.push(`R_${ref}_dcr ${a} ${ns[1]} ${dcr.toPrecision(3)}`);
+            lines.push(`${para(`R_${ref}_dcr`)} ${a} ${ns[1]} ${dcr.toPrecision(3)}`);
             continue;
         }
         if (realMode && p.type === 'V'){
             const a = hid();
             lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
-            lines.push(`R_${ref}_out ${a} ${ns[1]} ${srcR(p.val)}`);
+            lines.push(`${para(`R_${ref}_out`)} ${a} ${ns[1]} ${srcR(p.val)}`);
             continue;
         }
         if (realMode && p.type === 'E'){
@@ -1063,12 +1073,12 @@ function toNetlist(opts){
             const a = hid(), b = hid(), c = hid();
             const fp = REAL.OP_GBW / REAL.OP_A0;          // 10 Hz
             const Rp = 1e3, Cp = 1/(2*Math.PI*fp*Rp);
-            lines.push(`R_${ref}_in ${ns[0]} ${ns[1]} ${REAL.OP_RIN.toPrecision(3)}`);
+            lines.push(`${para(`R_${ref}_in`)} ${ns[0]} ${ns[1]} ${REAL.OP_RIN.toPrecision(3)}`);
             lines.push(`${ref} ${a} 0 ${ns[0]} ${ns[1]} ${REAL.OP_A0.toPrecision(3)}`);
-            lines.push(`R_${ref}_p ${a} ${b} ${Rp}`);
-            lines.push(`C_${ref}_p ${b} 0 ${Cp.toPrecision(4)}`);
-            lines.push(`E_${ref}_b ${c} 0 ${b} 0 1`);
-            lines.push(`R_${ref}_out ${c} ${ns[2]} ${REAL.OP_ROUT}`);
+            lines.push(`${para(`R_${ref}_p`)} ${a} ${b} ${Rp}`);
+            lines.push(`${para(`C_${ref}_p`)} ${b} 0 ${Cp.toPrecision(4)}`);
+            lines.push(`${para(`E_${ref}_b`)} ${c} 0 ${b} 0 1`);
+            lines.push(`${para(`R_${ref}_out`)} ${c} ${ns[2]} ${REAL.OP_ROUT}`);
             continue;
         }
         if (p.type === 'E')       lines.push(`${ref} ${ns[2]} 0 ${ns[0]} ${ns[1]} ${p.val}`);
@@ -1088,7 +1098,8 @@ function toNetlist(opts){
     lines.push('.end');
     if (!hasGnd) warn.push('電路裡沒有接地符號。SPICE 一定要有 0 節點，請放一個接地。');
     if (!sch.parts.some(p => p.type==='V' || p.type==='I')) warn.push('沒有任何電源，模擬不會有東西可看。');
-    return { text: lines.join('\n') + '\n', warn };
+    hiddenVectors = inner;
+    return { text: lines.join('\n') + '\n', warn, inner };
 }
 
 /* ==========================================================
@@ -2301,9 +2312,15 @@ function prepare(res){
     const xd = xi >= 0 ? res.data[xi] : null;
     const x = xd ? (isC ? xd.values.map(v=>v.real) : xd.values.slice()) : [0];
     const logX = !!xd && (/freq/i.test(xd.name) || xd.type === 'frequency');
+    /* 濾掉現實模式自己插進去的隱藏節點與寄生元件。名稱形如 v(x1)、i(l_c1_esl)。 */
+    const isInner = nm => {
+        const m = String(nm).match(/^[vi]\(([^)]+)\)$/i);
+        return !!m && hiddenVectors.has(m[1].toLowerCase());
+    };
     const traces = [];
     res.data.forEach((d,i) => {
         if (i === xi) return;
+        if (isInner(d.name)) return;
         if (isC){
             /* 交流分析的結果是複數。以前只留振幅、把相位整個丟掉，但相量問題
                （第 9、10 章）要的就是角度，波德圖也少了下半張。現在兩個都留，
@@ -2360,11 +2377,16 @@ function indexResult(res){
     const isC = res.dataType === 'complex';
     const xi = axisIndex(res);
     const val = d => isC ? d.values.map(v => Math.hypot(v.real, v.img)) : d.values.slice();
-    const by = new Map();
-    res.data.forEach((d,i) => { if (i !== xi) by.set(d.name.toLowerCase().replace(/\s/g,''), val(d)); });
-    if (xi < 0) return { x:[0], by, isC, xname:'工作點' };
+    const by = new Map(), ph = new Map();
+    res.data.forEach((d,i) => { if (i === xi) return;
+        const k = d.name.toLowerCase().replace(/\s/g,'');
+        by.set(k, val(d));
+        // 交流的答案是相量，相位不能丟——第 9、10 章要的就是角度
+        if (isC) ph.set(k, d.values.map(v => Math.atan2(v.img, v.real) * 180/Math.PI));
+    });
+    if (xi < 0) return { x:[0], by, ph, isC, xname:'工作點' };
     const xd = res.data[xi];
-    return { x: isC ? xd.values.map(v=>v.real) : xd.values.slice(), by, isC, xname: xd.name };
+    return { x: isC ? xd.values.map(v=>v.real) : xd.values.slice(), by, ph, isC, xname: xd.name };
 }
 /** 取某個電壓源的支路電流。
     ★ 這裡踩過坑：SPICE 文件寫的是 `V1#branch`，但這個 WASM 版實際回傳的名稱是
@@ -2375,6 +2397,20 @@ function branchSeries(ref){
     if (!simData || !ref) return null;
     const r = ref.toLowerCase();
     return simData.by.get(`i(${r})`) || simData.by.get(`${r}#branch`) || null;
+}
+/** 取某個節點的相位數列（只有交流分析才有）。 */
+function nodePhase(name){
+    if (!simData || !simData.isC || name === '0') return null;
+    const k = name.toLowerCase();
+    return simData.ph.get(`v(${k})`) || simData.ph.get(k) || null;
+}
+/** 把一個值格式化成畫面上要顯示的樣子。交流一律寫成相量。 */
+function fmtNodeV(name, k){
+    const v = nodeSeries(name); if (!v) return null;
+    if (!simData.isC) return eng(v[k]) + 'V';
+    const p = nodePhase(name);
+    const ang = p ? ((p[k] % 360) + 540) % 360 - 180 : 0;
+    return `${eng(v[k])}V ∠ ${ang.toFixed(1)}°`;
 }
 /** 取某個節點的電壓數列。ngspice 有時叫 V(n2)、有時直接叫 n2，兩種都試。 */
 function nodeSeries(name){
@@ -2888,9 +2924,12 @@ function ansNodes(k){
     sch.parts.forEach(p => { if (p.type === 'GND') return;
         pinsOf(p).forEach(([x,y]) => { const n = nd.nameOf(nd.key(x,y));
             if (n !== '0' && !seen.has(n)) seen.set(n, nodeSeries(n)); }); });
+    /* 找不到的節點以前是靜靜濾掉的——`.op` 少一個節點的 bug 就是這樣被藏住的。
+       現在照樣列出來並標明，缺了什麼一眼就看得到。 */
     const rows = [...seen.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, {numeric:true}))
-        .filter(([,v]) => v)
-        .map(([n,v]) => `<tr><td>V(${n})</td><td class="n">${eng(v[k])}${simData.isC?'':'V'}</td></tr>`)
+        .map(([n]) => { const t = fmtNodeV(n, k);
+            return `<tr><td>V(${n})</td><td class="n">${
+                t || '<span class="sub">這次結果裡沒有這個節點</span>'}</td></tr>`; })
         .join('');
     return rows ? `<h4>節點電壓</h4><table class="ans-tbl">
         <tr><th>節點</th><th style="text-align:right">數值</th></tr>${rows}</table>
