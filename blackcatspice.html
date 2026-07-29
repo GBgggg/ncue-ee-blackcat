@@ -975,6 +975,13 @@ function toNetlist(opts){
         if (p.type === 'GND') continue;
         const ref = p.ref || (T.pre + (used[T.pre] = (used[T.pre]||0)+1));
         const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+        /* 元件的每一支腳都落在同一個節點上＝它被一條線整個短路掉了。
+           SPICE 不會抱怨（那在數學上完全合法），模擬照跑、結果卻是錯的——
+           那顆元件等於不存在。實測「不小心拉一條線跨過電阻」就會這樣，
+           而畫面上沒有任何跡象。這跟浮空接腳同一類：看起來對，其實是錯的。 */
+        if (ns.length > 1 && ns.every(x => x === ns[0]))
+            warn.push(`${ref} 的接腳全部接在同一個節點（${ns[0]}）上，等於被一條線短路掉了。` +
+                      `模擬會照跑，但這顆元件不會有任何作用——檢查一下是不是多拉了一條線。`);
         // 模型只在使用者沒有自己指定名稱時才換掉
         if (T.model){
             const std = MODELS[realMode?'real':'ideal'][p.type];
@@ -2438,6 +2445,13 @@ function partSeries(p){
     if (p.type === 'V'){
         cur = branchSeries(p.ref);
         if (cur) note = CURRENT_NOTE.V;
+    } else if (p.type === 'L'){
+        /* ngspice 把電感電流當成 MNA 的原生未知數，會直接給 i(l1)。
+           拿現成的比自己積分準：積分要假設 i(0)=0，而且誤差會隨時間累積。
+           實測兩者在乾淨的電路上吻合到三位有效數字，但沒有理由不用精確的那個。 */
+        cur = branchSeries(p.ref);
+        if (cur) note = 'ngspice 直接給的支路電流（電感在 SPICE 裡本來就有電流未知數）';
+        else { cur = deriveCurrent('L', p.val, dv, simData.x); if (cur) note = CURRENT_NOTE.L; }
     } else if (p.type === 'M'){
         // 電流檔在 netlist 裡是 V_M1，支路電流引擎會直接給
         cur = p.val === 'A' ? branchSeries(`V_${p.ref}`) : null;
