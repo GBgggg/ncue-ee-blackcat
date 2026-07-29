@@ -234,6 +234,8 @@ canvas#plot{width:100%;display:block;border-radius:12px;background:var(--paper);
     background:var(--paper);cursor:pointer;min-height:32px}
 .lg i{width:11px;height:11px;border-radius:3px;flex:none}
 .lg.off{opacity:.38}
+.lg.locatable{cursor:pointer}
+.lg.locatable:hover{background:var(--accent-soft)}
 #readout{font:12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);
          margin-top:8px;min-height:1.5em;white-space:pre-wrap}
 
@@ -312,7 +314,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <span class="tsep"></span>
     <button class="btn" id="mSel">選取 <small>S</small></button>
     <button class="btn" id="mWire">連線 <small>W</small></button>
-    <button class="btn" id="mProbe">探針 <small>P</small></button>
     <span class="tsep"></span>
     <button class="btn" id="rotBtn">旋轉 <small>R</small></button>
     <button class="btn" id="delBtn">刪除 <small>Del</small></button>
@@ -326,7 +327,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <button class="btn" id="dmmBtn">三用電表</button>
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
-    <button class="btn pop-btn" id="btnProbes" aria-haspopup="true">探針清單 ▾</button>
     <button class="btn pop-btn" id="btnAns" aria-haspopup="true">解題卡 ▾</button>
     <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
     <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
@@ -446,13 +446,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </select>
   </div>
   <div id="modeNote" class="sub"></div>
-</div>
-
-<div class="pop" id="popProbes" hidden>
-  <h3>探針</h3>
-  <div id="probeList" class="legend"></div>
-  <p class="sub">切到探針模式後，點導線或接腳量電壓、點電壓源量電流；
-    沒插任何探針時波形圖會顯示全部節點。</p>
 </div>
 
 <div class="pop wide" id="popAns" hidden>
@@ -712,10 +705,14 @@ let autoRuns = 0;   // 自動重跑了幾次，顯示在波形視窗標題列上
    冒煙測試第二次抓到同一件事——這條規則值得再貼一次。 */
 const dmm = { range:'DCV', a:null, b:null, part:-1, ohm:null };
 let dmmPick = null;                       // 'a' | 'b' | 'part'
+/* 滑鼠移到圖例上時，要在電路圖上亮起來的節點名稱。
+   這取代了原本的「探針」：不必切模式、不必事先決定看哪幾個、
+   而且它是純粹的畫面狀態——不進存檔、不進復原、不會過期。 */
+let hotNode = null, hotColor = null;
 const DMM_UNIT = { DCV:'V', ACV:'V', DCA:'A', ACA:'A', OHM:'Ω' };
 const isCurRange = r => r === 'DCA' || r === 'ACA';
 
-let sch = { parts:[], wires:[], probes:[] };   // probes: [{kind:'v'|'i', x,y | ref}]
+let sch = { parts:[], wires:[] };
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
 const selOne = () => sel.length === 1 ? sel[0] : null;
@@ -748,7 +745,7 @@ function pushUndo(){
     redoStack.length = 0;                       // 有新動作就不能再重做了
 }
 function applySnap(str){
-    sch = JSON.parse(str); sch.probes = sch.probes || [];
+    sch = JSON.parse(str);
     sel = []; inspect(); refreshNet(); drawSheet();
 }
 function undo(){
@@ -919,7 +916,7 @@ function buildNodes(){
    因為學生要先能算得出跟課本一樣的答案，才有資格談誤差。
 
    現實模式在「產生 netlist 的那一刻」把寄生元件插進去，電路圖完全不動。
-   這樣做的好處是：外部節點名稱不變，探針、波形圖、量測表全都不用改；
+   這樣做的好處是：外部節點名稱不變，波形圖、量測表、解題卡全都不用改；
    插進去的隱藏節點另外用 X 開頭編號，不會跟 N 開頭的真實節點撞名。
 
    數值全部寫死，不開放修改——這個功能要回答的是「為什麼實驗結果跟計算
@@ -1035,7 +1032,7 @@ function toNetlist(opts){
         }
         if (realMode && p.type === 'C'){
             /* 真實電容 = 理想電容 + ESR + ESL 串聯。
-               外面兩個接點維持原節點，所以探針和波形完全不受影響。 */
+               外面兩個接點維持原節點，所以波形和量測完全不受影響。 */
             const a = hid(), b = hid();
             lines.push(`${ref} ${ns[0]} ${a} ${p.val}`);
             lines.push(`R_${ref}_esr ${a} ${b} ${REAL.C_ESR}`);
@@ -1139,52 +1136,6 @@ function stepE12(str, dir){
 }
 
 /* ==========================================================
-   探針
-   ngspice 本來就會回傳所有節點電壓，所以探針不影響 netlist，
-   它只是「要顯示哪幾條」的篩選器——這也是為什麼它很便宜。
-   沒插任何探針時維持全部顯示，不會讓人第一次用就看到空圖。
-
-   電流只支援電壓源：ngspice 預設只輸出電源的支路電流（V1#branch），
-   其他元件要另外下 .save 才有，先不做。
-   ========================================================== */
-function probeNodeName(x, y){
-    const nd = buildNodes();
-    return nd.nameOf(nd.key(x, y));
-}
-function addProbe(kind, a, b){
-    pushUndo();
-    if (kind === 'v'){
-        const same = sch.probes.findIndex(p => p.kind==='v' && p.x===a && p.y===b);
-        if (same >= 0) sch.probes.splice(same,1); else sch.probes.push({kind:'v', x:a, y:b});
-    } else {
-        const same = sch.probes.findIndex(p => p.kind==='i' && p.ref===a);
-        if (same >= 0) sch.probes.splice(same,1); else sch.probes.push({kind:'i', ref:a});
-    }
-    refreshNet(); drawSheet(); renderProbes();
-}
-/* 探針要顯示哪些曲線名稱。ngspice 的節點電壓叫 v(n1)，電源電流叫 v1#branch。 */
-function probeKeys(){
-    return sch.probes.map(p => p.kind === 'v'
-        ? { label:`V(${probeNodeName(p.x,p.y)})`, match:`v(${probeNodeName(p.x,p.y)})`.toLowerCase() }
-        : { label:`I(${p.ref})`, match:[`i(${p.ref})`.toLowerCase(),
-                                          `${p.ref}#branch`.toLowerCase()] });
-}
-function renderProbes(){
-    const box = $('probeList');
-    if (!sch.probes.length){
-        box.innerHTML = '<span class="sub">沒有插探針時會畫出全部節點。' +
-            '插了之後就只畫你插的那幾個。</span>'; return;
-    }
-    box.innerHTML = probeKeys().map((k,i) =>
-        `<span class="lg" data-p="${i}" title="點一下移除">
-            <i style="background:${cvar(COLORS[i%6])}"></i>${k.label} ✕</span>`).join('');
-    box.querySelectorAll('[data-p]').forEach(el => el.onclick = () => {
-        pushUndo(); sch.probes.splice(+el.dataset.p, 1);
-        refreshNet(); drawSheet(); renderProbes();
-    });
-}
-
-/* ==========================================================
    模擬儀表板：圖形化欄位 → 即時生成 SPICE 指令
    ========================================================== */
 const ANA = {
@@ -1268,6 +1219,24 @@ function sizeCanvas(){
 const W2S = (x,y) => [x*view.z + view.x, y*view.z + view.y];
 const S2W = (x,y) => [(x - view.x)/view.z, (y - view.y)/view.z];
 
+/* 某個節點名稱對應到畫布上的哪些點。走訪所有接腳與線端點，
+   問一次 nameOf 就好——節點命名是一次全部決定的，所以這裡拿到的跟 netlist 一致。 */
+function nodePoints(name){
+    if (!name) return [];
+    const nd = buildNodes(), out = [], seen = new Set();
+    const add = (x,y) => { const k = nd.key(x,y);
+        if (seen.has(k) || nd.nameOf(k) !== name) return;
+        seen.add(k); out.push([x,y]); };
+    sch.parts.forEach(p => pinsOf(p).forEach(([x,y]) => add(x,y)));
+    sch.wires.forEach(w => { add(w.x1,w.y1); add(w.x2,w.y2); });
+    return out;
+}
+/** 從曲線名稱取出節點名稱：v(n2) → N2；dB(v(n2)) / ∠v(n2) 也認得。 */
+function traceNode(name){
+    const m = String(name).match(/v\(([^)]+)\)/i);
+    return m ? m[1].toUpperCase() : null;
+}
+
 function drawSheet(){
     sizeCanvas();
     const w = cv.clientWidth, h = cv.clientHeight;
@@ -1329,6 +1298,18 @@ function drawSheet(){
     g.fillStyle = wire;
     cnt.forEach((c,k) => { if (c >= 3){ const [x,y] = k.split(',').map(Number);
         const [sx,sy] = W2S(x,y); g.beginPath(); g.arc(sx,sy,PIN_R,0,7); g.fill(); } });
+    /* 圖例指到的節點：在電路圖上畫一圈同色的光暈。
+       畫在元件之前，這樣元件符號會蓋在上面，看起來是「底下亮起來」而不是糊一層。 */
+    if (hotNode){
+        const pts = nodePoints(hotNode);
+        g.save();
+        g.strokeStyle = cvar(hotColor || '--accent');
+        g.fillStyle = cvar(hotColor || '--accent');
+        pts.forEach(([x,y]) => { const [hx,hy] = W2S(x,y);
+            g.globalAlpha = .18; g.beginPath(); g.arc(hx,hy,11,0,7); g.fill();
+            g.globalAlpha = .9;  g.lineWidth = 2; g.beginPath(); g.arc(hx,hy,6.5,0,7); g.stroke(); });
+        g.restore();
+    }
     // 元件
     sch.parts.forEach((p,i) => {
         const on = isSel('part', i);
@@ -1381,22 +1362,6 @@ function drawSheet(){
             g.setLineDash([]);
         }
     }
-    // 探針標記：顏色跟波形圖的圖例對應，看圖時不必猜哪條是哪個節點
-    sch.probes.forEach((pr,i) => {
-        g.strokeStyle = g.fillStyle = cvar(COLORS[i%6]); g.lineWidth = 2;
-        if (pr.kind === 'v'){
-            const [px,py] = W2S(pr.x, pr.y);
-            g.beginPath(); g.arc(px, py-9, 5, 0, 7); g.stroke();
-            g.beginPath(); g.moveTo(px, py-4); g.lineTo(px, py); g.stroke();
-        } else {
-            const part = sch.parts.find(q => q.ref === pr.ref);
-            if (!part) return;
-            const [px,py] = W2S(part.x, part.y);
-            g.beginPath(); g.arc(px+14, py-14, 6, 0, 7); g.stroke();
-            g.font = 'bold 9px system-ui'; g.textAlign='center';
-            g.fillText('I', px+14, py-11);
-        }
-    });
     // 正在拉的線（連線模式，或在選取模式下從接腳直接拖出來）
     const from = wireFrom || quick;
     if (from){
@@ -1421,7 +1386,6 @@ function drawSheet(){
     $('hud').textContent =
         mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，${kn('rot')} 旋轉，右鍵或 Esc 取消`
       : drawing        ? `按 ${kn('bend')} 定下這一段並轉彎；點一下結束這條線；右鍵取消`
-      : mode==='probe' ? `點導線或接腳量電壓，點電壓源量電流；再點一次可移除`
       : mode==='wire'  ? `點一下開始拉線（手不用一直按著）；右鍵退出連線模式`
       : sel.length     ? `已選取 ${sel.length} 個：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
       : `點元件選取；接腳上按一下就能開始拉線；中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
@@ -1503,15 +1467,6 @@ cv.addEventListener('pointerdown', e => {
     }
     if (dmmClick(wx, wy)) return;          // 正在選表棒，這一下給電表
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
-    if (mode === 'probe'){
-        const pi = hitPart(wx,wy);
-        if (pi >= 0 && sch.parts[pi].type === 'V'){ addProbe('i', sch.parts[pi].ref); return; }
-        const pt = snapPoint(wx,wy);
-        const wi = hitWire(wx,wy);
-        if (wi >= 0 || pinAt(pt.x,pt.y)) addProbe('v', pt.x, pt.y);
-        else show('warn','這裡沒有東西可以量',['點一條導線或接腳量電壓，點電壓源量電流。']);
-        return;
-    }
     if (mode === 'wire'){
         const p = snapPoint(wx,wy);
         // 點一下＝把這一段定下來並結束這條線（要接著轉彎請按確定鍵）
@@ -1634,7 +1589,6 @@ cv.addEventListener('wheel', e => {
 const ACTIONS = [
     ['wire','連線模式','KeyW'],
     ['sel', '選取模式','KeyS'],
-    ['probe','探針模式','KeyP'],
     ['rot', '旋轉',    'KeyR'],
     ['del', '刪除',    'Delete'],
     ['bend','確定這一段（轉彎）','Space'],
@@ -1703,7 +1657,6 @@ addEventListener('keydown', e => {
     e.preventDefault();
     if (a === 'wire') setMode('wire');
     if (a === 'sel')  setMode('sel');
-    if (a === 'probe') setMode('probe');
     if (a === 'rot')  rotate();
     if (a === 'del')  del();
     if (a === 'fit')  fit();
@@ -1809,7 +1762,6 @@ function setMode(m, type){
     mode = m; placing = type || null; wireFrom = null;
     $('mSel').classList.toggle('on', m==='sel');
     $('mWire').classList.toggle('on', m==='wire');
-    $('mProbe').classList.toggle('on', m==='probe');
     document.querySelectorAll('.pi').forEach(el =>
         el.classList.toggle('on', m==='place' && el.dataset.t===type));
     cv.style.cursor = m==='sel' ? 'default' : 'crosshair';
@@ -1817,11 +1769,10 @@ function setMode(m, type){
 }
 $('mSel').onclick = () => setMode('sel');
 $('mWire').onclick = () => setMode('wire');
-$('mProbe').onclick = () => setMode('probe');
 $('rotBtn').onclick = rotate;
 $('delBtn').onclick = del;
 $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
-    pushUndo(); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = [];
+    pushUndo(); sch = {parts:[],wires:[]}; seq = 1; sel = [];
     simData = null; cursorIdx = null;   // 舊的模擬結果已經對不上新的節點編號了
     scopeStop();
     dmm.a = dmm.b = null; dmm.part = -1; dmm.ohm = null;
@@ -2159,12 +2110,12 @@ Object.keys(EXAMPLES).forEach(k => $('exSel').insertAdjacentHTML('beforeend',
     `<option value="${k}">${k}</option>`));
 $('exSel').onchange = () => loadExample($('exSel').value);
 function loadExample(k){
-    const e = EXAMPLES[k](); sch = {parts:[],wires:[],probes:[]}; seq = 1; sel = [];
+    const e = EXAMPLES[k](); sch = {parts:[],wires:[]}; seq = 1; sel = [];
     e.parts.forEach(([t,x,y,r,ref,val]) => sch.parts.push({type:t,x,y,rot:r,ref,val}));
     e.wires.forEach(([a,b,c,d]) => sch.wires.push({x1:a,y1:b,x2:c,y2:d}));
     seq = sch.parts.length + 1;
     $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); buildAna();
-    inspect(); refreshNet(); renderProbes(); fit();
+    inspect(); refreshNet(); fit();
     if (e.tip) show('ok', '已載入：' + k, [e.tip]);
 }
 
@@ -2343,13 +2294,9 @@ function prepare(res){
     const xd = xi >= 0 ? res.data[xi] : null;
     const x = xd ? (isC ? xd.values.map(v=>v.real) : xd.values.slice()) : [0];
     const logX = !!xd && (/freq/i.test(xd.name) || xd.type === 'frequency');
-    /* 有插探針就只畫探針指定的那幾條。沒插就全部畫——
-       不然第一次用的人按下執行會看到一張空圖。 */
-    const want = probeKeys().map(k => Array.isArray(k.match) ? k.match : [k.match]);
     const traces = [];
     res.data.forEach((d,i) => {
         if (i === xi) return;
-        if (want.length && !want.some(w => w.includes(d.name.toLowerCase().replace(/\s/g,'')))) return;
         if (isC){
             /* 交流分析的結果是複數。以前只留振幅、把相位整個丟掉，但相量問題
                （第 9、10 章）要的就是角度，波德圖也少了下半張。現在兩個都留，
@@ -2369,8 +2316,6 @@ function prepare(res){
     // 振幅與相位是同一個節點的兩面，配同一個顏色才看得出配對
     let n = 0;
     traces.forEach(t => { t.ci = t.pane === 1 ? Math.max(0, n-1) : n++; });
-    if (want.length && !traces.length) show('warn','探針指定的節點在結果裡找不到',
-        ['電路可能改過了，節點編號跟著變。移除探針重插一次。']);
     return {x, logX, xname: xd ? xd.name : '工作點', traces};
 }
 /* ==========================================================
@@ -2417,7 +2362,7 @@ function indexResult(res){
 /** 取某個電壓源的支路電流。
     ★ 這裡踩過坑：SPICE 文件寫的是 `V1#branch`，但這個 WASM 版實際回傳的名稱是
     `i(v1)`。只認 #branch 的話，電壓源的電流永遠是「—」——解題卡、三用電表的
-    電流檔、電流探針、功率守恆檢查會一起失效，而且畫面上完全看不出原因。
+    電流檔、功率守恆檢查會一起失效，而且畫面上完全看不出原因。
     兩種寫法都試，以後換引擎版本也不會再中一次。 */
 function branchSeries(ref){
     if (!simData || !ref) return null;
@@ -2518,9 +2463,19 @@ function buildLegend(){
     /* 振幅和相位是同一個節點的兩面，配同一個顏色才看得出配對。 */
     $('legend').innerHTML = plotData.traces.map((t,i) =>
         `<span class="lg" data-i="${i}"><i style="background:${cvar(COLORS[t.ci%6])}"></i>${t.name}</span>`).join('');
-    $('legend').querySelectorAll('.lg').forEach(el => el.onclick = () => {
-        const i = +el.dataset.i; plotData.traces[i].on = !plotData.traces[i].on;
-        el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); renderMeas(); });
+    $('legend').querySelectorAll('.lg').forEach(el => {
+        el.onclick = () => {
+            const i = +el.dataset.i; plotData.traces[i].on = !plotData.traces[i].on;
+            el.classList.toggle('off', !plotData.traces[i].on); drawPlot(); renderMeas(); };
+        /* 滑過圖例 → 電路圖上那個節點亮起來。這是「哪條線是哪個點」的答案，
+           也是原本探針唯一不可取代的功能，現在不用切模式就有。 */
+        const t = plotData.traces[+el.dataset.i];
+        const nd = traceNode(t.name);
+        if (!nd) return;
+        el.classList.add('locatable');
+        el.onmouseenter = () => { hotNode = nd; hotColor = COLORS[t.ci%6]; drawSheet(); };
+        el.onmouseleave = () => { hotNode = null; hotColor = null; drawSheet(); };
+    });
 }
 /* ==========================================================
    示波器模式：畫面持續掃描，改值即時反應
@@ -3261,8 +3216,8 @@ logoBtn.addEventListener('keydown', e => {
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 
 /* ---- 工具列彈出面板 ---- */
-const POPS = [['btnSim','popSim'], ['btnProbes','popProbes'], ['btnAns','popAns'],
-              ['btnNet','popNet'], ['btnMine','popMine'], ['btnKeys','popKeys']];
+const POPS = [['btnSim','popSim'], ['btnAns','popAns'], ['btnNet','popNet'],
+              ['btnMine','popMine'], ['btnKeys','popKeys']];
 let openPop = null;
 function closePop(){
     if (!openPop) return;
@@ -3422,11 +3377,11 @@ const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
     { s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value }))));
 function unpack(str){
     const o = JSON.parse(decodeURIComponent(escape(atob(str))));
-    sch = o.s || {parts:[],wires:[],probes:[]}; sch.probes = sch.probes || [];
+    sch = o.s || {parts:[],wires:[]};        // 舊存檔裡的 probes 欄位直接忽略
     seq = (sch.parts.length||0)+1; sel = [];
     $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
     $('modeSel').value = o.m === 'real' ? 'real' : 'ideal'; applyMode();
-    inspect(); refreshNet(); renderProbes(); fit();
+    inspect(); refreshNet(); fit();
 }
 $('saveBtn').onclick = async () => {
     if (!me) return show('warn','要先登入才能存檔',['回小黑貓首頁登入後再回來，這頁會沿用登入狀態。']);
@@ -3466,7 +3421,7 @@ addEventListener('resize', () => { drawSheet(); drawPlot(); });
 new MutationObserver(() => { paintPalette(); drawSheet(); drawPlot(); })
     .observe(document.documentElement, {attributes:true, attributeFilter:['class']});
 
-paintPalette(); renderProbes();
+paintPalette();
 const q = new URLSearchParams(location.search).get('c');
 if (q){
     try { unpack(q); show('ok','已從分享連結載入電路',[]); }
@@ -3481,7 +3436,7 @@ if (q){
         if (raw){
             const o = JSON.parse(raw);
             if (o.s && (o.s.parts||[]).length){
-                sch = o.s; sch.probes = sch.probes || [];
+                sch = o.s;
                 seq = sch.parts.length + 1; sel = [];
                 $('anaSel').value = o.a || 'tran'; anaVals = o.v || {};
                 $('modeSel').value = o.m === 'real' ? 'real' : 'ideal';
