@@ -202,6 +202,8 @@ button,select,input{font:inherit;color:var(--ink)}
 .icb:hover{background:var(--accent-soft);color:var(--ink)}
 
 #side h2,.pop h3{letter-spacing:.14em;font-weight:800}
+.chk{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;cursor:pointer}
+.chk input{width:15px;height:15px;accent-color:var(--accent)}
 
 /* ---- 樣式：元件工具列（扁平、向量、先選物件再操作） ---- */
 .palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
@@ -432,7 +434,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 </div>
 
 <!-- 工具列彈出面板 -->
-<div class="pop" id="popSim" hidden>
+<div class="pop wide" id="popSim" hidden>
   <div class="field">
     <label for="anaSel">分析</label>
     <select id="anaSel">
@@ -453,6 +455,21 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </select>
   </div>
   <div id="modeNote" class="sub"></div>
+
+  <h3 style="margin-top:14px">參數掃描</h3>
+  <p class="sub">把某個元件的值從頭掃到尾，看另一個量怎麼變。
+     最大功率轉移就是這樣看出來的：掃負載電阻，功率會在 R<sub>L</sub> = R<sub>th</sub> 出現峰值。</p>
+  <div class="field"><label for="swPart">掃這個元件</label>
+    <select id="swPart"></select></div>
+  <div class="field"><label for="swFrom">從</label><input id="swFrom" class="mono" value="1"></div>
+  <div class="field"><label for="swTo">到</label><input id="swTo" class="mono" value="100"></div>
+  <div class="field"><label for="swPts">點數</label><input id="swPts" class="mono" value="41"></div>
+  <div class="field"><label for="swLog">間距</label>
+    <select id="swLog"><option value="lin">線性</option><option value="log">對數</option></select></div>
+  <div class="field"><label for="swOut">要看的量</label><select id="swOut"></select></div>
+  <div class="palette" style="margin-top:8px">
+    <button class="btn" id="swGo">開始掃描</button></div>
+  <div id="swOutMsg" class="sub"></div>
 </div>
 
 <div class="pop xwide" id="popAns" hidden>
@@ -998,6 +1015,9 @@ function toNetlist(opts){
            SPICE 不會抱怨（那在數學上完全合法），模擬照跑、結果卻是錯的——
            那顆元件等於不存在。實測「不小心拉一條線跨過電阻」就會這樣，
            而畫面上沒有任何跡象。這跟浮空接腳同一類：看起來對，其實是錯的。 */
+        if (p.off)
+            warn.push(`${ref} 目前是停用狀態（${p.type === 'V' ? '當成短路' : '當成斷路'}）。` +
+                      `重疊定理算完記得把它打開。`);
         if (ns.length > 1 && ns.every(x => x === ns[0]))
             warn.push(`${ref} 的接腳全部接在同一個節點（${ns[0]}）上，等於被一條線短路掉了。` +
                       `模擬會照跑，但這顆元件不會有任何作用——檢查一下是不是多拉了一條線。`);
@@ -1006,11 +1026,15 @@ function toNetlist(opts){
             const std = MODELS[realMode?'real':'ideal'][p.type];
             models.add(std && /^(DMOD|QMOD)$/i.test(String(p.val).trim()) ? std : T.model);
         }
-        if (opts.zero && p.type === 'V'){
+        /* 重疊定理：一次只留一個電源，其餘「歸零」。
+           歸零不等於拿掉——電壓源歸零是**短路**、電流源歸零才是**斷路**，
+           這是第 4 章最常錯的一步，所以兩者在 netlist 裡走不同的路。 */
+        const off = opts.zero || p.off;
+        if (off && p.type === 'V'){
             lines.push(`${ref} ${ns[0]} ${ns[1]} DC 0`);   // 電壓源歸零＝短路
             continue;
         }
-        if (opts.zero && p.type === 'I') continue;         // 電流源歸零＝斷路
+        if (off && p.type === 'I') continue;               // 電流源歸零＝斷路
         if (p.type === 'M'){
             const m = METER[realMode ? 'real' : 'ideal'];
             if (p.val === 'A'){
@@ -1205,6 +1229,7 @@ buildAna();
 
 function refreshNet(){
     const r = toNetlist(); $('net').value = r.text; autosave();
+    if (typeof fillSweepUI === 'function') fillSweepUI();
     /* quietNet 是給「執行模擬」自己用的。它一開始也會呼叫 refreshNet()，
        如果那一次也算成「電路改了」，就會排下一次自動重跑，而那一次又會再排
        下一次——變成永遠停不下來的重跑迴圈。 */
@@ -1341,7 +1366,9 @@ function drawSheet(){
         g.translate(sx,sy); g.scale(view.z,view.z); g.rotate(p.rot*Math.PI/2);
         g.strokeStyle = on ? selc : ink; g.lineWidth = 1.7/1;
         g.lineCap='round'; g.lineJoin='round';
+        if (p.off){ g.globalAlpha = .35; g.setLineDash([3,2]); }
         TYPES[p.type].draw(g, p);
+        g.setLineDash([]); g.globalAlpha = 1;
         g.restore();
         // 標籤不跟著轉，才讀得順
         if (p.type !== 'GND'){
@@ -1979,11 +2006,18 @@ function inspect(){
             '<button class="btn" id="ip_del" style="margin-top:6px">刪除</button>';
         $('ip_del').onclick = del; return;
     }
+    const canOff = p.type === 'V' || p.type === 'I';
     box.innerHTML = `
       <div class="field"><label for="ip_ref">名稱</label>
         <input id="ip_ref" class="mono" value="${p.ref}"></div>
       <div class="field"><label for="ip_val">數值</label>
         <input id="ip_val" class="mono" value="${p.val}"></div>
+      ${canOff ? `<label class="chk"><input type="checkbox" id="ip_off"${p.off?' checked':''}>
+         暫時停用（重疊定理）</label>
+         <p class="sub">${p.type === 'V'
+            ? '電壓源歸零＝<b>短路</b>，兩端直接接起來。'
+            : '電流源歸零＝<b>斷路</b>，整個拿掉。'}
+            這是第 4 章最常錯的一步。</p>` : ''}
       <p class="sub">${VAL_HINT[p.type] || ''}</p>
       <div class="palette" style="margin-top:8px">
         <button class="btn" id="ip_rot">旋轉</button>
@@ -1999,6 +2033,8 @@ function inspect(){
     const once = () => { if (!typed){ pushUndo(); typed = true; } };
     $('ip_ref').oninput = e => { once(); p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
     $('ip_val').oninput = e => { once(); p.val = e.target.value; refreshNet(); drawSheet(); };
+    if ($('ip_off')) $('ip_off').onchange = e => {
+        pushUndo(); p.off = e.target.checked; inspect(); refreshNet(); drawSheet(); hintStale(); };
     $('ip_rot').onclick = rotate;
     $('ip_del').onclick = del;
     renderCmpMeas(p);
@@ -2636,6 +2672,9 @@ function scopeInfo(){
 }
 function scopeStart(){
     if (!plotData) return show('warn','還沒有波形',['先按一次「執行模擬」。']);
+    /* 掃描結果的橫軸是元件的值，不是時間。不擋的話會被當成一段 0~100 秒的波形掃過去。 */
+    if (plotData.sweep) return show('warn','參數掃描的結果不能用示波器模式',
+        ['橫軸是元件的值，不是時間。要看波形請改用時域 .tran 分析再開掃描。']);
     if (plotData.logX) return show('warn','頻率響應不適用示波器模式',
         ['橫軸是對數頻率，不是時間。請改用時域 .tran 分析。']);
     /* 不擋的話：span 會算成 0，掃描迴圈每一幀都在開頭 return，
@@ -3085,6 +3124,16 @@ function touchesSource(name){
     return sch.parts.some(p => p.type === 'V' &&
         pinsOf(p).some(([x,y]) => nd.nameOf(nd.key(x,y)) === name));
 }
+/* 直接跨接在這兩點之間的元件。有的話，目前量到的就不是「開路電壓」，
+   而戴維寧電壓的定義正是開路電壓——課本說的「先把負載移除」就是這個意思。 */
+function bridging(a, b){
+    const nd = buildNodes();
+    return sch.parts.filter(p => {
+        if (p.type === 'GND' || TYPES[p.type].pins.length < 2) return false;
+        const ns = pinsOf(p).slice(0,2).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+        return (ns[0]===a && ns[1]===b) || (ns[0]===b && ns[1]===a);
+    }).map(p => p.ref || p.type);
+}
 function ansThevenin(){
     const ns = allNodeNames();
     if (ns.length < 2) return '';
@@ -3098,7 +3147,8 @@ function ansThevenin(){
         <button class="btn" id="thGo">計算 R<sub>th</sub></button>
       </div>
       <div id="thOut" class="ans-why" style="margin-top:6px">
-        把所有獨立電源歸零（電壓源短路、電流源斷路）之後，從這兩點看進去的電阻。</div>`;
+        算出完整的戴維寧／諾頓等效：R<sub>th</sub>、V<sub>th</sub>、I<sub>N</sub>，
+        以及最大功率轉移的負載與功率。</div>`;
 }
 function renderAnswer(){
     const box = $('ansBox');
@@ -3126,7 +3176,28 @@ function renderAnswer(){
         try {
             const R = await thevenin(a, b);
             const zeroed = R < 1e-6 && (touchesSource(a) || touchesSource(b));
-            out.innerHTML = `<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(R)}Ω</b><br>` +
+            /* 有了 R_th，V_th、I_N、P_max 都只差一行公式——第 4 章要的就是這一組，
+               沒理由讓使用者自己讀節點電壓再手算。 */
+            const k = ansIndex();
+            const va = nodeSeries(a), vb = nodeSeries(b);
+            const Vth = (va && vb && k >= 0) ? va[k] - vb[k] : null;
+            const cross = bridging(a, b);
+            let extra = '';
+            if (Vth != null && R > 1e-9){
+                const IN = Vth / R, Pmax = Vth*Vth/(4*R);
+                extra = `<br><b style="color:var(--ink);font-size:13px">V<sub>th</sub> = ${eng(Vth)}V` +
+                        `　I<sub>N</sub> = ${eng(IN)}A</b><br>` +
+                        `V<sub>th</sub> 就是這兩點的開路電壓：V(${a === '0' ? '0' : a}) − V(${b === '0' ? '0' : b}) = ${eng(Vth)}V。<br>` +
+                        `諾頓電流 I<sub>N</sub> = V<sub>th</sub> / R<sub>th</sub> = ${eng(Vth)} ÷ ${eng(R)} = ${eng(IN)}A。<br>` +
+                        `<b>最大功率轉移</b>：負載取 R<sub>L</sub> = R<sub>th</sub> = ${eng(R)}Ω 時最大，` +
+                        `P<sub>max</sub> = V<sub>th</sub>² / (4·R<sub>th</sub>) = ${eng(Pmax)}W。` +
+                        (cross.length
+                          ? `<br><b style="color:var(--warn)">注意：這兩點之間還接著 ${cross.join('、')}。</b>` +
+                            `V<sub>th</sub> 的定義是<b>開路</b>電壓，所以要先把它移除（或把電阻值調到很大）再看這個數字；` +
+                            `R<sub>th</sub> 不受影響。`
+                          : '');
+            }
+            out.innerHTML = `<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(R)}Ω</b>` + extra + `<br>` +
                 (zeroed ? '<b style="color:var(--warn)">這一點直接接在電壓源上。</b>' +
                   '把獨立電源歸零時，電壓源會被當成短路，所以從它的端點看進去必然是 0Ω。<br>' +
                   '想求「電源看進去的等效電阻」，要先把那個電源<b>刪掉</b>再量。<br>' : '') +
@@ -3335,6 +3406,107 @@ async function dmmOhm(){
     try { dmm.ohm = await thevenin(dmmNode(dmm.a), dmmNode(dmm.b)); dmmRender(); }
     catch(e){ dmmSay('量不出來：' + ((e && e.message) || e)); }
 }
+
+/* ==========================================================
+   參數掃描
+
+   ngspice 的 .dc 只能掃電源，掃不了電阻——但第 4 章的最大功率轉移正好要掃負載。
+   所以掃描做在 JavaScript 這一層：把元件的值換掉、重跑一次 .op、記下要看的量，
+   重複 N 次。每次 .op 只要幾毫秒，41 個點大約半秒，完全可以接受。
+
+   結果直接塞進 plotData，橫軸換成被掃的參數——波形圖、量測表、游標讀值
+   全部照舊可用，不必為它另外做一套顯示。
+   ========================================================== */
+const SWEEPABLE = ['R','C','L','V','I'];
+function fillSweepUI(){
+    const sel = $('swPart'), out = $('swOut');
+    if (!sel || !out) return;
+    const keep = sel.value, keepOut = out.value;
+    const parts = sch.parts.filter(p => p.ref && SWEEPABLE.includes(p.type));
+    sel.innerHTML = parts.length
+        ? parts.map(p => `<option value="${p.ref}">${p.ref}（目前 ${p.val}）</option>`).join('')
+        : '<option value="">（電路裡沒有可以掃的元件）</option>';
+    if (parts.some(p => p.ref === keep)) sel.value = keep;
+
+    const nd = buildNodes(), seen = [];
+    sch.parts.forEach(p => { if (p.type === 'GND') return;
+        pinsOf(p).forEach(([x,y]) => { const n = nd.nameOf(nd.key(x,y));
+            if (n !== '0' && !seen.includes(n)) seen.push(n); }); });
+    const opts = seen.map(n => `<option value="v:${n}">V(${n})</option>`)
+        .concat(sch.parts.filter(p => p.ref && p.type !== 'GND')
+            .flatMap(p => [`<option value="p:${p.ref}">P(${p.ref}) 功率</option>`,
+                           `<option value="i:${p.ref}">I(${p.ref}) 電流</option>`]));
+    out.innerHTML = opts.join('');
+    if (opts.some(o => o.includes(`value="${keepOut}"`))) out.value = keepOut;
+}
+/** 從一次 .op 的結果取出要看的那個量。暫時借用 simData，用完立刻還回去。 */
+function sweepPick(idx, kind, target){
+    const save = simData;
+    simData = idx;
+    try {
+        if (kind === 'v'){ const v = nodeSeries(target); return v ? v[0] : NaN; }
+        const p = sch.parts.find(q => q.ref === target);
+        const ser = p && partSeries(p);
+        if (!ser) return NaN;
+        const dv = ser.dv[0], i = ser.cur ? ser.cur[0] : NaN;
+        return kind === 'i' ? i : dv * i;
+    } finally { simData = save; }
+}
+$('swGo').onclick = async () => {
+    const msg = $('swOutMsg');
+    const ref = $('swPart').value;
+    const part = sch.parts.find(p => p.ref === ref);
+    if (!part) return void (msg.textContent = '請先選一個可以掃的元件。');
+    if (running) return void (msg.textContent = '模擬正在跑，等一下再按。');
+    const from = unit($('swFrom').value), to = unit($('swTo').value);
+    const pts = Math.max(2, Math.min(200, Math.round(unit($('swPts').value) || 41)));
+    const log = $('swLog').value === 'log';
+    if (!isFinite(from) || !isFinite(to) || from === to)
+        return void (msg.textContent = '起迄值看不懂，或兩者相同。');
+    if (log && (from <= 0 || to <= 0))
+        return void (msg.textContent = '對數間距的起迄值都要大於 0。');
+    const [kind, target] = $('swOut').value.split(':');
+
+    const saved = part.val;
+    if (scope.on) scopeStop();      // 掃描期間不能讓示波器同時在跑
+    running = true;
+    const xs = [], ys = [];
+    try {
+        const sim2 = await getSim();
+        for (let i = 0; i < pts; i++){
+            const t = i / (pts - 1);
+            const v = log ? from * Math.pow(to/from, t) : from + (to - from) * t;
+            part.val = String(v);
+            msg.textContent = `掃描中… ${i+1} / ${pts}`;
+            const r = toNetlist({ directive:'.op' });
+            sim2.setNetList(r.text);
+            const res = await withTimeout(sim2.runSim(), 20000, '計算');
+            xs.push(v); ys.push(sweepPick(indexResult(res), kind, target));
+        }
+    } catch(e){
+        msg.textContent = '掃描失敗：' + ((e && e.message) || e);
+        part.val = saved; running = false; refreshNet(); return;
+    }
+    part.val = saved; running = false; refreshNet();
+
+    const label = kind === 'v' ? `V(${target})` : kind === 'i' ? `I(${target})` : `P(${target})`;
+    const unitOf = kind === 'v' ? 'V' : kind === 'i' ? 'A' : 'W';
+    plotData = { x: xs, logX: log, sweep: true, xname: `${ref} 的值`,
+                 traces: [{ name: label, unit: unitOf, on:true, pane:0, ci:0, y: ys }] };
+    simData = null;               // 掃描結果不是單一工作點，元件面板不適用
+    cursorIdx = null;
+    buildLegend(); renderMeas(); showWave(true); drawPlot();
+
+    /* 找出極大值——最大功率轉移要看的就是這個峰值在哪裡。 */
+    let bi = 0;
+    for (let i = 1; i < ys.length; i++) if (ys[i] > ys[bi]) bi = i;
+    const interior = bi > 0 && bi < ys.length - 1;
+    msg.innerHTML = `掃描完成，${pts} 個點。` +
+        (isFinite(ys[bi])
+          ? `<br>最大值 ${label} = <b>${eng(ys[bi])}${unitOf}</b>，發生在 ${ref} = <b>${eng(xs[bi])}</b>。` +
+            (interior ? '' : '<br><b style="color:var(--warn)">峰值落在掃描範圍的端點上</b>——真正的極值可能在範圍外，把起迄放寬再掃一次。')
+          : '');
+};
 
 /* ---------- 匯出 ---------- */
 function download(blob, name){
