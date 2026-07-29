@@ -2671,11 +2671,25 @@ function niceTicks(lo,hi,n){
     const out = []; for (let v = Math.ceil(lo/st)*st; v <= hi+st*1e-6; v += st) out.push(v);
     return out;
 }
+const ENG_UNITS = [[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],
+                   [1e-6,'µ'],[1e-9,'n'],[1e-12,'p'],[1e-15,'f']];
+/* 工程記號。兩個實測踩到的坑：
+
+   一、**接近進位邊界的值會顯示成「1000m」而不是「1.00」**。
+      0.99999996 沒有 >= 1，於是掉到毫的那一檔，四捨五入之後變成 1000m。
+      所以比較時給 0.05% 的容差——反正顯示只留三位有效數字，落在容差內的
+      本來就會被四捨五入到 1.00。
+
+   二、**數值雜訊要顯示成 0**。穩態時電阻上的電壓理論上是 0，SPICE 會給
+      −3.3e-16 V 這種東西，原本會印成「-3.3e-16V」——對學生毫無意義，
+      而且看起來像出錯。飛（1e-15）以下一律當成 0；電路學的題目不會有
+      比這更小的有意義數值。 */
 function eng(v){
-    if (v===0) return '0';
+    if (v === 0) return '0';
     const a = Math.abs(v);
-    for (const [m,s] of [[1e9,'G'],[1e6,'M'],[1e3,'k'],[1,''],[1e-3,'m'],[1e-6,'µ'],[1e-9,'n'],[1e-12,'p']])
-        if (a >= m){ const x = v/m;
+    if (a < 1e-15) return '0';
+    for (const [m,s] of ENG_UNITS)
+        if (a >= m * 0.9995){ const x = v/m;
             return (Math.abs(x)<10?x.toFixed(2):Math.abs(x)<100?x.toFixed(1):x.toFixed(0))+s; }
     return v.toExponential(1);
 }
@@ -3081,7 +3095,9 @@ function renderAnswer(){
             out.innerHTML = `<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(R)}Ω</b><br>` +
                 `把所有獨立電源歸零之後，從 ${a === '0' ? '接地' : 'V('+a+')'} 看到 ` +
                 `${b === '0' ? '接地' : 'V('+b+')'}。<br>` +
-                `作法：灌入 1A 定電流，量得 ΔV = ${eng(R)}V，所以 R = ΔV / I = ${eng(R)} ÷ 1 = ${eng(R)}Ω。`;
+                `作法：灌入 1A 的<b>測試電流</b>，量得 ΔV = ${eng(R)}V，`+
+                `所以 R = ΔV / I = ${eng(R)} ÷ 1 = ${eng(R)}Ω。<br>`+
+                `（用 1A 是刻意的：這樣電壓的數值直接就是電阻值。這是課本求 R<sub>th</sub> 的標準手法。）`;
         } catch(e){ out.textContent = '算不出來：' + ((e && e.message) || e); }
     };
 }
