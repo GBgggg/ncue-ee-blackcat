@@ -93,13 +93,25 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
      background:var(--paper);padding:3px 8px;border-radius:8px;border:1px solid var(--rule);
      pointer-events:none;max-width:calc(100% - 20px)}
 
-#side{flex:none;width:300px;min-width:0;overflow:auto;padding:10px 12px;
-      background:var(--paper-raised);border-left:1px solid var(--rule)}
-#side.collapsed{width:0;padding:0;border-left:0;overflow:hidden}
+/* 右欄＝屬性面板＋狀態列。狀態列本來橫跨整個視窗底部，但它只是「剛剛那一次
+   模擬如何」的附註，卻佔掉整條寬度，把畫布往上壓。收進右欄跟屬性面板同寬，
+   畫布就拿回那一整條。 */
+#rightCol{flex:none;width:300px;min-width:0;display:flex;flex-direction:column;
+          min-height:0;background:var(--paper-raised);border-left:1px solid var(--rule)}
+#rightCol.collapsed{width:0;border-left:0;overflow:hidden}
+#side{flex:1;min-height:0;overflow:auto;padding:10px 12px}
 #side h2{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
 
-#statusbar{flex:none;max-height:26vh;overflow:auto;padding:6px 10px;
-           border-top:1px solid var(--rule);background:var(--paper-raised)}
+/* 收合鈕貼在右欄的左緣，而不是丟在工具列最右邊——那裡離它控制的東西有半個
+   螢幕遠，而且面板收起來之後更找不到。做成一條整高的細把手，收合前後都在原地。 */
+#sideBtn{flex:none;width:16px;padding:0;border:0;border-left:1px solid var(--rule);
+         border-radius:0;background:var(--paper-raised);color:var(--ink-3);
+         font-size:10px;line-height:1;cursor:pointer;display:flex;
+         align-items:center;justify-content:center}
+#sideBtn:hover{background:var(--accent-soft);color:var(--ink)}
+
+#statusbar{flex:none;max-height:45%;overflow:auto;padding:6px 10px;
+           border-top:1px solid var(--rule)}
 
 /* ---- 樣式：浮動波形視窗 ---- */
 #waveWin{position:fixed;z-index:60;left:60px;top:120px;width:800px;height:520px;
@@ -348,7 +360,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
          這三顆會掉到第二行的最左邊，看起來像斷掉的。 -->
     <div class="hbar-right">
       <span class="chip" id="whoami">載入中…</span>
-      <button class="icb" id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
       <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
     </div>
   </div>
@@ -362,18 +373,20 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <canvas id="sheet"></canvas>
     <div id="hud"></div>
   </div>
-  <aside id="side">
-    <h2>屬性</h2>
-    <div id="insp"></div>
-  </aside>
-</div>
-
-<div id="statusbar">
-  <div id="loadbar" style="display:none">
-    <div class="skel"><i></i></div>
-    <p class="sub" id="loadtxt"></p>
+  <button id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
+  <div id="rightCol">
+    <aside id="side">
+      <h2>屬性</h2>
+      <div id="insp"></div>
+    </aside>
+    <div id="statusbar">
+      <div id="loadbar" style="display:none">
+        <div class="skel"><i></i></div>
+        <p class="sub" id="loadtxt"></p>
+      </div>
+      <div id="msg"></div>
+    </div>
   </div>
-  <div id="msg"></div>
 </div>
 
 </div><!-- /#app -->
@@ -500,9 +513,13 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="keyList"></div>
   <button class="btn" id="keyReset" style="min-height:34px;margin-top:4px">還原預設</button>
   <p class="sub">點右邊的按鍵再按一個新的鍵就會改掉，設定存在這台裝置上。
-    Esc（取消）和 Ctrl+Z／Ctrl+Shift+Z（復原／重做）固定不變，不開放更改。</p>
+    Esc（取消）、Ctrl+Z／Ctrl+Shift+Z（復原／重做）、
+    Ctrl+C／Ctrl+V／Ctrl+X（複製／貼上／剪下）固定不變，不開放更改——
+    這些是全世界共通的肌肉記憶，讓它可以被改掉只會製造困惑。</p>
   <p class="sub" style="margin-top:8px">滑鼠還有這些：<br>
     ・拖曳空白處＝框選一整組，Shift 點擊＝加選或退選<br>
+    ・框選後 Ctrl+C 複製、Ctrl+V 貼上（會錯開一格並重新編號）<br>
+    ・從工具列點一個元件後可以<b>連續放置</b>，右鍵或 Esc 才退出<br>
     ・游標停在電阻／電容／電感上滾滾輪＝數值照 E12 換一檔<br>
     ・其餘位置滾滾輪＝縮放，按住 Alt 拖曳或中鍵拖曳＝平移<br>
     ・在接腳上直接按下就能開始拉線，不必先切模式</p>
@@ -1453,7 +1470,7 @@ function drawSheet(){
     const kn = a => keyName(keys[a]);
     const drawing = wireFrom || quick;
     $('hud').textContent =
-        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下，${kn('rot')} 旋轉，右鍵或 Esc 取消`
+        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下（可連續放），${kn('rot')} 旋轉，右鍵或 Esc 退出`
       : drawing        ? `按 ${kn('bend')} 定下這一段並轉彎；點一下結束這條線；右鍵取消`
       : mode==='wire'  ? `點一下開始拉線（手不用一直按著）；右鍵退出連線模式`
       : sel.length     ? `已選取 ${sel.length} 個：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
@@ -1706,6 +1723,11 @@ addEventListener('keydown', e => {
         e.preventDefault(); e.shiftKey ? redo() : undo(); return;
     }
     if ((e.ctrlKey || e.metaKey) && e.code === 'KeyY'){ e.preventDefault(); redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC'){ e.preventDefault(); copySel(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV'){ e.preventDefault(); pasteClip(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.code === 'KeyX'){
+        e.preventDefault(); copySel(); del(); return;
+    }
     if (e.ctrlKey || e.metaKey) return;          // 其他組合鍵留給瀏覽器
     const a = actionFor(e.code);
     if (!a) return;
@@ -1775,7 +1797,9 @@ function addPart(type, x, y, rot){
     if (T.ctrl !== undefined)
         p.ctrl = (sch.parts.find(q => q.type === 'V' && q.ref) || {}).ref || '';
     sch.parts.push(p); sel = [{kind:'part', i:sch.parts.length-1}];
-    setMode('sel'); inspect(); refreshNet(); drawSheet();
+    /* 放完不要自動跳回選取模式。要放五顆電阻就得回工具列點五次，
+       而放一排元件是畫電路時最常做的事。留在放置模式，右鍵或 Esc 才退出。 */
+    inspect(); refreshNet(); drawSheet();
 }
 function rotate(){
     if (mode === 'place'){ placeRot = (placeRot+1)%4; drawSheet(); return; }
@@ -1817,6 +1841,51 @@ function hintStale(){
           '或在波形視窗按「示波器」——開著的時候，每次改動都會自動重跑。']);
 }
 
+/* ==========================================================
+   複製與貼上
+
+   跟復原一樣不開放改鍵：Ctrl+C／Ctrl+V 是全世界共通的肌肉記憶。
+
+   用自己的剪貼簿而不是系統剪貼簿——系統剪貼簿要非同步權限，而且我們要複製的
+   是一組物件（元件＋線＋相對位置），序列化成文字再貼回來只會多一層可能出錯的
+   轉換，也沒有人會想把電路貼進記事本。
+
+   兩個必須處理的細節：
+     1. **深拷貝**。直接存參考的話，複製完再改原件，剪貼簿裡的也跟著變。
+     2. **重新編號**。貼上的元件不能沿用原本的 ref，否則 netlist 會出現兩個 R1，
+        SPICE 會用後面那個覆蓋前面那個——模擬照跑，答案是錯的，而且很安靜。
+   ========================================================== */
+let clip = null;
+const PASTE_DX = 20, PASTE_DY = 20;      // 錯開一格，看得出是新的一份
+function copySel(){
+    if (!sel.length) return;
+    clip = {
+        parts: sel.filter(x => x.kind === 'part').map(x => ({ ...sch.parts[x.i] })),
+        wires: sel.filter(x => x.kind === 'wire').map(x => ({ ...sch.wires[x.i] })),
+    };
+    show('ok', `已複製 ${clip.parts.length} 個元件、${clip.wires.length} 段線`,
+         ['Ctrl+V 貼上，貼上的那一份會錯開一格並自動選取，可以直接拖到定位。' +
+          '元件會重新編號，不會出現兩個 R1。']);
+}
+function pasteClip(){
+    if (!clip || (!clip.parts.length && !clip.wires.length)) return;
+    pushUndo();
+    const picked = [];
+    clip.parts.forEach(o => {
+        const T = TYPES[o.type];
+        const p = { ...o, x:o.x + PASTE_DX, y:o.y + PASTE_DY,
+                    ref: o.type === 'GND' ? '' : T.pre + (seq++) };
+        sch.parts.push(p); picked.push({ kind:'part', i:sch.parts.length - 1 });
+    });
+    clip.wires.forEach(o => {
+        sch.wires.push({ x1:o.x1 + PASTE_DX, y1:o.y1 + PASTE_DY,
+                         x2:o.x2 + PASTE_DX, y2:o.y2 + PASTE_DY });
+        picked.push({ kind:'wire', i:sch.wires.length - 1 });
+    });
+    /* 貼上之後選取新的那一份，接著就能直接拖到定位——這是貼上最常接的下一步。 */
+    sel = picked;
+    setMode('sel'); inspect(); refreshNet(); drawSheet();
+}
 function del(){
     if (!sel.length) return;
     pushUndo();
@@ -2331,8 +2400,11 @@ $('run').onclick = async () => {
         scopeInfo();
         simData = indexResult(res); cursorIdx = null;
         plotData = prepare(res); buildLegend(); renderMeas();
-        /* 工作點的答案在解題卡，不在波形圖。自動打開對的那一個。 */
-        if (isOpResult()) openPopById('btnAns','popAns'); else showWave(true);
+        /* 工作點的答案在解題卡，所以那一個照樣自動打開——它就是答案本身。
+           波形視窗則不再自動彈出：它是一個蓋住畫布的浮動視窗，每跑一次就冒出來
+           擋在電路圖前面，改個值再跑一次又冒一次，很快就變成要一直手動關掉的東西。
+           想看的時候按工具列的「波形視窗」，位置與大小都會沿用上次的。 */
+        if (isOpResult()) openPopById('btnAns','popAns');
         scopeReframe(false);             // 只夾住範圍，時基和目前位置都保留
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
@@ -2349,7 +2421,8 @@ $('run').onclick = async () => {
             show('warn', `模擬完成（${ms.toFixed(0)} ms），但電路有可疑的地方`,
                  r.warn.concat([stat, '模擬本身是成功的，但上面這些通常代表接線出了問題，' +
                                       '算出來的答案不一定是你要的。']));
-        else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`, [stat]);
+        else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
+                 isOpResult() ? [stat] : [stat, '波形已經算好了，按工具列的「波形視窗」可以看。']);
         /* 圖上有負載元件就順便把等效電路算出來。示波器模式下不做——那是每秒
            幾十次的迴圈，多跑三次分析會拖垮它，而且那時使用者在看波形不是看解題卡。
            排進 setTimeout 是為了等 finally 把 running 放掉。 */
@@ -3916,13 +3989,13 @@ addEventListener('pointerdown', e => {
 /* ---- 屬性面板收合 ---- */
 const SIDE_KEY = 'blackcatspice-side';
 function setSide(collapsed){
-    $('side').classList.toggle('collapsed', collapsed);
+    $('rightCol').classList.toggle('collapsed', collapsed);
     $('sideBtn').textContent = collapsed ? '◀' : '▶';
     $('sideBtn').title = collapsed ? '展開屬性面板' : '收合屬性面板';
     try { localStorage.setItem(SIDE_KEY, collapsed ? '1' : '0'); } catch(e){}
     fitCanvas();
 }
-$('sideBtn').onclick = () => setSide(!$('side').classList.contains('collapsed'));
+$('sideBtn').onclick = () => setSide(!$('rightCol').classList.contains('collapsed'));
 try { setSide(localStorage.getItem(SIDE_KEY) === '1'); } catch(e){ setSide(false); }
 
 /* ---- 畫布尺寸 ----
