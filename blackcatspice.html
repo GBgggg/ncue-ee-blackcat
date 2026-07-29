@@ -2544,7 +2544,8 @@ function partSeries(p){
     let cur = null, note = null;
     if (p.type === 'V'){
         cur = branchSeries(p.ref);
-        if (cur) note = CURRENT_NOTE.V;
+        if (cur) note = p.off ? 'ngspice 直接給的支路電流（目前停用，當成短路，電流照樣會流）'
+                              : CURRENT_NOTE.V;
     } else if (DEP){
         /* E（VCVS）和 H（CCVS）在 MNA 裡有自己的電流未知數，引擎直接給。
            G（VCCS）和 F（CCCS）沒有，但它們的輸出電流就是定義本身，直接算。 */
@@ -2576,6 +2577,16 @@ function partSeries(p){
         // 電流檔在 netlist 裡是 V_M1，支路電流引擎會直接給
         cur = p.val === 'A' ? branchSeries(`V_${p.ref}`) : null;
         if (cur) note = 'ngspice 直接給的支路電流（電流表就是一個 0V 電壓源）';
+    } else if (p.type === 'I'){
+        /* ★ 獨立電流源的電流就是它自己的值——整個電路裡最不需要推算的一個，
+           以前卻被歸類成「算不出來」，害得功率守恆檢查只要電路裡有電流源就整個跳過。
+           而第 1 章的功率守恆、第 4 章的重疊定理，題目裡幾乎一定有電流源。
+
+           方向：netlist 寫成 `I1 pin0 pin1 值`，SPICE 的電流從 N+ 流經元件到 N-，
+           跟畫面上「pin0 流向 pin1 為正」是同一個約定，所以直接取正值。 */
+        const k = unit(p.val);
+        if (p.off) { cur = dv.map(() => 0); note = '目前停用，等於斷路，電流為 0'; }
+        else if (isFinite(k)) { cur = dv.map(() => k); note = `電流源的電流就是它的設定值 ${p.val}`; }
     } else if (p.type === 'SW'){
         const r = SW_R[realMode ? 'real' : 'ideal'][p.val === 'off' ? 'off' : 'on'];
         cur = simData.isC ? null : deriveCurrent('R', String(r), dv, simData.x);
