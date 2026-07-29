@@ -2294,7 +2294,9 @@ $('run').onclick = async () => {
         if (autoRun){ autoRuns++; }
         scopeInfo();
         simData = indexResult(res); cursorIdx = null;
-        plotData = prepare(res); buildLegend(); showWave(true); renderMeas();
+        plotData = prepare(res); buildLegend(); renderMeas();
+        /* 工作點的答案在解題卡，不在波形圖。自動打開對的那一個。 */
+        if (isOpResult()) openPopById('btnAns','popAns'); else showWave(true);
         scopeReframe(false);             // 只夾住範圍，時基和目前位置都保留
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
@@ -2540,6 +2542,11 @@ const SCOPE_WIN = 0.25;       // 視窗寬度佔整段紀錄的比例
 
 /* 視窗寬度（時基）只在開始掃描時決定一次。紀錄變長時不能跟著變寬，
    不然畫面會愈看愈遠，就不是示波器了——真的示波器是時基固定、時間往前跑。 */
+/* 工作點的結果只有一組值。它的正確輸出是一張表，不是一條曲線——
+   硬要畫的話，x0 === x1，每條線只有一個 moveTo 就 stroke，什麼都畫不出來，
+   使用者看到的是一張空網格，會以為模擬失敗。 */
+const isOpResult = () => !!plotData && plotData.x.length < 2;
+
 function scopeReframe(reset){
     if (!plotData || !plotData.x.length){ scope.span = 0; return; }
     const xs = plotData.x;
@@ -2597,6 +2604,10 @@ function scopeStart(){
     if (!plotData) return show('warn','還沒有波形',['先按一次「執行模擬」。']);
     if (plotData.logX) return show('warn','頻率響應不適用示波器模式',
         ['橫軸是對數頻率，不是時間。請改用時域 .tran 分析。']);
+    /* 不擋的話：span 會算成 0，掃描迴圈每一幀都在開頭 return，
+       按鈕卻永遠顯示「掃描中」——看起來在跑，其實什麼都沒發生。 */
+    if (isOpResult()) return show('warn','工作點沒有波形可以掃描',
+        ['工作點只有一組數值，時間軸不存在。要看波形請改用時域 .tran 分析。']);
     scope.on = true; scope.last = performance.now();
     scope.stop = 0; scope.capped = false;      // 每次重新開始都從使用者設定的長度起算
     scopeReframe(true);
@@ -2665,6 +2676,23 @@ function drawPlot(){
     const p = c.getContext('2d'); p.setTransform(dpr,0,0,dpr,0,0); p.clearRect(0,0,W,H);
     if (!plotData) { p.fillStyle = cvar('--ink-3'); p.font = '13px system-ui'; p.textAlign='center';
         p.fillText('按「執行模擬」後這裡會出現波形', W/2, H/2); return; }
+    if (isOpResult()){
+        /* 空網格會被當成「模擬失敗」，所以直接講清楚，順便把數值列出來。 */
+        p.textAlign = 'left'; p.fillStyle = cvar('--ink-2');
+        p.font = '600 13px system-ui'; p.fillText('直流工作點：只有一組值，沒有波形', 16, 26);
+        p.font = '11px ui-monospace,Menlo,Consolas,monospace';
+        p.fillStyle = cvar('--ink-3');
+        p.fillText('完整答案（含推導）請看工具列的「解題卡」。', 16, 44);
+        const cols = Math.max(1, Math.floor((W-32)/170));
+        plotData.traces.forEach((t,i) => {
+            const cx = 16 + (i % cols) * 170, cy = 66 + Math.floor(i / cols) * 17;
+            if (cy > H - 8) return;
+            p.fillStyle = cvar(COLORS[t.ci%6]); p.fillRect(cx, cy-8, 8, 8);
+            p.fillStyle = cvar('--ink-2');
+            p.fillText(`${t.name} = ${eng(t.y[0])}${t.unit}`, cx+12, cy);
+        });
+        return;
+    }
     const xs = plotData.x;
     const lx = plotData.logX && xs.every(v=>v>0);
     let x0 = lx?Math.log10(xs[0]):xs[0], x1 = lx?Math.log10(xs[xs.length-1]):xs[xs.length-1];
@@ -2857,6 +2885,8 @@ const MEAS_COLS = [
 function renderMeas(){
     const wrap = $('measWrap');
     if (!plotData || !plotData.traces.length){ wrap.style.display = 'none'; return; }
+    // 工作點只有一個點，平均／峰對峰／RMS 全部會是「—」，整張表只是雜訊
+    if (isOpResult()){ wrap.style.display = 'none'; return; }
     // 交流分析的縱軸是 dB 或度，峰對峰／RMS／上升時間都沒有物理意義，只留極值
     const isAC = plotData.traces.some(t => t.unit === 'dB');
     const cols = isAC ? MEAS_COLS.slice(0,2) : MEAS_COLS;
@@ -3242,6 +3272,11 @@ function closePop(){
     $(openPop[0]).classList.remove('on');
     $(openPop[0]).setAttribute('aria-expanded','false');
     openPop = null;
+}
+/* 明確「打開」而不是切換。名字不能叫 openPop——那是記錄目前開著哪一個的變數。 */
+function openPopById(btnId, popId){
+    if (openPop && openPop[1] === popId){ if (popId === 'popAns') renderAnswer(); return; }
+    togglePop([btnId, popId]);
 }
 function togglePop(pair){
     const wasOpen = openPop && openPop[1] === pair[1];
