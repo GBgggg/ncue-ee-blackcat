@@ -87,8 +87,15 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
          border-bottom:1px solid var(--rule);background:var(--paper)}
 
 #work{flex:1;display:flex;min-height:0}
-#sheetBox{flex:1;min-width:0;position:relative;overflow:hidden}
-#sheet{display:block;width:100%;height:100%}
+#sheetBox{flex:1;min-width:0;min-height:0;position:relative;overflow:hidden}
+/* ★ 畫布用絕對定位貼滿容器，不要靠 height:100%。
+   canvas 同時有「CSS 尺寸」和「點陣尺寸（width/height 屬性）」兩套大小，
+   而點陣尺寸是我們照 clientHeight 算出來寫回去的。用百分比高度時這兩者會互相
+   餵食：屬性一寫大，元素就撐大，下一次量到的 clientHeight 又更大。實測畫布
+   比容器高 7px，多出來的部分被 overflow:hidden 裁掉——畫面上看不出來，
+   但底部那一條就是永遠碰不到的死角。inset:0 讓 CSS 尺寸只由容器決定，
+   迴圈就斷了。 */
+#sheet{position:absolute;inset:0;width:100%;height:100%;display:block}
 #hud{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--ink-3);
      background:var(--paper);padding:3px 8px;border-radius:8px;border:1px solid var(--rule);
      pointer-events:none;max-width:calc(100% - 20px)}
@@ -1925,8 +1932,12 @@ function fit(){
     const add=(x,y)=>{x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y);};
     sch.parts.forEach(p=>{add(p.x-30,p.y-30);add(p.x+40,p.y+30);});
     sch.wires.forEach(w=>{add(w.x1,w.y1);add(w.x2,w.y2);});
-    const z = Math.min(2, Math.max(0.4,
-        Math.min(cv.clientWidth/(x2-x1+60), cv.clientHeight/(y2-y1+60))));
+    /* 邊界框本身已經含了每顆元件的留白（x-30 ~ x+40，右邊多出來的是標籤），
+       所以外圈再留 60px 等於留了兩次，電路會縮在畫面中間一小塊。改成 24 就夠，
+       上限也從 2 放寬到 3——只有兩三顆元件的小電路，卡在 2 倍會顯得空蕩蕩。 */
+    const PAD = 24;
+    const z = Math.min(3, Math.max(0.4,
+        Math.min(cv.clientWidth/(x2-x1+PAD), cv.clientHeight/(y2-y1+PAD))));
     view.z = z;
     view.x = cv.clientWidth/2 - (x1+x2)/2*z;
     view.y = cv.clientHeight/2 - (y1+y2)/2*z;
@@ -4000,7 +4011,11 @@ try { setSide(localStorage.getItem(SIDE_KEY) === '1'); } catch(e){ setSide(false
 
 /* ---- 畫布尺寸 ----
    畫布現在是被 flex 撐出來的，尺寸會因為工具列換行、視窗縮放、面板收合而變。
-   drawSheet() 每次都會依 clientWidth/Height 重設點陣尺寸，所以這裡只要重畫。 */
+   drawSheet() 每次都會依 clientWidth/Height 重設點陣尺寸，所以這裡只要重畫。
+
+   除了 resize 事件，再掛一個 ResizeObserver 在容器上：工具列換行、右欄收合、
+   狀態列變高，這些都不會觸發 window resize，但畫布該跟著變。與其一個一個
+   去記得補呼叫，不如直接盯著容器本身。 */
 function fitCanvas(){ drawSheet(); }
 new ResizeObserver(() => drawSheet()).observe($('sheetBox'));
 addEventListener('resize', () => {
