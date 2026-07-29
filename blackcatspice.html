@@ -2468,7 +2468,11 @@ const CURRENT_NOTE = {
 function partSeries(p){
     if (!simData || !p) return null;
     const T = TYPES[p.type];
-    if (!T || p.type === 'GND' || T.pins.length !== 2) return null;
+    /* 相依電源有四支腳（前兩支是輸出、後兩支是控制端），但它的跨壓和電流
+       完全定義得出來，不該因為腳數不是 2 就整個從解題卡消失——而第 3 章的題目
+       最想看的就是「這個受控源送出多少電流」。 */
+    const DEP = /^(EE|G|H|F)$/.test(p.type);
+    if (!T || p.type === 'GND' || (T.pins.length !== 2 && !DEP)) return null;
     const nd = buildNodes();
     const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
     const a = nodeSeries(ns[0]), b = nodeSeries(ns[1]);
@@ -2478,6 +2482,26 @@ function partSeries(p){
     if (p.type === 'V'){
         cur = branchSeries(p.ref);
         if (cur) note = CURRENT_NOTE.V;
+    } else if (DEP){
+        /* E（VCVS）和 H（CCVS）在 MNA 裡有自己的電流未知數，引擎直接給。
+           G（VCCS）和 F（CCCS）沒有，但它們的輸出電流就是定義本身，直接算。 */
+        const k = unit(p.val);
+        if (p.type === 'EE' || p.type === 'H'){
+            cur = branchSeries(p.ref);
+            if (cur) note = 'ngspice 直接給的支路電流（受控電壓源在 SPICE 裡有電流未知數）';
+        } else if (p.type === 'G'){
+            const c1 = nodeSeries(ns[2]), c2 = nodeSeries(ns[3]);
+            if (c1 && c2 && isFinite(k)){
+                cur = c1.map((v,i) => k * (v - c2[i]));
+                note = `輸出電流 = 轉導 × 控制端電壓 = ${p.val} × [V(${ns[2]}) − V(${ns[3]})]`;
+            }
+        } else if (p.type === 'F'){
+            const ctrl = branchSeries((p.ctrl || '').trim());
+            if (ctrl && isFinite(k)){
+                cur = ctrl.map(v => k * v);
+                note = `輸出電流 = 增益 × 流過 ${p.ctrl} 的電流 = ${p.val} × I(${p.ctrl})`;
+            }
+        }
     } else if (p.type === 'L'){
         /* ngspice 把電感電流當成 MNA 的原生未知數，會直接給 i(l1)。
            拿現成的比自己積分準：積分要假設 i(0)=0，而且誤差會隨時間累積。
