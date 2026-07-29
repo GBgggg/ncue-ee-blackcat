@@ -152,6 +152,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
      background:var(--paper-raised);border:1px solid var(--rule);border-radius:12px;
      padding:12px 14px;box-shadow:0 12px 34px rgba(0,0,0,.26)}
 .pop.wide{width:440px}
+.pop.xwide{width:min(680px,92vw);max-height:min(78vh,700px)}
 .pop h3{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
 .pop[hidden]{display:none}
 
@@ -163,6 +164,14 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .cmp-tbl td:first-child,.cmp-tbl th:first-child{text-align:left;color:var(--ink-2);font-weight:700}
 #ansBox h4{font-size:12px;margin:12px 0 5px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
 #ansBox h4:first-child{margin-top:0}
+.ans-node,.ans-row{cursor:pointer}
+.ans-node:hover,.ans-row:hover{background:var(--accent-soft)}
+.ans-node.pinned{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+.ans-node.pinned td:first-child{color:var(--accent);font-weight:800}
+.ans-caret{display:inline-block;margin-left:6px;font-size:10px;color:var(--ink-3);
+           transition:transform .15s ease}
+.ans-row.open .ans-caret{transform:rotate(90deg);color:var(--accent)}
+.ans-why-row[hidden]{display:none}
 .ans-tbl{border-collapse:collapse;width:100%;font:12px ui-monospace,Menlo,Consolas,monospace}
 .ans-tbl th,.ans-tbl td{padding:4px 7px;border-bottom:1px solid var(--rule);vertical-align:top}
 .ans-tbl th{color:var(--ink-3);font-weight:600;text-align:left;white-space:nowrap}
@@ -448,7 +457,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="modeNote" class="sub"></div>
 </div>
 
-<div class="pop wide" id="popAns" hidden>
+<div class="pop xwide" id="popAns" hidden>
   <h3>解題卡</h3>
   <div id="ansBox"></div>
 </div>
@@ -709,6 +718,9 @@ let dmmPick = null;                       // 'a' | 'b' | 'part'
    這取代了原本的「探針」：不必切模式、不必事先決定看哪幾個、
    而且它是純粹的畫面狀態——不進存檔、不進復原、不會過期。 */
 let hotNode = null, hotColor = null;
+/* 兩層高亮：滑過圖例是暫時的，點解題卡的節點是釘住的。
+   滑鼠離開圖例時要回到釘住的那個，而不是一律熄掉。 */
+let pinNode = null, pinColor = null;
 const DMM_UNIT = { DCV:'V', ACV:'V', DCA:'A', ACA:'A', OHM:'Ω' };
 const isCurRange = r => r === 'DCA' || r === 'ACA';
 
@@ -2517,7 +2529,7 @@ function buildLegend(){
         if (!nd) return;
         el.classList.add('locatable');
         el.onmouseenter = () => { hotNode = nd; hotColor = COLORS[t.ci%6]; drawSheet(); };
-        el.onmouseleave = () => { hotNode = null; hotColor = null; drawSheet(); };
+        el.onmouseleave = () => { hotNode = pinNode; hotColor = pinColor; drawSheet(); };
     });
 }
 /* ==========================================================
@@ -2928,13 +2940,15 @@ function ansNodes(k){
        現在照樣列出來並標明，缺了什麼一眼就看得到。 */
     const rows = [...seen.entries()].sort((a,b) => a[0].localeCompare(b[0], undefined, {numeric:true}))
         .map(([n]) => { const t = fmtNodeV(n, k);
-            return `<tr><td>V(${n})</td><td class="n">${
+            return `<tr class="ans-node${pinNode===n?' pinned':''}" data-node="${n}">` +
+                   `<td>V(${n})</td><td class="n">${
                 t || '<span class="sub">這次結果裡沒有這個節點</span>'}</td></tr>`; })
         .join('');
     return rows ? `<h4>節點電壓</h4><table class="ans-tbl">
         <tr><th>節點</th><th style="text-align:right">數值</th></tr>${rows}</table>
         <p class="ans-why">接地是 0 V，其餘節點都是相對於它量的。SPICE 解的就是這組值，
-           下面每個元件的電壓電流都是從這裡推出來的。</p>` : '';
+           下面每個元件的電壓電流都是從這裡推出來的。<br>
+           <b>點一下任何一個節點，它會在電路圖上亮起來</b>（再點一次取消）。</p>` : '';
 }
 /** 每個元件的跨壓、電流、功率，附上用了哪條式子。 */
 function ansParts(k){
@@ -2953,16 +2967,20 @@ function ansParts(k){
             else if (p.type === 'SW') why += `　　I = V/R，開關目前的等效電阻`;
             why += `　　P = V·I = ${eng(v)} × ${eng(i)} = ${eng(v*i)}W`;
         }
-        rows.push(`<tr><td>${p.ref || p.type}</td><td class="n">${eng(v)}${simData.isC?'':'V'}</td>` +
+        const ri = rows.length;
+        rows.push(`<tr class="ans-row" data-i="${ri}" title="點一下看算式">` +
+                  `<td>${p.ref || p.type}<span class="ans-caret">▸</span></td>` +
+                  `<td class="n">${eng(v)}${simData.isC?'':'V'}</td>` +
                   `<td class="n">${i == null ? '—' : eng(i)+'A'}</td>` +
                   `<td class="n">${i == null ? '—' : eng(v*i)+'W'}</td></tr>` +
-                  `<tr><td colspan="4" class="ans-why">${why}</td></tr>`);
+                  `<tr class="ans-why-row" data-i="${ri}" hidden><td colspan="4" class="ans-why">${why}</td></tr>`);
     }
     return rows.length ? `<h4>各元件</h4><table class="ans-tbl">
         <tr><th>元件</th><th style="text-align:right">跨壓</th>
             <th style="text-align:right">電流</th><th style="text-align:right">功率</th></tr>
         ${rows.join('')}</table>
-        <p class="ans-why">電流方向以元件第一支腳流向第二支腳為正；功率為正代表這個元件在
+        <p class="ans-why"><b>點任何一列可以展開它的算式</b>（預設收起來，免得數字被淹沒）。<br>
+           電流方向以元件第一支腳流向第二支腳為正；功率為正代表這個元件在
            <b>吸收</b>功率，為負代表在<b>提供</b>功率。整個電路的功率總和應該是 0，
            這是檢查答案最快的方法（第 1 章的功率守恆）。</p>` : '';
 }
@@ -2979,6 +2997,34 @@ function ansBalance(k){
         <p class="ans-why">Σ P = ${eng(sum)}W。理論上應該是 0——吸收的等於提供的。
            不是 0 的話多半是數值誤差，除非差得很離譜。</p>`;
 }
+/* 解題卡的互動用事件委派掛在容器上，內容重畫時不必重綁。
+   兩件事：點節點 → 在電路圖上釘住高亮；點元件那一列 → 展開算式。 */
+let answerBound = false;
+function bindAnswer(box){
+    if (answerBound) return;
+    answerBound = true;
+    box.addEventListener('click', e => {
+        const n = e.target.closest('.ans-node');
+        if (n){
+            const name = n.dataset.node;
+            const same = pinNode === name;
+            pinNode = same ? null : name;
+            pinColor = same ? null : '--accent';
+            hotNode = pinNode; hotColor = pinColor;
+            box.querySelectorAll('.ans-node').forEach(r =>
+                r.classList.toggle('pinned', r.dataset.node === pinNode));
+            drawSheet();
+            return;
+        }
+        const row = e.target.closest('.ans-row');
+        if (row){
+            const why = box.querySelector(`.ans-why-row[data-i="${row.dataset.i}"]`);
+            if (!why) return;
+            why.hidden = !why.hidden;
+            row.classList.toggle('open', !why.hidden);
+        }
+    });
+}
 function renderAnswer(){
     const box = $('ansBox');
     if (!box) return;
@@ -2994,6 +3040,7 @@ function renderAnswer(){
           (cursorIdx != null ? '（游標所在）' : '（最後一點，也就是穩態）') +
           '。把游標移到波形圖上可以換一個時間點。</p>'
         : '<p class="sub">直流工作點（.op），只有一組值。</p>';
+    bindAnswer(box);
     box.innerHTML = at + ansNodes(k) + ansParts(k) + ansBalance(k) +
         '<p class="ans-why" style="margin-top:10px">這些是模擬算出來的數值，' +
         '拿來對自己手算的結果。有證明題、推導題的部分模擬給不了，那要自己寫。</p>';
