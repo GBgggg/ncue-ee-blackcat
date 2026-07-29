@@ -95,7 +95,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
    比容器高 7px，多出來的部分被 overflow:hidden 裁掉——畫面上看不出來，
    但底部那一條就是永遠碰不到的死角。inset:0 讓 CSS 尺寸只由容器決定，
    迴圈就斷了。 */
-#sheet{position:absolute;inset:0;width:100%;height:100%;display:block}
+#sheet{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
 #hud{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--ink-3);
      background:var(--paper);padding:3px 8px;border-radius:8px;border:1px solid var(--rule);
      pointer-events:none;max-width:calc(100% - 20px)}
@@ -236,12 +236,12 @@ button,select,input{font:inherit;color:var(--ink)}
 .pi.on{background:var(--accent-fill);border-color:transparent;color:#fff}
 .pi.on svg{stroke:#fff}
 
-#sheetBox{position:relative;border:1px solid var(--rule);border-radius:12px;overflow:hidden;
-          background:var(--paper)}
-#sheet{display:block;width:100%;height:430px;touch-action:none;cursor:crosshair}
-#hud{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--ink-3);
-     background:var(--paper-raised);border:1px solid var(--rule);border-radius:8px;
-     padding:3px 8px;pointer-events:none;max-width:calc(100% - 20px)}
+/* ★ 這裡本來還有一份 #sheetBox / #sheet / #hud——改成全螢幕版面時新的規則寫在
+   前面，舊的忘了刪。同樣的權重下後面的贏，所以畫布的高度一直被舊規則的
+   `height:430px` 釘死，不管容器多高都一樣。容器變成 518px 之後，底下 88px
+   就是一片永遠畫不到的死區，而畫面上完全看不出異狀。
+   （這是第二次被「同一個東西寫了兩份」咬到，第一次是 CSS 與 JS 用了同一個註解
+   標題。tests/structure.mjs 現在會擋重複的 id 選擇器。） */
 
 /* ---- 樣式：右側常駐面板 ---- */
 .field{display:flex;align-items:center;gap:8px;margin:7px 0}
