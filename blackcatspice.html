@@ -417,11 +417,9 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <div id="dmmScreen"><span id="dmmVal">－ － －</span><small id="dmmUnit"></small></div>
     <div class="field"><label for="dmmRange">檔位</label>
       <select id="dmmRange">
-        <option value="DCV">直流電壓 DCV</option>
-        <option value="ACV">交流電壓 ACV（真有效值）</option>
-        <option value="DCA">直流電流 DCA</option>
-        <option value="ACA">交流電流 ACA（真有效值）</option>
-        <option value="OHM">電阻 Ω（電源歸零）</option>
+        <option value="ACV">交流電壓（真有效值，扣掉直流）</option>
+        <option value="ACA">交流電流（真有效值，扣掉直流）</option>
+        <option value="OHM">等效電阻 Ω（電源歸零）</option>
       </select>
     </div>
     <div class="palette" id="dmmPins">
@@ -712,7 +710,7 @@ let autoRuns = 0;   // 自動重跑了幾次，顯示在波形視窗標題列上
    載入時 renderKeys() → drawSheet() 就會用到 isCurRange，而 const 有暫時性死區，
    放到下面那段程式旁邊的話，模組會在載入當下整個炸掉。
    冒煙測試第二次抓到同一件事——這條規則值得再貼一次。 */
-const dmm = { range:'DCV', a:null, b:null, part:-1, ohm:null };
+const dmm = { range:'ACV', a:null, b:null, part:-1, ohm:null };
 let dmmPick = null;                       // 'a' | 'b' | 'part'
 /* 滑鼠移到圖例上時，要在電路圖上亮起來的節點名稱。
    這取代了原本的「探針」：不必切模式、不必事先決定看哪幾個、
@@ -721,8 +719,10 @@ let hotNode = null, hotColor = null;
 /* 兩層高亮：滑過圖例是暫時的，點解題卡的節點是釘住的。
    滑鼠離開圖例時要回到釘住的那個，而不是一律熄掉。 */
 let pinNode = null, pinColor = null;
-const DMM_UNIT = { DCV:'V', ACV:'V', DCA:'A', ACA:'A', OHM:'Ω' };
-const isCurRange = r => r === 'DCA' || r === 'ACA';
+/* 直流電壓／電流已經由解題卡和元件量測面板完整涵蓋，這裡只留兩件別處沒有的事：
+   交流耦合的真有效值，以及戴維寧等效電阻。 */
+const DMM_UNIT = { ACV:'V', ACA:'A', OHM:'Ω' };
+const isCurRange = r => r === 'ACA';
 
 /* 現實模式會插入隱藏節點（X1、X2…）和寄生元件（R_C1_esr、L_C1_esl…）。
    那些是實作細節，不該出現在圖例和量測表裡——實測會冒出 v(x1)、i(l_c1_esl)，
@@ -2836,7 +2836,10 @@ function measure(xs, y){
     }
     const mean = span ? area/span : y[0];
     const rms  = span ? Math.sqrt(Math.max(0, sq/span)) : Math.abs(y[0]);
-    const out = { min, max, pp:max-min, mean, rms, freq:null, rise:null };
+    /* 交流有效值＝扣掉直流之後的有效值。真實三用電表的交流檔是交流耦合的，
+       量 5V 直流疊 1V 弦波時讀的是 0.707V 而不是 5.05V，兩者不是同一個數字。 */
+    const out = { min, max, pp:max-min, mean, rms, acrms:acRms(xs, y, mean),
+                  freq:null, rise:null };
 
     /* 頻率：數穿過中線的次數，用線性內插求出精確時間。
        兩個要點，都是踩過坑才知道的：
@@ -2889,8 +2892,8 @@ function measure(xs, y){
 const MEAS_COLS = [
     ['最小',  m => m.min,  'u'], ['最大', m => m.max,  'u'],
     ['峰對峰', m => m.pp,   'u'], ['平均', m => m.mean, 'u'],
-    ['RMS',   m => m.rms,  'u'], ['頻率', m => m.freq, 'Hz'],
-    ['上升時間', m => m.rise, 's']
+    ['RMS',   m => m.rms,  'u'], ['交流有效值', m => m.acrms, 'u'],
+    ['頻率', m => m.freq, 'Hz'], ['上升時間', m => m.rise, 's']
 ];
 function renderMeas(){
     const wrap = $('measWrap');
@@ -3025,6 +3028,31 @@ function bindAnswer(box){
         }
     });
 }
+/* 這張電路圖上所有的節點名稱（含接地），照 netlist 的順序。 */
+function allNodeNames(){
+    const nd = buildNodes(), out = [];
+    sch.parts.forEach(p => { if (p.type === 'GND') return;
+        pinsOf(p).forEach(([x,y]) => { const n = nd.nameOf(nd.key(x,y));
+            if (n !== '0' && !out.includes(n)) out.push(n); }); });
+    out.sort((a,b) => a.localeCompare(b, undefined, {numeric:true}));
+    return ['0'].concat(out);
+}
+/* 戴維寧等效電阻。第 4 章最常考的東西，所以放進解題卡而不是藏在儀器面板裡。 */
+function ansThevenin(){
+    const ns = allNodeNames();
+    if (ns.length < 2) return '';
+    const opt = sel => ns.map(n => `<option value="${n}"${n===sel?' selected':''}>${
+        n === '0' ? '接地 (0)' : 'V(' + n + ')'}</option>`).join('');
+    return `<h4>戴維寧等效電阻</h4>
+      <div class="palette" style="gap:6px;align-items:center">
+        <select id="thA" class="btn" style="padding:0 8px">${opt(ns[1])}</select>
+        <span class="sub">看到</span>
+        <select id="thB" class="btn" style="padding:0 8px">${opt('0')}</select>
+        <button class="btn" id="thGo">計算 R<sub>th</sub></button>
+      </div>
+      <div id="thOut" class="ans-why" style="margin-top:6px">
+        把所有獨立電源歸零（電壓源短路、電流源斷路）之後，從這兩點看進去的電阻。</div>`;
+}
 function renderAnswer(){
     const box = $('ansBox');
     if (!box) return;
@@ -3041,9 +3069,21 @@ function renderAnswer(){
           '。把游標移到波形圖上可以換一個時間點。</p>'
         : '<p class="sub">直流工作點（.op），只有一組值。</p>';
     bindAnswer(box);
-    box.innerHTML = at + ansNodes(k) + ansParts(k) + ansBalance(k) +
+    box.innerHTML = at + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin() +
         '<p class="ans-why" style="margin-top:10px">這些是模擬算出來的數值，' +
         '拿來對自己手算的結果。有證明題、推導題的部分模擬給不了，那要自己寫。</p>';
+    const go = $('thGo');
+    if (go) go.onclick = async () => {
+        const a = $('thA').value, b = $('thB').value, out = $('thOut');
+        out.textContent = '計算中…';
+        try {
+            const R = await thevenin(a, b);
+            out.innerHTML = `<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(R)}Ω</b><br>` +
+                `把所有獨立電源歸零之後，從 ${a === '0' ? '接地' : 'V('+a+')'} 看到 ` +
+                `${b === '0' ? '接地' : 'V('+b+')'}。<br>` +
+                `作法：灌入 1A 定電流，量得 ΔV = ${eng(R)}V，所以 R = ΔV / I = ${eng(R)} ÷ 1 = ${eng(R)}Ω。`;
+        } catch(e){ out.textContent = '算不出來：' + ((e && e.message) || e); }
+    };
 }
 
 /* ==========================================================
@@ -3146,10 +3186,9 @@ function dmmNode(pt){
 /** 取一條數列在目前取樣點的讀數。直流看平均，交流看扣掉直流後的真有效值。 */
 function dmmValue(series){
     if (!series) return null;
-    const ac = dmm.range === 'ACV' || dmm.range === 'ACA';
+    const ac = true;      // 這台只剩交流檔，直流看解題卡
     const m = measure(simData.x, series);
     if (!m) return { v: series[Math.min(ansIndex(), series.length-1)], how:'單一取樣點' };
-    if (!ac) return { v: m.mean, how:`整段的平均值（直流檔讀的就是平均）` };
     /* 交流檔要「先扣掉直流再取有效值」。
        數學上等於 √(RMS² − 平均²)，但那個式子在純直流訊號上會災難性抵消——
        兩個幾乎相等的大數相減，實測 3V 直流會讀到 875nV 而不是 0。
@@ -3213,12 +3252,18 @@ function dmmRender(){
     set(eng(r.v), `V(${na}) − V(${nb})。${r.how}。` +
         `這台是外掛的理想電表，不會影響電路——想看真實電表的負載效應，請改用「三用電表」元件。`);
 }
-async function dmmOhm(){
-    if (running) return dmmSay('模擬正在跑，等一下再按。');
-    const na = dmmNode(dmm.a), nb = dmmNode(dmm.b);
-    if (na === nb) return dmmSay('兩支表棒接在同一個節點上，量不出東西。');
+/* 兩個節點之間的戴維寧等效電阻。解題卡和三用電表面板共用同一份實作。
+
+   作法就是課本的定義：所有獨立電源歸零（電壓源短路、電流源斷路），
+   再從兩點之間灌 1A 進去，量到的電壓差就是電阻值。
+   這是一次獨立的分析，不會動到主電路的結果。 */
+async function thevenin(na, nb){
+    if (!na || !nb) throw new Error('要指定兩個節點');
+    if (na === nb) throw new Error('這兩點是同一個節點，量不出東西');
+    if (running) throw new Error('模擬正在跑，等一下再試');
     const r = toNetlist({ zero:true, inject:{ a:nb, b:na, amps:1 }, directive:'.op' });
-    dmmSay('量測中…');
+    const bad = [...r.text].find(c => c.charCodeAt(0) > 127);
+    if (bad) throw new Error(`netlist 裡有非 ASCII 字元「${bad}」`);
     running = true;
     try {
         const s2 = await getSim();
@@ -3228,11 +3273,14 @@ async function dmmOhm(){
         const get = n => n === '0' ? [0]
             : (idx.by.get(`v(${n.toLowerCase()})`) || idx.by.get(n.toLowerCase()) || [NaN]);
         const d = get(na)[0] - get(nb)[0];
-        if (!isFinite(d)) return dmmSay('讀不到結果，請看 netlist。');
-        dmm.ohm = Math.abs(d);
-        dmmRender();
-    } catch(e){ dmmSay('量測失敗：' + ((e && e.message) || e)); }
-    finally { running = false; }
+        if (!isFinite(d)) throw new Error('讀不到結果，請看 netlist');
+        return Math.abs(d);
+    } finally { running = false; }
+}
+async function dmmOhm(){
+    dmmSay('量測中…');
+    try { dmm.ohm = await thevenin(dmmNode(dmm.a), dmmNode(dmm.b)); dmmRender(); }
+    catch(e){ dmmSay('量不出來：' + ((e && e.message) || e)); }
 }
 
 /* ---------- 匯出 ---------- */
