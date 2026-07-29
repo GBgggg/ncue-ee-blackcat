@@ -3052,6 +3052,15 @@ function allNodeNames(){
     return ['0'].concat(out);
 }
 /* 戴維寧等效電阻。第 4 章最常考的東西，所以放進解題卡而不是藏在儀器面板裡。 */
+/* 這個節點是不是直接接在某個電壓源的端點上。
+   會這樣問是因為：戴維寧的定義要把電壓源短路，所以在電源端點量到的一定是 0Ω。
+   數學完全正確，但學生想問的通常是「電源看進去的等效電阻」，那要先把電源刪掉。
+   量到 0 又沒人解釋，看起來就像壞了。 */
+function touchesSource(name){
+    const nd = buildNodes();
+    return sch.parts.some(p => p.type === 'V' &&
+        pinsOf(p).some(([x,y]) => nd.nameOf(nd.key(x,y)) === name));
+}
 function ansThevenin(){
     const ns = allNodeNames();
     if (ns.length < 2) return '';
@@ -3092,7 +3101,11 @@ function renderAnswer(){
         out.textContent = '計算中…';
         try {
             const R = await thevenin(a, b);
+            const zeroed = R < 1e-6 && (touchesSource(a) || touchesSource(b));
             out.innerHTML = `<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(R)}Ω</b><br>` +
+                (zeroed ? '<b style="color:var(--warn)">這一點直接接在電壓源上。</b>' +
+                  '把獨立電源歸零時，電壓源會被當成短路，所以從它的端點看進去必然是 0Ω。<br>' +
+                  '想求「電源看進去的等效電阻」，要先把那個電源<b>刪掉</b>再量。<br>' : '') +
                 `把所有獨立電源歸零之後，從 ${a === '0' ? '接地' : 'V('+a+')'} 看到 ` +
                 `${b === '0' ? '接地' : 'V('+b+')'}。<br>` +
                 `作法：灌入 1A 的<b>測試電流</b>，量得 ΔV = ${eng(R)}V，`+
