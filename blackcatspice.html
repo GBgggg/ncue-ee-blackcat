@@ -1009,6 +1009,9 @@ function toNetlist(opts){
     for (const p of sch.parts){
         const T = TYPES[p.type];
         if (p.type === 'GND') continue;
+        /* 求戴維寧等效時要先把負載「拿掉」。用物件本身比對而不是比對名稱，
+           因為沒命名的元件在這裡才會被配到 ref，外面拿不到同一個名字。 */
+        if (opts.open && opts.open.has(p)) continue;
         const ref = p.ref || (T.pre + (used[T.pre] = (used[T.pre]||0)+1));
         const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
         /* 元件的每一支腳都落在同一個節點上＝它被一條線整個短路掉了。
@@ -1123,13 +1126,21 @@ function toNetlist(opts){
     }
     models.forEach(m => lines.push(m));
     if (opts.inject){
-        /* 灌 1A 進去量電阻。兩個注入點各補一顆 1GΩ 對地，保證有直流路徑——
-           少了它，只要待測網路本身沒接地就會直接踩到矩陣奇異。
-           1GΩ 並聯進去對讀值的影響可以忽略。 */
+        // 灌 1A 進去量電阻。孤島節點的直流路徑由下面的 guard 統一補。
         lines.push(`Iprobe ${opts.inject.a} ${opts.inject.b} DC 1`);
-        lines.push(`Rprobea ${opts.inject.a} 0 1G`);
-        lines.push(`Rprobeb ${opts.inject.b} 0 1G`);
     }
+    if (opts.short){
+        /* 諾頓電流的定義是「把兩點短路，量流過去的電流」。SPICE 讀不到
+           一條線的電流，所以用一個 0V 電壓源當短路——電位差是零，
+           電氣上就是一條線，但它有自己的支路電流未知數，可以直接讀出來。 */
+        lines.push(`Vshort ${opts.short.a} ${opts.short.b} DC 0`);
+    }
+    /* 每個待測點補一顆 1GΩ 對地，保證有直流路徑。少了它，只要待測網路
+       本身沒接地（或把負載拿掉之後變成孤島）就會直接踩到矩陣奇異。
+       1GΩ 對讀值的影響可以忽略。接地點本身不用補，補了會變成 0 到 0 的自環。 */
+    (opts.guard || []).forEach((n, i) => {
+        if (n && n !== '0') lines.push(`Rguard${i} ${n} 0 1G`);
+    });
     lines.push(opts.directive || directive());
     lines.push('.end');
     if (!hasGnd) warn.push('電路裡沒有接地符號。SPICE 一定要有 0 節點，請放一個接地。');
@@ -3124,31 +3135,24 @@ function touchesSource(name){
     return sch.parts.some(p => p.type === 'V' &&
         pinsOf(p).some(([x,y]) => nd.nameOf(nd.key(x,y)) === name));
 }
-/* 直接跨接在這兩點之間的元件。有的話，目前量到的就不是「開路電壓」，
-   而戴維寧電壓的定義正是開路電壓——課本說的「先把負載移除」就是這個意思。 */
-function bridging(a, b){
-    const nd = buildNodes();
-    return sch.parts.filter(p => {
-        if (p.type === 'GND' || TYPES[p.type].pins.length < 2) return false;
-        const ns = pinsOf(p).slice(0,2).map(([x,y]) => nd.nameOf(nd.key(x,y)));
-        return (ns[0]===a && ns[1]===b) || (ns[0]===b && ns[1]===a);
-    }).map(p => p.ref || p.type);
-}
 function ansThevenin(){
     const ns = allNodeNames();
     if (ns.length < 2) return '';
     const opt = sel => ns.map(n => `<option value="${n}"${n===sel?' selected':''}>${
         n === '0' ? '接地 (0)' : 'V(' + n + ')'}</option>`).join('');
-    return `<h4>戴維寧等效電阻</h4>
+    return `<h4>戴維寧／諾頓等效</h4>
       <div class="palette" style="gap:6px;align-items:center">
         <select id="thA" class="btn" style="padding:0 8px">${opt(ns[1])}</select>
         <span class="sub">看到</span>
         <select id="thB" class="btn" style="padding:0 8px">${opt('0')}</select>
-        <button class="btn" id="thGo">計算 R<sub>th</sub></button>
+        <button class="btn" id="thGo">計算</button>
       </div>
+      <label class="chk" for="thKeep"><input type="checkbox" id="thKeep">
+        <span>把跨接在這兩點之間的元件留著</span></label>
       <div id="thOut" class="ans-why" style="margin-top:6px">
-        算出完整的戴維寧／諾頓等效：R<sub>th</sub>、V<sub>th</sub>、I<sub>N</sub>，
-        以及最大功率轉移的負載與功率。</div>`;
+        R<sub>th</sub>、V<sub>th</sub>、I<sub>N</sub> 三個量會各跑一次獨立的分析，
+        分別用自己的定義去求，最後再互相驗算。預設會先把跨接在這兩點之間的負載移除
+        ——那是戴維寧定義的一部分。</div>`;
 }
 function renderAnswer(){
     const box = $('ansBox');
@@ -3172,40 +3176,86 @@ function renderAnswer(){
     const go = $('thGo');
     if (go) go.onclick = async () => {
         const a = $('thA').value, b = $('thB').value, out = $('thOut');
-        out.textContent = '計算中…';
+        const keep = !!($('thKeep') && $('thKeep').checked);
+        out.textContent = '計算中…（要跑三次分析）';
         try {
-            const R = await thevenin(a, b);
-            const zeroed = R < 1e-6 && (touchesSource(a) || touchesSource(b));
-            /* 有了 R_th，V_th、I_N、P_max 都只差一行公式——第 4 章要的就是這一組，
-               沒理由讓使用者自己讀節點電壓再手算。 */
-            const k = ansIndex();
-            const va = nodeSeries(a), vb = nodeSeries(b);
-            const Vth = (va && vb && k >= 0) ? va[k] - vb[k] : null;
-            const cross = bridging(a, b);
-            let extra = '';
-            if (Vth != null && R > 1e-9){
-                const IN = Vth / R, Pmax = Vth*Vth/(4*R);
-                extra = `<br><b style="color:var(--ink);font-size:13px">V<sub>th</sub> = ${eng(Vth)}V` +
-                        `　I<sub>N</sub> = ${eng(IN)}A</b><br>` +
-                        `V<sub>th</sub> 就是這兩點的開路電壓：V(${a === '0' ? '0' : a}) − V(${b === '0' ? '0' : b}) = ${eng(Vth)}V。<br>` +
-                        `諾頓電流 I<sub>N</sub> = V<sub>th</sub> / R<sub>th</sub> = ${eng(Vth)} ÷ ${eng(R)} = ${eng(IN)}A。<br>` +
-                        `<b>最大功率轉移</b>：負載取 R<sub>L</sub> = R<sub>th</sub> = ${eng(R)}Ω 時最大，` +
-                        `P<sub>max</sub> = V<sub>th</sub>² / (4·R<sub>th</sub>) = ${eng(Pmax)}W。` +
-                        (cross.length
-                          ? `<br><b style="color:var(--warn)">注意：這兩點之間還接著 ${cross.join('、')}。</b>` +
-                            `V<sub>th</sub> 的定義是<b>開路</b>電壓，所以要先把它移除（或把電阻值調到很大）再看這個數字；` +
-                            `R<sub>th</sub> 不受影響。`
-                          : '');
+            const t = await theveninFull(a, b, keep);
+            const NA = n => n === '0' ? '接地' : 'V(' + n + ')';
+            const L = [];
+
+            /* 三個答案先給，推導再說。學生要對答案的時候不想先讀三段文字。 */
+            L.push(`<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(t.R)}Ω` +
+                   (t.Vth != null ? `　V<sub>th</sub> = ${eng(t.Vth)}V` : '') +
+                   (t.IN  != null ? `　I<sub>N</sub> = ${eng(t.IN)}A`  : '') + '</b>');
+
+            if (t.removed.length)
+                L.push(`<b>已先移除 ${t.removed.join('、')}</b>。戴維寧等效講的是` +
+                       `「把負載拿掉之後，剩下的網路長什麼樣」，所以跨接在這兩點之間的元件` +
+                       `要先開路。<b>R<sub>th</sub> 和 V<sub>th</sub> 都會受它影響</b>` +
+                       `——留著的話量到的是 R<sub>th</sub> ∥ R<sub>L</sub> 和分壓後的電壓，` +
+                       `兩個都會偏小。`);
+            else if (!keep)
+                L.push(`這兩點之間沒有跨接元件，不需要移除任何東西。`);
+            else
+                L.push(`<b style="color:var(--warn)">你選了「把元件留著」</b>，` +
+                       `所以下面算的是「含這些元件在內」的等效，不是課本定義的戴維寧等效。`);
+
+            if (t.stuck.length)
+                L.push(`<b style="color:var(--warn)">${t.stuck.join('、')} 也跨在這兩點之間，` +
+                       `但沒有被移除。</b>電源與受控源算網路本身的一部分，拿掉就變成另一題了；` +
+                       `如果你的題目要把它當負載，請自己先刪掉再算。`);
+
+            /* 推導：三段，每段對應一次真的跑過的分析。 */
+            L.push(`<b>R<sub>th</sub>：</b>把所有<b>獨立</b>電源歸零` +
+                   `（電壓源短路、電流源斷路，受控源不動），從 ${NA(a)} 看到 ${NA(b)}，` +
+                   `灌入 1A 測試電流，量得 ΔV = ${eng(t.R)}V，所以 R = ΔV / 1A = ${eng(t.R)}Ω。` +
+                   `（用 1A 是刻意的：電壓的數值直接就是電阻值。）`);
+
+            if (t.Vth != null)
+                L.push(`<b>V<sub>th</sub>：</b>電源全部照原樣，量這兩點的<b>開路</b>電壓：` +
+                       `${NA(a)} − ${NA(b)} = ${eng(t.Vth)}V。`);
+            if (t.IN != null)
+                L.push(`<b>I<sub>N</sub>：</b>把這兩點<b>短路</b>，量流過去的電流 = ${eng(t.IN)}A。` +
+                       `這是諾頓電流的定義，不是拿 V<sub>th</sub> / R<sub>th</sub> 換算來的。`);
+
+            /* 驗算。三個量各自獨立求得，所以這一行是真的檢查。 */
+            if (t.Vth != null && t.IN != null && t.R > 1e-9){
+                const pred = t.Vth / t.R;
+                const scale = Math.max(Math.abs(t.IN), Math.abs(pred));
+                const err = scale > 1e-15 ? Math.abs(t.IN - pred) / scale : 0;
+                L.push(err < 0.01
+                  ? `<b style="color:var(--ok)">驗算通過</b>：I<sub>N</sub> × R<sub>th</sub> = ` +
+                    `${eng(t.IN)} × ${eng(t.R)} = ${eng(t.IN * t.R)}V，跟 V<sub>th</sub> 相符。` +
+                    `三個量是分開算的，對得上才表示這個電路真的有戴維寧等效。`
+                  : `<b style="color:var(--warn)">驗算對不上</b>：V<sub>th</sub> / R<sub>th</sub> = ` +
+                    `${eng(pred)}A，但短路量到的是 ${eng(t.IN)}A（差 ${(err*100).toFixed(1)}%）。` +
+                    `戴維寧定理只對<b>線性</b>網路成立，電路裡若有二極體、電晶體這類非線性元件` +
+                    `就不會相符。`);
             }
-            out.innerHTML = `<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(R)}Ω</b>` + extra + `<br>` +
-                (zeroed ? '<b style="color:var(--warn)">這一點直接接在電壓源上。</b>' +
-                  '把獨立電源歸零時，電壓源會被當成短路，所以從它的端點看進去必然是 0Ω。<br>' +
-                  '想求「電源看進去的等效電阻」，要先把那個電源<b>刪掉</b>再量。<br>' : '') +
-                `把所有獨立電源歸零之後，從 ${a === '0' ? '接地' : 'V('+a+')'} 看到 ` +
-                `${b === '0' ? '接地' : 'V('+b+')'}。<br>` +
-                `作法：灌入 1A 的<b>測試電流</b>，量得 ΔV = ${eng(R)}V，`+
-                `所以 R = ΔV / I = ${eng(R)} ÷ 1 = ${eng(R)}Ω。<br>`+
-                `（用 1A 是刻意的：這樣電壓的數值直接就是電阻值。這是課本求 R<sub>th</sub> 的標準手法。）`;
+
+            if (t.Vth != null && t.R > 1e-9){
+                const Pmax = t.Vth * t.Vth / (4 * t.R);
+                L.push(`<b>最大功率轉移</b>：負載取 R<sub>L</sub> = R<sub>th</sub> = ${eng(t.R)}Ω 時` +
+                       `功率最大，P<sub>max</sub> = V<sub>th</sub>² / (4·R<sub>th</sub>) = ${eng(Pmax)}W。` +
+                       `想親眼看到這個峰值，用工具列的<b>參數掃描</b>掃負載電阻。`);
+            }
+
+            if (t.zeroedAt)
+                L.push(`<b style="color:var(--warn)">這一點直接接在電壓源上。</b>` +
+                       `把獨立電源歸零時電壓源會被當成短路，所以從它的端點看進去必然是 0Ω。` +
+                       `想求「電源看進去的等效電阻」，要先把那個電源<b>刪掉</b>再量。`);
+            else if (t.R <= 1e-9)
+                L.push(`<b style="color:var(--warn)">R<sub>th</sub> 幾乎是 0</b>，` +
+                       `代表這兩點之間被短路了。諾頓電流會發散，最大功率也算不出來。`);
+            if (t.Vth != null && Math.abs(t.Vth) < 1e-12 && t.R > 1e-9)
+                L.push(`V<sub>th</sub> = 0，等效電路就是一顆 ${eng(t.R)}Ω 的電阻，沒有電源。` +
+                       `電路裡若只有受控源而沒有獨立電源，結果本來就會是這樣。`);
+            if (t.nonlinear)
+                L.push(`<b style="color:var(--warn)">電路裡有二極體或電晶體。</b>` +
+                       `戴維寧定理只對線性網路成立，上面的數字只是「在目前這個工作點附近」` +
+                       `的近似，換一個負載就不一定準了。`);
+
+            out.innerHTML = L.join('<br>');
         } catch(e){ out.textContent = '算不出來：' + ((e && e.message) || e); }
     };
 }
@@ -3376,31 +3426,104 @@ function dmmRender(){
     set(eng(r.v), `V(${na}) − V(${nb})。${r.how}。` +
         `這台是外掛的理想電表，不會影響電路——想看真實電表的負載效應，請改用「三用電表」元件。`);
 }
-/* 兩個節點之間的戴維寧等效電阻。解題卡和三用電表面板共用同一份實作。
+/* ==========================================================
+   戴維寧／諾頓等效
 
-   作法就是課本的定義：所有獨立電源歸零（電壓源短路、電流源斷路），
-   再從兩點之間灌 1A 進去，量到的電壓差就是電阻值。
-   這是一次獨立的分析，不會動到主電路的結果。 */
-async function thevenin(na, nb){
+   ★ 這裡曾經有一個會給出「一半的答案」的錯誤。
+
+   原本只算 R_th，而且算的時候**負載還接在電路上**，V_th 則直接讀主電路
+   目前的節點電壓。兩個都不是定義：
+
+     R_th 的定義是「把負載移開、獨立電源歸零，從端點看進去」。負載還在的話
+          灌進去的 1A 會分一部分走負載，量到的是 R_th ∥ R_L。
+     V_th 的定義是「把負載移開之後的**開路**電壓」。負載還在的話讀到的是
+          分壓後的值，也就是 R_L 兩端的電壓。
+
+   以課本最典型的那組數字（V_th=16V、R_th=14Ω、R_L=14Ω）為例，舊版會給
+   R = 14∥14 = 7Ω、V = 8V——剛好都是正確答案的一半，而且兩個都「看起來很合理」。
+   更糟的是舊版畫面上還寫著「R_th 不受影響」，那句話是錯的。
+
+   現在三個量各自用自己的定義獨立算一次：
+
+     R_th ← 移除負載、獨立電源歸零，灌 1A 測試電流，R = ΔV / 1A
+     V_th ← 移除負載，直接量兩點的開路電壓
+     I_N  ← 移除負載，把兩點短路，量流過短路的電流
+
+   三次都是獨立的 .op，彼此不互推。所以最後那個 I_N × R_th = V_th
+   是一個**真的檢查**，不是恆等式——對不上就代表電路裡有東西讓戴維寧定理
+   不成立（最常見的是二極體、電晶體這類非線性元件）。
+   ========================================================== */
+/** 跑一次 .op，回傳讀值用的兩個函式。呼叫端負責 running 旗標。 */
+async function opRun(opts){
+    const r = toNetlist(Object.assign({ directive:'.op' }, opts));
+    const bad = [...r.text].find(c => c.charCodeAt(0) > 127);
+    if (bad) throw new Error(`netlist 裡有非 ASCII 字元「${bad}」`);
+    const s2 = await getSim();
+    s2.setNetList(r.text);
+    const res = await withTimeout(s2.runSim(), 20000, '計算');
+    const idx = indexResult(res);
+    return {
+        v: n => n === '0' ? 0
+             : (idx.by.get(`v(${String(n).toLowerCase()})`) ||
+                idx.by.get(String(n).toLowerCase()) || [NaN])[0],
+        i: ref => { const k = String(ref).toLowerCase();
+                    const ser = idx.by.get(`i(${k})`) || idx.by.get(`${k}#branch`);
+                    return ser ? ser[0] : NaN; }
+    };
+}
+/* 什麼東西算「負載」，可以為了求等效而拿掉。
+   電源與受控源不算——它們是被求等效的那個網路的一部分，拿掉會變成另一題。 */
+const LOADISH = ['R','C','L','SW','M'];
+/* 戴維寧定理只對線性網路成立。二極體、電晶體不是線性元件，
+   「電源歸零再看進去」對它們沒有意義，算得出數字也不能用。 */
+const NONLINEAR = ['D','Q'];
+/** 直接跨接在這兩點之間的元件（物件）。 */
+function bridgingParts(a, b){
+    const nd = buildNodes();
+    return sch.parts.filter(p => {
+        if (p.type === 'GND' || TYPES[p.type].pins.length < 2) return false;
+        const ns = pinsOf(p).slice(0,2).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+        return (ns[0]===a && ns[1]===b) || (ns[0]===b && ns[1]===a);
+    });
+}
+
+
+/** 完整的戴維寧／諾頓等效。三個量各跑一次獨立的 .op。 */
+async function theveninFull(na, nb, keepLoad){
     if (!na || !nb) throw new Error('要指定兩個節點');
     if (na === nb) throw new Error('這兩點是同一個節點，量不出東西');
     if (running) throw new Error('模擬正在跑，等一下再試');
-    const r = toNetlist({ zero:true, inject:{ a:nb, b:na, amps:1 }, directive:'.op' });
-    const bad = [...r.text].find(c => c.charCodeAt(0) > 127);
-    if (bad) throw new Error(`netlist 裡有非 ASCII 字元「${bad}」`);
+    const cross  = bridgingParts(na, nb);
+    const loads  = keepLoad ? [] : cross.filter(p => LOADISH.includes(p.type) && !p.off);
+    const open   = new Set(loads);
+    const guard  = [na, nb];
+    const stuck  = cross.filter(p => !LOADISH.includes(p.type));
     running = true;
     try {
-        const s2 = await getSim();
-        s2.setNetList(r.text);
-        const res = await withTimeout(s2.runSim(), 20000, '計算');
-        const idx = indexResult(res);
-        const get = n => n === '0' ? [0]
-            : (idx.by.get(`v(${n.toLowerCase()})`) || idx.by.get(n.toLowerCase()) || [NaN]);
-        const d = get(na)[0] - get(nb)[0];
-        if (!isFinite(d)) throw new Error('讀不到結果，請看 netlist');
-        return Math.abs(d);
+        const ro  = await opRun({ zero:true, open, guard, inject:{ a:nb, b:na, amps:1 } });
+        const R   = Math.abs(ro.v(na) - ro.v(nb));
+        if (!isFinite(R)) throw new Error('讀不到 R_th，請看 netlist');
+        /* 後面兩次是加分題，失敗了也要把已經算出來的 R_th 交出去。
+           最典型的失敗是「量測點就在理想電壓源的端點上」——那時候把兩點短路
+           等於把電壓源短路，電流無限大，矩陣真的無解。這不是程式壞掉，
+           是題目本身在那個位置沒有諾頓等效，所以只跳過那一項，不整個失敗。 */
+        let Vth = null, IN = null;
+        try { const vo = await opRun({ open, guard });
+              const d = vo.v(na) - vo.v(nb); if (isFinite(d)) Vth = d; } catch(e){}
+        if (R > 1e-9)
+            try { const so = await opRun({ open, guard, short:{ a:na, b:nb } });
+                  const d = so.i('Vshort'); if (isFinite(d)) IN = d; } catch(e){}
+        return {
+            R, Vth, IN,
+            removed: loads.map(p => p.ref || p.type),
+            stuck:   stuck.map(p => p.ref || p.type),
+            nonlinear: sch.parts.some(p => NONLINEAR.includes(p.type) && !p.off),
+            zeroedAt: R < 1e-6 && (touchesSource(na) || touchesSource(nb))
+        };
     } finally { running = false; }
 }
+/** 只要電阻值的舊介面，三用電表用。 */
+async function thevenin(na, nb){ return (await theveninFull(na, nb)).R; }
 async function dmmOhm(){
     dmmSay('量測中…');
     try { dmm.ohm = await thevenin(dmmNode(dmm.a), dmmNode(dmm.b)); dmmRender(); }
