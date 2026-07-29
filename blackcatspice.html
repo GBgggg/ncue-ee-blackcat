@@ -527,7 +527,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     ・拖曳空白處＝框選一整組，Shift 點擊＝加選或退選<br>
     ・框選後 Ctrl+C 複製、Ctrl+V 貼上（會錯開一格並重新編號）<br>
     ・從工具列點一個元件後可以<b>連續放置</b>，右鍵或 Esc 才退出<br>
-    ・游標停在電阻／電容／電感上滾滾輪＝數值照 E12 換一檔<br>
+    ・游標停在元件上滾滾輪＝<b>轉 45 度</b>；Shift+滾輪＝數值照 E12 換一檔<br>
     ・其餘位置滾滾輪＝縮放，按住 Alt 拖曳或中鍵拖曳＝平移<br>
     ・在接腳上直接按下就能開始拉線，不必先切模式</p>
 </div>
@@ -793,7 +793,25 @@ let wireFrom = null;                    // 連線的起點
 let view = { x:0, y:0, z:1 };           // 平移與縮放
 let mouseW = { x:0, y:0 };
 
-const rotPt = (px,py,r) => [[px,py],[-py,px],[-px,-py],[py,-px]][((r%4)+4)%4];
+/* ==========================================================
+   旋轉：0~7，一格 45 度
+
+   45 度的難處是接腳會落在格點外：(0,-20) 轉 45 度是 (14.14, -14.14)，
+   而節點是用座標字串當鍵合併的，浮點數一進來就對不起來。
+
+   解法是**轉 45 度的同時放大 √2**，那組係數剛好是整數矩陣：
+       (px, py) → (px - py, px + py)
+   (0,-20) → (20,-20)、(-30,-10) → (-20,-40)，全部落在 10 的格點上。
+   代價是 45 度時接腳離元件中心遠了 √2 倍——所以畫的時候補一小段引線
+   把符號接到格點上（見 drawSheet），符號本身維持原來大小。 */
+const ROT4 = [(x,y)=>[x,y], (x,y)=>[-y,x], (x,y)=>[-x,-y], (x,y)=>[y,-x]];
+const ROT_N = 8;
+function rotPt(px, py, r){
+    r = ((r % ROT_N) + ROT_N) % ROT_N;
+    const q = r >> 1;                       // 落在哪一個 90 度象限
+    return (r & 1) ? ROT4[q](px - py, px + py) : ROT4[q](px, py);
+}
+const isDiag = r => (((r % ROT_N) + ROT_N) % ROT_N) & 1;
 const pinsOf = p => TYPES[p.type].pins.map(([a,b]) => {
     const [u,v] = rotPt(a,b,p.rot); return [p.x+u, p.y+v];
 });
@@ -831,7 +849,8 @@ function autosave(){
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => {
         try {
-            const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value, t:Date.now() });
+            const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals,
+                                          m:$('modeSel').value, r:ROT_N, t:Date.now() });
             if (data === lastSaved) return;
             localStorage.setItem(DOC_KEY, data); lastSaved = data;
         } catch(e) {}    // 空間滿了或被停用就算了，不要吵使用者
@@ -849,13 +868,23 @@ function autosave(){
    第三次回到直線。這樣走線是你決定的，不是它猜的。
    ========================================================== */
 const snapPoint = (wx,wy) => ({ x:snap(wx), y:snap(wy) });
-/* 一律走直線：只沿位移較大的那一軸走一段，另一軸的位移直接捨去。
-   要轉彎就按「確定這一段」（預設空白鍵）——它會把目前這段虛線定下來，
-   然後從那個端點接著畫，下一段自然就是另一個方向。轉彎是你按出來的。 */
+/* 一段線只走三種方向：水平、垂直、45 度。看你拖的方向自動決定，不必記按鍵。
+
+   分界用兩軸位移的比值：小於 1:2 算水平、大於 2:1 算垂直、中間那一段算對角。
+   換算成角度就是 0~26.6 度走水平、26.6~63.4 度走 45 度、63.4~90 度走垂直——
+   三段各佔三分之一左右，手感是均勻的。
+
+   跟原本一樣，一段只走一個方向，另一軸的位移捨去；要轉彎就按「確定這一段」
+   （預設空白鍵），從那個端點接著畫下一段。轉彎是你按出來的，不是猜出來的。 */
 function route(a,b){
     if (a.x === b.x && a.y === b.y) return [[a.x,a.y]];
-    return Math.abs(b.x-a.x) >= Math.abs(b.y-a.y)
-        ? [[a.x,a.y],[b.x,a.y]] : [[a.x,a.y],[a.x,b.y]];
+    const dx = b.x-a.x, dy = b.y-a.y, ax = Math.abs(dx), ay = Math.abs(dy);
+    const lo = Math.min(ax,ay), hi = Math.max(ax,ay);
+    if (lo * 2 > hi){
+        /* 對角線：兩軸走一樣多，終點才會落在正 45 度上（也才會落在格點上）。 */
+        return [[a.x,a.y],[a.x + Math.sign(dx)*lo, a.y + Math.sign(dy)*lo]];
+    }
+    return ax >= ay ? [[a.x,a.y],[b.x,a.y]] : [[a.x,a.y],[a.x,b.y]];
 }
 function commitWire(a,b){
     pushUndo();
@@ -1406,11 +1435,15 @@ function drawSheet(){
         const on = isSel('part', i);
         g.save();
         const [sx,sy] = W2S(p.x,p.y);
-        g.translate(sx,sy); g.scale(view.z,view.z); g.rotate(p.rot*Math.PI/2);
+        g.translate(sx,sy); g.scale(view.z,view.z); g.rotate(p.rot*Math.PI/4);
         g.strokeStyle = on ? selc : ink; g.lineWidth = 1.7/1;
         g.lineCap='round'; g.lineJoin='round';
         if (p.off){ g.globalAlpha = .35; g.setLineDash([3,2]); }
         TYPES[p.type].draw(g, p);
+        /* 45 度時接腳被放大到 √2 倍遠（才落得到格點），符號本身不放大，
+           所以從原本的腳尖再拉一小段到真正的接腳位置，線才接得上。 */
+        if (isDiag(p.rot))
+            TYPES[p.type].pins.forEach(([a,b]) => ln(g, a, b, a*Math.SQRT2, b*Math.SQRT2));
         g.setLineDash([]); g.globalAlpha = 1;
         g.restore();
         // 標籤不跟著轉，才讀得順
@@ -1471,7 +1504,7 @@ function drawSheet(){
     if (mode==='place' && placing){
         g.save(); const [sx,sy] = W2S(snap(mouseW.x), snap(mouseW.y));
         g.globalAlpha = .5; g.translate(sx,sy); g.scale(view.z,view.z);
-        g.rotate(placeRot*Math.PI/2); g.strokeStyle = selc; g.lineWidth = 1.7;
+        g.rotate(placeRot*Math.PI/4); g.strokeStyle = selc; g.lineWidth = 1.7;
         TYPES[placing].draw(g, {val:TYPES[placing].val}); g.restore();
     }
     const kn = a => keyName(keys[a]);
@@ -1653,16 +1686,24 @@ const WHEELABLE = ['RL','R','L','C'];
 cv.addEventListener('wheel', e => {
     e.preventDefault();
     const r0 = cv.getBoundingClientRect();
-    {   // 游標停在 R/L/C 上 → 改數值，不縮放
+    {   /* 游標停在元件上 → 滾輪轉它，不縮放。
+           旋轉比改數值常用得多（每放一顆都可能要轉），所以佔用沒有修飾鍵的那一個；
+           E12 換檔移到 Shift+滾輪，兩個都還是「游標停在元件上」的同一組手勢。 */
         const [wx,wy] = S2W(e.clientX-r0.left, e.clientY-r0.top);
         const pi = hitPart(wx,wy);
-        if (pi >= 0 && WHEELABLE.includes(sch.parts[pi].type)){
-            const next = stepE12(sch.parts[pi].val, e.deltaY < 0 ? 1 : -1);
-            if (next){
+        if (pi >= 0){
+            const dir = e.deltaY < 0 ? 1 : -1;
+            if (e.shiftKey){
+                if (!WHEELABLE.includes(sch.parts[pi].type)) return;
+                const next = stepE12(sch.parts[pi].val, dir);
+                if (!next) return;
                 pushUndo(); sch.parts[pi].val = next;
-                sel = [{kind:'part', i:pi}]; inspect(); refreshNet(); drawSheet();
-                hintStale();
+            } else {
+                pushUndo();
+                sch.parts[pi].rot = (sch.parts[pi].rot + dir + ROT_N) % ROT_N;
             }
+            sel = [{kind:'part', i:pi}]; inspect(); refreshNet(); drawSheet();
+            hintStale();
             return;
         }
     }
@@ -1809,11 +1850,11 @@ function addPart(type, x, y, rot){
     inspect(); refreshNet(); drawSheet();
 }
 function rotate(){
-    if (mode === 'place'){ placeRot = (placeRot+1)%4; drawSheet(); return; }
+    if (mode === 'place'){ placeRot = (placeRot+1)%ROT_N; drawSheet(); return; }
     const ps = sel.filter(x => x.kind==='part');
     if (!ps.length) return;
     pushUndo();
-    ps.forEach(x => sch.parts[x.i].rot = (sch.parts[x.i].rot+1)%4);
+    ps.forEach(x => sch.parts[x.i].rot = (sch.parts[x.i].rot+1)%ROT_N);
     refreshNet(); drawSheet();
 }
 function moveSelection(dx,dy){
@@ -1999,7 +2040,7 @@ function inspect(){
     const box = $('insp');
     if (!sel.length){ box.innerHTML = '<p class="sub">點畫布上的元件或線，這裡就會顯示它的參數。<br>' +
         '沒有彈出視窗，改完立刻生效。<br>拖曳空白處可以框選一整組，Shift 點擊可加選。<br>' +
-        '游標停在電阻／電容／電感上滾滑鼠，數值會照 E12 換檔。</p>'; return; }
+        '游標停在元件上滾滑鼠會轉 45 度，Shift+滾輪則是照 E12 換數值。</p>'; return; }
     if (sel.length > 1){
         box.innerHTML = `<p class="sub">已選取 <b>${sel.length}</b> 個物件，可以整組搬移。</p>
           <div class="palette" style="margin-top:8px">
@@ -2273,7 +2314,10 @@ Object.keys(EXAMPLES).forEach(k => $('exSel').insertAdjacentHTML('beforeend',
 $('exSel').onchange = () => loadExample($('exSel').value);
 function loadExample(k){
     const e = EXAMPLES[k](); sch = {parts:[],wires:[]}; seq = 1; sel = [];
-    e.parts.forEach(([t,x,y,r,ref,val]) => sch.parts.push({type:t,x,y,rot:r,ref,val}));
+    /* 範例裡的第四個數字沿用「90 度一格」的舊寫法（0~3），這裡乘 2 換成新的
+       45 度刻度。範例都是直角電路，用 0~3 讀起來比 0/2/4/6 直覺得多。 */
+    e.parts.forEach(([t,x,y,r,ref,val]) =>
+        sch.parts.push({type:t, x, y, rot:((r|0)*2) % ROT_N, ref, val}));
     e.wires.forEach(([a,b,c,d]) => sch.wires.push({x1:a,y1:b,x2:c,y2:d}));
     seq = sch.parts.length + 1;
     $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); buildAna();
@@ -4121,10 +4165,20 @@ dragify($('dmmWin'), $('dmmHead'), (s0,dx,dy) => {
 /* ==========================================================
    存檔與分享
    ========================================================== */
+/* ★ 旋轉從 4 格（90 度）改成 8 格（45 度）之後，rot 的意思變了：
+   舊資料的 rot=1 是 90 度，新的 rot=1 是 45 度。舊存檔、分享連結、自動存檔
+   如果直接照讀，每一顆轉過的元件都會歪掉，而且**畫面上看起來像是使用者自己畫歪的**，
+   不會有任何錯誤訊息。所以存檔加一個 `r` 欄位記錄刻度數，沒有這個欄位的一律
+   當成舊格式，把 rot 乘 2 補回去。 */
+function upgradeRot(o){
+    if (!o || !o.s || o.r === ROT_N) return o;
+    (o.s.parts || []).forEach(p => { p.rot = ((p.rot|0) * 2) % ROT_N; });
+    return o;
+}
 const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
-    { s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value }))));
+    { s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value, r:ROT_N }))));
 function unpack(str){
-    const o = JSON.parse(decodeURIComponent(escape(atob(str))));
+    const o = upgradeRot(JSON.parse(decodeURIComponent(escape(atob(str)))));
     sch = o.s || {parts:[],wires:[]};        // 舊存檔裡的 probes 欄位直接忽略
     seq = (sch.parts.length||0)+1; sel = [];
     $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
@@ -4182,7 +4236,7 @@ if (q){
     try {
         const raw = localStorage.getItem(DOC_KEY);
         if (raw){
-            const o = JSON.parse(raw);
+            const o = upgradeRot(JSON.parse(raw));
             if (o.s && (o.s.parts||[]).length){
                 sch = o.s;
                 seq = sch.parts.length + 1; sel = [];
