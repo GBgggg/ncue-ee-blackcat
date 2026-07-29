@@ -691,6 +691,14 @@ const TYPES = {
         if (open) ln(g,0,-9,11,7);          // 搖臂拉起來，看得出是斷的
         else      ln(g,0,-9,0,9);
       } },
+  /* 負載 R_L。電氣上就是一顆電阻，差別只在它「被標記成負載」——
+     解題卡看到它就知道要對哪兩點求戴維寧等效，不必再叫使用者選節點。
+     符號故意跟一般電阻不同：外面加一圈虛線框、兩端畫空心圈，
+     那兩個圈就是課本畫戴維寧等效時的那對端點 a、b。 */
+  RL:{ label:'負載', pre:'RL', pins:[[0,-20],[0,20]], val:'1k',
+      draw(g){ ln(g,0,-20,0,-10); g.strokeRect(-6,-10,12,20); ln(g,0,10,0,20);
+        g.save(); g.setLineDash([2,2]); g.strokeRect(-11,-15,22,30); g.restore();
+        cir(g,0,-20,2.6); cir(g,0,20,2.6); } },
   GND:{label:'接地', pre:'', pins:[[0,0]], val:'',
       draw(g){ ln(g,0,0,0,8); ln(g,-9,8,9,8); ln(g,-5,12,5,12); ln(g,-2,16,2,16); } }
 };
@@ -1617,7 +1625,7 @@ addEventListener('pointerup', () => {
     }
     dragging = null; panning = null;
 });
-const WHEELABLE = ['R','L','C'];
+const WHEELABLE = ['RL','R','L','C'];
 cv.addEventListener('wheel', e => {
     e.preventDefault();
     const r0 = cv.getBoundingClientRect();
@@ -1902,6 +1910,7 @@ const DEP_HINT = {
 };
 const VAL_HINT = {
   R:'例：1k、4.7k、100', C:'例：1u、100n、10p', L:'例：10m、1u',
+  RL:'例：1k、14、100。放這顆等於告訴解題卡「對這兩點求戴維寧等效」。',
   V:'例：DC 5、SIN(0 1 1k)、PULSE(0 1 0 1n 1n 1m 2m)、AC 1',
   I:'例：DC 1m、SIN(0 1m 1k)', D:'模型名稱，會自動附上 .model',
   Q:'模型名稱，會自動附上 .model', E:'增益，理想運放填 1e6'
@@ -2030,6 +2039,9 @@ function inspect(){
             : '電流源歸零＝<b>斷路</b>，整個拿掉。'}
             這是第 4 章最常錯的一步。</p>` : ''}
       <p class="sub">${VAL_HINT[p.type] || ''}</p>
+      ${p.type === 'RL' ? `<p class="sub">這顆被標記成<b>負載</b>。執行模擬之後，
+         解題卡最上面會直接給 V<sub>Th</sub>、R<sub>Th</sub>、V<sub>L</sub>、I<sub>L</sub>、P<sub>L</sub>，
+         不必再自己選節點。一張圖只放<b>一顆</b>負載。</p>` : ''}
       <div class="palette" style="margin-top:8px">
         <button class="btn" id="ip_rot">旋轉</button>
         <button class="btn" id="ip_del">刪除</button>
@@ -2338,6 +2350,10 @@ $('run').onclick = async () => {
                  r.warn.concat([stat, '模擬本身是成功的，但上面這些通常代表接線出了問題，' +
                                       '算出來的答案不一定是你要的。']));
         else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`, [stat]);
+        /* 圖上有負載元件就順便把等效電路算出來。示波器模式下不做——那是每秒
+           幾十次的迴圈，多跑三次分析會拖垮它，而且那時使用者在看波形不是看解題卡。
+           排進 setTimeout 是為了等 finally 把 running 放掉。 */
+        if (!scope.on) setTimeout(refreshLoadEq, 0);
     } catch(e){
         setStep('');
         try { const o=(sim&&sim.getInfo?.()||'').trim(), er=(sim&&sim.getError?.()||[]).join('\n').trim();
@@ -2484,7 +2500,7 @@ function deriveCurrent(type, val, dv, xs){
     if (!isFinite(v) || v === 0 || n < 1) return null;
     /* 電阻不需要鄰居就能算，所以 .op 的單一資料點也成立。
        舊版一律要求 n >= 2，結果工作點分析的電流整欄都是「—」。 */
-    if (type === 'R') return dv.map(d => d / v);
+    if (type === 'R' || type === 'RL') return dv.map(d => d / v);
     if (type === 'C'){
         // 直流工作點：電容視為開路，電流就是 0——這是有定義的，不是算不出來
         if (n < 2) return dv.map(() => 0);
@@ -3051,7 +3067,7 @@ function ansParts(k){
         const [a,b] = ser.nodes;
         let why = `V = V(${a}) − V(${b})`;
         if (i != null){
-            if (p.type === 'R')  why += `　　I = V/R = ${eng(v)}V ÷ ${p.val}Ω = ${eng(i)}A`;
+            if (p.type === 'R' || p.type === 'RL')  why += `　　I = V/R = ${eng(v)}V ÷ ${p.val}Ω = ${eng(i)}A`;
             else if (p.type === 'C') why += `　　I = C·dV/dt（電容電流由電壓的變化率決定，電壓不變就沒有電流）`;
             else if (p.type === 'L') why += `　　I = (1/L)∫V dt（假設起始電流為 0）`;
             else if (p.type === 'V') why += `　　I 由 ngspice 直接給（電壓源的支路電流）`;
@@ -3135,6 +3151,126 @@ function touchesSource(name){
     return sch.parts.some(p => p.type === 'V' &&
         pinsOf(p).some(([x,y]) => nd.nameOf(nd.key(x,y)) === name));
 }
+/* ==========================================================
+   負載元件：解題卡直接給 V_th、內阻 R_i、負載電壓 V_R
+
+   原本要看戴維寧等效得自己在下拉選單裡挑兩個節點再按計算——但學生手上的
+   題目幾乎一定是「求負載上的電壓／電流／功率」，那兩個節點就是負載的兩端，
+   沒有別的選擇。既然答案是唯一的，就不該要求使用者先回答一個問題。
+
+   所以放一顆「負載」元件（電氣上就是電阻，只是被標記了），執行模擬之後
+   解題卡最上面直接把整組答案列出來。
+
+   V_R 刻意用兩種方式各算一次：
+     ① 直接從模擬結果讀負載兩端的電位差——這是「真的量到的」
+     ② 用分壓公式 V_th · R_L / (R_i + R_L) 從等效電路推
+   兩個對得上，才證明那個等效電路真的能取代原電路。這正是課本要學生
+   體會的那件事，而且它是自動驗出來的，不是我在旁邊寫一句「請相信我」。
+   ========================================================== */
+let loadEq = null, loadEqKey = '';
+function loadParts(){ return sch.parts.filter(p => p.type === 'RL' && !p.off); }
+/** 負載那顆的兩個節點。 */
+function loadNodes(p){
+    const nd = buildNodes();
+    return pinsOf(p).slice(0,2).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+}
+function ansLoad(k){
+    const ls = loadParts();
+    if (!ls.length) return '';
+    if (ls.length > 1)
+        return `<h4>負載</h4><p class="sub"><b style="color:var(--warn)">圖上有 ${ls.length} 顆負載元件</b>
+                （${ls.map(p=>p.ref).join('、')}）。戴維寧等效是對<b>一對</b>端點講的，
+                請只留一顆，其餘換成一般電阻。</p>`;
+    const p = ls[0];
+    const [na, nb] = loadNodes(p);
+    const RLv = unit(p.val);
+    let meas = null;                       // 直接從模擬讀到的負載電壓與電流
+    const ser = partSeries(p);
+    if (ser && k >= 0 && ser.dv[k] != null) meas = { v: ser.dv[k], i: ser.cur ? ser.cur[k] : null };
+
+    let body;
+    if (!loadEq)
+        body = '<p class="sub">正在算等效電路…</p>';
+    else if (loadEq.err)
+        body = `<p class="sub">算不出來：${loadEq.err}</p>`;
+    else {
+        const { R, Vth } = loadEq;
+        const pred = (Vth != null && isFinite(R) && R + RLv !== 0) ? Vth * RLv / (R + RLv) : null;
+        const vR = meas ? meas.v : pred;
+        const iR = meas && meas.i != null ? meas.i : (vR != null && RLv ? vR / RLv : null);
+        /* 符號一律照課本：戴維寧那一組下標 Th，負載那一組下標 L。
+           不要自己發明（本來寫成 R_i、V_R），學生對照課本時會多一層轉換。 */
+        const rows = [
+            ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—',
+             '戴維寧電壓＝把負載拿掉之後，這兩點的開路電壓'],
+            ['R<sub>Th</sub>', eng(R) + 'Ω',
+             '戴維寧等效電阻，也就是內阻。把獨立電源歸零，從負載這兩點看進去'],
+            ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val, `負載 ${p.ref} 本身的電阻`],
+            ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—', '負載兩端的電壓'],
+            ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—', '流過負載的電流'],
+            ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—', '負載消耗的功率'],
+        ];
+        body = `<table class="ans-tbl">
+            <tr><th>量</th><th style="text-align:right">數值</th><th>是什麼</th></tr>
+            ${rows.map(([n,v,why]) =>
+              `<tr><td>${n}</td><td class="n">${v}</td><td class="sub">${why}</td></tr>`)
+             .join('')}</table>`;
+
+        const why = [];
+        why.push(`等效電路：一個 <b>V<sub>Th</sub> = ${Vth != null ? eng(Vth) : '?'}V</b> 的電壓源，` +
+                 `串一個 <b>R<sub>Th</sub> = ${eng(R)}Ω</b> 的內阻，接上 R<sub>L</sub> = ${p.val}Ω。` +
+                 `原電路裡除了 ${p.ref} 以外的所有東西，對 ${p.ref} 來說就只是這兩樣。`);
+        if (pred != null)
+            why.push(`分壓：V<sub>L</sub> = V<sub>Th</sub> · R<sub>L</sub> / (R<sub>Th</sub> + R<sub>L</sub>) = ` +
+                     `${eng(Vth)} × ${eng(RLv)} ÷ (${eng(R)} + ${eng(RLv)}) = <b>${eng(pred)}V</b>。`);
+        /* ★ 等效電路算出來的分壓，必須跟直接量到的負載電壓相同。
+           這是「等效」兩個字唯一的意思，也是這張卡片最值得看的一行。 */
+        const isOp = !!(simData && simData.x && simData.x.length === 1);
+        if (pred != null && meas != null && !isOp)
+            why.push(`（V<sub>Th</sub> 與 R<sub>Th</sub> 是直流工作點的值，上面的 V<sub>L</sub> 則是
+                      <b>目前取樣點</b>的瞬間值，兩者不是同一個時間，不能直接互相驗算。
+                      要驗算請把分析改成工作點 <code>.op</code>。）`);
+        if (pred != null && meas != null && isOp){
+            const sc = Math.max(Math.abs(pred), Math.abs(meas.v));
+            const err = sc > 1e-15 ? Math.abs(pred - meas.v) / sc : 0;
+            why.push(err < 0.01
+              ? `<b style="color:var(--ok)">等效成立</b>：從等效電路分壓算出來的 ${eng(pred)}V，` +
+                `跟直接在原電路量到的 ${eng(meas.v)}V 相同。` +
+                `這就是「等效」的意思——把左邊那一整包換成一顆電源加一顆電阻，${p.ref} 完全感覺不出差別。`
+              : `<b style="color:var(--warn)">等效對不上</b>：分壓算出 ${eng(pred)}V，` +
+                `實際量到 ${eng(meas.v)}V（差 ${(err*100).toFixed(1)}%）。` +
+                `電路裡若有二極體、電晶體這類非線性元件，戴維寧等效本來就不成立。`);
+        }
+        if (isFinite(R) && R > 1e-9 && Vth != null){
+            const Pmax = Vth*Vth/(4*R), now = (vR != null && iR != null) ? vR*iR : null;
+            why.push(`<b>最大功率轉移</b>：R<sub>L</sub> 取 R<sub>Th</sub> = ${eng(R)}Ω 時功率最大，` +
+                     `P<sub>max</sub> = ${eng(Pmax)}W。` +
+                     (now != null && Pmax > 0
+                       ? `目前是 ${eng(now)}W，等於最大值的 ${(now/Pmax*100).toFixed(0)}%。` : '') +
+                     `用工具列的<b>參數掃描</b>掃 ${p.ref} 可以看到整條曲線。`);
+        }
+        if (loadEq.removed && loadEq.removed.length > 1)
+            why.push(`求等效時一起開路的還有：${loadEq.removed.filter(r=>r!==p.ref).join('、')}` +
+                     `（它們也跨在同一對端點上）。`);
+        body += `<div class="ans-why" style="margin-top:6px">${why.join('<br>')}</div>`;
+    }
+    return `<h4>負載 ${p.ref}（${na === '0' ? '接地' : 'V('+na+')'} ↔ ` +
+           `${nb === '0' ? '接地' : 'V('+nb+')'}）</h4>${body}`;
+}
+/** 算一次負載的等效電路。同一個電路只算一次，重畫解題卡不會重跑。 */
+async function refreshLoadEq(){
+    const ls = loadParts();
+    if (ls.length !== 1){ loadEq = null; loadEqKey = ''; return; }
+    const [na, nb] = loadNodes(ls[0]);
+    const key = `${na}|${nb}|${toNetlist().text}`;
+    if (key === loadEqKey && loadEq) return;
+    loadEq = null;
+    try { const t = await theveninFull(na, nb);
+          loadEq = { R:t.R, Vth:t.Vth, IN:t.IN, removed:t.removed }; }
+    catch(e){ loadEq = { err:(e && e.message) || String(e) }; }
+    loadEqKey = key;
+    renderAnswer();
+}
 function ansThevenin(){
     const ns = allNodeNames();
     if (ns.length < 2) return '';
@@ -3170,7 +3306,7 @@ function renderAnswer(){
           '。把游標移到波形圖上可以換一個時間點。</p>'
         : '<p class="sub">直流工作點（.op），只有一組值。</p>';
     bindAnswer(box);
-    box.innerHTML = at + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin() +
+    box.innerHTML = at + ansLoad(k) + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin() +
         '<p class="ans-why" style="margin-top:10px">這些是模擬算出來的數值，' +
         '拿來對自己手算的結果。有證明題、推導題的部分模擬給不了，那要自己寫。</p>';
     const go = $('thGo');
@@ -3219,11 +3355,13 @@ function renderAnswer(){
                        `這是諾頓電流的定義，不是拿 V<sub>th</sub> / R<sub>th</sub> 換算來的。`);
 
             /* 驗算。三個量各自獨立求得，所以這一行是真的檢查。 */
+            let checkOk = true;
             if (t.Vth != null && t.IN != null && t.R > 1e-9){
                 const pred = t.Vth / t.R;
                 const scale = Math.max(Math.abs(t.IN), Math.abs(pred));
                 const err = scale > 1e-15 ? Math.abs(t.IN - pred) / scale : 0;
-                L.push(err < 0.01
+                checkOk = err < 0.01;
+                L.push(checkOk
                   ? `<b style="color:var(--ok)">驗算通過</b>：I<sub>N</sub> × R<sub>th</sub> = ` +
                     `${eng(t.IN)} × ${eng(t.R)} = ${eng(t.IN * t.R)}V，跟 V<sub>th</sub> 相符。` +
                     `三個量是分開算的，對得上才表示這個電路真的有戴維寧等效。`
@@ -3233,11 +3371,20 @@ function renderAnswer(){
                     `就不會相符。`);
             }
 
+            /* 最大功率轉移是「從等效電路推出來的」，等效電路不成立就沒有意義。
+               驗算沒過還照印一個 P_max，等於拿一個已知是錯的模型再算一層。 */
             if (t.Vth != null && t.R > 1e-9){
-                const Pmax = t.Vth * t.Vth / (4 * t.R);
-                L.push(`<b>最大功率轉移</b>：負載取 R<sub>L</sub> = R<sub>th</sub> = ${eng(t.R)}Ω 時` +
-                       `功率最大，P<sub>max</sub> = V<sub>th</sub>² / (4·R<sub>th</sub>) = ${eng(Pmax)}W。` +
-                       `想親眼看到這個峰值，用工具列的<b>參數掃描</b>掃負載電阻。`);
+                if (!checkOk)
+                    L.push(`<b>最大功率轉移算不了</b>：這個公式是從戴維寧等效推出來的，` +
+                           `而上面的驗算顯示這個電路沒有戴維寧等效。想知道功率的峰值在哪裡，` +
+                           `用工具列的<b>參數掃描</b>直接掃負載電阻——掃描是真的一點一點跑模擬，` +
+                           `非線性電路也適用。`);
+                else {
+                    const Pmax = t.Vth * t.Vth / (4 * t.R);
+                    L.push(`<b>最大功率轉移</b>：負載取 R<sub>L</sub> = R<sub>th</sub> = ${eng(t.R)}Ω 時` +
+                           `功率最大，P<sub>max</sub> = V<sub>th</sub>² / (4·R<sub>th</sub>) = ${eng(Pmax)}W。` +
+                           `想親眼看到這個峰值，用工具列的<b>參數掃描</b>掃負載電阻。`);
+                }
             }
 
             if (t.zeroedAt)
@@ -3473,7 +3620,7 @@ async function opRun(opts){
 }
 /* 什麼東西算「負載」，可以為了求等效而拿掉。
    電源與受控源不算——它們是被求等效的那個網路的一部分，拿掉會變成另一題。 */
-const LOADISH = ['R','C','L','SW','M'];
+const LOADISH = ['RL','R','C','L','SW','M'];
 /* 戴維寧定理只對線性網路成立。二極體、電晶體不是線性元件，
    「電源歸零再看進去」對它們沒有意義，算得出數字也不能用。 */
 const NONLINEAR = ['D','Q'];
@@ -3540,7 +3687,7 @@ async function dmmOhm(){
    結果直接塞進 plotData，橫軸換成被掃的參數——波形圖、量測表、游標讀值
    全部照舊可用，不必為它另外做一套顯示。
    ========================================================== */
-const SWEEPABLE = ['R','C','L','V','I'];
+const SWEEPABLE = ['RL','R','C','L','V','I'];
 function fillSweepUI(){
     const sel = $('swPart'), out = $('swOut');
     if (!sel || !out) return;
