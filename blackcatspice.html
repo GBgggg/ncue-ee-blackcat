@@ -342,11 +342,9 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </div>
 
     <span class="tsep"></span>
-    <button class="btn" id="mSel">選取 <small>S</small></button>
-    <button class="btn" id="mWire">連線 <small>W</small></button>
-    <span class="tsep"></span>
-    <button class="btn" id="rotBtn">旋轉 <small>R</small></button>
-    <button class="btn" id="delBtn">刪除 <small>Del</small></button>
+    <!-- 選取／連線／旋轉／刪除四顆按鈕拿掉了，改成只用熱鍵（S／W／R／Del）。
+         它們是「一直都在、但很少用滑鼠按」的動作：模式靠 HUD 顯示、旋轉現在滾輪
+         就能做、刪除按 Del 最快。少四顆按鈕，執行模擬那一組就往左移了一整段。 -->
     <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
     <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
     <button class="btn" id="fitBtn">置中 <small>F</small></button>
@@ -1514,7 +1512,10 @@ function drawSheet(){
       : drawing        ? `按 ${kn('bend')} 定下這一段並轉彎；點一下結束這條線；右鍵取消`
       : mode==='wire'  ? `點一下開始拉線（手不用一直按著）；右鍵退出連線模式`
       : sel.length     ? `已選取 ${sel.length} 個：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
-      : `點元件選取；接腳上按一下就能開始拉線；中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
+        /* 連線／選取的按鈕已經不在工具列上了，所以這一行要把按鍵講出來，
+           不然「怎麼進連線模式」就沒有任何地方提示。 */
+      : `點元件選取（滾輪轉它、Shift+滾輪改值）；接腳上按一下或按 ${kn('wire')} 開始拉線；` +
+        `中鍵或按住 ${kn('pan')} 平移、滾輪縮放`;
 }
 
 /* ---------- 命中測試 ---------- */
@@ -1946,17 +1947,18 @@ function del(){
 }
 function setMode(m, type){
     mode = m; placing = type || null; wireFrom = null;
-    $('mSel').classList.toggle('on', m==='sel');
-    $('mWire').classList.toggle('on', m==='wire');
+    /* 選取／連線的按鈕已經拿掉，模式改由 HUD 那一行顯示（見 drawSheet 結尾）。
+       這裡不留「查一個畫面上已經沒有的 id，找不到就跳過」這種以防萬一的死程式碼
+       ——結構稽核會抓
+       「取用了畫面上不存在的 id」，而那個檢查抓過真的 bug，不該為了沒發生的
+       未來把它繞過去。 */
     document.querySelectorAll('.pi').forEach(el =>
         el.classList.toggle('on', m==='place' && el.dataset.t===type));
     cv.style.cursor = m==='sel' ? 'default' : 'crosshair';
     paintPalette(); drawSheet();
 }
-$('mSel').onclick = () => setMode('sel');
-$('mWire').onclick = () => setMode('wire');
-$('rotBtn').onclick = rotate;
-$('delBtn').onclick = del;
+/* 選取 S／連線 W／旋轉 R／刪除 Del 四個動作只剩熱鍵，沒有按鈕要綁。
+   熱鍵的分派在 keydown 那一段，四個都還在。 */
 $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
     pushUndo(); sch = {parts:[],wires:[]}; seq = 1; sel = [];
     simData = null; cursorIdx = null;   // 舊的模擬結果已經對不上新的節點編號了
