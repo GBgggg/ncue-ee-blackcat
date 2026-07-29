@@ -2208,8 +2208,11 @@ $('run').onclick = async () => {
     quietNet = true;                             // 這一次的 refreshNet 不算「電路改了」
     const r = refreshNet();
     quietNet = false;
-    if (r.warn.length && !autoRun) { show('warn','電路可能還沒完成', r.warn); }
-    if (r.warn.length && !sch.parts.length) return;
+    /* ★ 警告要一路帶到結束，不能只在開跑前顯示一次。
+       原本是跑之前 show 一次，然後成功訊息把它整個蓋掉——實測把電阻短路，
+       畫面只顯示「模擬完成」，警告完全看不到。而這些警告（短路、沒接地、
+       沒有電源）存在的意義正是「模擬會成功，但答案是錯的」，被蓋掉等於沒做。 */
+    if (r.warn.length && !sch.parts.length){ show('warn','電路可能還沒完成', r.warn); return; }
     const net = r.text;
     const bad = [...net].find(c => c.charCodeAt(0) > 127);
     if (bad) return show('err','netlist 裡有非 ASCII 字元',
@@ -2257,10 +2260,14 @@ $('run').onclick = async () => {
                       if (one && one.kind === 'part') renderCmpMeas(sch.parts[one.i]); }
         else inspect();
         const hints = explain(errs.join('\n') + '\n' + info);
+        const stat = `${res.numPoints.toLocaleString()} 個資料點，${plotData.traces.length} 條曲線。`;
         if (autoRun) { /* 連續模式下不要每一輪都洗一次訊息 */ }
         else if (hints.length) showHints(hints, `模擬完成，但 ngspice 有話說（${ms.toFixed(0)} ms）`);
-        else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`,
-            [`${res.numPoints.toLocaleString()} 個資料點，${plotData.traces.length} 條曲線。`]);
+        else if (r.warn.length)
+            show('warn', `模擬完成（${ms.toFixed(0)} ms），但電路有可疑的地方`,
+                 r.warn.concat([stat, '模擬本身是成功的，但上面這些通常代表接線出了問題，' +
+                                      '算出來的答案不一定是你要的。']));
+        else show('ok', `模擬完成，耗時 ${ms.toFixed(0)} ms`, [stat]);
     } catch(e){
         setStep('');
         try { const o=(sim&&sim.getInfo?.()||'').trim(), er=(sim&&sim.getError?.()||[]).join('\n').trim();
