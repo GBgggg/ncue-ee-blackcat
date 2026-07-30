@@ -340,6 +340,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
     <button class="btn" id="fitBtn">置中 <small>F</small></button>
     <button class="btn" id="clrBtn">清空</button>
+    <button class="btn" id="copyTabBtn">複製到現實分頁</button>
     <span class="tsep"></span>
     <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
     <button class="btn" id="waveBtn">波形視窗</button>
@@ -1458,12 +1459,55 @@ function applyTab(t){
     document.querySelectorAll('.tab').forEach(b =>
         b.classList.toggle('on', b.dataset.tab === tab));
     document.body.classList.toggle('logic', isLogic());
+    fitTabButtons();
     $('modeNote').textContent = MODE_NOTE[realMode ? 'real' : 'ideal'];
     $('anaSel').value = d.a; anaVals = d.v; buildAna();
     buildPalette();
     inspect(); refreshNet(); drawSheet(); fit();
     try { localStorage.setItem(TAB_KEY, tab); } catch(e){}
 }
+/* 每個分頁該有哪些按鈕。
+   同一排按鈕在三個分頁裡意思不一樣——FPGA 沒有波形、沒有 .op/.tran 可選、
+   netlist 也不是 netlist。與其留著一排點了沒用的按鈕，不如按分頁換掉。 */
+function fitTabButtons(){
+    const set = (id, show, label) => { const el = $(id); if (!el) return;
+        el.style.display = show ? '' : 'none';
+        if (label != null) el.innerHTML = label; };
+    if (isLogic()){
+        set('run',      true,  '算真值表 <small>Enter</small>');
+        set('waveBtn',  false);            // 邏輯沒有波形可看
+        set('btnSim',   false);            // 也沒有分析種類、參數掃描
+        set('btnAns',   true,  '真值表 ▾');
+        set('btnNet',   true,  '電路摘要 ▾');
+        set('copyTabBtn', false);          // 邏輯電路貼到類比分頁沒有意義
+    } else {
+        set('run',      true,  '執行模擬 <small>Enter</small>');
+        set('waveBtn',  true,  '波形視窗');
+        set('btnSim',   true,  '模擬設定 ▾');
+        set('btnAns',   true,  '解題卡 ▾');
+        set('btnNet',   true,  'netlist ▾');
+        /* 理想與現實是同一張電路的兩種模型，所以「複製過去比一比」是這兩頁
+           才有的動作——分成兩個分頁之後，這件事本來就變得需要一個按鈕。 */
+        set('copyTabBtn', true, `複製到${TAB_LABEL[tab === 'ideal' ? 'real' : 'ideal']}分頁`);
+    }
+    fillExamples();
+}
+/* 複製到另一個分頁：同一張圖，換一套元件模型。 */
+$('copyTabBtn').onclick = () => {
+    if (isLogic()) return;
+    const to = tab === 'ideal' ? 'real' : 'ideal';
+    const d = docOf(to);
+    if ((d.s.parts || []).length &&
+        !confirm(`${TAB_LABEL[to]}分頁已經有 ${d.s.parts.length} 個元件，要覆蓋掉嗎？`)) return;
+    /* 深拷貝，不然兩邊會共用同一份物件，改一邊另一邊也跟著動。 */
+    d.s = JSON.parse(JSON.stringify(sch));
+    d.seq = seq; d.a = $('anaSel').value; d.v = Object.assign({}, anaVals);
+    stashTab(); autosave.flush();
+    applyTab(to);
+    autosave.flush();
+    show('ok', `已複製到${TAB_LABEL[to]}分頁`,
+         [`同一張電路，換成${TAB_LABEL[to]}的元件模型。兩邊從現在起各走各的，改一邊不會動到另一邊。`]);
+};
 function switchTab(t){
     if (t === tab) return;
     stashTab(); autosave.flush();
@@ -2525,18 +2569,71 @@ const EXAMPLES = {
            [160,200,160,240],[360,200,360,240],
            [60,160,60,240],[60,240,360,240]] })
 };
-Object.keys(EXAMPLES).forEach(k => $('exSel').insertAdjacentHTML('beforeend',
-    `<option value="${k}">${k}</option>`));
-$('exSel').onchange = () => loadExample($('exSel').value);
+/* FPGA 分頁的範例。全部只用 IN／OUT／閘，格點與類比那邊共用。
+   選的三個都是數位邏輯課第一章就會出現、而且「一看真值表就懂」的東西。 */
+const LOGIC_EX = {
+ '半加器（XOR ＋ AND）': () => ({ tip:'和 S 是 A⊕B，進位 C 是 A·B。' +
+    '連點兩下輸入切 0／1，真值表會標到對應那一列。', parts:[
+    ['IN',60,80,0,'A','0'], ['IN',60,180,0,'B','0'],
+    ['XOR',220,100,0,'U1',''], ['AND',220,200,0,'U2',''],
+    ['OUT',340,100,0,'S',''], ['OUT',340,200,0,'C','']],
+    wires:[[80,80,140,80],[140,80,140,90],[140,90,200,90],
+           [80,180,120,180],[120,180,120,110],[120,110,200,110],
+           [80,80,100,80],[100,80,100,190],[100,190,200,190],
+           [80,180,160,180],[160,180,160,210],[160,210,200,210],
+           [240,100,320,100],[240,200,320,200]] }),
+ /* ★ 這張圖重畫過一次：第一版把 A 的橫線畫在 y=60，剛好穿過 S 那條線的轉角，
+    兩個節點被併成同一個——真值表看起來很正常，但整個 S 選擇失效。
+    數位邏輯的接線錯誤特別惡毒：不會報錯，只給你一張錯的表。
+    現在每條訊號各走各的高度，交叉處都沒有端點（交叉不算相連）。 */
+ '2 對 1 多工器': () => ({ tip:'Y = A·NOT S + B·S。S=0 選 A、S=1 選 B。' +
+    '真值表裡把 S 那一欄分成上下兩半看，各自就是一張 A 或 B 的表。', parts:[
+    ['IN',60,60,0,'A','0'], ['IN',60,180,0,'S','0'], ['IN',60,300,0,'B','0'],
+    ['NOT',200,120,0,'U1',''],
+    ['AND',320,80,0,'U2',''], ['AND',320,240,0,'U3',''],
+    ['OR',440,160,0,'U4',''], ['OUT',560,160,0,'Y','']],
+    wires:[[80,60,300,60],[300,60,300,70],
+           [80,180,140,180],[140,180,140,120],[140,120,180,120],
+           [220,120,260,120],[260,120,260,90],[260,90,300,90],
+           [140,180,140,250],[140,250,300,250],
+           [80,300,280,300],[280,300,280,230],[280,230,300,230],
+           [340,80,380,80],[380,80,380,150],[380,150,420,150],
+           [340,240,380,240],[380,240,380,170],[380,170,420,170],
+           [460,160,540,160]] }),
+ '用 NAND 拼出 XOR': () => ({ tip:'四顆 NAND 就能做出 XOR——NAND 是「萬能閘」，' +
+    '任何邏輯都拼得出來。真值表跟直接放一顆 XOR 完全一樣，可以自己比對。', parts:[
+    ['IN',60,80,0,'A','0'], ['IN',60,220,0,'B','0'],
+    ['NAND',200,150,0,'U1',''], ['NAND',340,80,0,'U2',''], ['NAND',340,220,0,'U3',''],
+    ['NAND',480,150,0,'U4',''], ['OUT',600,150,0,'Y','']],
+    wires:[[80,80,160,80],[160,80,160,140],[160,140,180,140],
+           [80,220,140,220],[140,220,140,160],[140,160,180,160],
+           [220,150,260,150],[260,150,260,90],[260,90,320,90],
+           [260,150,260,210],[260,210,320,210],
+           [80,80,300,80],[300,80,300,70],[300,70,320,70],
+           [80,220,300,220],[300,220,300,230],[300,230,320,230],
+           [360,80,440,80],[440,80,440,140],[440,140,460,140],
+           [360,220,420,220],[420,220,420,160],[420,160,460,160],
+           [500,150,580,150]] }),
+};
+/* 範例清單也要跟著分頁換——在 FPGA 分頁列一堆 RC、RLC 只會讓人選了發現放不進去。 */
+function fillExamples(){
+    const tbl = isLogic() ? LOGIC_EX : EXAMPLES;
+    $('exSel').innerHTML = `<option value="">範例電路…</option>` +
+        Object.keys(tbl).map(k => `<option value="${k}">${k}</option>`).join('');
+}
+$('exSel').onchange = () => { if ($('exSel').value) loadExample($('exSel').value); };
 function loadExample(k){
-    const e = EXAMPLES[k](); sch = {parts:[],wires:[]}; seq = 1; sel = [];
+    const tbl = isLogic() ? LOGIC_EX : EXAMPLES;
+    if (!tbl[k]) return;
+    const e = tbl[k](); sch = {parts:[],wires:[]}; seq = 1; sel = [];
     /* 範例裡的第四個數字沿用「90 度一格」的舊寫法（0~3），這裡乘 2 換成新的
        45 度刻度。範例都是直角電路，用 0~3 讀起來比 0/2/4/6 直覺得多。 */
     e.parts.forEach(([t,x,y,r,ref,val]) =>
         sch.parts.push({type:t, x, y, rot:((r|0)*2) % ROT_N, ref, val}));
     e.wires.forEach(([a,b,c,d]) => sch.wires.push({x1:a,y1:b,x2:c,y2:d}));
     seq = sch.parts.length + 1;
-    $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); buildAna();
+    if (e.ana){ $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); }
+    buildAna();
     inspect(); refreshNet(); fit();
     if (e.tip) show('ok', '已載入：' + k, [e.tip]);
 }
