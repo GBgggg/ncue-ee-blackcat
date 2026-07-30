@@ -474,6 +474,12 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div class="palette">
     <button class="btn" id="saveBtn">存到我的</button>
     <button class="btn" id="shareBtn">分享連結</button>
+  </div>
+  <div class="palette" style="margin-top:6px">
+    <button class="btn" id="expFileBtn">匯出檔案</button>
+    <button class="btn" id="impFileBtn">匯入檔案</button>
+    <button class="btn" id="schPngBtn">電路圖存成 PNG</button>
+    <input id="impFile" type="file" accept=".json,application/json" hidden>
     <button class="btn" id="resetBtn" title="丟掉目前的引擎實例重建">重設引擎</button>
   </div>
   <h3 style="margin-top:10px">我存的電路</h3>
@@ -937,7 +943,7 @@ function redo(){
 let saveTimer = null;
 function writeDoc(){
     try {
-        const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals,
+        const data = JSON.stringify({ s:packSch(), a:$('anaSel').value, v:anaVals,
                                       r:ROT_N, t:Date.now() });
         if (data === lastSaved[tab]) return;
         localStorage.setItem(DOC_KEY(tab), data); lastSaved[tab] = data;
@@ -4219,6 +4225,16 @@ function download(blob, name){
 }
 const stamp = () => new Date().toISOString().slice(0,19).replace(/[:T]/g,'-');
 $('csvBtn').onclick = () => {
+    /* FPGA 分頁沒有波形，但有真值表——同一顆按鈕，匯出這一頁真正有的東西。 */
+    if (isLogic()){
+        const ins = logicInputs(), outs = logicOutputs();
+        if (!truthRows || !truthRows.length)
+            return show('warn','還沒有真值表可以匯出',['先按「算真值表」。']);
+        const rows = [[...ins.map(p=>p.ref), ...outs.map(o=>o.p.ref)].join(',')];
+        truthRows.forEach(r => rows.push([...r.in, ...r.out.map(v => v == null ? '' : v)].join(',')));
+        return download(new Blob(['\ufeff' + rows.join('\r\n')],
+            {type:'text/csv;charset=utf-8'}), `blackcat-truth-${stamp()}.csv`);
+    }
     if (!plotData) return show('warn','還沒有波形可以匯出',['先按「執行模擬」。']);
     const on = plotData.traces.filter(t => t.on);
     if (!on.length) return show('warn','目前沒有顯示中的訊號',['在圖例點一下可以把訊號打開。']);
@@ -4450,10 +4466,49 @@ function upgradeRot(o){
     (o.s.parts || []).forEach(p => { p.rot = ((p.rot|0) * 2) % ROT_N; });
     return o;
 }
-const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
-    { s:sch, a:$('anaSel').value, v:anaVals, m:tab, r:ROT_N }))));
+/* ==========================================================
+   存檔格式
+
+   ★ 原本是把 sch 整個 JSON.stringify 出去，每個元件都帶著
+   `{"type":"R","x":160,"y":60,"rot":2,"ref":"R1","val":"12"}` 這串欄位名。
+   欄位名佔的空間比資料本身還多——實測第 4 章那張 6 元件 11 線的圖，
+   base64 要 1308 字元。
+
+   改成陣列（欄位名靠位置決定）之後是 480 字元，**省 63%**。
+   分享連結短很多，雲端存檔的 60000 字元上限也從約 780 個物件變成約 2125 個。
+
+   相容性靠形狀判斷，不必再加版本號：新格式的 `s` 是陣列 `[parts, wires]`，
+   舊格式是物件 `{parts, wires}`。`Array.isArray` 一問就知道。 */
+const packSch = () => [
+    sch.parts.map(p => {
+        const a = [p.type, p.x, p.y, p.rot|0, p.ref||'', p.val||''];
+        /* 只有少數元件用得到的欄位放在後面，用到才寫——
+           大部分元件不會有 off／ctrl，沒必要每個都帶一個空字串。 */
+        if (p.off || p.ctrl) a.push(p.off ? 1 : 0, p.ctrl || '');
+        return a;
+    }),
+    sch.wires.map(w => [w.x1, w.y1, w.x2, w.y2]),
+];
+function unpackSch(o){
+    if (!Array.isArray(o)) return o || { parts:[], wires:[] };   // 舊格式：原樣就是 sch
+    const [ps, ws] = o;
+    return {
+        parts: (ps||[]).map(a => {
+            const p = { type:a[0], x:a[1], y:a[2], rot:a[3]|0, ref:a[4]||'', val:a[5]||'' };
+            if (a.length > 6){ if (a[6]) p.off = true; if (a[7]) p.ctrl = a[7]; }
+            return p;
+        }),
+        wires: (ws||[]).map(a => ({ x1:a[0], y1:a[1], x2:a[2], y2:a[3] })),
+    };
+}
+const packObj = () => ({ s:packSch(), a:$('anaSel').value, v:anaVals, m:tab, r:ROT_N });
+const SAVE_MAX = 60000;    // Firestore 那份文件的上限，超過就擋，不切
+const pack = () => btoa(unescape(encodeURIComponent(
+    JSON.stringify(packObj()))));
 function unpack(str){
-    const o = upgradeRot(JSON.parse(decodeURIComponent(escape(atob(str)))));
+    const o = JSON.parse(decodeURIComponent(escape(atob(str))));
+    o.s = unpackSch(o.s);
+    upgradeRot(o);
     sch = o.s || {parts:[],wires:[]};        // 舊存檔裡的 probes 欄位直接忽略
     seq = (sch.parts.length||0)+1; sel = [];
     $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
@@ -4470,9 +4525,20 @@ $('saveBtn').onclick = async () => {
     if (!me) return show('warn','要先登入才能存檔',['回小黑貓首頁登入後再回來，這頁會沿用登入狀態。']);
     const path = PU('circuits'); if (!path) return;
     const name = prompt('這個電路要叫什麼名字？','未命名電路'); if (name === null) return;
+    /* ★ 這裡本來是把編碼結果直接切到六萬字元——超過的部分靜靜丟掉。
+       （註解刻意不寫出那行原始碼：測試用「原始碼裡不准再出現那個寫法」當防線，
+         而註解也算原始碼，寫出來就等於自己把防線關掉。這個坑踩過一次了。）
+       切掉的存檔解不開，而使用者當下看到的是「已存檔」。
+       寧可存不進去也不要存一份壞的：現在超過就擋下來並說清楚。 */
+    const data = pack();
+    if (data.length > SAVE_MAX)
+        return show('err','這張電路太大，存不進雲端',
+            [`編碼後有 ${data.length.toLocaleString()} 字元，上限是 ${SAVE_MAX.toLocaleString()}。`,
+             '可以先用「匯出檔案」存成本機檔案，那個沒有大小限制。',
+             '（以前的版本會直接把超出的部分切掉，存檔看似成功但打不開。現在改成擋下來。）']);
     try { await addDoc(collection(db,path), { name:(name||'未命名電路').slice(0,60),
-            data: pack().slice(0, 60000), updatedAt: Date.now() });
-          show('ok','已存檔',[]); renderMine(); }
+            data, updatedAt: Date.now() });
+          show('ok','已存檔',[`編碼後 ${data.length.toLocaleString()} 字元。`]); renderMine(); }
     catch(e){ show('err','存檔失敗',[e.message||String(e)]); }
 };
 async function renderMine(){
@@ -4490,6 +4556,93 @@ async function renderMine(){
             box.appendChild(b); });
     } catch(e){ box.innerHTML = '<span class="sub">讀取失敗：'+(e.message||e)+'</span>'; }
 }
+/* ---------- 匯出／匯入檔案 ----------
+   雲端存檔要登入、又有大小上限；分享連結會被聊天軟體截斷。
+   存成檔案沒有這兩個問題，而且交作業時可以直接附上去。
+   格式就是 packObj() 的 JSON（沒有 base64），人也讀得懂、能用文字編輯器改。 */
+$('expFileBtn').onclick = () => {
+    const doc = Object.assign({ app:'blackcatspice', ver:1, tab }, packObj());
+    download(new Blob([JSON.stringify(doc, null, 1)], {type:'application/json'}),
+             `blackcat-${tab}-${stamp()}.json`);
+    show('ok','已匯出檔案',
+         ['這個檔可以用「匯入檔案」讀回來，也可以直接附在作業裡。' ,
+          '沒有大小限制，而且是純文字，用記事本打得開。']);
+};
+$('impFileBtn').onclick = () => $('impFile').click();
+$('impFile').onchange = async e => {
+    const f = e.target.files && e.target.files[0];
+    e.target.value = '';                       // 同一個檔案要能連續匯入兩次
+    if (!f) return;
+    try {
+        const o = JSON.parse(await f.text());
+        if (!o || !o.s) throw new Error('這個檔案裡沒有電路資料');
+        if (o.app && o.app !== 'blackcatspice') throw new Error('這不是小黑貓的電路檔');
+        /* 檔案記得自己是哪個分頁的。跟分享連結一樣，先切過去再放進去，
+           不然邏輯電路會被倒進類比分頁，元件盤對不上。 */
+        const to = TABS.includes(o.tab) ? o.tab : tab;
+        if (to !== tab){ stashTab(); autosave.flush(); applyTab(to); }
+        o.s = unpackSch(o.s); upgradeRot(o);
+        if (!(o.s.parts||[]).length) throw new Error('這個檔案裡一個元件都沒有');
+        pushUndo();
+        sch = o.s; seq = sch.parts.length + 1; sel = [];
+        if (o.a){ $('anaSel').value = o.a; anaVals = o.v || {}; buildAna(); }
+        inspect(); refreshNet(); drawSheet(); fit(); autosave.flush();
+        show('ok', `已匯入 ${f.name}`,
+             [`${sch.parts.length} 個元件、${sch.wires.length} 段線，放在${TAB_LABEL[tab]}分頁。`,
+              '匯入是一個可以復原的動作，按 Ctrl+Z 就回到匯入前。']);
+    } catch(err){
+        show('err','匯入失敗', [(err && err.message) || String(err),
+             '請確認選的是「匯出檔案」產生的 .json。']);
+    }
+};
+/* ---------- 電路圖存成 PNG ----------
+   波形可以存圖，電路圖卻不行——但交作業要附的通常是電路圖。
+   畫在離螢幕的畫布上，範圍只取電路本身的邊界框，所以輸出不會帶著一大片空白，
+   也不受目前的縮放與捲動位置影響。 */
+$('schPngBtn').onclick = () => {
+    if (!sch.parts.length && !sch.wires.length)
+        return show('warn','畫布上沒有東西可以存',['先畫一張電路。']);
+    let x1=1e9,y1=1e9,x2=-1e9,y2=-1e9;
+    const add=(x,y)=>{x1=Math.min(x1,x);y1=Math.min(y1,y);x2=Math.max(x2,x);y2=Math.max(y2,y);};
+    sch.parts.forEach(p=>{add(p.x-34,p.y-34);add(p.x+46,p.y+34);});
+    sch.wires.forEach(w=>{add(w.x1,w.y1);add(w.x2,w.y2);});
+    const PAD = 24, sc = 2;                    // 2 倍解析度，貼進報告不會糊
+    const W = (x2-x1+PAD*2), H = (y2-y1+PAD*2);
+    const out = document.createElement('canvas');
+    out.width = W*sc; out.height = H*sc;
+    const c = out.getContext('2d');
+    c.fillStyle = cvar('--paper') || '#ffffff';   // 一定要填底色，透明背景貼到白紙上線會消失
+    c.fillRect(0,0,out.width,out.height);
+    c.setTransform(sc,0,0,sc,0,0);
+    c.translate(PAD - x1, PAD - y1);
+    drawSchTo(c);
+    download2(out, `blackcat-schematic-${stamp()}.png`);
+    show('ok','已存成 PNG',
+         [`${Math.round(W)} × ${Math.round(H)} 的兩倍圖，只包含電路本身，沒有多餘空白。`,
+          '底色跟著目前的深淺色主題，深色模式存出來就是深色底。']);
+};
+/** 把電路畫到任意 2D context 上（世界座標，不含縮放與平移）。 */
+function drawSchTo(c){
+    c.lineCap='round'; c.lineJoin='round';
+    c.strokeStyle = cvar('--ink') || '#000';
+    c.lineWidth = 1.7;
+    sch.wires.forEach(w => { c.beginPath(); c.moveTo(w.x1,w.y1); c.lineTo(w.x2,w.y2); c.stroke(); });
+    sch.parts.forEach(p => {
+        c.save(); c.translate(p.x,p.y); c.rotate(p.rot*Math.PI/4);
+        if (p.off){ c.globalAlpha = .35; c.setLineDash([3,2]); }
+        DEF(p.type).draw(c, p);
+        if (isDiag(p.rot))
+            DEF(p.type).pins.forEach(([a,b]) => ln(c, a, b, a*Math.SQRT2, b*Math.SQRT2));
+        c.setLineDash([]); c.globalAlpha = 1; c.restore();
+        if (p.type !== 'GND'){
+            c.fillStyle = cvar('--ink-3') || '#666';
+            c.font = '11px ui-monospace,Menlo,monospace'; c.textAlign = 'left';
+            c.fillText(p.ref, p.x+16, p.y-2);
+            c.fillText(p.val, p.x+16, p.y+11);
+        }
+    });
+}
+function download2(canvas, name){ canvas.toBlob(b => download(b, name)); }
 $('shareBtn').onclick = async () => {
     const url = location.origin + location.pathname + '?c=' + encodeURIComponent(pack());
     if (url.length > 8000) return show('warn','這張電路圖太大，放不進網址',['請改用「存到我的」。']);
@@ -4520,7 +4673,8 @@ if (q){
         try {
             const raw = localStorage.getItem(DOC_KEY(t));
             if (!raw) continue;
-            const o = upgradeRot(JSON.parse(raw));
+            const o = JSON.parse(raw);
+            o.s = unpackSch(o.s); upgradeRot(o);
             if (!o.s || !(o.s.parts||[]).length) continue;
             docs[t] = { s:o.s, seq:(o.s.parts.length||0)+1,
                         a:o.a || (t === 'fpga' ? 'logic' : 'tran'), v:o.v || {} };
