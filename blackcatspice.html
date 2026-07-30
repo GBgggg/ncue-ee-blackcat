@@ -142,24 +142,6 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
           background:linear-gradient(135deg,transparent 50%,var(--ink-3) 50%,transparent 62%,
                      var(--ink-3) 62%,transparent 74%);opacity:.55;touch-action:none}
 
-/* ---- 樣式：浮動三用電表 ---- */
-#dmmWin{position:fixed;z-index:62;left:40px;top:150px;width:270px;
-        display:flex;flex-direction:column;background:var(--paper-raised);
-        border:1px solid var(--rule);border-radius:13px;
-        box-shadow:0 14px 46px rgba(0,0,0,.30)}
-#dmmWin.hidden{display:none}
-#dmmHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
-         border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
-         cursor:move;user-select:none;touch-action:none}
-#dmmBody{padding:10px 12px 12px}
-#dmmScreen{display:flex;align-items:baseline;justify-content:flex-end;gap:5px;
-           background:var(--paper);border:1px solid var(--rule);border-radius:9px;
-           padding:8px 11px;margin-bottom:9px;min-height:44px}
-#dmmVal{font:800 25px/1 ui-monospace,Menlo,Consolas,monospace;color:var(--ink);
-        letter-spacing:.02em}
-#dmmUnit{font:700 13px ui-monospace,Menlo,monospace;color:var(--ink-3)}
-#dmmPins{margin-top:8px}
-#dmmPins .btn.on{background:var(--accent-fill);color:#fff;border-color:transparent}
 .lead{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;
       vertical-align:-1px}
 .lead.red{background:#c0392b}
@@ -352,7 +334,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <span class="tsep"></span>
     <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
     <button class="btn" id="waveBtn">波形視窗</button>
-    <button class="btn" id="dmmBtn">三用電表</button>
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
     <button class="btn pop-btn" id="btnAns" aria-haspopup="true">解題卡 ▾</button>
@@ -424,32 +405,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="waveGrip" title="拖曳改變大小"></div>
 </div>
 
-<!-- 浮動三用電表（讀數面板）。跟「三用電表元件」是兩種東西：
-     元件要接進電路、會影響電路；這一台是外掛的理想儀器，只讀已經算出來的結果，
-     完全不動電路，所以想量哪裡就點哪裡。 -->
-<div id="dmmWin" class="hidden" role="dialog" aria-label="三用電表">
-  <div id="dmmHead">
-    <span>三用電表</span>
-    <div class="spacer"></div>
-    <button class="icb tiny" id="dmmClose" title="關閉" aria-label="關閉">✕</button>
-  </div>
-  <div id="dmmBody">
-    <div id="dmmScreen"><span id="dmmVal">－ － －</span><small id="dmmUnit"></small></div>
-    <div class="field"><label for="dmmRange">檔位</label>
-      <select id="dmmRange">
-        <option value="ACV">交流電壓（真有效值，扣掉直流）</option>
-        <option value="ACA">交流電流（真有效值，扣掉直流）</option>
-        <option value="OHM">等效電阻 Ω（電源歸零）</option>
-      </select>
-    </div>
-    <div class="palette" id="dmmPins">
-      <button class="btn tiny" id="dmmA"><i class="lead red"></i>紅棒</button>
-      <button class="btn tiny" id="dmmB"><i class="lead black"></i>黑棒</button>
-      <button class="btn tiny" id="dmmClr">清除</button>
-    </div>
-    <p class="sub" id="dmmWhy"></p>
-  </div>
-</div>
 
 <!-- 工具列彈出面板 -->
 <div class="pop wide" id="popSim" hidden>
@@ -753,23 +708,6 @@ function cir(g,x,y,r){ g.beginPath(); g.arc(x,y,r,0,7); g.stroke(); }
 const scope = { on:false, t0:0, span:0, raf:null, last:0, stop:0, capped:false };
 let quietNet = false, hintedManual = false;
 let autoRuns = 0;   // 自動重跑了幾次，顯示在波形視窗標題列上
-/* 三用電表（讀數面板）的狀態。跟 scope 一樣必須宣告在這裡：
-   載入時 renderKeys() → drawSheet() 就會用到 isCurRange，而 const 有暫時性死區，
-   放到下面那段程式旁邊的話，模組會在載入當下整個炸掉。
-   冒煙測試第二次抓到同一件事——這條規則值得再貼一次。 */
-const dmm = { range:'ACV', a:null, b:null, part:-1, ohm:null };
-let dmmPick = null;                       // 'a' | 'b' | 'part'
-/* 滑鼠移到圖例上時，要在電路圖上亮起來的節點名稱。
-   這取代了原本的「探針」：不必切模式、不必事先決定看哪幾個、
-   而且它是純粹的畫面狀態——不進存檔、不進復原、不會過期。 */
-let hotNode = null, hotColor = null;
-/* 兩層高亮：滑過圖例是暫時的，點解題卡的節點是釘住的。
-   滑鼠離開圖例時要回到釘住的那個，而不是一律熄掉。 */
-let pinNode = null, pinColor = null;
-/* 直流電壓／電流已經由解題卡和元件量測面板完整涵蓋，這裡只留兩件別處沒有的事：
-   交流耦合的真有效值，以及戴維寧等效電阻。 */
-const DMM_UNIT = { ACV:'V', ACA:'A', OHM:'Ω' };
-const isCurRange = r => r === 'ACA';
 
 /* 現實模式會插入隱藏節點（X1、X2…）和寄生元件（R_C1_esr、L_C1_esl…）。
    那些是實作細節，不該出現在圖例和量測表裡——實測會冒出 v(x1)、i(l_c1_esl)，
@@ -778,6 +716,12 @@ const isCurRange = r => r === 'ACA';
 let hiddenVectors = new Set();
 /* ★ 這個宣告必須放在狀態區：toNetlist() 會寫它，而 refreshNet() 在模組載入時
    就會被 buildAna() → syncDirective() 呼叫到。第四次踩到同一條暫時性死區的規則了。 */
+
+/* 高亮中的節點。hot 是滑過圖例時的暫時高亮，pin 是點解題卡釘住的。
+   兩個都是純畫面狀態——不進存檔、不進復原。drawSheet() 會讀它們，
+   所以同樣得宣告在狀態區。 */
+let hotNode = null, hotColor = null;
+let pinNode = null, pinColor = null;
 
 let sch = { parts:[], wires:[] };
 let seq = 1;
@@ -1471,21 +1415,6 @@ function drawSheet(){
         g.strokeStyle = selc; g.lineWidth = 1; g.setLineDash([4,3]);
         g.strokeRect(rx,ry,rw,rh); g.setLineDash([]);
     }
-    /* 三用電表的表棒。畫成紅黑兩點，跟真實儀器一致；電流檔則把選中的元件框起來。 */
-    if (!$('dmmWin').classList.contains('hidden')){
-        const mark = (pt, col) => { if (!pt) return;
-            const [mx,my] = W2S(pt.x, pt.y);
-            g.fillStyle = col; g.beginPath(); g.arc(mx,my,4.5,0,7); g.fill();
-            /* 描邊用 --ink-3 而不是紙色：深色模式下紙色是暗的，黑棒會整顆消失。 */
-            g.strokeStyle = cvar('--ink-3'); g.lineWidth = 1.4; g.stroke(); };
-        if (!isCurRange(dmm.range)){ mark(dmm.a, '#c0392b'); mark(dmm.b, '#333'); }
-        else if (dmm.part >= 0 && sch.parts[dmm.part]){
-            const q = sch.parts[dmm.part], [mx,my] = W2S(q.x, q.y);
-            g.strokeStyle = '#c0392b'; g.lineWidth = 1.6; g.setLineDash([4,3]);
-            g.strokeRect(mx-16*view.z, my-24*view.z, 32*view.z, 48*view.z);
-            g.setLineDash([]);
-        }
-    }
     // 正在拉的線（連線模式，或在選取模式下從接腳直接拖出來）
     const from = wireFrom || quick;
     if (from){
@@ -1592,7 +1521,6 @@ cv.addEventListener('pointerdown', e => {
     if (e.button === 1 || panKey){
         panning = { sx:e.clientX, sy:e.clientY, ox:view.x, oy:view.y }; return;
     }
-    if (dmmClick(wx, wy)) return;          // 正在選表棒，這一下給電表
     if (mode === 'place'){ addPart(placing, snap(wx), snap(wy), placeRot); return; }
     if (mode === 'wire'){
         const p = snapPoint(wx,wy);
@@ -1963,7 +1891,6 @@ $('clrBtn').onclick = () => { if (!confirm('清空整張電路圖？')) return;
     pushUndo(); sch = {parts:[],wires:[]}; seq = 1; sel = [];
     simData = null; cursorIdx = null;   // 舊的模擬結果已經對不上新的節點編號了
     scopeStop();
-    dmm.a = dmm.b = null; dmm.part = -1; dmm.ohm = null;
     inspect(); refreshNet(); drawSheet(); };
 $('fitBtn').onclick = fit;
 $('undoBtn').onclick = undo;
@@ -2219,16 +2146,23 @@ function renderCmpMeas(p){
     }
     const mv = measure(simData.x, ser.dv);
     const mi = ser.cur ? measure(simData.x, ser.cur) : null;
+    /* ★ 交流有效值本來就算好了（measure() 一直有回傳 acrms），只是沒顯示。
+       它是浮動三用電表最後剩下的獨有功能——RMS 含直流，交流有效值扣掉直流，
+       量 5V 直流疊 1V 弦波時一個讀 5.05V、一個讀 0.707V，第 11 章要的是後者。
+       補上這一欄之後，那台浮動電表就沒有任何別處沒有的東西了。 */
     const row = (lab, m, u) => m
         ? `<tr><td>${lab}</td><td>${eng(m.mean)}${u}</td><td>${eng(m.pp)}${u}</td>` +
-          `<td>${eng(m.rms)}${u}</td><td>${eng(m.min)}${u}</td><td>${eng(m.max)}${u}</td></tr>`
-        : `<tr><td>${lab}</td><td colspan="5">—</td></tr>`;
+          `<td>${eng(m.rms)}${u}</td><td>${eng(m.acrms)}${u}</td>` +
+          `<td>${eng(m.min)}${u}</td><td>${eng(m.max)}${u}</td></tr>`
+        : `<tr><td>${lab}</td><td colspan="6">—</td></tr>`;
     box.innerHTML = `
       <h3 style="margin-top:12px">這個元件（本次模擬）</h3>
       <p class="sub">跨壓 = V(${ser.nodes[0]}) − V(${ser.nodes[1]})，
          電流以 ${ser.nodes[0]} → ${ser.nodes[1]} 的方向為正。</p>
       <div class="meas-scroll"><table class="cmp-tbl">
-        <thead><tr><th></th><th>平均</th><th>峰對峰</th><th>RMS</th><th>最小</th><th>最大</th></tr></thead>
+        <thead><tr><th></th><th>平均</th><th>峰對峰</th><th>RMS</th>
+          <th title="扣掉直流之後的有效值，也就是真實三用電表交流檔的讀數">交流有效值</th>
+          <th>最小</th><th>最大</th></tr></thead>
         <tbody>${row('電壓', mv, uv)}${row('電流', mi, 'A')}</tbody>
       </table></div>
       <p class="sub" id="cmpNow"></p>
@@ -2238,7 +2172,6 @@ function renderCmpMeas(p){
 }
 /** 只改一行文字，成本很低，可以在每次重畫波形時呼叫。 */
 function updateCmpNow(){
-    if (!$('dmmWin').classList.contains('hidden')) dmmRender();
     const el = $('cmpNow'); if (!el) return;
     const one = selOne();
     if (!one || one.kind !== 'part' || !simData){
@@ -2491,7 +2424,6 @@ $('run').onclick = async () => {
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
            正在打字的內容和游標位置都會不見。只更新量測那一塊就好。 */
-        dmmRender();
         if (autoRun){ const one = selOne();
                       if (one && one.kind === 'part') renderCmpMeas(sch.parts[one.i]); }
         else inspect();
@@ -3088,6 +3020,28 @@ function readoutAt(k){
      - RMS／平均都用梯形法對時間積分，不是把樣本直接平均——
        不等距取樣時直接平均會被密集區帶偏。
    ========================================================== */
+/* ★ 交流有效值（AC-coupled true RMS）＝扣掉直流之後的有效值。
+   真實三用電表的交流檔是交流耦合的：量 5V 直流疊 1V 弦波，讀的是 0.707V
+   而不是 5.05V——RMS 和交流有效值不是同一個數字，第 11 章要的是後者。
+
+   ★ 數值上必須「先扣再平方」，不能用 √(RMS² − mean²)。
+   直流很大、交流很小的時候（例如 5V 疊 1mV），那個式子是兩個幾乎相等的大數
+   相減，有效位數會被吃光——這就是災難性抵消。直接對 (y − mean)² 積分沒有這個問題。
+
+   （這個函式原本住在浮動三用電表那一段，電表拿掉時差點被一起刪掉。
+     它其實屬於量測，跟儀器無關，所以搬來 measure() 旁邊。） */
+function acRms(xs, y, mean){
+    const n = y.length;
+    if (n < 2) return Math.abs(y[0] - mean);
+    const span = xs[n-1] - xs[0];
+    if (!span) return Math.abs(y[0] - mean);
+    let sq = 0;
+    for (let i=0;i<n-1;i++){
+        const a = y[i] - mean, b = y[i+1] - mean;
+        sq += (a*a + b*b)/2 * (xs[i+1]-xs[i]);
+    }
+    return Math.sqrt(Math.max(0, sq/span));
+}
 function measure(xs, y){
     const n = Math.min(xs.length, y.length);
     if (n < 2) return null;
@@ -3106,8 +3060,6 @@ function measure(xs, y){
     }
     const mean = span ? area/span : y[0];
     const rms  = span ? Math.sqrt(Math.max(0, sq/span)) : Math.abs(y[0]);
-    /* 交流有效值＝扣掉直流之後的有效值。真實三用電表的交流檔是交流耦合的，
-       量 5V 直流疊 1V 弦波時讀的是 0.707V 而不是 5.05V，兩者不是同一個數字。 */
     const out = { min, max, pp:max-min, mean, rms, acrms:acRms(xs, y, mean),
                   freq:null, rise:null };
 
@@ -3633,151 +3585,20 @@ async function measureOhm(i){
 }
 
 /* ==========================================================
-   浮動三用電表（讀數面板）
-
-   跟「三用電表元件」是兩種不同的東西，這個差別本身就是要教的：
-
-     元件版：接進電路，**會影響電路**。現實模式下 10MΩ 的輸入阻抗會把高阻抗
-             節點的電壓拉低——這是真實量測一定會有的負載效應。
-     面板版：外掛的理想儀器，**完全不動電路**，只是去讀已經算出來的結果。
-             想量哪裡就點哪裡，不必先把線剪斷。
-
-   兩台並排看，就會知道「理論值」和「量到的值」為什麼不一樣。
-
-   交流檔用的是真有效值而且**扣掉直流成分**：√(RMS² − 平均²)。
-   真實的三用電表交流檔是交流耦合的，量一個 5V 直流上疊 1V 弦波，
-   它顯示的是 0.707V 不是 5.05V。這個細節不做的話，讀數會跟實驗課的儀器對不起來。
-   ========================================================== */
-
-function dmmShow(on){
-    $('dmmWin').classList.toggle('hidden', !on);
-    $('dmmBtn').classList.toggle('on', on);
-    if (!on) dmmPick = null;
-    dmmRender(); drawSheet();
-}
-$('dmmBtn').onclick = () => dmmShow($('dmmWin').classList.contains('hidden'));
-$('dmmClose').onclick = () => dmmShow(false);
-$('dmmRange').onchange = () => { dmm.range = $('dmmRange').value; dmm.ohm = null;
-                                 dmmPick = null; dmmRender(); drawSheet(); };
-$('dmmA').onclick = () => { dmmPick = isCurRange(dmm.range) ? 'part' : 'a'; dmmRender(); };
-$('dmmB').onclick = () => { dmmPick = isCurRange(dmm.range) ? 'part' : 'b'; dmmRender(); };
-$('dmmClr').onclick = () => { dmm.a = dmm.b = null; dmm.part = -1; dmm.ohm = null;
-                              dmmPick = null; dmmRender(); drawSheet(); };
-
-/** 畫布上點下去時，如果正在選表棒就接上去。回傳 true 代表這一下被電表吃掉了。 */
-function dmmClick(wx, wy){
-    if (!dmmPick) return false;
-    if (dmmPick === 'part'){
-        const i = hitPart(wx, wy);
-        if (i < 0){ dmmSay('請點一個元件——電流檔量的是「流過某個元件」的電流。'); return true; }
-        dmm.part = i;
-    } else {
-        dmm[dmmPick] = snapPoint(wx, wy);
-    }
-    dmmPick = null; dmmRender(); drawSheet();
-    return true;
-}
-function dmmSay(msg){ $('dmmWhy').textContent = msg; }
-function dmmNode(pt){
-    if (!pt) return null;
-    const nd = buildNodes();
-    return nd.nameOf(nd.key(pt.x, pt.y));
-}
-/** 取一條數列在目前取樣點的讀數。直流看平均，交流看扣掉直流後的真有效值。 */
-function dmmValue(series){
-    if (!series) return null;
-    const ac = true;      // 這台只剩交流檔，直流看解題卡
-    const m = measure(simData.x, series);
-    if (!m) return { v: series[Math.min(ansIndex(), series.length-1)], how:'單一取樣點' };
-    /* 交流檔要「先扣掉直流再取有效值」。
-       數學上等於 √(RMS² − 平均²)，但那個式子在純直流訊號上會災難性抵消——
-       兩個幾乎相等的大數相減，實測 3V 直流會讀到 875nV 而不是 0。
-       直接對扣掉平均之後的訊號積分就沒有這個問題。 */
-    return { v: acRms(simData.x, series, m.mean),
-             how:`先扣掉直流成分 ${eng(m.mean)}，再取真有效值（交流檔是交流耦合的，` +
-                 `量 5V 直流疊 1V 弦波時讀的是 0.707V，不是 5.05V）` };
-}
-/** 扣掉直流之後的真有效值。對 (y − mean)² 用梯形法積分，避免大數相減的抵消。 */
-function acRms(xs, y, mean){
-    const n = Math.min(xs.length, y.length);
-    if (n < 2) return 0;
-    const span = xs[n-1] - xs[0];
-    if (!(span > 0)) return 0;
-    let sq = 0;
-    for (let i=0;i<n-1;i++){
-        const a = y[i]-mean, b = y[i+1]-mean;
-        sq += (a*a + b*b)/2 * (xs[i+1]-xs[i]);
-    }
-    return Math.sqrt(Math.max(0, sq/span));
-}
-function dmmRender(){
-    const val = $('dmmVal'), unit = $('dmmUnit');
-    $('dmmA').classList.toggle('on', dmmPick === 'a' || (dmmPick === 'part'));
-    $('dmmB').classList.toggle('on', dmmPick === 'b');
-    $('dmmA').innerHTML = isCurRange(dmm.range)
-        ? '<i class="lead red"></i>選元件' : '<i class="lead red"></i>紅棒';
-    $('dmmB').style.display = isCurRange(dmm.range) ? 'none' : '';
-    unit.textContent = DMM_UNIT[dmm.range];
-
-    const set = (t, why) => { val.textContent = t; dmmSay(why); };
-    if (dmmPick) return dmmSay(dmmPick === 'part'
-        ? '在電路圖上點一個元件。' : '在電路圖上點一個接點或線上的位置。');
-    if (dmm.range === 'OHM'){
-        if (!dmm.a || !dmm.b) return set('－ － －', '接上紅黑兩支表棒，再按「量電阻」。');
-        if (dmm.ohm == null){
-            val.textContent = '－ － －';
-            $('dmmWhy').innerHTML = '按這裡量：<button class="btn tiny" id="dmmGo">量電阻</button>' +
-                '<br>會把所有獨立電源歸零之後再量，也就是戴維寧等效電阻。';
-            $('dmmGo').onclick = () => dmmOhm();
-            return;
-        }
-        return set(eng(dmm.ohm), `把所有獨立電源歸零（電壓源短路、電流源斷路），` +
-            `從 ${dmmNode(dmm.a)} 灌 1A 到 ${dmmNode(dmm.b)}，量得 ΔV = ${eng(dmm.ohm)}V，` +
-            `所以 R = ΔV / 1A = ${eng(dmm.ohm)}Ω。這就是這兩點的戴維寧等效電阻。`);
-    }
-    if (!simData) return set('－ － －', '先按「執行模擬」，這台表才有東西可以讀。');
-    if (isCurRange(dmm.range)){
-        if (dmm.part < 0 || !sch.parts[dmm.part]) return set('－ － －', '按「選元件」再點一個元件。');
-        const p = sch.parts[dmm.part], ser = partSeries(p);
-        if (!ser || !ser.cur) return set('－ － －',
-            `${p.ref || p.type} 的電流推算不出來（二極體、電晶體這類非線性元件沒有封閉解）。`);
-        const r = dmmValue(ser.cur);
-        return set(eng(r.v), `流過 ${p.ref || p.type} 的電流，方向由 ${ser.nodes[0]} 到 ${ser.nodes[1]}。${r.how}`);
-    }
-    if (!dmm.a || !dmm.b) return set('－ － －', '紅棒接高電位那點、黑棒接低電位那點（或接地）。');
-    const na = dmmNode(dmm.a), nb = dmmNode(dmm.b);
-    const A = nodeSeries(na), B = nodeSeries(nb);
-    if (!A || !B) return set('－ － －', '這兩點在這次的結果裡找不到，電路可能改過了。');
-    const r = dmmValue(A.map((v,i) => v - B[i]));
-    set(eng(r.v), `V(${na}) − V(${nb})。${r.how}。` +
-        `這台是外掛的理想電表，不會影響電路——想看真實電表的負載效應，請改用「三用電表」元件。`);
-}
-/* ==========================================================
    戴維寧／諾頓等效
 
-   ★ 這裡曾經有一個會給出「一半的答案」的錯誤。
+   ★ 這裡曾經有一個會給出「一半的答案」的錯誤：R_th 是在**負載還接著**的情況下
+   量的（於是量到 R_th ∥ R_L），V_th 則直接讀主電路現在的節點電壓（於是讀到分壓
+   後的值）。以課本最典型的那組數字（V_th=16V、R_th=14Ω、R_L=14Ω）為例，
+   舊版會給 7Ω 和 8V——剛好都是正確答案的一半，而且兩個看起來都很合理。
 
-   原本只算 R_th，而且算的時候**負載還接在電路上**，V_th 則直接讀主電路
-   目前的節點電壓。兩個都不是定義：
+   現在三個量各自用自己的定義獨立跑一次 .op：
 
-     R_th 的定義是「把負載移開、獨立電源歸零，從端點看進去」。負載還在的話
-          灌進去的 1A 會分一部分走負載，量到的是 R_th ∥ R_L。
-     V_th 的定義是「把負載移開之後的**開路**電壓」。負載還在的話讀到的是
-          分壓後的值，也就是 R_L 兩端的電壓。
-
-   以課本最典型的那組數字（V_th=16V、R_th=14Ω、R_L=14Ω）為例，舊版會給
-   R = 14∥14 = 7Ω、V = 8V——剛好都是正確答案的一半，而且兩個都「看起來很合理」。
-   更糟的是舊版畫面上還寫著「R_th 不受影響」，那句話是錯的。
-
-   現在三個量各自用自己的定義獨立算一次：
-
-     R_th ← 移除負載、獨立電源歸零，灌 1A 測試電流，R = ΔV / 1A
+     R_th ← 移除負載、獨立電源歸零（受控源不動），灌 1A，R = ΔV / 1A
      V_th ← 移除負載，直接量兩點的開路電壓
      I_N  ← 移除負載，把兩點短路，量流過短路的電流
 
-   三次都是獨立的 .op，彼此不互推。所以最後那個 I_N × R_th = V_th
-   是一個**真的檢查**，不是恆等式——對不上就代表電路裡有東西讓戴維寧定理
-   不成立（最常見的是二極體、電晶體這類非線性元件）。
+   三次都是獨立的，所以最後的 I_N × R_th = V_th 是一個**真的檢查**，不是恆等式。
    ========================================================== */
 /** 跑一次 .op，回傳讀值用的兩個函式。呼叫端負責 running 旗標。 */
 async function opRun(opts){
@@ -3812,8 +3633,6 @@ function bridgingParts(a, b){
         return (ns[0]===a && ns[1]===b) || (ns[0]===b && ns[1]===a);
     });
 }
-
-
 /** 完整的戴維寧／諾頓等效。三個量各跑一次獨立的 .op。 */
 async function theveninFull(na, nb, keepLoad){
     if (!na || !nb) throw new Error('要指定兩個節點');
@@ -3848,13 +3667,13 @@ async function theveninFull(na, nb, keepLoad){
         };
     } finally { running = false; }
 }
-/** 只要電阻值的舊介面，三用電表用。 */
-async function thevenin(na, nb){ return (await theveninFull(na, nb)).R; }
-async function dmmOhm(){
-    dmmSay('量測中…');
-    try { dmm.ohm = await thevenin(dmmNode(dmm.a), dmmNode(dmm.b)); dmmRender(); }
-    catch(e){ dmmSay('量不出來：' + ((e && e.message) || e)); }
-}
+
+/* 浮動三用電表（讀數面板）曾經在這裡。拿掉的理由記在 架構.md：
+   三個檔位到最後全部在別處有更好的位置——Ω 進了解題卡（放負載元件還會自動算），
+   交流有效值進了波形量測表與元件面板。留著一台什麼都不獨有的儀器，
+   只是多一個要維護、要測試、會擋住畫布的東西。
+   電路圖上的「三用電表元件」(M) 保留：它不是量測工具而是教具，
+   是整個模擬器裡唯一一個會因為接錯（電壓表要並聯、電流表要串聯）而給出錯誤答案的元件。 */
 
 /* ==========================================================
    參數掃描
@@ -4165,11 +3984,6 @@ dragify(waveWin, $('waveGrip'), (s0,dx,dy) => {
     waveWin.style.height = Math.max(260, s0.h+dy) + 'px';
     drawPlot();
 });
-dragify($('dmmWin'), $('dmmHead'), (s0,dx,dy) => {
-    const w = $('dmmWin');
-    w.style.left = Math.max(0, Math.min(s0.l+dx, innerWidth-120)) + 'px';
-    w.style.top  = Math.max(0, Math.min(s0.t+dy, innerHeight-60)) + 'px';
-});
 
 (function restoreWave(){
     let o = null;
@@ -4279,7 +4093,6 @@ if (q){
     if (!restored) loadExample('RC 低通（步階）');
 }
 applyMode();          // 不論走哪條路都要把模式說明填上、netlist 重算一次
-dmmRender();
 drawPlot();
 </script>
 </body>
