@@ -854,6 +854,7 @@ let pinNode = null, pinColor = null;
    而 drawSheet 在載入時就會被呼叫——所以必須宣告在狀態區。
    （這條規則已經踩過四次，每一次症狀都是「整個模組在載入時就掛掉」。） */
 let logicVal = new Map();
+let truthRows = null;      // 上一次算出來的真值表（解題卡要重畫時得拿得到）
 
 /* 三個分頁的抽屜。畫面上永遠只攤開一個，其餘留在 docs 裡。
 
@@ -2742,10 +2743,14 @@ function runLogic(){
     const ins = logicInputs(), outs = logicOutputs();
     drawSheet();
     if (r.err) return show('err', '算不出來', [r.err]);
-    const rows = truthTable(ins, outs);
-    renderTruth(ins, outs, rows);
+    truthRows = truthTable(ins, outs);
+    /* ★ 這裡本來是直接呼叫 renderTruth() 再開解題卡——結果 openPopById 會重新
+       renderAnswer()，把剛畫好的真值表整個蓋回類比版的「先按執行模擬」。
+       實測就是這樣：訊息說「4 列」，卡片上卻是空的。
+       解題卡只能有一個入口，所以改成把分頁判斷放進 renderAnswer()。 */
+    renderAnswer();
     openPopById('btnAns','popAns');
-    const stat = `${ins.length} 個輸入、${outs.length} 個輸出、${rows.length} 列。`;
+    const stat = `${ins.length} 個輸入、${outs.length} 個輸出、${truthRows.length} 列。`;
     if (r.warn.length) show('warn', '算完了，但電路有可疑的地方', r.warn.concat([stat]));
     else show('ok', '算完了', [stat, '真值表在解題卡裡。點電路圖上的輸入元件可以直接切 0／1。']);
 }
@@ -3851,6 +3856,8 @@ function ansThevenin(){
 function renderAnswer(){
     const box = $('ansBox');
     if (!box) return;
+    // FPGA 分頁的「解題卡」就是真值表。同一個入口，避免兩邊互相覆蓋。
+    if (isLogic()) return renderTruth(logicInputs(), logicOutputs(), truthRows || []);
     if (!simData){
         box.innerHTML = '<p class="sub">先按「執行模擬」，這裡就會列出這個電路的所有答案，' +
                         '而且每個數字都會附上是怎麼算出來的。</p>';
@@ -4529,6 +4536,15 @@ if (q){
         loadExample('RC 低通（步階）');
     }
 }
+/* ★ 元件盤、按鈕、範例清單本來只在 applyTab() 裡建。但開機有三條路：
+   分享連結、還原上次、載入預設範例——只有「還原上次」那一條會走到 applyTab，
+   另外兩條進來就是一片空白的元件盤和空的範例下拉。實測（清掉 localStorage 再
+   開）就是這個樣子：畫布正常、元件盤全空，看起來像元件盤壞了。
+
+   所以改成不論走哪條路，最後都無條件建一次。這一類 bug 的形狀是
+   **「A 路徑做了初始化，B、C 路徑沒有」**，而開發時走的幾乎永遠是 A。 */
+buildPalette();
+fitTabButtons();      // 裡面會順便 fillExamples()
 applyMode();          // 不論走哪條路都要把模式說明填上
 drawPlot();
 </script>
