@@ -83,6 +83,15 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
 .logo-menu-item.is-here:hover{background:transparent}
 
+#tabs{flex:none;display:flex;gap:0;padding:0 10px;background:var(--paper-raised);
+      border-bottom:1px solid var(--rule)}
+.tab{display:flex;flex-direction:column;align-items:flex-start;gap:1px;
+     padding:7px 14px 6px;border:0;border-bottom:2px solid transparent;background:none;
+     cursor:pointer;font:800 13.5px/1.2 inherit;color:var(--ink-3);letter-spacing:.04em}
+.tab small{font-size:10.5px;font-weight:700;opacity:.75;letter-spacing:0}
+.tab:hover{color:var(--ink-2);background:var(--accent-soft)}
+.tab.on{color:var(--accent);border-bottom-color:var(--accent)}
+
 #palette{flex:none;display:flex;flex-wrap:wrap;gap:6px;padding:6px 10px;
          border-bottom:1px solid var(--rule);background:var(--paper)}
 
@@ -351,6 +360,14 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   </div>
 </header>
 
+<!-- 三個分頁：理想／現實／FPGA。前兩個是同一套類比元件的兩種模型，
+     FPGA 是完全不同的東西（數位邏輯），三者各有各的電路圖與存檔。 -->
+<div id="tabs" role="tablist" aria-label="工作區">
+  <button class="tab on" data-tab="ideal" role="tab">理想<small>電路學／電子學考題的預設</small></button>
+  <button class="tab"    data-tab="real"  role="tab">現實<small>加上寄生參數與真實模型</small></button>
+  <button class="tab"    data-tab="fpga"  role="tab">FPGA<small>數位邏輯閘與真值表</small></button>
+</div>
+
 <!-- 元件盤 -->
 <div id="palette" class="palette"></div>
 
@@ -420,13 +437,9 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="anaFields"></div>
   <div id="directive" class="mono"></div>
   <p class="sub">上面這行就是送給 ngspice 的指令，改欄位會即時同步。</p>
-  <div class="field" style="margin-top:10px">
-    <label for="modeSel">元件模型</label>
-    <select id="modeSel">
-      <option value="ideal">理想 — 電子學／電路學考題的預設</option>
-      <option value="real">現實 — 加上寄生參數與真實模型</option>
-    </select>
-  </div>
+  <h3 style="margin-top:14px">元件模型</h3>
+  <p class="sub">由上面的<b>分頁</b>決定：理想分頁用理想模型，現實分頁加上寄生參數。
+     兩個分頁各有各的電路圖，切過去不會動到這一張。</p>
   <div id="modeNote" class="sub"></div>
 
   <h3 style="margin-top:14px">參數掃描</h3>
@@ -680,6 +693,120 @@ const TYPES = {
       draw(g){ ln(g,0,0,0,8); ln(g,-9,8,9,8); ln(g,-5,12,5,12); ln(g,-2,16,2,16); } }
 };
 function ln(g,a,b,c,d){ g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke(); }
+/* ==========================================================
+   FPGA 分頁：數位邏輯閘
+
+   ngspice 跑的是類比電路，做不了邏輯合成，所以這一區有自己的求解器。
+   好消息是它需要的東西——畫布、選取、拉線、節點合併、存檔——全部可以沿用，
+   真正新增的只有「元件表」和「怎麼算」兩件事。
+
+   接腳一律放在 10 的倍數上，45 度旋轉才會落回格點（見 rotPt）。
+   輸入在左、輸出在右，跟課本畫法一致。
+   ========================================================== */
+const LOGIC = {
+  IN:  { label:'輸入', pre:'IN', pins:[[20,0]], val:'0', logic:'in',
+      draw(g,p){ const on = p && String(p.val) === '1';
+        g.strokeRect(-20,-12,26,24); ln(g,6,0,20,0);
+        g.fillStyle = g.strokeStyle;
+        g.font = '700 14px ui-monospace,monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.fillText(on ? '1' : '0', -7, 1); } },
+  OUT: { label:'輸出', pre:'Q', pins:[[-20,0]], val:'', logic:'out',
+      draw(g){ ln(g,-20,0,-8,0); g.beginPath(); g.arc(4,0,12,0,7); g.stroke(); } },
+  NOT: { label:'NOT', pre:'U', pins:[[-20,0],[20,0]], logic:'not',
+      draw(g){ ln(g,-20,0,-12,0);
+        g.beginPath(); g.moveTo(-12,-12); g.lineTo(-12,12); g.lineTo(9,0); g.closePath(); g.stroke();
+        g.beginPath(); g.arc(13,0,4,0,7); g.stroke(); ln(g,17,0,20,0); } },
+  AND: { label:'AND', pre:'U', pins:[[-20,-10],[-20,10],[20,0]], logic:'and',
+      draw(g){ andBody(g); ln(g,-20,-10,-11,-10); ln(g,-20,10,-11,10); ln(g,14,0,20,0); } },
+  NAND:{ label:'NAND', pre:'U', pins:[[-20,-10],[-20,10],[20,0]], logic:'nand',
+      draw(g){ andBody(g); ln(g,-20,-10,-11,-10); ln(g,-20,10,-11,10);
+        g.beginPath(); g.arc(17,0,3.5,0,7); g.stroke(); } },
+  OR:  { label:'OR', pre:'U', pins:[[-20,-10],[-20,10],[20,0]], logic:'or',
+      draw(g){ orBody(g); ln(g,-20,-10,-9,-10); ln(g,-20,10,-9,10); ln(g,14,0,20,0); } },
+  NOR: { label:'NOR', pre:'U', pins:[[-20,-10],[-20,10],[20,0]], logic:'nor',
+      draw(g){ orBody(g); ln(g,-20,-10,-9,-10); ln(g,-20,10,-9,10);
+        g.beginPath(); g.arc(17,0,3.5,0,7); g.stroke(); } },
+  XOR: { label:'XOR', pre:'U', pins:[[-20,-10],[-20,10],[20,0]], logic:'xor',
+      draw(g){ orBody(g); g.beginPath(); g.moveTo(-15,-12);
+        g.quadraticCurveTo(-7,0,-15,12); g.stroke();
+        ln(g,-20,-10,-11,-10); ln(g,-20,10,-11,10); ln(g,14,0,20,0); } },
+};
+function andBody(g){
+    g.beginPath(); g.moveTo(-11,-12); g.lineTo(2,-12);
+    g.arc(2,0,12,-Math.PI/2,Math.PI/2); g.lineTo(-11,12); g.closePath(); g.stroke();
+}
+function orBody(g){
+    g.beginPath(); g.moveTo(-11,-12);
+    g.quadraticCurveTo(4,-12,14,0); g.quadraticCurveTo(4,12,-11,12);
+    g.quadraticCurveTo(-3,0,-11,-12); g.closePath(); g.stroke();
+}
+/** 兩張元件表共用的查表函式。鍵不重複，所以一個查詢就夠。 */
+const DEF = t => TYPES[t] || LOGIC[t];
+
+/* ---------- 邏輯求解 ----------
+   閘的輸出接在某個節點上，該節點的值就由那顆閘決定；輸入元件直接驅動它的節點。
+   反覆傳播到不再變動為止——組合邏輯一定會收斂，收斂不了就是有回授迴路，
+   那要用正反器而不是純閘，所以直接報錯而不是無限跑下去。 */
+const LOGIC_OP = {
+    not: v => v[0] ^ 1,
+    and: v => v.reduce((a,b) => a & b),
+    nand:v => v.reduce((a,b) => a & b) ^ 1,
+    or:  v => v.reduce((a,b) => a | b),
+    nor: v => v.reduce((a,b) => a | b) ^ 1,
+    xor: v => v.reduce((a,b) => a ^ b),
+};
+/** 回傳 { val:Map(node→0/1), warn:[], err:string|null } */
+function solveLogic(over){
+    const nd = buildNodes();
+    const nodeOf = p => pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+    const gates = [], val = new Map(), warn = [];
+    const driven = new Map();                 // 節點 → 是誰在驅動它
+    for (const p of sch.parts){
+        const d = DEF(p.type); if (!d || !d.logic) continue;
+        const ns = nodeOf(p);
+        if (d.logic === 'in'){
+            const v = over && over.has(p.ref) ? over.get(p.ref) : (String(p.val) === '1' ? 1 : 0);
+            val.set(ns[0], v);
+            if (driven.has(ns[0])) warn.push(`${ns[0]} 同時被 ${driven.get(ns[0])} 和 ${p.ref} 驅動。`);
+            driven.set(ns[0], p.ref);
+        } else if (d.logic === 'out'){
+            // 輸出只讀，不驅動
+        } else {
+            const out = ns[ns.length-1], ins = ns.slice(0, -1);
+            if (driven.has(out)) warn.push(`${out} 同時被 ${driven.get(out)} 和 ${p.ref} 驅動。`);
+            driven.set(out, p.ref);
+            gates.push({ p, op:d.logic, ins, out });
+        }
+    }
+    /* 傳播。最多跑 gates.length+1 輪：每一輪至少會定下一顆閘，
+       跑完還在變就是有迴路。 */
+    let changed = true, rounds = 0;
+    while (changed && rounds <= gates.length + 1){
+        changed = false; rounds++;
+        for (const gt of gates){
+            const vs = gt.ins.map(n => val.has(n) ? val.get(n) : null);
+            if (vs.some(v => v === null)) continue;
+            const nv = LOGIC_OP[gt.op](vs);
+            if (val.get(gt.out) !== nv){ val.set(gt.out, nv); changed = true; }
+        }
+    }
+    const stuck = gates.filter(gt => !val.has(gt.out));
+    if (changed) return { val, warn, err:'電路裡有回授迴路：純邏輯閘接成環會震盪，算不出穩定值。' };
+    if (stuck.length) warn.push(`${stuck.map(g=>g.p.ref).join('、')} 的輸入還沒接上，輸出是未定。`);
+    return { val, warn, err:null };
+}
+/** 圖上所有輸入元件，照名稱排序——真值表的欄位順序要固定。 */
+function logicInputs(){
+    return sch.parts.filter(p => p.type === 'IN')
+        .sort((a,b) => (a.ref||'').localeCompare(b.ref||'', undefined, {numeric:true}));
+}
+function logicOutputs(){
+    const nd = buildNodes();
+    return sch.parts.filter(p => p.type === 'OUT')
+        .sort((a,b) => (a.ref||'').localeCompare(b.ref||'', undefined, {numeric:true}))
+        .map(p => ({ p, node: nd.nameOf(nd.key(...pinsOf(p)[0])) }));
+}
+
 /* 受控源用菱形，跟獨立電源的圓形分開——課本就是這樣畫的，
    一眼就能看出「這顆是被別人控制的」。 */
 function dep(g, isCurrent){
@@ -722,7 +849,23 @@ let hiddenVectors = new Set();
    所以同樣得宣告在狀態區。 */
 let hotNode = null, hotColor = null;
 let pinNode = null, pinColor = null;
+/* ★ FPGA 分頁上一次算出來的節點值（node → 0/1）。drawSheet() 會讀它替線上色，
+   而 drawSheet 在載入時就會被呼叫——所以必須宣告在狀態區。
+   （這條規則已經踩過四次，每一次症狀都是「整個模組在載入時就掛掉」。） */
+let logicVal = new Map();
 
+/* 三個分頁的抽屜。畫面上永遠只攤開一個，其餘留在 docs 裡。
+
+   ★ TABS／isLogic 必須跟 tab 一起放在狀態區，不能留在下面的分頁那一段：
+   buildAna() 在模組載入時就會被呼叫，而它第一行就問 isLogic()。
+   這已經是第五次踩到同一條暫時性死區的規則（前四次是 scope、dmm、hotNode、
+   hiddenVectors），而且五次的症狀完全一樣：整個模組在載入時就掛掉，
+   畫面全白。node --check 看不出來，只有冒煙測試會抓到。 */
+let tab = 'ideal';
+const docs = {};
+const TABS = ['ideal','real','fpga'];
+const TAB_LABEL = { ideal:'理想', real:'現實', fpga:'FPGA' };
+const isLogic = () => tab === 'fpga';
 let sch = { parts:[], wires:[] };
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
@@ -754,7 +897,7 @@ function rotPt(px, py, r){
     return (r & 1) ? ROT4[q](px - py, px + py) : ROT4[q](px, py);
 }
 const isDiag = r => (((r % ROT_N) + ROT_N) % ROT_N) & 1;
-const pinsOf = p => TYPES[p.type].pins.map(([a,b]) => {
+const pinsOf = p => DEF(p.type).pins.map(([a,b]) => {
     const [u,v] = rotPt(a,b,p.rot); return [p.x+u, p.y+v];
 });
 const snap = v => Math.round(v/G)*G;
@@ -764,7 +907,8 @@ const snap = v => Math.round(v/G)*G;
    資料模型很小（幾十個元件），直接存整份快照就好，不必做差異比對。
    每個「會改變電路」的動作在**動手之前**呼叫 pushUndo()。
    ========================================================== */
-const DOC_KEY = 'blackcatspice-doc';
+const DOC_KEY = t => 'blackcatspice-doc-' + t;   // 每個分頁一把鑰匙
+const TAB_KEY = 'blackcatspice-tab';
 const UNDO_MAX = 50;
 let undoStack = [], redoStack = [], lastSaved = '';
 const snapshot = () => JSON.stringify(sch);
@@ -785,19 +929,23 @@ function redo(){
     if (!redoStack.length) return show('warn','沒有可以重做的動作',[]);
     undoStack.push(snapshot()); applySnap(redoStack.pop());
 }
-/* 自動存檔：改動後延遲寫入，避免拖曳時每一格都寫一次 localStorage。 */
+/* 自動存檔：改動後延遲寫入，避免拖曳時每一格都寫一次 localStorage。
+   分頁各存各的，所以鍵值帶著分頁名。切分頁時要 flush()——不然那 400 毫秒的
+   延遲會讓「改一下就馬上切走」的內容掉在半路上。 */
 let saveTimer = null;
+function writeDoc(){
+    try {
+        const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals,
+                                      r:ROT_N, t:Date.now() });
+        if (data === lastSaved[tab]) return;
+        localStorage.setItem(DOC_KEY(tab), data); lastSaved[tab] = data;
+    } catch(e) {}    // 空間滿了或被停用就算了，不要吵使用者
+}
 function autosave(){
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(() => {
-        try {
-            const data = JSON.stringify({ s:sch, a:$('anaSel').value, v:anaVals,
-                                          m:$('modeSel').value, r:ROT_N, t:Date.now() });
-            if (data === lastSaved) return;
-            localStorage.setItem(DOC_KEY, data); lastSaved = data;
-        } catch(e) {}    // 空間滿了或被停用就算了，不要吵使用者
-    }, 400);
+    saveTimer = setTimeout(writeDoc, 400);
 }
+autosave.flush = () => { clearTimeout(saveTimer); writeDoc(); };
 
 /* ==========================================================
    拉線的路徑
@@ -1010,7 +1158,7 @@ function toNetlist(opts){
     const hid = () => { const n = 'X' + (++hidden); inner.add(n.toLowerCase()); return n; };
     const para = name => { inner.add(name.toLowerCase()); return name; };
     for (const p of sch.parts){
-        const T = TYPES[p.type];
+        const T = DEF(p.type);
         if (p.type === 'GND') continue;
         /* 求戴維寧等效時要先把負載「拿掉」。用物件本身比對而不是比對名稱，
            因為沒命名的元件在這裡才會被配到 ref，外面拿不到同一個名字。 */
@@ -1211,6 +1359,15 @@ const ANA = {
 };
 let anaVals = {};
 function buildAna(){
+    /* FPGA 分頁沒有分析種類可選——邏輯就是邏輯，沒有 .op／.tran／.ac 之分。
+       把整個分析區收起來，比留一排點了沒反應的欄位好。 */
+    const anaBox = $('anaSel') && $('anaSel').closest('.field');
+    if (anaBox) anaBox.style.display = isLogic() ? 'none' : '';
+    if (isLogic()){
+        $('anaFields').innerHTML = '';
+        $('directive').textContent = '（數位邏輯，不送 ngspice）';
+        return;
+    }
     const a = ANA[$('anaSel').value] || ANA.tran;
     $('anaFields').innerHTML = a.f.map(([k,lab,def]) =>
         k === 'sweep'
@@ -1242,6 +1399,13 @@ $('anaSel').onchange = buildAna;
 buildAna();
 
 function refreshNet(){
+    /* FPGA 分頁沒有 netlist——ngspice 不認識邏輯閘。那個框改成放電路摘要，
+       空著會讓人以為壞了。 */
+    if (isLogic()){
+        const r = logicSummary(); $('net').value = r.text; autosave();
+        if (!quietNet) hintStale();
+        return r;
+    }
     const r = toNetlist(); $('net').value = r.text; autosave();
     if (typeof fillSweepUI === 'function') fillSweepUI();
     /* quietNet 是給「執行模擬」自己用的。它一開始也會呼叫 refreshNet()，
@@ -1261,12 +1425,53 @@ const MODE_NOTE = {
            '電路圖不會被改動，寄生元件是產生 netlist 時才插進去的，可以在下面的 netlist 裡看到。' +
            '（運放模型沒有電源軌，所以不會飽和；元件誤差容差也還沒做。）'
 };
-function applyMode(){
-    realMode = $('modeSel').value === 'real';
-    $('modeNote').textContent = MODE_NOTE[realMode ? 'real' : 'ideal'];
-    refreshNet(); drawSheet();
+/* ==========================================================
+   分頁：理想／現實／FPGA
+
+   ★ 三個分頁是**三個獨立的工作區**，不是同一張圖的三種看法。
+
+   理想與現實本來是一個下拉選單（同一張電路換模型），但那個設計有個問題：
+   想比較「理想 vs 現實」時，你得改一次選單、看一次、再改回來，
+   而且兩邊只能是同一張圖。做成分頁之後兩張圖可以完全不同——
+   左邊放理想的課本題目、右邊放加了寄生參數的實測版本，隨時切著看。
+
+   FPGA 更是另一個世界：數位邏輯閘，連模擬引擎都不一樣（ngspice 跑的是類比，
+   邏輯用自己寫的求解器）。它跟前兩個共用的只有畫布、選取、拉線這些編輯操作。
+
+   每個分頁各自存檔（localStorage 分開的鍵），切換時把目前這張收起來、
+   把目標那張攤開。 */
+function docOf(t){ return docs[t] || (docs[t] = { s:{parts:[],wires:[]}, a:'op', v:{}, seq:1 }); }
+/** 把目前畫面上的狀態收回目前分頁的抽屜。 */
+function stashTab(){
+    const d = docOf(tab);
+    d.s = sch; d.seq = seq;
+    d.a = $('anaSel').value; d.v = anaVals;
 }
-$('modeSel').onchange = applyMode;
+/** 把某個分頁的抽屜攤到畫面上。 */
+function applyTab(t){
+    tab = TABS.includes(t) ? t : 'ideal';
+    realMode = tab === 'real';
+    const d = docOf(tab);
+    sch = d.s; seq = d.seq; sel = []; clip = clip;   // 剪貼簿刻意跨分頁共用
+    simData = null; cursorIdx = null; plotData = null; loadEq = null; loadEqKey = '';
+    scopeStop();
+    document.querySelectorAll('.tab').forEach(b =>
+        b.classList.toggle('on', b.dataset.tab === tab));
+    document.body.classList.toggle('logic', isLogic());
+    $('modeNote').textContent = MODE_NOTE[realMode ? 'real' : 'ideal'];
+    $('anaSel').value = d.a; anaVals = d.v; buildAna();
+    buildPalette();
+    inspect(); refreshNet(); drawSheet(); fit();
+    try { localStorage.setItem(TAB_KEY, tab); } catch(e){}
+}
+function switchTab(t){
+    if (t === tab) return;
+    stashTab(); autosave.flush();
+    applyTab(t);
+}
+document.querySelectorAll('.tab').forEach(b =>
+    b.onclick = () => switchTab(b.dataset.tab));
+function applyMode(){ $('modeNote').textContent = MODE_NOTE[realMode ? 'real' : 'ideal']; }
 
 /* ==========================================================
    畫布：格點、元件、線、選取
@@ -1381,11 +1586,22 @@ function drawSheet(){
         g.strokeStyle = on ? selc : ink; g.lineWidth = 1.7/1;
         g.lineCap='round'; g.lineJoin='round';
         if (p.off){ g.globalAlpha = .35; g.setLineDash([3,2]); }
-        TYPES[p.type].draw(g, p);
+        DEF(p.type).draw(g, p);
+        /* 輸出元件把讀到的值印在圈裡——不然就只是一個空圓圈。 */
+        if (p.type === 'OUT'){
+            const nd0 = buildNodes(), n0 = nd0.nameOf(nd0.key(...pinsOf(p)[0]));
+            const v = logicVal.has(n0) ? logicVal.get(n0) : null;
+            g.save(); g.rotate(-p.rot*Math.PI/4);          // 數字不跟著轉才讀得順
+            g.fillStyle = g.strokeStyle;
+            g.font = '800 13px ui-monospace,monospace';
+            g.textAlign = 'center'; g.textBaseline = 'middle';
+            const [ox,oy] = rotPt(4,0,p.rot);
+            g.fillText(v == null ? '?' : String(v), ox, oy); g.restore();
+        }
         /* 45 度時接腳被放大到 √2 倍遠（才落得到格點），符號本身不放大，
            所以從原本的腳尖再拉一小段到真正的接腳位置，線才接得上。 */
         if (isDiag(p.rot))
-            TYPES[p.type].pins.forEach(([a,b]) => ln(g, a, b, a*Math.SQRT2, b*Math.SQRT2));
+            DEF(p.type).pins.forEach(([a,b]) => ln(g, a, b, a*Math.SQRT2, b*Math.SQRT2));
         g.setLineDash([]); g.globalAlpha = 1;
         g.restore();
         // 標籤不跟著轉，才讀得順
@@ -1432,12 +1648,12 @@ function drawSheet(){
         g.save(); const [sx,sy] = W2S(snap(mouseW.x), snap(mouseW.y));
         g.globalAlpha = .5; g.translate(sx,sy); g.scale(view.z,view.z);
         g.rotate(placeRot*Math.PI/4); g.strokeStyle = selc; g.lineWidth = 1.7;
-        TYPES[placing].draw(g, {val:TYPES[placing].val}); g.restore();
+        DEF(placing).draw(g, {val:DEF(placing).val}); g.restore();
     }
     const kn = a => keyName(keys[a]);
     const drawing = wireFrom || quick;
     $('hud').textContent =
-        mode==='place' ? `放置 ${TYPES[placing].label}：點畫布放下（可連續放），${kn('rot')} 旋轉，右鍵或 Esc 退出`
+        mode==='place' ? `放置 ${DEF(placing).label}：點畫布放下（可連續放），${kn('rot')} 旋轉，右鍵或 Esc 退出`
       : drawing        ? `按 ${kn('bend')} 定下這一段並轉彎；點一下結束這條線；右鍵取消`
       : mode==='wire'  ? `點一下開始拉線（手不用一直按著）；右鍵退出連線模式`
       : sel.length     ? `已選取 ${sel.length} 個：${kn('del')} 刪除、${kn('rot')} 旋轉、拖曳可移動`
@@ -1505,7 +1721,7 @@ cv.addEventListener('dblclick', e => {
     const r = cv.getBoundingClientRect();
     const [wx,wy] = S2W(e.clientX-r.left, e.clientY-r.top);
     const i = hitPart(wx,wy);
-    if (i >= 0 && sch.parts[i].type === 'SW'){ e.preventDefault(); toggleSwitch(i); }
+    if (i >= 0 && /^(SW|IN)$/.test(sch.parts[i].type)){ e.preventDefault(); toggleSwitch(i); }
 });
 cv.addEventListener('contextmenu', e => e.preventDefault());
 cv.addEventListener('pointerdown', e => {
@@ -1767,7 +1983,7 @@ renderKeys();
 /* ---------- 操作 ---------- */
 function addPart(type, x, y, rot){
     pushUndo();
-    const T = TYPES[type];
+    const T = DEF(type);
     const p = { type, x, y, rot, ref: type==='GND' ? '' : T.pre + (seq++), val: T.val };
     /* 流控電源預設指到電路裡第一個電壓源，省得放下去就先跳一個警告。
        電路裡還沒有電壓源就留空，netlist 會提醒。 */
@@ -1797,8 +2013,17 @@ function moveSelection(dx,dy){
 /* 切換開關。走完整的 pushUndo → refreshNet 流程，所以復原鍵有效，
    而且在示波器模式下會自動重跑——按一下開關就能看到 RC 充放電，
    這正是這個元件最有價值的用法。 */
+/* 連點兩下就切換。開關（類比）和輸入（邏輯）共用同一個手勢——
+   兩者在概念上是同一件事：一個只有兩種狀態、想直接用手撥的東西。 */
 function toggleSwitch(i){
     const p = sch.parts[i];
+    if (p && p.type === 'IN'){
+        pushUndo();
+        p.val = String(p.val) === '1' ? '0' : '1';
+        inspect(); refreshNet(); drawSheet();
+        if (logicVal.size) runLogic();      // 已經算過就即時更新，看得到表格跳列
+        return true;
+    }
     if (!p || p.type !== 'SW') return false;
     pushUndo();
     p.val = p.val === 'off' ? 'on' : 'off';
@@ -1849,7 +2074,7 @@ function pasteClip(){
     pushUndo();
     const picked = [];
     clip.parts.forEach(o => {
-        const T = TYPES[o.type];
+        const T = DEF(o.type);
         const p = { ...o, x:o.x + PASTE_DX, y:o.y + PASTE_DY,
                     ref: o.type === 'GND' ? '' : T.pre + (seq++) };
         sch.parts.push(p); picked.push({ kind:'part', i:sch.parts.length - 1 });
@@ -1914,10 +2139,19 @@ function fit(){
     drawSheet();
 }
 
-/* ---------- 元件工具列 ---------- */
-$('palette').innerHTML = Object.entries(TYPES).map(([k,T]) =>
-    `<button class="pi" data-t="${k}" title="${T.label}">
-        <canvas class="pico" width="60" height="40"></canvas><span>${T.label}</span></button>`).join('');
+/* ---------- 元件工具列 ----------
+   分頁不同，元件表也不同：類比分頁用 TYPES，FPGA 分頁用 LOGIC。
+   所以這裡從「載入時建一次」改成一個可以重建的函式。 */
+function typeTable(){ return isLogic() ? LOGIC : TYPES; }
+function buildPalette(){
+    const T = typeTable();
+    $('palette').innerHTML = Object.entries(T).map(([k,t]) =>
+        `<button class="pi" data-t="${k}" title="${t.label}">
+            <canvas class="pico" width="60" height="40"></canvas><span>${t.label}</span></button>`).join('');
+    document.querySelectorAll('.pi').forEach(el =>
+        el.onclick = () => setMode('place', el.dataset.t));
+    paintPalette();
+}
 /* 縮圖用同一份 draw() 畫，所以工具列上的符號跟畫布上的一定一致。
    顏色要跟著主題重畫——寫死黑色的話深色模式會整排看不見。 */
 function paintPalette(){
@@ -1931,11 +2165,10 @@ function paintPalette(){
         cg.translate(30,20); cg.scale(0.72,0.72);
         cg.strokeStyle = el.classList.contains('on') ? '#fff' : cvar('--ink');
         cg.lineWidth = 2.2; cg.lineCap='round'; cg.lineJoin='round';
-        TYPES[k].draw(cg, {val:TYPES[k].val});
+        const T = typeTable(); if (T[k]) T[k].draw(cg, {val:T[k].val});
     });
 }
-document.querySelectorAll('.pi').forEach(el =>
-    el.onclick = () => setMode('place', el.dataset.t));
+
 
 /* ==========================================================
    常駐屬性面板：點元件直接改，不跳彈窗
@@ -1985,7 +2218,7 @@ function inspect(){
             '<button class="btn" id="ip_del" style="margin-top:6px">刪除這段線</button>');
         $('ip_del').onclick = del; return;
     }
-    const p = sch.parts[one.i], T = TYPES[p.type];
+    const p = sch.parts[one.i], T = DEF(p.type);
     if (p.type === 'M'){
         const RANGE = { V:'直流／交流電壓（並聯）', A:'電流（串聯）', R:'電阻（電源歸零）' };
         box.innerHTML = `
@@ -2075,6 +2308,29 @@ function inspect(){
         box.innerHTML = '<p class="sub">接地（0 節點）。SPICE 一定要有它。</p>' +
             '<button class="btn" id="ip_del" style="margin-top:6px">刪除</button>';
         $('ip_del').onclick = del; return;
+    }
+    if (DEF(p.type).logic){
+        const d = DEF(p.type);
+        box.innerHTML = `
+          <div class="field"><label for="ip_ref">名稱</label>
+            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+          ${d.logic === 'in' ? `
+            <p class="sub">目前是 <b>${String(p.val)==='1'?'1':'0'}</b>。
+               在電路圖上<b>連點兩下</b>可以直接切換，真值表會跟著標到對應的那一列。</p>
+            <div class="palette" style="margin-top:8px">
+              <button class="btn ${String(p.val)==='1'?'primary':''}" id="ip_tog">切成 ${String(p.val)==='1'?'0':'1'}</button>
+            </div>` : ''}
+          <div class="palette" style="margin-top:8px">
+            <button class="btn" id="ip_rot">旋轉</button>
+            <button class="btn" id="ip_del">刪除</button>
+          </div>
+          <p class="sub">型別：${d.label}（${p.type}）。這一頁是數位邏輯，
+             只有 0 和 1，沒有電壓電流，也不會產生 SPICE netlist。</p>`;
+        $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
+                                     refreshNet(); drawSheet(); };
+        if ($('ip_tog')) $('ip_tog').onclick = () => toggleSwitch(one.i);
+        $('ip_rot').onclick = rotate; $('ip_del').onclick = del;
+        return;
     }
     const canOff = p.type === 'V' || p.type === 'I';
     box.innerHTML = `
@@ -2367,10 +2623,84 @@ function showHints(hints, title){
         `<div style="color:var(--ink-2);margin-top:4px">👉 ${h.fix}</div>`).join('') + '</div>';
 }
 
+/* ---------- FPGA 分頁：摘要、執行、真值表 ---------- */
+function logicSummary(){
+    const nd = buildNodes(), warn = [];
+    const lines = ['# 數位邏輯電路（這一頁不產生 SPICE netlist）'];
+    for (const p of sch.parts){
+        const d = DEF(p.type); if (!d || !d.logic) continue;
+        const ns = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+        lines.push(d.logic === 'in'  ? `${p.ref} = ${String(p.val)==='1'?1:0} → ${ns[0]}`
+                 : d.logic === 'out' ? `${p.ref} ← ${ns[0]}`
+                 : `${p.ref}: ${d.label}(${ns.slice(0,-1).join(', ')}) → ${ns[ns.length-1]}`);
+    }
+    if (!logicInputs().length)  warn.push('還沒有輸入元件，真值表沒有欄位可以列。');
+    if (!logicOutputs().length) warn.push('還沒有輸出元件，看不到結果。');
+    return { text: lines.join('\n') + '\n', warn, inner:new Set() };
+}
+/** 目前這組輸入下的結果，畫在畫布上（節點值）＋列出真值表。 */
+function runLogic(){
+    const r = solveLogic();
+    logicVal = r.val;
+    const ins = logicInputs(), outs = logicOutputs();
+    drawSheet();
+    if (r.err) return show('err', '算不出來', [r.err]);
+    const rows = truthTable(ins, outs);
+    renderTruth(ins, outs, rows);
+    openPopById('btnAns','popAns');
+    const stat = `${ins.length} 個輸入、${outs.length} 個輸出、${rows.length} 列。`;
+    if (r.warn.length) show('warn', '算完了，但電路有可疑的地方', r.warn.concat([stat]));
+    else show('ok', '算完了', [stat, '真值表在解題卡裡。點電路圖上的輸入元件可以直接切 0／1。']);
+}
+/* 真值表：把所有輸入組合窮舉一遍。
+   2^n 會爆炸，所以上限訂在 10 個輸入（1024 列）——再多的話畫面本來就讀不完，
+   而且那已經不是「用真值表理解」的規模了。 */
+const TRUTH_MAX_IN = 10;
+function truthTable(ins, outs){
+    if (!ins.length || ins.length > TRUTH_MAX_IN) return [];
+    const rows = [];
+    for (let m = 0; m < (1 << ins.length); m++){
+        const over = new Map();
+        ins.forEach((p,i) => over.set(p.ref, (m >> (ins.length-1-i)) & 1));
+        const r = solveLogic(over);
+        if (r.err) return [];
+        rows.push({ in: ins.map(p => over.get(p.ref)),
+                    out: outs.map(o => r.val.has(o.node) ? r.val.get(o.node) : null) });
+    }
+    return rows;
+}
+function renderTruth(ins, outs, rows){
+    const box = $('ansBox'); if (!box) return;
+    if (!ins.length || !outs.length){
+        box.innerHTML = '<p class="sub">放幾個<b>輸入</b>和<b>輸出</b>元件，' +
+            '中間接上邏輯閘，這裡就會列出完整的真值表。</p>';
+        return;
+    }
+    if (ins.length > TRUTH_MAX_IN){
+        box.innerHTML = `<p class="sub">輸入有 ${ins.length} 個，真值表會有 ${2**ins.length} 列，` +
+            `超過上限 ${TRUTH_MAX_IN} 個就不列了——那個規模已經不是用真值表理解的東西。</p>`;
+        return;
+    }
+    /* 目前這一組輸入是哪一列？標出來，切換輸入時就看得到自己在表上移動。 */
+    const now = ins.map(p => String(p.val) === '1' ? 1 : 0).join('');
+    box.innerHTML = `<h4>真值表</h4>
+      <table class="ans-tbl"><tr>
+        ${ins.map(p => `<th>${p.ref}</th>`).join('')}
+        ${outs.map(o => `<th style="text-align:right">${o.p.ref}</th>`).join('')}</tr>
+        ${rows.map(r => `<tr${r.in.join('') === now ? ' class="pinned"' : ''}>` +
+            r.in.map(v => `<td>${v}</td>`).join('') +
+            r.out.map(v => `<td class="n">${v == null ? '—' : v}</td>`).join('') + '</tr>').join('')}
+      </table>
+      <p class="ans-why">粗體那一列就是電路圖上目前的輸入組合。
+        <b>點畫布上的輸入元件可以直接切 0／1</b>，表格會跟著標到對應的那一列。<br>
+        「—」代表那個輸出的輸入還沒接完，值是未定的。</p>`;
+}
+
 /* ---------- 執行 ---------- */
 let running = false, lastRunMs = 0, autoRun = false;
 $('run').onclick = async () => {
     if (running) return;                         // 上一次還沒跑完就不要疊上去
+    if (isLogic()) return runLogic();            // FPGA 分頁走自己的求解器
     quietNet = true;                             // 這一次的 refreshNet 不算「電路改了」
     const r = refreshNet();
     quietNet = false;
@@ -2617,7 +2947,7 @@ const CURRENT_NOTE = {
 /** 回傳選取元件在本次模擬中的跨壓與電流數列。沒有結果或算不出來就回 null。 */
 function partSeries(p){
     if (!simData || !p) return null;
-    const T = TYPES[p.type];
+    const T = DEF(p.type);
     /* 相依電源有四支腳（前兩支是輸出、後兩支是控制端），但它的跨壓和電流
        完全定義得出來，不該因為腳數不是 2 就整個從解題卡消失——而第 3 章的題目
        最想看的就是「這個受控源送出多少電流」。 */
@@ -3628,7 +3958,7 @@ const NONLINEAR = ['D','Q'];
 function bridgingParts(a, b){
     const nd = buildNodes();
     return sch.parts.filter(p => {
-        if (p.type === 'GND' || TYPES[p.type].pins.length < 2) return false;
+        if (p.type === 'GND' || DEF(p.type).pins.length < 2) return false;
         const ns = pinsOf(p).slice(0,2).map(([x,y]) => nd.nameOf(nd.key(x,y)));
         return (ns[0]===a && ns[1]===b) || (ns[0]===b && ns[1]===a);
     });
@@ -4017,13 +4347,19 @@ function upgradeRot(o){
     return o;
 }
 const pack = () => btoa(unescape(encodeURIComponent(JSON.stringify(
-    { s:sch, a:$('anaSel').value, v:anaVals, m:$('modeSel').value, r:ROT_N }))));
+    { s:sch, a:$('anaSel').value, v:anaVals, m:tab, r:ROT_N }))));
 function unpack(str){
     const o = upgradeRot(JSON.parse(decodeURIComponent(escape(atob(str)))));
     sch = o.s || {parts:[],wires:[]};        // 舊存檔裡的 probes 欄位直接忽略
     seq = (sch.parts.length||0)+1; sel = [];
     $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
-    $('modeSel').value = o.m === 'real' ? 'real' : 'ideal'; applyMode();
+    /* 分享連結帶著它是哪個分頁的電路。舊連結的 m 是 'ideal'／'real'，
+       剛好跟分頁名相同，所以不必特別轉換；認不得的一律當理想。 */
+    if (TABS.includes(o.m) && o.m !== tab){ tab = o.m; realMode = tab === 'real';
+        document.querySelectorAll('.tab').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+        document.body.classList.toggle('logic', isLogic()); buildPalette(); }
+    docOf(tab).s = sch;
+    applyMode();
     inspect(); refreshNet(); fit();
 }
 $('saveBtn').onclick = async () => {
@@ -4073,26 +4409,30 @@ if (q){
     // 擋在門外，不用還原任何東西
 } else {
     /* 接續上次沒存的工作。分享連結優先，因為那是使用者當下明確要看的東西。 */
-    let restored = false;
-    try {
-        const raw = localStorage.getItem(DOC_KEY);
-        if (raw){
+    /* 三個分頁一次全部讀回來——只讀目前這一個的話，切過去才發現是空的，
+       使用者會以為東西不見了。 */
+    let restored = 0, last = 'ideal';
+    for (const t of TABS){
+        try {
+            const raw = localStorage.getItem(DOC_KEY(t));
+            if (!raw) continue;
             const o = upgradeRot(JSON.parse(raw));
-            if (o.s && (o.s.parts||[]).length){
-                sch = o.s;
-                seq = sch.parts.length + 1; sel = [];
-                $('anaSel').value = o.a || 'tran'; anaVals = o.v || {};
-                $('modeSel').value = o.m === 'real' ? 'real' : 'ideal';
-                buildAna(); applyMode(); inspect(); refreshNet(); fit();
-                show('ok','已接續上次編輯的電路',
-                     ['要改用範例請從上面的下拉選單挑一個。']);
-                restored = true;
-            }
-        }
-    } catch(e) {}
-    if (!restored) loadExample('RC 低通（步階）');
+            if (!o.s || !(o.s.parts||[]).length) continue;
+            docs[t] = { s:o.s, seq:(o.s.parts.length||0)+1,
+                        a:o.a || (t === 'fpga' ? 'logic' : 'tran'), v:o.v || {} };
+            restored++;
+        } catch(e){}
+    }
+    try { last = localStorage.getItem(TAB_KEY) || 'ideal'; } catch(e){}
+    if (restored){
+        applyTab(TABS.includes(last) ? last : 'ideal');
+        show('ok', `已接續上次編輯的電路（${restored} 個分頁有內容）`,
+             ['分頁在元件盤上面，三個各自獨立。要改用範例請從工具列的下拉選單挑一個。']);
+    } else {
+        loadExample('RC 低通（步階）');
+    }
 }
-applyMode();          // 不論走哪條路都要把模式說明填上、netlist 重算一次
+applyMode();          // 不論走哪條路都要把模式說明填上
 drawPlot();
 </script>
 </body>
