@@ -4208,46 +4208,69 @@ function traceFaces(g){
 function nodeEquations(k){
     const nd = buildNodes();
     const nodes = allNodeNames().filter(n => n !== '0');
-    const at = new Map(nodes.map(n => [n, []]));
-    const cons = [], notes = [];
+    const at = new Map(nodes.map(n => [n, []]));     // 節點 → 該節點的電流項（不含電壓源）
+    const cons = [], notes = [], vsrc = [];
+    const N = p => pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+    const V = n => n === '0' ? '0' : 'V' + n.slice(1);
     for (const p of sch.parts){
         if (p.type === 'GND') continue;
         const d = DEF(p.type);
         if (d.pins.length !== 2){ notes.push(`${p.ref} 有三支以上的腳，節點式寫不出來。`); continue; }
-        const [a,b] = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
-        if (a === b) continue;                       // 被短路掉的元件
-        const V = n => n === '0' ? '0' : 'V' + n.slice(1);
+        const [a,b] = N(p);
+        if (a === b) continue;
         if (p.type === 'R' || p.type === 'RL'){
             if (at.has(a)) at.get(a).push(`(${V(a)}−${V(b)})/${p.val}`);
             if (at.has(b)) at.get(b).push(`(${V(b)}−${V(a)})/${p.val}`);
         } else if (p.type === 'I'){
             const v = String(p.val).replace(/^\s*dc\s+/i,'');
-            // 電流從 pin0 流經元件到 pin1：對 a 是流出、對 b 是流入
             if (at.has(a)) at.get(a).push(`+${v}`);
             if (at.has(b)) at.get(b).push(`−${v}`);
         } else if (p.type === 'V'){
             const v = String(p.val).replace(/^\s*dc\s+/i,'');
             cons.push(`${V(a)} − ${V(b)} = ${v}　（${p.ref}）`);
+            vsrc.push({ a, b, p });
         } else if (p.type === 'C'){
-            cons.push(`${p.ref}：直流時視為開路，不列入`);
+            cons.push(`${p.ref}：直流視為開路，不列入`);
         } else if (p.type === 'L'){
-            cons.push(`${V(a)} = ${V(b)}　（${p.ref}，直流時視為短路）`);
+            cons.push(`${V(a)} = ${V(b)}　（${p.ref}，直流視為短路）`);
         } else {
             notes.push(`${p.ref}（${d.label}）不是電阻或獨立電源，節點式寫不出來。`);
         }
     }
     if (notes.length) return { err:notes[0] };
-    const lines = nodes.filter(n => at.get(n).length)
-        .map(n => `n${n.slice(1)}: ` + at.get(n).join(' + ').replace(/\+ −/g,'− ') + ' = 0');
-    /* 把模擬解回代，殘差應該是 0。手寫筆記做不到這一步，但工具該做。 */
+    /* ★ 接在電壓源上的節點不能單獨寫 KCL——那條支路的電流是未知數，
+       只寫電阻項的話方程式根本不成立（實測殘差跑出 2A 就是這個）。
+       課本的做法：
+         一端接地 → 那個節點的電壓被約束式定死，不必再寫 KCL。
+         兩端都不接地 → 把兩個節點併成一個「超節點」，寫合起來的 KCL。 */
+    const fixed = new Set();                          // 被約束式定死、不寫 KCL 的節點
+    const superN = [];                                // [{ns:[a,b], p}]
+    vsrc.forEach(({a,b,p}) => {
+        if (a === '0' || b === '0') fixed.add(a === '0' ? b : a);
+        else superN.push({ ns:[a,b], p });
+    });
+    const lines = [];
+    const done = new Set();
+    superN.forEach(({ns,p}) => {
+        const terms = ns.flatMap(n => at.get(n) || []);
+        ns.forEach(n => done.add(n));
+        if (terms.length)
+            lines.push(`超節點 ${ns.map(V).join('+')}: ` +
+                       terms.join(' + ').replace(/\+ −/g,'− ') + ' = 0　（${p.ref}）'.replace('${p.ref}', p.ref));
+    });
+    nodes.forEach(n => {
+        if (fixed.has(n) || done.has(n)) return;
+        const t = at.get(n); if (!t.length) return;
+        lines.push(`n${n.slice(1)}: ` + t.join(' + ').replace(/\+ −/g,'− ') + ' = 0');
+    });
+    /* 回代殘差：只檢查真的有寫出來的那些方程式。 */
     const res = [];
     if (simData && k >= 0) for (const n of nodes){
-        const terms = at.get(n); if (!terms.length) continue;
+        if (fixed.has(n) || done.has(n) || !at.get(n).length) continue;
         let sum = 0;
         for (const p of sch.parts){
             if (p.type === 'GND' || DEF(p.type).pins.length !== 2) continue;
-            const [a,b] = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
-            if (a === b) continue;
+            const [a,b] = N(p); if (a === b) continue;
             const va = a === '0' ? 0 : (nodeSeries(a)||[NaN])[k];
             const vb = b === '0' ? 0 : (nodeSeries(b)||[NaN])[k];
             if (p.type === 'R' || p.type === 'RL'){
@@ -4256,10 +4279,6 @@ function nodeEquations(k){
             } else if (p.type === 'I'){
                 const i0 = unit(String(p.val).replace(/^\s*dc\s+/i,''));
                 if (a === n) sum += i0; else if (b === n) sum -= i0;
-            } else if (p.type === 'V'){
-                const br = branchSeries(p.ref);
-                if (br){ const i0 = br[k];
-                    if (a === n) sum -= i0; else if (b === n) sum += i0; }
             }
         }
         res.push({ n, sum });
@@ -4791,7 +4810,7 @@ function renderWork(){
             }
             const scale = Math.max(1e-12, ...x.map(Math.abs));
             out.push(worst / scale < 0.01
-                ? EQ(`對照 ngspice：${who || '各支路'} 的電流一致（差 ${eng(worst)}A）`)
+                ? EQ(`對照 ngspice：${who || '各支路'}的電流一致（差 ${eng(worst)}A）`)
                 : NO(`跟 ngspice 對不上（${who} 差 ${eng(worst)}A），這組網目式先不要拿去用。`));
         }
     }
