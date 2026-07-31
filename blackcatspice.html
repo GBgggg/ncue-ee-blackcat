@@ -46,8 +46,10 @@ body{overflow:hidden}
 #app{height:100dvh;display:flex;flex-direction:column;min-height:0}
 /* 工具列跟 logo 同一列。放不下時整列換行（flex-wrap），
    而不是擠壓按鈕或長出捲軸——按鈕被擠窄比多佔一行難用得多。 */
-header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:6px 0}
+header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:6px 0 0}
 .hbar{margin:0;padding:0 10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+/* 第二列：全部是動作。上緣那條線同時也是分頁底線落腳的地方。 */
+.hbar2{border-top:1px solid var(--rule);padding-top:6px;padding-bottom:6px;margin-top:0}
 .hbar .btn{min-height:32px;padding:0 10px;border-radius:9px;font-size:13px}
 .hbar .btn small{opacity:.55;font-weight:700;margin-left:3px}
 .hbar .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:13px}
@@ -83,10 +85,17 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
 .logo-menu-item.is-here:hover{background:transparent}
 
-#tabs{flex:none;display:flex;gap:0;padding:0 10px;background:var(--paper-raised);
-      border-bottom:1px solid var(--rule)}
-.tab{display:flex;flex-direction:column;align-items:flex-start;gap:1px;
-     padding:7px 14px 6px;border:0;border-bottom:2px solid transparent;background:none;
+/* 分頁跟 logo 同一列，工具列自己一列。
+   上面那一列回答「你在哪裡」（哪個網站、哪個工作區），
+   下面那一列回答「你要做什麼」。兩種問題分開，掃視時不必再過濾。
+
+   分頁的底線要壓在兩列的交界上，才像真的分頁——所以 #tabs 不設自己的
+   下邊界，改讓每個 .tab 的底線與第二列的上邊界對齊（align-self:stretch
+   讓分頁撐滿整列高度，底線自然落在交界處）。 */
+#tabs{flex:none;display:flex;gap:0;padding:0;background:none;align-self:stretch;
+      margin-bottom:-6px}
+.tab{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;
+     padding:4px 13px;border:0;border-bottom:2px solid transparent;background:none;
      cursor:pointer;font:800 13.5px/1.2 inherit;color:var(--ink-3);letter-spacing:.04em}
 .tab small{font-size:10.5px;font-weight:700;opacity:.75;letter-spacing:0}
 .tab:hover{color:var(--ink-2);background:var(--accent-soft)}
@@ -333,9 +342,24 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     </div>
 
     <span class="tsep"></span>
-    <!-- 選取／連線／旋轉／刪除四顆按鈕拿掉了，改成只用熱鍵（S／W／R／Del）。
-         它們是「一直都在、但很少用滑鼠按」的動作：模式靠 HUD 顯示、旋轉現在滾輪
-         就能做、刪除按 Del 最快。少四顆按鈕，執行模擬那一組就往左移了一整段。 -->
+    <!-- 分頁跟 logo 同一列：兩者都是「你在哪裡」，跟「你要做什麼」的工具列
+         分開，一眼就分得出上下兩列的職責。 -->
+    <div id="tabs" role="tablist" aria-label="工作區">
+      <button class="tab on" data-tab="ideal" role="tab">理想<small>電路學／電子學考題的預設</small></button>
+      <button class="tab"    data-tab="real"  role="tab">現實<small>加上寄生參數與真實模型</small></button>
+      <button class="tab"    data-tab="fpga"  role="tab">FPGA<small>數位邏輯閘與真值表</small></button>
+    </div>
+
+    <!-- 右側群組要包成一個，不然工具列換行時 spacer 失效。 -->
+    <div class="hbar-right">
+      <span class="chip" id="whoami">載入中…</span>
+      <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
+    </div>
+  </div>
+
+  <!-- 第二列：工具列。這一列全部是「動作」。
+       選取／連線／旋轉／刪除四顆按鈕拿掉了，改成只用熱鍵（S／W／R／Del）。 -->
+  <div class="hbar hbar2">
     <button class="btn" id="undoBtn" title="Ctrl+Z">復原</button>
     <button class="btn" id="redoBtn" title="Ctrl+Shift+Z">重做</button>
     <button class="btn" id="fitBtn">置中 <small>F</small></button>
@@ -352,22 +376,9 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
     <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
 
-    <!-- 右側群組要包成一個，不然工具列換行時 spacer 失效，
-         這三顆會掉到第二行的最左邊，看起來像斷掉的。 -->
-    <div class="hbar-right">
-      <span class="chip" id="whoami">載入中…</span>
-      <button class="icb" id="themeBtn" title="切換深淺色" aria-label="切換深淺色">◐</button>
-    </div>
   </div>
 </header>
 
-<!-- 三個分頁：理想／現實／FPGA。前兩個是同一套類比元件的兩種模型，
-     FPGA 是完全不同的東西（數位邏輯），三者各有各的電路圖與存檔。 -->
-<div id="tabs" role="tablist" aria-label="工作區">
-  <button class="tab on" data-tab="ideal" role="tab">理想<small>電路學／電子學考題的預設</small></button>
-  <button class="tab"    data-tab="real"  role="tab">現實<small>加上寄生參數與真實模型</small></button>
-  <button class="tab"    data-tab="fpga"  role="tab">FPGA<small>數位邏輯閘與真值表</small></button>
-</div>
 
 <!-- 元件盤 -->
 <div id="palette" class="palette"></div>
