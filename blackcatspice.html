@@ -3679,9 +3679,13 @@ function ansBalance(k){
         if (!ser || !ser.cur){ if (p.type !== 'GND') ok = false; continue; }
         sum += ser.dv[k] * ser.cur[k];
     }
-    if (!ok) return `<p class="ans-why">（電路裡有無法推算電流的元件，功率總和先不檢查。）</p>`;
-    return `<h4>功率守恆檢查</h4>
-        <p class="ans-why">Σ P = ${eng(sum)}W，理論上是 0（吸收＝提供）。</p>`;
+    if (!ok) return `<h4>功率守恆</h4><table class="ans-tbl">
+        <tr><td>Σ P</td><td class="n">—</td></tr></table>
+        <p class="ans-why">有元件的電流推算不出來。</p>`;
+    /* 跟節點電壓、各元件同一種表格：數字用正常的字色與粗細，
+       不要用灰色小字的說明體——它是一個要讀的數值，不是註腳。 */
+    return `<h4>功率守恆</h4><table class="ans-tbl">
+        <tr><td>Σ P</td><td class="n">${eng(sum)}W</td></tr></table>`;
 }
 /* 解題卡的互動用事件委派掛在容器上，內容重畫時不必重綁。
    兩件事：點節點 → 在電路圖上釘住高亮；點元件那一列 → 展開算式。 */
