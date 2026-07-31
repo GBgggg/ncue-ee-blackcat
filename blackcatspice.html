@@ -139,6 +139,19 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
            border-top:1px solid var(--rule)}
 
 /* ---- 樣式：浮動波形視窗 ---- */
+/* ---- 樣式：浮動數值視窗 ---- */
+#valWin{position:fixed;z-index:61;right:24px;top:150px;width:430px;height:520px;
+        min-width:300px;min-height:200px;display:flex;flex-direction:column;
+        background:var(--paper-raised);border:1px solid var(--rule);border-radius:13px;
+        box-shadow:0 14px 46px rgba(0,0,0,.30)}
+#valWin.hidden{display:none}
+#valHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
+         border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
+         cursor:move;user-select:none;touch-action:none}
+#valBody{flex:1;min-height:0;overflow:auto;padding:10px 12px}
+#valGrip{position:absolute;right:2px;bottom:2px;width:16px;height:16px;cursor:nwse-resize;
+         background:linear-gradient(135deg,transparent 48%,var(--ink-3) 48%,var(--ink-3) 56%,transparent 56%)}
+
 #waveWin{position:fixed;z-index:60;left:60px;top:120px;width:800px;height:520px;
          min-width:380px;min-height:260px;display:flex;flex-direction:column;
          background:var(--paper-raised);border:1px solid var(--rule);border-radius:13px;
@@ -367,10 +380,10 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <button class="btn" id="copyTabBtn">複製到現實分頁</button>
     <span class="tsep"></span>
     <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
+    <button class="btn" id="valBtn">數值視窗</button>
     <button class="btn" id="waveBtn">波形視窗</button>
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
-    <button class="btn pop-btn" id="btnAns" aria-haspopup="true">解題卡 ▾</button>
     <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
     <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
     <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
@@ -470,9 +483,17 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="swOutMsg" class="sub"></div>
 </div>
 
-<div class="pop xwide" id="popAns" hidden>
-  <h3>解題卡</h3>
-  <div id="ansBox"></div>
+<!-- 數值視窗。原本這些數字放在「解題卡」下拉裡，但下拉一點畫布就關掉——
+     而「改一個電阻、看數字怎麼變」正是最常做的事，每看一次就要重開一次。
+     改成跟波形一樣的浮動視窗：開著不會擋你編輯，跑完自動更新。 -->
+<div id="valWin" class="hidden" role="dialog" aria-label="數值">
+  <div id="valHead">
+    <span id="valTitle">數值</span>
+    <div class="spacer"></div>
+    <button class="icb tiny" id="valClose" title="關閉" aria-label="關閉">✕</button>
+  </div>
+  <div id="valBody"><div id="ansBox"></div></div>
+  <div id="valGrip" title="拖曳改變大小"></div>
 </div>
 
 <div class="pop wide" id="popNet" hidden>
@@ -1493,16 +1514,16 @@ function fitTabButtons(){
         if (label != null) el.innerHTML = label; };
     if (isLogic()){
         set('run',      true,  '算真值表 <small>Enter</small>');
+        set('valBtn',   true,  '真值表視窗');
         set('waveBtn',  false);            // 邏輯沒有波形可看
         set('btnSim',   false);            // 也沒有分析種類、參數掃描
-        set('btnAns',   true,  '真值表 ▾');
         set('btnNet',   true,  '電路摘要 ▾');
         set('copyTabBtn', false);          // 邏輯電路貼到類比分頁沒有意義
     } else {
         set('run',      true,  '執行模擬 <small>Enter</small>');
+        set('valBtn',   true,  '數值視窗');
         set('waveBtn',  true,  '波形視窗');
         set('btnSim',   true,  '模擬設定 ▾');
-        set('btnAns',   true,  '解題卡 ▾');
         set('btnNet',   true,  'netlist ▾');
         /* 理想與現實是同一張電路的兩種模型，所以「複製過去比一比」是這兩頁
            才有的動作——分成兩個分頁之後，這件事本來就變得需要一個按鈕。 */
@@ -2766,7 +2787,7 @@ function runLogic(){
        實測就是這樣：訊息說「4 列」，卡片上卻是空的。
        解題卡只能有一個入口，所以改成把分頁判斷放進 renderAnswer()。 */
     renderAnswer();
-    openPopById('btnAns','popAns');
+    showVal(true);
     const stat = `${ins.length} 個輸入、${outs.length} 個輸出、${truthRows.length} 列。`;
     if (r.warn.length) show('warn', '算完了，但電路有可疑的地方', r.warn.concat([stat]));
     else show('ok', '算完了', [stat, '真值表在解題卡裡。點電路圖上的輸入元件可以直接切 0／1。']);
@@ -2868,7 +2889,9 @@ $('run').onclick = async () => {
            波形視窗則不再自動彈出：它是一個蓋住畫布的浮動視窗，每跑一次就冒出來
            擋在電路圖前面，改個值再跑一次又冒一次，很快就變成要一直手動關掉的東西。
            想看的時候按工具列的「波形視窗」，位置與大小都會沿用上次的。 */
-        if (isOpResult()) openPopById('btnAns','popAns');
+        /* 數值視窗開著就更新它；沒開就替使用者打開——他剛按了執行，
+           要的就是數字。波形視窗維持不自動彈出（見上面那段註解）。 */
+        showVal(true);
         scopeReframe(false);             // 只夾住範圍，時基和目前位置都保留
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
@@ -4311,7 +4334,7 @@ logoBtn.addEventListener('keydown', e => {
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 
 /* ---- 工具列彈出面板 ---- */
-const POPS = [['btnSim','popSim'], ['btnAns','popAns'], ['btnNet','popNet'],
+const POPS = [['btnSim','popSim'], ['btnNet','popNet'],
               ['btnMine','popMine'], ['btnKeys','popKeys']];
 let openPop = null;
 function closePop(){
@@ -4325,14 +4348,13 @@ function closePop(){
 }
 /* 明確「打開」而不是切換。名字不能叫 openPop——那是記錄目前開著哪一個的變數。 */
 function openPopById(btnId, popId){
-    if (openPop && openPop[1] === popId){ if (popId === 'popAns') renderAnswer(); return; }
+    if (openPop && openPop[1] === popId) return;
     togglePop([btnId, popId]);
 }
 function togglePop(pair){
     const wasOpen = openPop && openPop[1] === pair[1];
     closePop();
     if (wasOpen) return;
-    if (pair[1] === 'popAns') renderAnswer();   // 每次打開都用最新的模擬結果重算
     const pop = $(pair[1]), btn = $(pair[0]);
     pop.hidden = false; btn.classList.add('on'); btn.setAttribute('aria-expanded','true');
     openPop = pair;
@@ -4406,6 +4428,33 @@ function showWave(on){
     if (on){ clampWave(); drawPlot(); }
     saveWave();
 }
+/* ---------- 數值視窗 ----------
+   內容就是原本解題卡那一份（renderAnswer 產生），差別只在它是浮動視窗：
+   開著可以一邊改元件一邊看數字，不會被點畫布關掉。 */
+const valWin = $('valWin');
+const VAL_KEY = 'blackcatspice-valwin';
+function saveVal(){
+    try { localStorage.setItem(VAL_KEY, JSON.stringify({
+        l:valWin.style.left, t:valWin.style.top, w:valWin.style.width, h:valWin.style.height,
+        open:!valWin.classList.contains('hidden') })); } catch(e){}
+}
+function clampVal(){
+    const r = valWin.getBoundingClientRect();
+    /* 視窗縮小或換螢幕之後，記住的位置可能整個落在畫面外，
+       那樣連標題列都抓不到，等於永遠關不掉也搬不回來。 */
+    const l = Math.min(Math.max(0, r.left), Math.max(0, innerWidth  - 120));
+    const t = Math.min(Math.max(0, r.top ), Math.max(0, innerHeight - 60));
+    valWin.style.left = l + 'px'; valWin.style.top = t + 'px'; valWin.style.right = 'auto';
+}
+function showVal(on){
+    $('valTitle').textContent = isLogic() ? '真值表' : '數值';
+    valWin.classList.toggle('hidden', !on);
+    $('valBtn').classList.toggle('on', on);
+    if (on){ clampVal(); renderAnswer(); }
+    saveVal();
+}
+$('valBtn').onclick = () => showVal(valWin.classList.contains('hidden'));
+$('valClose').onclick = () => showVal(false);
 $('waveBtn').onclick = () => showWave(waveWin.classList.contains('hidden'));
 $('waveClose').onclick = () => showWave(false);
 $('scopeBtn').onclick = () => scope.on ? scopeStop() : scopeStart();
@@ -4439,6 +4488,14 @@ function dragify(win, handle, onMove){
 }
 dragify(waveWin, $('waveHead'), (s0,dx,dy) => {
     waveWin.style.left = (s0.l+dx) + 'px'; waveWin.style.top = (s0.t+dy) + 'px';
+});
+dragify(valWin, $('valHead'), (s0,dx,dy) => {
+    valWin.style.left = (s0.l+dx) + 'px'; valWin.style.top = (s0.t+dy) + 'px';
+    valWin.style.right = 'auto';
+});
+dragify(valWin, $('valGrip'), (s0,dx,dy) => {
+    valWin.style.width  = Math.max(300, s0.w+dx) + 'px';
+    valWin.style.height = Math.max(200, s0.h+dy) + 'px';
 });
 dragify(waveWin, $('waveGrip'), (s0,dx,dy) => {
     waveWin.style.width  = Math.max(380, s0.w+dx) + 'px';
