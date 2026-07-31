@@ -569,7 +569,7 @@ function applyGate(){
     const why = document.getElementById('gateWhy');
     if (why) why.textContent = TOUCH_ONLY
         ? '請用桌機或筆電開這一頁。小黑貓的其他功能在手機上都正常。'
-        : `目前視窗只有 ${innerWidth}px 寬。把視窗拉寬到 ${MIN_W}px 以上就會自動回來，不必重新整理。`;
+        : `目前 ${innerWidth}px 寬，拉寬到 ${MIN_W}px 以上就會自動回來。`;
 }
 applyGate();
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -1459,8 +1459,7 @@ const MODE_NOTE = {
            `${REAL.L_DCR_PER_H}Ω）、電壓源串上內阻（直流 ${REAL.V_DC_R}Ω／訊號 ${REAL.V_SIG_R}Ω）、` +
            `運放換成開迴路增益 ${REAL.OP_A0/1e3}k、增益頻寬積 ${REAL.OP_GBW/1e6}MHz、輸出阻抗 ` +
            `${REAL.OP_ROUT}Ω 的巨觀模型，二極體用 1N4148、電晶體用含 Early 效應的 2N2222 參數。` +
-           '電路圖不會被改動，寄生元件是產生 netlist 時才插進去的，可以在下面的 netlist 裡看到。' +
-           '（運放模型沒有電源軌，所以不會飽和；元件誤差容差也還沒做。）'
+           '（運放模型沒有電源軌，不會飽和；元件誤差容差還沒做。）'
 };
 /* ==========================================================
    分頁：理想／現實／FPGA
@@ -2260,7 +2259,7 @@ const METER_HINT = {
   A:'電流表要**串聯**在待測支路上，也就是把線剪斷、讓電流從電表流過。' +
     '理想電流表內阻為零。它在 netlist 裡是一個 0V 的電壓源，' +
     '所以也可以直接被流控電源（H、F）指定為控制源。',
-  R:'**不能在通電的電路上量電阻**——這是實驗課的鐵則，也是真實三用電表會燒掉的原因。' +
+  R:'**不能在通電的電路上量電阻**。' +
     '按下「量電阻」會另外跑一次分析，把所有獨立電源歸零（電壓源短路、電流源斷路），' +
     '再從兩支腳看進去。量到的就是戴維寧等效電阻 R_th。'
 };
@@ -2470,8 +2469,7 @@ function renderCmpMeas(p){
         const v = ser.dv[0], i = ser.cur ? ser.cur[0] : null;
         box.innerHTML = `
           <h3 style="margin-top:12px">這個元件（工作點）</h3>
-          <p class="sub">跨壓 = V(${ser.nodes[0]}) − V(${ser.nodes[1]})，
-             電流以 ${ser.nodes[0]} → ${ser.nodes[1]} 的方向為正。</p>
+          <p class="sub">跨壓 = V(${ser.nodes[0]}) − V(${ser.nodes[1]})</p>
           <div class="meas-scroll"><table class="cmp-tbl">
             <tbody><tr><td>電壓</td><td>${eng(v)}${uv}</td></tr>
             <tr><td>電流</td><td>${i == null ? '—' : eng(i)+'A'}</td></tr>
@@ -2494,7 +2492,7 @@ function renderCmpMeas(p){
     box.innerHTML = `
       <h3 style="margin-top:12px">這個元件（本次模擬）</h3>
       <p class="sub">跨壓 = V(${ser.nodes[0]}) − V(${ser.nodes[1]})，
-         電流以 ${ser.nodes[0]} → ${ser.nodes[1]} 的方向為正。</p>
+         電流以 ${ser.nodes[0]} → ${ser.nodes[1]} 為正。</p>
       <div class="meas-scroll"><table class="cmp-tbl">
         <thead><tr><th></th><th>平均</th><th>峰對峰</th><th>RMS</th>
           <th title="扣掉直流之後的有效值，也就是真實三用電表交流檔的讀數">交流有效值</th>
@@ -2828,9 +2826,8 @@ function renderTruth(ins, outs, rows){
             r.in.map(v => `<td>${v}</td>`).join('') +
             r.out.map(v => `<td class="n">${v == null ? '—' : v}</td>`).join('') + '</tr>').join('')}
       </table>
-      <p class="ans-why">粗體那一列就是電路圖上目前的輸入組合。
-        <b>點畫布上的輸入元件可以直接切 0／1</b>，表格會跟著標到對應的那一列。<br>
-        「—」代表那個輸出的輸入還沒接完，值是未定的。</p>`;
+      <p class="ans-why">粗體是目前的輸入組合，連點兩下輸入元件可切 0／1。
+        「—」＝輸入還沒接完。</p>`;
 }
 
 /* ---------- 執行 ---------- */
@@ -3640,9 +3637,7 @@ function ansNodes(k){
         .join('');
     return rows ? `<h4>節點電壓</h4><table class="ans-tbl">
         <tr><th>節點</th><th style="text-align:right">數值</th></tr>${rows}</table>
-        <p class="ans-why">接地是 0 V，其餘節點都是相對於它量的。SPICE 解的就是這組值，
-           下面每個元件的電壓電流都是從這裡推出來的。<br>
-           <b>點一下任何一個節點，它會在電路圖上亮起來</b>（再點一次取消）。</p>` : '';
+        <p class="ans-why">接地是 0 V。<b>點任一節點會在電路圖上亮起來</b>（再點一次取消）。</p>` : '';
 }
 /** 每個元件的跨壓、電流、功率，附上用了哪條式子。 */
 function ansParts(k){
@@ -3673,10 +3668,8 @@ function ansParts(k){
         <tr><th>元件</th><th style="text-align:right">跨壓</th>
             <th style="text-align:right">電流</th><th style="text-align:right">功率</th></tr>
         ${rows.join('')}</table>
-        <p class="ans-why"><b>點任何一列可以展開它的算式</b>（預設收起來，免得數字被淹沒）。<br>
-           電流方向以元件第一支腳流向第二支腳為正；功率為正代表這個元件在
-           <b>吸收</b>功率，為負代表在<b>提供</b>功率。整個電路的功率總和應該是 0，
-           這是檢查答案最快的方法（第 1 章的功率守恆）。</p>` : '';
+        <p class="ans-why"><b>點任一列展開算式</b>。電流以第一支腳流向第二支腳為正；
+           功率為正＝<b>吸收</b>，為負＝<b>提供</b>。</p>` : '';
 }
 /** 功率守恆檢查：所有元件的功率加起來應該接近 0。 */
 function ansBalance(k){
@@ -3688,8 +3681,7 @@ function ansBalance(k){
     }
     if (!ok) return `<p class="ans-why">（電路裡有無法推算電流的元件，功率總和先不檢查。）</p>`;
     return `<h4>功率守恆檢查</h4>
-        <p class="ans-why">Σ P = ${eng(sum)}W。理論上應該是 0——吸收的等於提供的。
-           不是 0 的話多半是數值誤差，除非差得很離譜。</p>`;
+        <p class="ans-why">Σ P = ${eng(sum)}W，理論上是 0（吸收＝提供）。</p>`;
 }
 /* 解題卡的互動用事件委派掛在容器上，內容重畫時不必重綁。
    兩件事：點節點 → 在電路圖上釘住高亮；點元件那一列 → 展開算式。 */
@@ -3817,9 +3809,8 @@ function ansLoad(k){
             why.push(`<b>V<sub>Th</sub> 是負的，這不是算錯</b>：方向取 ${dir}，` +
                      `而實際上 ${NM(nb)} 比 ${NM(na)} 高。把 ${p.ref} 轉 180° 就會全部變正號，` +
                      `功率 P<sub>L</sub> 不受方向影響，永遠是正的。`);
-        why.push(`等效電路：一個 <b>V<sub>Th</sub> = ${Vth != null ? eng(Vth) : '?'}V</b> 的電壓源，` +
-                 `串一個 <b>R<sub>Th</sub> = ${eng(R)}Ω</b> 的內阻，接上 R<sub>L</sub> = ${p.val}Ω。` +
-                 `原電路裡除了 ${p.ref} 以外的所有東西，對 ${p.ref} 來說就只是這兩樣。`);
+        why.push(`等效電路：<b>V<sub>Th</sub> = ${Vth != null ? eng(Vth) : '?'}V</b> 串 ` +
+                 `<b>R<sub>Th</sub> = ${eng(R)}Ω</b>，接上 R<sub>L</sub> = ${p.val}Ω。`);
         if (pred != null)
             why.push(`分壓：V<sub>L</sub> = V<sub>Th</sub> · R<sub>L</sub> / (R<sub>Th</sub> + R<sub>L</sub>) = ` +
                      `${eng(Vth)} × ${eng(RLv)} ÷ (${eng(R)} + ${eng(RLv)}) = <b>${eng(pred)}V</b>。`);
@@ -3834,9 +3825,8 @@ function ansLoad(k){
             const sc = Math.max(Math.abs(pred), Math.abs(meas.v));
             const err = sc > 1e-15 ? Math.abs(pred - meas.v) / sc : 0;
             why.push(err < 0.01
-              ? `<b style="color:var(--ok)">等效成立</b>：從等效電路分壓算出來的 ${eng(pred)}V，` +
-                `跟直接在原電路量到的 ${eng(meas.v)}V 相同。` +
-                `這就是「等效」的意思——把左邊那一整包換成一顆電源加一顆電阻，${p.ref} 完全感覺不出差別。`
+              ? `<b style="color:var(--ok)">等效成立</b>：分壓算出的 ${eng(pred)}V，` +
+                `跟原電路量到的 ${eng(meas.v)}V 相同。`
               : `<b style="color:var(--warn)">等效對不上</b>：分壓算出 ${eng(pred)}V，` +
                 `實際量到 ${eng(meas.v)}V（差 ${(err*100).toFixed(1)}%）。` +
                 `電路裡若有二極體、電晶體這類非線性元件，戴維寧等效本來就不成立。`);
@@ -3896,21 +3886,19 @@ function renderAnswer(){
     // FPGA 分頁的「解題卡」就是真值表。同一個入口，避免兩邊互相覆蓋。
     if (isLogic()) return renderTruth(logicInputs(), logicOutputs(), truthRows || []);
     if (!simData){
-        box.innerHTML = '<p class="sub">先按「執行模擬」，這裡就會列出這個電路的所有答案，' +
-                        '而且每個數字都會附上是怎麼算出來的。</p>';
+        box.innerHTML = '<p class="sub">按「執行模擬」後，這裡會列出所有數值。</p>';
         return;
     }
     const k = ansIndex();
     if (k < 0){ box.innerHTML = '<p class="sub">這次的結果沒有資料點。</p>'; return; }
     const at = simData.x.length > 1
         ? `<p class="sub">取樣點：${simData.xname} = <b>${eng(simData.x[k])}</b>` +
-          (cursorIdx != null ? '（游標所在）' : '（最後一點，也就是穩態）') +
-          '。把游標移到波形圖上可以換一個時間點。</p>'
+          (cursorIdx != null ? '（游標所在）' : '（最後一點）') + '</p>'
         : '<p class="sub">直流工作點（.op），只有一組值。</p>';
     bindAnswer(box);
     box.innerHTML = at + ansLoad(k) + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin() +
-        '<p class="ans-why" style="margin-top:10px">這些是模擬算出來的數值，' +
-        '拿來對自己手算的結果。有證明題、推導題的部分模擬給不了，那要自己寫。</p>';
+        /* 這一句不是旁白，是誠實的限制：模擬只給得出數值。 */
+        '<p class="ans-why" style="margin-top:10px">模擬只給數值，證明題與推導要自己寫。</p>';
     const go = $('thGo');
     if (go) go.onclick = async () => {
         const a = $('thA').value, b = $('thB').value, out = $('thOut');
