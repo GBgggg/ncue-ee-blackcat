@@ -662,21 +662,30 @@ onAuthStateChanged(auth, async (user) => {
    emit 產生該元件的 netlist 那一行。
    ========================================================== */
 const G = 10;                        // 格點
+/* 元件名稱改成英文（課本、SPICE、資料手冊都是英文，抄題目時對得起來），
+   但中文名不能就這樣消失——第一次碰的人看到 VCVS 不會知道那是什麼。
+   title 本來只是把可見文字再寫一次，等於沒有作用，改成放中文當提示。
+   FPGA 那幾個閘（AND／OR／XOR…）本來就沒有慣用中文，留空不硬翻。 */
+const ZH = { R:'電阻', C:'電容', L:'電感', V:'電壓源', I:'電流源', D:'二極體',
+    Q:'NPN 電晶體', E:'運算放大器', M:'三用電表',
+    EE:'壓控電壓源', G:'壓控電流源', H:'流控電壓源', F:'流控電流源',
+    SW:'開關', RL:'負載', GND:'接地', IN:'輸入', OUT:'輸出' };
+const tip = (k, t) => ZH[k] ? `${ZH[k]}（${t.label}）` : t.label;
 const TYPES = {
-  R:{ label:'電阻', pre:'R', pins:[[0,-20],[0,20]], val:'1k',
+  R:{ label:'Resistor', pre:'R', pins:[[0,-20],[0,20]], val:'1k',
       draw(g){ ln(g,0,-20,0,-10); g.strokeRect(-6,-10,12,20); ln(g,0,10,0,20); } },
-  C:{ label:'電容', pre:'C', pins:[[0,-20],[0,20]], val:'1u',
+  C:{ label:'Capacitor', pre:'C', pins:[[0,-20],[0,20]], val:'1u',
       draw(g){ ln(g,0,-20,0,-4); ln(g,-9,-4,9,-4); ln(g,-9,4,9,4); ln(g,0,4,0,20); } },
-  L:{ label:'電感', pre:'L', pins:[[0,-20],[0,20]], val:'10m',
+  L:{ label:'Inductor', pre:'L', pins:[[0,-20],[0,20]], val:'10m',
       draw(g){ ln(g,0,-20,0,-12); for(let i=0;i<3;i++){ g.beginPath();
         g.arc(0,-12+8*i+4,4,-Math.PI/2,Math.PI/2); g.stroke(); } ln(g,0,12,0,20); } },
-  V:{ label:'電壓源', pre:'V', pins:[[0,-20],[0,20]], val:'DC 5',
+  V:{ label:'Voltage Source', pre:'V', pins:[[0,-20],[0,20]], val:'DC 5',
       draw(g){ ln(g,0,-20,0,-11); cir(g,0,0,11); ln(g,0,11,0,20);
         ln(g,-4,-5,4,-5); ln(g,0,-9,0,-1); ln(g,-4,5,4,5); } },
-  I:{ label:'電流源', pre:'I', pins:[[0,-20],[0,20]], val:'DC 1m',
+  I:{ label:'Current Source', pre:'I', pins:[[0,-20],[0,20]], val:'DC 1m',
       draw(g){ ln(g,0,-20,0,-11); cir(g,0,0,11); ln(g,0,11,0,20);
         ln(g,0,6,0,-6); ln(g,-3,-2,0,-6); ln(g,3,-2,0,-6); } },
-  D:{ label:'二極體', pre:'D', pins:[[0,-20],[0,20]], val:'DMOD', model:'.model DMOD D(IS=1e-14 N=1)',
+  D:{ label:'Diode', pre:'D', pins:[[0,-20],[0,20]], val:'DMOD', model:'.model DMOD D(IS=1e-14 N=1)',
       draw(g){ ln(g,0,-20,0,-7); g.beginPath(); g.moveTo(-8,-7); g.lineTo(8,-7);
         g.lineTo(0,7); g.closePath(); g.stroke(); ln(g,-8,7,8,7); ln(g,0,7,0,20); } },
   Q:{ label:'NPN', pre:'Q', pins:[[20,-20],[-20,0],[20,20]], order:'CBE', val:'QMOD',
@@ -684,7 +693,7 @@ const TYPES = {
       draw(g){ ln(g,-20,0,-6,0); ln(g,-6,-14,-6,14); ln(g,-6,-8,20,-20); ln(g,-6,8,20,20);
         g.beginPath(); g.moveTo(12,11); g.lineTo(20,20); g.lineTo(9,17); g.closePath();
         g.fillStyle=g.strokeStyle; g.fill(); } },
-  E:{ label:'運放', pre:'E', pins:[[-20,-10],[-20,10],[20,0]], order:'+-o', val:'1e6',
+  E:{ label:'Op-Amp', pre:'E', pins:[[-20,-10],[-20,10],[20,0]], order:'+-o', val:'1e6',
       draw(g){ ln(g,-20,-10,-12,-10); ln(g,-20,10,-12,10);
         g.beginPath(); g.moveTo(-12,-18); g.lineTo(-12,18); g.lineTo(14,0); g.closePath(); g.stroke();
         ln(g,14,0,20,0); ln(g,-9,-10,-5,-10); ln(g,-7,-12,-7,-8); ln(g,-9,10,-5,10); } },
@@ -702,7 +711,7 @@ const TYPES = {
 
      電流檔的元件在 netlist 裡叫 V_M1，所以它也可以直接拿來當流控電源的控制源——
      「串一個 0V 電壓源當電流計」這句話，現在有一個真的元件可以用了。 */
-  M:{ label:'三用電表', pre:'M', pins:[[0,-20],[0,20]], val:'V',
+  M:{ label:'Multimeter', pre:'M', pins:[[0,-20],[0,20]], val:'V',
       draw(g,p){
         const r = (p && p.val) || 'V';
         ln(g,0,-20,0,-13); ln(g,0,13,0,20);
@@ -726,16 +735,16 @@ const TYPES = {
      流控的兩種只有兩支腳，因為 SPICE 規定控制量是「流過某個電壓源的電流」，
      所以要在屬性面板指定是哪一個電壓源——這一點是 SPICE 的限制，不是我們的選擇。
      想量某條支路的電流，標準作法就是在那裡串一個 0V 的電壓源當電流計。 */
-  EE:{ label:'壓控電壓源', pre:'E', pins:[[0,-20],[0,20],[-30,-10],[-30,10]],
+  EE:{ label:'VCVS', pre:'E', pins:[[0,-20],[0,20],[-30,-10],[-30,10]],
       val:'2', unitName:'增益（無單位）',
       draw(g){ dep(g); ctrlLeads(g); } },
-  G:{ label:'壓控電流源', pre:'G', pins:[[0,-20],[0,20],[-30,-10],[-30,10]],
+  G:{ label:'VCCS', pre:'G', pins:[[0,-20],[0,20],[-30,-10],[-30,10]],
       val:'1m', unitName:'轉導 S',
       draw(g){ dep(g,true); ctrlLeads(g); } },
-  H:{ label:'流控電壓源', pre:'H', pins:[[0,-20],[0,20]],
+  H:{ label:'CCVS', pre:'H', pins:[[0,-20],[0,20]],
       val:'100', unitName:'轉阻 Ω', ctrl:'V1',
       draw(g){ dep(g); } },
-  F:{ label:'流控電流源', pre:'F', pins:[[0,-20],[0,20]],
+  F:{ label:'CCCS', pre:'F', pins:[[0,-20],[0,20]],
       val:'2', unitName:'電流增益（無單位）', ctrl:'V1',
       draw(g){ dep(g,true); } },
 
@@ -743,7 +752,7 @@ const TYPES = {
      對「按一下讓它通或不通」這件事來說太繞。這裡直接在產生 netlist 時
      換成一顆電阻：閉合是很小的導通電阻，斷開是很大的電阻。
      好處是不需要 .model、不會有收斂問題，而且電流可以照歐姆定律推算。 */
-  SW:{ label:'開關', pre:'S', pins:[[0,-20],[0,20]], val:'on',
+  SW:{ label:'Switch', pre:'S', pins:[[0,-20],[0,20]], val:'on',
       draw(g,p){
         const open = p && p.val === 'off';
         ln(g,0,-20,0,-9); ln(g,0,9,0,20);
@@ -757,11 +766,11 @@ const TYPES = {
      解題卡看到它就知道要對哪兩點求戴維寧等效，不必再叫使用者選節點。
      符號故意跟一般電阻不同：外面加一圈虛線框、兩端畫空心圈，
      那兩個圈就是課本畫戴維寧等效時的那對端點 a、b。 */
-  RL:{ label:'負載', pre:'RL', pins:[[0,-20],[0,20]], val:'1k',
+  RL:{ label:'Load', pre:'RL', pins:[[0,-20],[0,20]], val:'1k',
       draw(g){ ln(g,0,-20,0,-10); g.strokeRect(-6,-10,12,20); ln(g,0,10,0,20);
         g.save(); g.setLineDash([2,2]); g.strokeRect(-11,-15,22,30); g.restore();
         cir(g,0,-20,2.6); cir(g,0,20,2.6); } },
-  GND:{label:'接地', pre:'', pins:[[0,0]], val:'',
+  GND:{label:'Ground', pre:'', pins:[[0,0]], val:'',
       draw(g){ ln(g,0,0,0,8); ln(g,-9,8,9,8); ln(g,-5,12,5,12); ln(g,-2,16,2,16); } }
 };
 function ln(g,a,b,c,d){ g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke(); }
@@ -776,13 +785,13 @@ function ln(g,a,b,c,d){ g.beginPath(); g.moveTo(a,b); g.lineTo(c,d); g.stroke();
    輸入在左、輸出在右，跟課本畫法一致。
    ========================================================== */
 const LOGIC = {
-  IN:  { label:'輸入', pre:'IN', pins:[[20,0]], val:'0', logic:'in',
+  IN:  { label:'Input', pre:'IN', pins:[[20,0]], val:'0', logic:'in',
       draw(g,p){ const on = p && String(p.val) === '1';
         g.strokeRect(-20,-12,26,24); ln(g,6,0,20,0);
         g.fillStyle = g.strokeStyle;
         g.font = '700 14px ui-monospace,monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
         g.fillText(on ? '1' : '0', -7, 1); } },
-  OUT: { label:'輸出', pre:'Q', pins:[[-20,0]], val:'', logic:'out',
+  OUT: { label:'Output', pre:'Q', pins:[[-20,0]], val:'', logic:'out',
       draw(g){ ln(g,-20,0,-8,0); g.beginPath(); g.arc(4,0,12,0,7); g.stroke(); } },
   NOT: { label:'NOT', pre:'U', pins:[[-20,0],[20,0]], logic:'not',
       draw(g){ ln(g,-20,0,-12,0);
@@ -2271,7 +2280,7 @@ function typeTable(){ return isLogic() ? LOGIC : TYPES; }
 function buildPalette(){
     const T = typeTable();
     $('palette').innerHTML = Object.entries(T).map(([k,t]) =>
-        `<button class="pi" data-t="${k}" title="${t.label}">
+        `<button class="pi" data-t="${k}" title="${tip(k,t)}">
             <canvas class="pico" width="60" height="40"></canvas><span>${t.label}</span></button>`).join('');
     document.querySelectorAll('.pi').forEach(el =>
         el.onclick = () => setMode('place', el.dataset.t));
@@ -2360,7 +2369,7 @@ function inspect(){
             <button class="btn" id="ip_del">刪除</button>
           </div>
           <div id="cmpMeas"></div>
-          <p class="sub">型別：三用電表（M）。${realMode
+          <p class="sub">型別：${tip('M', DEF('M'))}。${realMode
             ? `現實模式：電壓檔輸入阻抗 ${eng(METER.real.vin)}Ω、電流檔分流電阻 ${METER.real.burden}Ω。`
             : '理想模式：電壓檔內阻無限大、電流檔內阻為零。'}</p>`;
         $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
@@ -2395,7 +2404,7 @@ function inspect(){
             <button class="btn" id="ip_del">刪除</button>
           </div>
           <div id="cmpMeas"></div>
-          <p class="sub">型別：${T.label}（${p.type === 'EE' ? 'E' : p.type}）</p>`;
+          <p class="sub">型別：${tip(p.type, T)}，SPICE 代號 ${p.type === 'EE' ? 'E' : p.type}</p>`;
         let typed = false;
         const once = () => { if (!typed){ pushUndo(); typed = true; } };
         $('ip_ref').oninput = e => { once(); p.ref = e.target.value.replace(/\s/g,''); refreshNet(); drawSheet(); };
@@ -2420,7 +2429,7 @@ function inspect(){
             <button class="btn" id="ip_del">刪除</button>
           </div>
           <div id="cmpMeas"></div>
-          <p class="sub">型別：開關（SW）。閉合時是很小的導通電阻，斷開時是很大的電阻，
+          <p class="sub">型別：${tip('SW', DEF('SW'))}。閉合時是很小的導通電阻，斷開時是很大的電阻，
              不需要 SPICE 模型。${realMode ? '現實模式下有接點電阻與漏電流。' : ''}</p>`;
         $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
                                      refreshNet(); drawSheet(); };
@@ -2449,7 +2458,7 @@ function inspect(){
             <button class="btn" id="ip_rot">旋轉</button>
             <button class="btn" id="ip_del">刪除</button>
           </div>
-          <p class="sub">型別：${d.label}（${p.type}）。這一頁是數位邏輯，
+          <p class="sub">型別：${tip(p.type, d)}。這一頁是數位邏輯，
              只有 0 和 1，沒有電壓電流，也不會產生 SPICE netlist。</p>`;
         $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
                                      refreshNet(); drawSheet(); };
@@ -2478,7 +2487,7 @@ function inspect(){
         <button class="btn" id="ip_del">刪除</button>
       </div>
       <div id="cmpMeas"></div>
-      <p class="sub">型別：${T.label}（${p.type}）${
+      <p class="sub">型別：${tip(p.type, T)}${
         realMode && p.type === 'E'
           ? '<br><b>現實模式下這個增益欄位不生效</b>，運放改用內建的巨觀模型。' : ''}${
         realMode && (p.type === 'C' || p.type === 'L' || p.type === 'V')
