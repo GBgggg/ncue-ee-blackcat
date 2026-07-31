@@ -139,6 +139,28 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
            border-top:1px solid var(--rule)}
 
 /* ---- 樣式：浮動波形視窗 ---- */
+/* ---- 樣式：解題卡 ----
+   算式要對齊才讀得順，所以整塊用等寬字。行距放寬一點，因為每一行都是一條式子，
+   不是段落——手寫筆記也是一行一式，行與行之間留白。 */
+#wkWin{position:fixed;z-index:61;left:40px;top:150px;width:560px;height:560px;
+       min-width:320px;min-height:200px;display:flex;flex-direction:column;
+       background:var(--paper-raised);border:1px solid var(--rule);border-radius:13px;
+       box-shadow:0 14px 46px rgba(0,0,0,.30)}
+#wkWin.hidden{display:none}
+#wkHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
+        border-bottom:1px solid var(--rule);font-weight:800;font-size:15px;
+        cursor:move;user-select:none;touch-action:none}
+#wkBody{flex:1;min-height:0;overflow:auto;padding:12px 14px}
+#wkGrip{position:absolute;right:2px;bottom:2px;width:16px;height:16px;cursor:nwse-resize;
+        background:linear-gradient(135deg,transparent 48%,var(--ink-3) 48%,var(--ink-3) 56%,transparent 56%)}
+#wkBox{font:15px/2.0 ui-monospace,Menlo,Consolas,monospace;color:var(--ink)}
+#wkBox h4{font:800 13px/1.4 inherit;letter-spacing:.1em;color:var(--ink-2);
+          margin:16px 0 6px;padding-bottom:3px;border-bottom:1px solid var(--rule)}
+#wkBox h4:first-child{margin-top:0}
+#wkBox .eq{white-space:pre-wrap;margin:0}
+#wkBox .ans{font-weight:800}
+#wkBox .no{color:var(--ink-3);font:13px/1.6 system-ui,sans-serif}
+
 /* ---- 樣式：浮動數值視窗 ---- */
 #valWin{position:fixed;z-index:61;right:24px;top:150px;width:430px;height:520px;
         min-width:300px;min-height:200px;display:flex;flex-direction:column;
@@ -381,6 +403,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <span class="tsep"></span>
     <button class="btn primary" id="run">執行模擬 <small>Enter</small></button>
     <button class="btn" id="valBtn">數值視窗</button>
+    <button class="btn" id="wkBtn">解題卡</button>
     <button class="btn" id="waveBtn">波形視窗</button>
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
@@ -485,6 +508,19 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 <!-- 數值視窗。原本這些數字放在「解題卡」下拉裡，但下拉一點畫布就關掉——
      而「改一個電阻、看數字怎麼變」正是最常做的事，每看一次就要重開一次。
      改成跟波形一樣的浮動視窗：開著不會擋你編輯，跑完自動更新。 -->
+<!-- 解題卡：只有算式，沒有數字表格（那在數值視窗）。
+     格式照使用者的手寫筆記：標籤在前、一行一式、答案標 ✱、完全沒有敘述。 -->
+<div id="wkWin" class="hidden" role="dialog" aria-label="解題卡">
+  <div id="wkHead">
+    <span>解題卡</span>
+    <div class="spacer"></div>
+    <button class="btn tiny" id="wkCopy" title="複製全部算式">複製</button>
+    <button class="icb tiny" id="wkClose" title="關閉" aria-label="關閉">✕</button>
+  </div>
+  <div id="wkBody"><div id="wkBox"></div></div>
+  <div id="wkGrip" title="拖曳改變大小"></div>
+</div>
+
 <div id="valWin" class="hidden" role="dialog" aria-label="數值">
   <div id="valHead">
     <span id="valTitle">數值</span>
@@ -1511,6 +1547,7 @@ function fitTabButtons(){
     if (isLogic()){
         set('run',      true,  '算真值表 <small>Enter</small>');
         set('valBtn',   true,  '真值表視窗');
+        set('wkBtn',    false);     // 邏輯沒有 KCL／KVL 可寫
         set('waveBtn',  false);            // 邏輯沒有波形可看
         set('btnSim',   false);            // 也沒有分析種類、參數掃描
         set('btnNet',   true,  '電路摘要 ▾');
@@ -1518,6 +1555,7 @@ function fitTabButtons(){
     } else {
         set('run',      true,  '執行模擬 <small>Enter</small>');
         set('valBtn',   true,  '數值視窗');
+        set('wkBtn',    true,  '解題卡');
         set('waveBtn',  true,  '波形視窗');
         set('btnSim',   true,  '模擬設定 ▾');
         set('btnNet',   true,  'netlist ▾');
@@ -2886,6 +2924,7 @@ $('run').onclick = async () => {
         /* 數值視窗開著就更新它；沒開就替使用者打開——他剛按了執行，
            要的就是數字。波形視窗維持不自動彈出（見上面那段註解）。 */
         showVal(true);
+        if (!wkWin.classList.contains('hidden')) renderWork();
         scopeReframe(false);             // 只夾住範圍，時基和目前位置都保留
         drawPlot();
         /* 自動重跑時不能呼叫 inspect()：它會重建屬性面板裡的輸入框，
@@ -4048,6 +4087,267 @@ async function measureOhm(i){
 }
 
 /* ==========================================================
+   網目法：從「畫出來的平面圖」直接追出網目
+
+   課本的網目法要先確認電路是平面的、再挑出獨立迴路——那在抽象的圖論上很麻煩。
+   但這裡有一個別人沒有的東西：**使用者已經把平面嵌入畫出來了**。
+   元件放在格點上、線是直的，每個「面」就是畫面上肉眼看到的那一格封閉區域，
+   而那正好就是一個網目。所以不必解平面性，照著座標走一圈就好。
+
+   作法是標準的平面圖面追蹤：
+     1. 把圖建成頂點（接點座標）＋邊（線段與兩腳元件）。
+        線段要在中途的接點處切開，不然 T 字接點會被當成一條直通的邊。
+     2. 每個頂點把相鄰的邊照角度排序。
+     3. 從一條有向邊 (u→v) 出發，下一條是「從 v 出發、在 (v→u) 順時針方向的下一條」。
+        一直走回起點就圍出一個面。
+     4. 走完所有有向邊會得到全部的面，其中面積帶號為正的那一個是外面，丟掉。
+   剩下的每個面就是一個網目，數量應該等於 E − V + 1（尤拉公式），可以拿來自我檢查。
+   ========================================================== */
+const K2 = (x,y) => `${Math.round(x)},${Math.round(y)}`;
+/** 從目前的 sch 建出平面圖。回傳 {verts, edges}，edges 是 {a,b,kind,part} */
+function planarGraph(){
+    const V = new Map();                       // key → {x,y,e:[邊索引]}
+    const vert = (x,y) => { const k = K2(x,y);
+        if (!V.has(k)) V.set(k, { x:Math.round(x), y:Math.round(y), k, e:[] });
+        return V.get(k); };
+    const segs = [];                            // 先收集所有幾何線段
+    for (const w of sch.wires) segs.push({ a:[w.x1,w.y1], b:[w.x2,w.y2], kind:'wire' });
+    const parts = [];
+    for (const p of sch.parts){
+        if (p.type === 'GND'){ vert(...pinsOf(p)[0]); continue; }
+        const ps = pinsOf(p);
+        if (ps.length !== 2) return null;       // 三腳以上的元件不是一條邊，網目法不適用
+        parts.push({ a:ps[0], b:ps[1], kind:'part', part:p });
+    }
+    /* 線段要在「落在它中間的接點」處切開。不切的話 T 字接點會被當成沒有分岔，
+       追出來的面就會少一塊。 */
+    const pts = [];
+    segs.concat(parts).forEach(e => { pts.push(e.a, e.b); });
+    sch.parts.forEach(p => { if (p.type === 'GND') pts.push(pinsOf(p)[0]); });
+    const onSeg = (px,py,a,b) => {
+        const [x1,y1]=a,[x2,y2]=b;
+        if (px<Math.min(x1,x2)-.1||px>Math.max(x1,x2)+.1) return false;
+        if (py<Math.min(y1,y2)-.1||py>Math.max(y1,y2)+.1) return false;
+        if (Math.abs((x2-x1)*(py-y1)-(y2-y1)*(px-x1)) > .5) return false;
+        return !(Math.abs(px-x1)<.1&&Math.abs(py-y1)<.1) && !(Math.abs(px-x2)<.1&&Math.abs(py-y2)<.1);
+    };
+    const edges = [];
+    const addEdge = (a,b,kind,part) => {
+        if (K2(...a) === K2(...b)) return;       // 零長度：元件被一條線短路掉了
+        const va = vert(...a), vb = vert(...b);
+        va.e.push(edges.length); vb.e.push(edges.length);
+        edges.push({ a:va, b:vb, kind, part });
+    };
+    for (const sg of segs){
+        const mid = pts.filter(q => onSeg(q[0],q[1],sg.a,sg.b))
+            .sort((p,q) => (p[0]-sg.a[0])**2+(p[1]-sg.a[1])**2 - ((q[0]-sg.a[0])**2+(q[1]-sg.a[1])**2));
+        let cur = sg.a;
+        const seen = new Set([K2(...sg.a)]);
+        for (const m of mid){ if (seen.has(K2(...m))) continue; seen.add(K2(...m));
+            addEdge(cur, m, 'wire'); cur = m; }
+        addEdge(cur, sg.b, 'wire');
+    }
+    for (const pt of parts) addEdge(pt.a, pt.b, 'part', pt.part);
+    return { verts:[...V.values()], edges };
+}
+/** 有沒有「交叉但沒接在一起」的線。有的話這張圖不是平面嵌入，網目法不能用。 */
+function hasCrossing(g){
+    const seg = e => [e.a.x,e.a.y,e.b.x,e.b.y];
+    const cross = (p,q) => {
+        const [x1,y1,x2,y2]=p, [x3,y3,x4,y4]=q;
+        const d = (x2-x1)*(y4-y3)-(y2-y1)*(x4-x3);
+        if (Math.abs(d) < 1e-9) return false;             // 平行
+        const t = ((x3-x1)*(y4-y3)-(y3-y1)*(x4-x3))/d;
+        const u = ((x3-x1)*(y2-y1)-(y3-y1)*(x2-x1))/d;
+        return t > 1e-6 && t < 1-1e-6 && u > 1e-6 && u < 1-1e-6;   // 內部相交才算
+    };
+    for (let i=0;i<g.edges.length;i++)
+        for (let j=i+1;j<g.edges.length;j++)
+            if (cross(seg(g.edges[i]), seg(g.edges[j]))) return true;
+    return false;
+}
+/** 追出所有的面。回傳每個面的有向邊串列（不含外面）。 */
+function traceFaces(g){
+    const ang = (from,to) => Math.atan2(to.y-from.y, to.x-from.x);
+    /* 每個頂點把相鄰的有向邊照角度排好，之後才能問「順時針的下一條是誰」。 */
+    const out = new Map();                       // 頂點 key → [{ei, to, ang}]
+    g.verts.forEach(v => out.set(v.k, []));
+    g.edges.forEach((e,ei) => {
+        out.get(e.a.k).push({ ei, from:e.a, to:e.b, ang:ang(e.a,e.b) });
+        out.get(e.b.k).push({ ei, from:e.b, to:e.a, ang:ang(e.b,e.a) });
+    });
+    out.forEach(list => list.sort((p,q) => p.ang - q.ang));
+    const used = new Set();
+    const key = h => h.ei + ':' + h.from.k;
+    const faces = [];
+    for (const [,list] of out) for (const start of list){
+        if (used.has(key(start))) continue;
+        const face = []; let h = start;
+        for (let guard=0; guard<4000; guard++){
+            used.add(key(h)); face.push(h);
+            const back = out.get(h.to.k);
+            const i = back.findIndex(x => x.ei === h.ei && x.to.k === h.from.k);
+            /* 順時針的下一條＝把來的方向往負角度轉一格。 */
+            const nx = back[(i - 1 + back.length) % back.length];
+            if (key(nx) === key(start)) break;
+            h = nx;
+        }
+        faces.push(face);
+    }
+    /* 外面的帶號面積跟其他面反號。用鞋帶公式算，留下同號的那一群。 */
+    const area = f => f.reduce((s,h) => s + (h.from.x*h.to.y - h.to.x*h.from.y), 0) / 2;
+    const withArea = faces.map(f => ({ f, a:area(f) }));
+    const outer = withArea.reduce((m,x) => Math.abs(x.a) > Math.abs(m.a) ? x : m, withArea[0]);
+    return withArea.filter(x => x !== outer && Math.abs(x.a) > 1).map(x => x.f);
+}
+
+/* ---------- 節點方程式（KCL） ----------
+   每個非接地節點寫一條「流出去的電流總和 = 0」。
+   電阻是 (Va−Vb)/R，電流源是常數，電壓源沒有 V/R 關係——改寫成約束式
+   Va − Vb = V，這正是筆記裡 CH3 的寫法。 */
+function nodeEquations(k){
+    const nd = buildNodes();
+    const nodes = allNodeNames().filter(n => n !== '0');
+    const at = new Map(nodes.map(n => [n, []]));
+    const cons = [], notes = [];
+    for (const p of sch.parts){
+        if (p.type === 'GND') continue;
+        const d = DEF(p.type);
+        if (d.pins.length !== 2){ notes.push(`${p.ref} 有三支以上的腳，節點式寫不出來。`); continue; }
+        const [a,b] = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+        if (a === b) continue;                       // 被短路掉的元件
+        const V = n => n === '0' ? '0' : 'V' + n.slice(1);
+        if (p.type === 'R' || p.type === 'RL'){
+            if (at.has(a)) at.get(a).push(`(${V(a)}−${V(b)})/${p.val}`);
+            if (at.has(b)) at.get(b).push(`(${V(b)}−${V(a)})/${p.val}`);
+        } else if (p.type === 'I'){
+            const v = String(p.val).replace(/^\s*dc\s+/i,'');
+            // 電流從 pin0 流經元件到 pin1：對 a 是流出、對 b 是流入
+            if (at.has(a)) at.get(a).push(`+${v}`);
+            if (at.has(b)) at.get(b).push(`−${v}`);
+        } else if (p.type === 'V'){
+            const v = String(p.val).replace(/^\s*dc\s+/i,'');
+            cons.push(`${V(a)} − ${V(b)} = ${v}　（${p.ref}）`);
+        } else if (p.type === 'C'){
+            cons.push(`${p.ref}：直流時視為開路，不列入`);
+        } else if (p.type === 'L'){
+            cons.push(`${V(a)} = ${V(b)}　（${p.ref}，直流時視為短路）`);
+        } else {
+            notes.push(`${p.ref}（${d.label}）不是電阻或獨立電源，節點式寫不出來。`);
+        }
+    }
+    if (notes.length) return { err:notes[0] };
+    const lines = nodes.filter(n => at.get(n).length)
+        .map(n => `n${n.slice(1)}: ` + at.get(n).join(' + ').replace(/\+ −/g,'− ') + ' = 0');
+    /* 把模擬解回代，殘差應該是 0。手寫筆記做不到這一步，但工具該做。 */
+    const res = [];
+    if (simData && k >= 0) for (const n of nodes){
+        const terms = at.get(n); if (!terms.length) continue;
+        let sum = 0;
+        for (const p of sch.parts){
+            if (p.type === 'GND' || DEF(p.type).pins.length !== 2) continue;
+            const [a,b] = pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+            if (a === b) continue;
+            const va = a === '0' ? 0 : (nodeSeries(a)||[NaN])[k];
+            const vb = b === '0' ? 0 : (nodeSeries(b)||[NaN])[k];
+            if (p.type === 'R' || p.type === 'RL'){
+                const r = unit(p.val);
+                if (a === n) sum += (va-vb)/r; else if (b === n) sum += (vb-va)/r;
+            } else if (p.type === 'I'){
+                const i0 = unit(String(p.val).replace(/^\s*dc\s+/i,''));
+                if (a === n) sum += i0; else if (b === n) sum -= i0;
+            } else if (p.type === 'V'){
+                const br = branchSeries(p.ref);
+                if (br){ const i0 = br[k];
+                    if (a === n) sum -= i0; else if (b === n) sum += i0; }
+            }
+        }
+        res.push({ n, sum });
+    }
+    return { lines, cons, res };
+}
+
+/* ---------- 網目方程式 ----------
+   面追出來之後，每個面就是一個網目，網目電流沿著追出來的方向為正。
+   走一圈把每一段的壓降加起來 = 0：
+     電阻：R·(i_k − i_m)，i_m 是共用這一支的另一個網目（沒有就是 0）
+     電壓源：從 + 走到 − 是壓降 +V，反過來是 −V
+     電流源：它兩端的電壓是未知的，不能寫壓降——改成寫「超網目」的約束式
+             i_k − i_m = ±I，這正是課本的做法。
+   最後把係數矩陣解出來，跟 ngspice 算的支路電流對一次。對不上就不顯示，
+   因為一組看起來很像答案的錯方程式，比沒有方程式更糟。 */
+function meshEquations(){
+    const g = planarGraph();
+    if (!g) return { err:'電路裡有三腳以上的元件，網目法不適用（它不是一條邊）。' };
+    if (hasCrossing(g)) return { err:'圖上有交叉但沒有相連的線，這不是平面圖，網目法不適用。' };
+    const faces = traceFaces(g);
+    if (!faces.length) return { err:'找不到封閉迴路。' };
+    if (faces.length !== g.edges.length - g.verts.length + 1)
+        return { err:'網目數跟尤拉公式對不上，這張圖可能沒有連通。' };
+    /* 每條邊屬於哪幾個面 */
+    const owner = new Map();                   // 邊索引 → [面索引]
+    faces.forEach((f,fi) => f.forEach(h => {
+        if (!owner.has(h.ei)) owner.set(h.ei, []);
+        owner.get(h.ei).push(fi);
+    }));
+    const n = faces.length;
+    const A = Array.from({length:n}, () => new Array(n).fill(0)), b = new Array(n).fill(0);
+    const lines = [], notes = [];
+    const other = (ei,fi) => (owner.get(ei)||[]).find(x => x !== fi);
+    const superMesh = [];                       // 被電流源約束取代的那些列
+    faces.forEach((f,fi) => {
+        const terms = [];
+        f.forEach(h => {
+            const e = g.edges[h.ei], p = e.part;
+            if (!p) return;                                  // 純導線沒有壓降
+            const fwd = (h.from === e.a);                    // 走的方向跟元件 pin0→pin1 相同嗎
+            const om = other(h.ei, fi);
+            if (p.type === 'R' || p.type === 'RL'){
+                const r = unit(p.val);
+                A[fi][fi] += r; if (om != null) A[fi][om] -= r;
+                terms.push(om != null ? `${p.val}(i${fi+1}−i${om+1})` : `${p.val}i${fi+1}`);
+            } else if (p.type === 'V'){
+                const v = unit(String(p.val).replace(/^\s*dc\s+/i,''));
+                const drop = fwd ? v : -v;                   // 從 + 走到 − 是壓降
+                b[fi] -= drop;
+                terms.push((drop >= 0 ? '+' : '−') + Math.abs(drop));
+            } else if (p.type === 'I'){
+                const i0 = unit(String(p.val).replace(/^\s*dc\s+/i,''));
+                /* SPICE 的電流源：電流從 pin0 經過元件流到 pin1。 */
+                const sgn = fwd ? 1 : -1;
+                superMesh.push({ fi, om, val: sgn * i0, ref:p.ref });
+            } else {
+                notes.push(`${p.ref}（${DEF(p.type).label}）不是純電阻或電源，這條式子寫不出來。`);
+            }
+        });
+        lines.push({ mesh:fi, text:`i${fi+1}: ` + (terms.join(' + ').replace(/\+ −/g,'− ') || '0') + ' = 0' });
+    });
+    if (notes.length) return { err: notes[0] };
+    /* 電流源：把它所在的那一列換成約束式（課本的超網目就是這樣處理的）。 */
+    superMesh.forEach(sm => {
+        const row = sm.fi;
+        A[row].fill(0); b[row] = sm.val;
+        A[row][sm.fi] = 1;
+        if (sm.om != null){ A[row][sm.om] = -1;
+            lines[row] = { mesh:row, text:`超網目: i${sm.fi+1} − i${sm.om+1} = ${eng(sm.val)}（${sm.ref}）` }; }
+        else lines[row] = { mesh:row, text:`i${sm.fi+1} = ${eng(sm.val)}（${sm.ref}）` };
+    });
+    return { g, faces, lines, A, b, n };
+}
+/** 高斯消去。回傳解，奇異就回 null。 */
+function solveLin(A, b){
+    const n = b.length, M = A.map((r,i) => r.concat([b[i]]));
+    for (let c=0;c<n;c++){
+        let p = c; for (let r=c+1;r<n;r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+        if (Math.abs(M[p][c]) < 1e-12) return null;
+        [M[c],M[p]] = [M[p],M[c]];
+        for (let r=0;r<n;r++){ if (r===c) continue; const f = M[r][c]/M[c][c];
+            if (!f) continue; for (let k=c;k<=n;k++) M[r][k] -= f*M[c][k]; }
+    }
+    return M.map((r,i) => r[n]/M[i][i]);
+}
+
+/* ==========================================================
    戴維寧／諾頓等效
 
    ★ 這裡曾經有一個會給出「一半的答案」的錯誤：R_th 是在**負載還接著**的情況下
@@ -4417,6 +4717,100 @@ function showWave(on){
     if (on){ clampWave(); drawPlot(); }
     saveWave();
 }
+/* ---------- 解題卡 ----------
+   內容全部是算式，格式照使用者的手寫筆記：標籤在前、一行一式、答案標 ✱、
+   沒有一句敘述。工具能多做的只有一件事——把答案代回方程式檢查殘差，
+   那是手寫做不到的。 */
+const wkWin = $('wkWin');
+function showWork(on){
+    wkWin.classList.toggle('hidden', !on);
+    $('wkBtn').classList.toggle('on', on);
+    if (on) renderWork();
+}
+$('wkBtn').onclick = () => showWork(wkWin.classList.contains('hidden'));
+$('wkClose').onclick = () => showWork(false);
+$('wkCopy').onclick = () => {
+    const t = $('wkBox').innerText;
+    if (!t.trim()) return;
+    navigator.clipboard?.writeText(t)
+        .then(() => show('ok','算式已複製',[]))
+        .catch(() => show('warn','複製失敗',['瀏覽器擋住了剪貼簿權限。']));
+};
+const EQ = t => `<p class="eq">${t}</p>`;
+const NO = t => `<p class="no">${t}</p>`;
+function renderWork(){
+    const box = $('wkBox'); if (!box) return;
+    if (isLogic()) return void (box.innerHTML = NO('FPGA 分頁是數位邏輯，看真值表。'));
+    if (!simData) return void (box.innerHTML = NO('按「執行模擬」後，這裡會列出算式。'));
+    const k = ansIndex();
+    const out = [];
+
+    /* ① 節點法 */
+    const ne = nodeEquations(k);
+    out.push('<h4>節點法（KCL）</h4>');
+    if (ne.err) out.push(NO(ne.err));
+    else {
+        ne.cons.forEach(c => out.push(EQ(c)));
+        ne.lines.forEach(l => out.push(EQ(l)));
+        const sol = allNodeNames().filter(n => n !== '0')
+            .map(n => { const v = nodeSeries(n); return v ? `V${n.slice(1)} = ${eng(v[k])}V` : null; })
+            .filter(Boolean).join(' , ');
+        if (sol) out.push(`<p class="eq ans">${sol} ✱</p>`);
+        if (ne.res.length){
+            const worst = ne.res.reduce((m,x) => Math.abs(x.sum) > Math.abs(m.sum) ? x : m, ne.res[0]);
+            out.push(EQ(`回代殘差 max|Σi| = ${eng(Math.abs(worst.sum))}A（應為 0）`));
+        }
+    }
+
+    /* ② 網目法 */
+    out.push('<h4>網目法（KVL）</h4>');
+    const me = meshEquations();
+    if (me.err) out.push(NO(me.err));
+    else {
+        me.lines.forEach(l => out.push(EQ(l.text)));
+        const x = solveLin(me.A, me.b);
+        if (!x) out.push(NO('係數矩陣是奇異的，解不出來。'));
+        else {
+            out.push(`<p class="eq ans">${x.map((v,i)=>`i${i+1} = ${eng(v)}A`).join(' , ')} ✱</p>`);
+            /* ★ 跟 ngspice 對一次。對不上就講出來——一組看起來像答案的錯方程式最危險。 */
+            let worst = 0, who = '';
+            for (const p of sch.parts){
+                if (p.type !== 'V') continue;
+                const br = branchSeries(p.ref); if (!br) continue;
+                const eiList = me.g.edges.map((e,i) => e.part === p ? i : -1).filter(i => i >= 0);
+                if (!eiList.length) continue;
+                const ei = eiList[0];
+                const own = [];
+                me.faces.forEach((f,fi) => f.forEach(h => { if (h.ei === ei) own.push({fi, h}); }));
+                if (!own.length) continue;
+                const e = me.g.edges[ei];
+                let im = 0;
+                own.forEach(o => { const fwd = (o.h.from === e.a); im += (fwd ? 1 : -1) * x[o.fi]; });
+                const d = Math.abs(Math.abs(im) - Math.abs(br[k]));
+                if (d > worst){ worst = d; who = p.ref; }
+            }
+            const scale = Math.max(1e-12, ...x.map(Math.abs));
+            out.push(worst / scale < 0.01
+                ? EQ(`對照 ngspice：${who || '各支路'} 的電流一致（差 ${eng(worst)}A）`)
+                : NO(`跟 ngspice 對不上（${who} 差 ${eng(worst)}A），這組網目式先不要拿去用。`));
+        }
+    }
+
+    /* ③ 元件：歐姆定律與功率 */
+    out.push('<h4>各元件</h4>');
+    for (const p of sch.parts){
+        if (p.type === 'GND') continue;
+        const ser = partSeries(p); if (!ser) continue;
+        const v = ser.dv[k], i = ser.cur ? ser.cur[k] : null;
+        const nv = `V${ser.nodes[0]==='0'?'0':ser.nodes[0].slice(1)}−V${ser.nodes[1]==='0'?'0':ser.nodes[1].slice(1)}`;
+        if (i == null){ out.push(EQ(`${p.ref}: ΔV = ${nv} = ${eng(v)}V`)); continue; }
+        const how = (p.type === 'R' || p.type === 'RL') ? ` = ${eng(v)}/${p.val}` : '';
+        out.push(EQ(`${p.ref}: ΔV = ${nv} = ${eng(v)}V , i${how} = ${eng(i)}A , P = ΔV·i = ${eng(v*i)}W`));
+    }
+
+    box.innerHTML = out.join('');
+}
+
 /* ---------- 數值視窗 ----------
    內容就是原本解題卡那一份（renderAnswer 產生），差別只在它是浮動視窗：
    開著可以一邊改元件一邊看數字，不會被點畫布關掉。 */
@@ -4477,6 +4871,13 @@ function dragify(win, handle, onMove){
 }
 dragify(waveWin, $('waveHead'), (s0,dx,dy) => {
     waveWin.style.left = (s0.l+dx) + 'px'; waveWin.style.top = (s0.t+dy) + 'px';
+});
+dragify(wkWin, $('wkHead'), (s0,dx,dy) => {
+    wkWin.style.left = (s0.l+dx) + 'px'; wkWin.style.top = (s0.t+dy) + 'px';
+});
+dragify(wkWin, $('wkGrip'), (s0,dx,dy) => {
+    wkWin.style.width  = Math.max(320, s0.w+dx) + 'px';
+    wkWin.style.height = Math.max(200, s0.h+dy) + 'px';
 });
 dragify(valWin, $('valHead'), (s0,dx,dy) => {
     valWin.style.left = (s0.l+dx) + 'px'; valWin.style.top = (s0.t+dy) + 'px';
