@@ -3176,7 +3176,10 @@ function partSeries(p){
 
            方向：netlist 寫成 `I1 pin0 pin1 值`，SPICE 的電流從 N+ 流經元件到 N-，
            跟畫面上「pin0 流向 pin1 為正」是同一個約定，所以直接取正值。 */
-        const k = unit(p.val);
+        /* ★ 值可能寫成「DC 3」，unit('DC 3') 是 NaN——要先把前綴拿掉。
+           上一版漏了這一步，畫面上電流一直是「—」，而測試只檢查「這段程式存在」，
+           沒有真的餵一個 'DC 3' 進去，所以全綠卻是壞的。 */
+        const k = unit(String(p.val).replace(/^\s*dc\s+/i, ''));
         if (p.off) { cur = dv.map(() => 0); note = '目前停用，等於斷路，電流為 0'; }
         else if (isFinite(k)) { cur = dv.map(() => k); note = `電流源的電流就是它的設定值 ${p.val}`; }
     } else if (p.type === 'SW'){
