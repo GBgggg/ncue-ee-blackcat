@@ -31,7 +31,7 @@ html.dark{
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{background:var(--paper);color:var(--ink);
-     font:15px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
+     font:17px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
      -webkit-text-size-adjust:100%}
 a{color:var(--accent)}
 /* ==========================================================
@@ -50,13 +50,13 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .hbar{margin:0;padding:0 10px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
 /* 第二列：全部是動作。上緣那條線同時也是分頁底線落腳的地方。 */
 .hbar2{border-top:1px solid var(--rule);padding-top:6px;padding-bottom:6px;margin-top:0}
-.hbar .btn{min-height:32px;padding:0 10px;border-radius:9px;font-size:13px}
+.hbar .btn{min-height:32px;padding:0 10px;border-radius:9px;font-size:15px}
 .hbar .btn small{opacity:.55;font-weight:700;margin-left:3px}
-.hbar .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:13px}
+.hbar .icb{min-width:32px;min-height:32px;border-radius:9px;font-size:15px}
 .tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
 .hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
 .spacer{flex:1}
-.chip{font-size:12px;font-weight:800;padding:5px 10px;border-radius:999px;
+.chip{font-size:14px;font-weight:800;padding:5px 10px;border-radius:999px;
       background:var(--accent-soft);color:var(--accent);white-space:nowrap}
 
 /* ---- 樣式：logo 下拉選單（行為與主站一致） ---- */
@@ -65,9 +65,9 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
          border-radius:10px}
 #logoBtn:hover{background:var(--accent-soft)}
 #logoBtn img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
-.htitle{font-weight:900;font-size:14px;line-height:1.15;white-space:nowrap}
-.htitle small{display:block;font-weight:600;font-size:10px;color:var(--ink-3);letter-spacing:.16em}
-#logoChev{font-size:11px;line-height:1;opacity:.6;color:var(--ink-3);
+.htitle{font-weight:900;font-size:16px;line-height:1.15;white-space:nowrap}
+.htitle small{display:block;font-weight:600;font-size:11.5px;color:var(--ink-3);letter-spacing:.16em}
+#logoChev{font-size:12.5px;line-height:1;opacity:.6;color:var(--ink-3);
           transition:transform .18s ease}
 #logoBtn[aria-expanded="true"] #logoChev{transform:rotate(180deg);opacity:1}
 #logoMenu{position:absolute;left:0;top:100%;margin-top:8px;z-index:80;
@@ -75,10 +75,10 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
           border:1px solid var(--rule);box-shadow:0 10px 28px rgba(26,24,21,.22)}
 #logoMenu.hidden{display:none}
 .logo-menu-item{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
-                width:100%;min-height:50px;padding:9px 15px;font-size:14px;font-weight:700;
+                width:100%;min-height:50px;padding:9px 15px;font-size:16px;font-weight:700;
                 text-align:left;text-decoration:none;color:var(--ink);background:transparent;
                 border:none;cursor:pointer}
-.logo-menu-item small{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:1px}
+.logo-menu-item small{font-size:13px;font-weight:600;color:var(--ink-3);margin-top:1px}
 .logo-menu-item:hover{background:var(--accent-soft)}
 .logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
 /* 目前所在的那一項不是連結，也不該有游標與 hover 回饋 */
@@ -96,8 +96,8 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
       margin-bottom:-6px}
 .tab{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;
      padding:4px 13px;border:0;border-bottom:2px solid transparent;background:none;
-     cursor:pointer;font:800 13.5px/1.2 inherit;color:var(--ink-3);letter-spacing:.04em}
-.tab small{font-size:10.5px;font-weight:700;opacity:.75;letter-spacing:0}
+     cursor:pointer;font:800 15.5px/1.2 inherit;color:var(--ink-3);letter-spacing:.04em}
+.tab small{font-size:12px;font-weight:700;opacity:.75;letter-spacing:0}
 .tab:hover{color:var(--ink-2);background:var(--accent-soft)}
 .tab.on{color:var(--accent);border-bottom-color:var(--accent)}
 
@@ -114,7 +114,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
    但底部那一條就是永遠碰不到的死角。inset:0 讓 CSS 尺寸只由容器決定，
    迴圈就斷了。 */
 #sheet{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none}
-#hud{position:absolute;left:10px;bottom:8px;font-size:11.5px;color:var(--ink-3);
+#hud{position:absolute;left:10px;bottom:8px;font-size:13px;color:var(--ink-3);
      background:var(--paper);padding:3px 8px;border-radius:8px;border:1px solid var(--rule);
      pointer-events:none;max-width:calc(100% - 20px)}
 
@@ -125,13 +125,13 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
           min-height:0;background:var(--paper-raised);border-left:1px solid var(--rule)}
 #rightCol.collapsed{width:0;border-left:0;overflow:hidden}
 #side{flex:1;min-height:0;overflow:auto;padding:10px 12px}
-#side h2{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
+#side h2{font-size:15px;margin:0 0 8px;color:var(--ink-2)}
 
 /* 收合鈕貼在右欄的左緣，而不是丟在工具列最右邊——那裡離它控制的東西有半個
    螢幕遠，而且面板收起來之後更找不到。做成一條整高的細把手，收合前後都在原地。 */
 #sideBtn{flex:none;width:16px;padding:0;border:0;border-left:1px solid var(--rule);
          border-radius:0;background:var(--paper-raised);color:var(--ink-3);
-         font-size:10px;line-height:1;cursor:pointer;display:flex;
+         font-size:11.5px;line-height:1;cursor:pointer;display:flex;
          align-items:center;justify-content:center}
 #sideBtn:hover{background:var(--accent-soft);color:var(--ink)}
 
@@ -146,7 +146,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
         box-shadow:0 14px 46px rgba(0,0,0,.30)}
 #valWin.hidden{display:none}
 #valHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
-         border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
+         border-bottom:1px solid var(--rule);font-weight:800;font-size:15px;
          cursor:move;user-select:none;touch-action:none}
 #valBody{flex:1;min-height:0;overflow:auto;padding:10px 12px}
 #valGrip{position:absolute;right:2px;bottom:2px;width:16px;height:16px;cursor:nwse-resize;
@@ -158,10 +158,10 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
          box-shadow:0 14px 46px rgba(0,0,0,.30)}
 #waveWin.hidden{display:none}
 #waveHead{flex:none;display:flex;align-items:center;gap:6px;padding:7px 9px;
-          border-bottom:1px solid var(--rule);font-weight:800;font-size:13px;
+          border-bottom:1px solid var(--rule);font-weight:800;font-size:15px;
           cursor:move;user-select:none;touch-action:none}
-#scopeInfo{font-weight:600;font-size:11px;color:var(--ink-3);white-space:nowrap}
-.btn.tiny,.icb.tiny{min-height:26px;min-width:26px;padding:0 8px;font-size:12px;border-radius:8px}
+#scopeInfo{font-weight:600;font-size:12.5px;color:var(--ink-3);white-space:nowrap}
+.btn.tiny,.icb.tiny{min-height:26px;min-width:26px;padding:0 8px;font-size:14px;border-radius:8px}
 #waveBody{flex:1;min-height:0;overflow:auto;display:flex;flex-direction:column;padding:8px 10px}
 /* height:0 + flex 讓 canvas 跟著視窗長高，而不是被自身內容撐著 */
 #plot{flex:1 1 0;height:0;min-height:200px;width:100%;display:block}
@@ -185,30 +185,30 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
      padding:12px 14px;box-shadow:0 12px 34px rgba(0,0,0,.26)}
 .pop.wide{width:440px}
 .pop.xwide{width:min(680px,92vw);max-height:min(78vh,700px)}
-.pop h3{font-size:13px;margin:0 0 8px;color:var(--ink-2)}
+.pop h3{font-size:15px;margin:0 0 8px;color:var(--ink-2)}
 .pop[hidden]{display:none}
 
-#cmpMeas h3{font-size:12px;margin:12px 0 4px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
-.cmp-tbl{border-collapse:collapse;width:100%;font:11.5px ui-monospace,Menlo,Consolas,monospace}
+#cmpMeas h3{font-size:14px;margin:12px 0 4px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
+.cmp-tbl{border-collapse:collapse;width:100%;font:13px ui-monospace,Menlo,Consolas,monospace}
 .cmp-tbl th,.cmp-tbl td{padding:3px 6px;text-align:right;white-space:nowrap;
                         border-bottom:1px solid var(--rule)}
 .cmp-tbl th{color:var(--ink-3);font-weight:600}
 .cmp-tbl td:first-child,.cmp-tbl th:first-child{text-align:left;color:var(--ink-2);font-weight:700}
-#ansBox h4{font-size:12px;margin:12px 0 5px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
+#ansBox h4{font-size:14px;margin:12px 0 5px;color:var(--ink-2);letter-spacing:.1em;font-weight:800}
 #ansBox h4:first-child{margin-top:0}
 .ans-node,.ans-row{cursor:pointer}
 .ans-node:hover,.ans-row:hover{background:var(--accent-soft)}
 .ans-node.pinned{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .ans-node.pinned td:first-child{color:var(--accent);font-weight:800}
-.ans-caret{display:inline-block;margin-left:6px;font-size:10px;color:var(--ink-3);
+.ans-caret{display:inline-block;margin-left:6px;font-size:11.5px;color:var(--ink-3);
            transition:transform .15s ease}
 .ans-row.open .ans-caret{transform:rotate(90deg);color:var(--accent)}
 .ans-why-row[hidden]{display:none}
-.ans-tbl{border-collapse:collapse;width:100%;font:12px ui-monospace,Menlo,Consolas,monospace}
+.ans-tbl{border-collapse:collapse;width:100%;font:14px ui-monospace,Menlo,Consolas,monospace}
 .ans-tbl th,.ans-tbl td{padding:4px 7px;border-bottom:1px solid var(--rule);vertical-align:top}
 .ans-tbl th{color:var(--ink-3);font-weight:600;text-align:left;white-space:nowrap}
 .ans-tbl td.n{text-align:right;white-space:nowrap;font-weight:700}
-.ans-why{color:var(--ink-3);font-size:11px;line-height:1.55}
+.ans-why{color:var(--ink-3);font-size:12.5px;line-height:1.55}
 
 /* ---- 樣式：手機擋門 ---- */
 #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
@@ -216,7 +216,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 #gate[hidden]{display:none}
 .gate-card{max-width:420px;text-align:center}
 .gate-card img{width:76px;height:76px;border-radius:50%;object-fit:cover;margin-bottom:14px}
-.gate-card h1{font-size:20px;margin:0 0 10px}
+.gate-card h1{font-size:23px;margin:0 0 10px}
 .gate-card p{color:var(--ink-2);line-height:1.7;margin:0 0 10px}
 .gate-card .btn{display:inline-block;margin-top:8px;text-decoration:none;line-height:40px}
 
@@ -230,18 +230,18 @@ button,select,input{font:inherit;color:var(--ink)}
 .btn:disabled{opacity:.45;cursor:default;box-shadow:none}
 .icb{min-width:40px;min-height:40px;display:inline-flex;align-items:center;justify-content:center;
      border:1px solid var(--rule);background:transparent;color:var(--ink-2);
-     border-radius:11px;cursor:pointer;font-size:17px;text-decoration:none}
+     border-radius:11px;cursor:pointer;font-size:19.5px;text-decoration:none}
 .icb:hover{background:var(--accent-soft);color:var(--ink)}
 
 #side h2,.pop h3{letter-spacing:.14em;font-weight:800}
-.chk{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:13px;cursor:pointer}
+.chk{display:flex;align-items:center;gap:6px;margin-top:8px;font-size:15px;cursor:pointer}
 .chk input{width:15px;height:15px;accent-color:var(--accent)}
 
 /* ---- 樣式：元件工具列（扁平、向量、先選物件再操作） ---- */
 .palette{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
 .pi{display:inline-flex;flex-direction:column;align-items:center;gap:2px;
     min-width:56px;min-height:52px;padding:5px 6px;border-radius:11px;
-    border:1px solid var(--rule);background:var(--paper);cursor:pointer;font-size:10.5px;
+    border:1px solid var(--rule);background:var(--paper);cursor:pointer;font-size:12px;
     font-weight:700;color:var(--ink-2)}
 .pi svg{width:30px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.6;
         stroke-linecap:round;stroke-linejoin:round}
@@ -258,31 +258,31 @@ button,select,input{font:inherit;color:var(--ink)}
 
 /* ---- 樣式：右側常駐面板 ---- */
 .field{display:flex;align-items:center;gap:8px;margin:7px 0}
-.field label{flex:0 0 76px;font-size:12.5px;color:var(--ink-2);font-weight:700}
+.field label{flex:0 0 76px;font-size:14.5px;color:var(--ink-2);font-weight:700}
 .field input,.field select{flex:1;min-width:0;min-height:36px;border-radius:9px;
     border:1px solid var(--rule);background:var(--paper);padding:0 9px}
 .field input:focus,.field select:focus,.btn:focus-visible,.pi:focus-visible{
     outline:2px solid var(--accent);outline-offset:2px}
-.sub{font-size:12px;color:var(--ink-3);margin:4px 0 0}
+.sub{font-size:14px;color:var(--ink-3);margin:4px 0 0}
 code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 #directive{background:var(--paper);border:1px solid var(--rule);border-radius:9px;
-    padding:7px 9px;font:12px/1.5 ui-monospace,Menlo,monospace;word-break:break-all;margin-top:8px}
+    padding:7px 9px;font:14px/1.5 ui-monospace,Menlo,monospace;word-break:break-all;margin-top:8px}
 
 /* ---- 樣式：波形 ---- */
 canvas#plot{width:100%;display:block;border-radius:12px;background:var(--paper);
     border:1px solid var(--rule);touch-action:none}
 .legend{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-.lg{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:14.5px;font-weight:700;
     padding:5px 10px;border-radius:999px;border:1px solid var(--rule);
     background:var(--paper);cursor:pointer;min-height:32px}
 .lg i{width:11px;height:11px;border-radius:3px;flex:none}
 .lg.off{opacity:.38}
 .lg.locatable{cursor:pointer}
 .lg.locatable:hover{background:var(--accent-soft)}
-#readout{font:12.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);
+#readout{font:14.5px/1.5 ui-monospace,Menlo,monospace;color:var(--ink-2);
          margin-top:8px;min-height:1.5em;white-space:pre-wrap}
 
-.msg{border-radius:11px;padding:10px 12px;margin-top:10px;font-size:14px;
+.msg{border-radius:11px;padding:10px 12px;margin-top:10px;font-size:16px;
      line-height:1.6;border:1px solid var(--rule)}
 .msg.err{border-color:var(--bad)}
 .msg.ok{border-color:var(--ok)}
@@ -290,14 +290,14 @@ canvas#plot{width:100%;display:block;border-radius:12px;background:var(--paper);
 .msg b{display:block;margin-bottom:2px}
 .msg ul{margin:5px 0 0;padding-left:19px}
 details{margin-top:10px}
-summary{cursor:pointer;font-size:12.5px;color:var(--ink-3);font-weight:700;
+summary{cursor:pointer;font-size:14.5px;color:var(--ink-3);font-weight:700;
         min-height:32px;display:flex;align-items:center}
 pre{background:var(--paper);border:1px solid var(--rule);border-radius:10px;padding:9px 11px;
-    font:11.5px/1.5 ui-monospace,Menlo,monospace;overflow:auto;max-height:240px;
+    font:13px/1.5 ui-monospace,Menlo,monospace;overflow:auto;max-height:240px;
     margin:7px 0 0;white-space:pre-wrap;word-break:break-all}
 textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);color:var(--ink);
     border:1px solid var(--rule);border-radius:11px;padding:10px 11px;
-    font:12.5px/1.5 ui-monospace,Menlo,monospace}
+    font:14.5px/1.5 ui-monospace,Menlo,monospace}
 .skel{height:7px;border-radius:99px;background:var(--rule);overflow:hidden;position:relative}
 .skel i{position:absolute;inset:0;width:34%;background:var(--accent);border-radius:99px;
         animation:sweep 1.1s ease-in-out infinite}
@@ -306,10 +306,10 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 /* 自動量測表：手機上橫向捲動，不要把整頁撐寬 */
 .meas-head { display:flex; align-items:center; justify-content:space-between;
              gap:8px; flex-wrap:wrap; margin-top:12px; }
-.meas-head h3 { font-size:14px; margin:0; color:var(--ink-2); }
+.meas-head h3 { font-size:16px; margin:0; color:var(--ink-2); }
 .meas-scroll { overflow-x:auto; margin-top:6px; }
 #measTbl { border-collapse:collapse; width:100%; min-width:520px;
-           font:12px ui-monospace,Menlo,Consolas,monospace; }
+           font:14px ui-monospace,Menlo,Consolas,monospace; }
 #measTbl th, #measTbl td { padding:5px 8px; text-align:right; white-space:nowrap;
                            border-bottom:1px solid var(--rule); }
 #measTbl th { color:var(--ink-3); font-weight:600; }
@@ -461,15 +461,14 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   </div>
   <div id="anaFields"></div>
   <div id="directive" class="mono"></div>
-  <p class="sub">上面這行就是送給 ngspice 的指令，改欄位會即時同步。</p>
+  <p class="sub">送給 ngspice 的指令，改欄位會即時同步。</p>
   <h3 style="margin-top:14px">元件模型</h3>
-  <p class="sub">由上面的<b>分頁</b>決定：理想分頁用理想模型，現實分頁加上寄生參數。
-     兩個分頁各有各的電路圖，切過去不會動到這一張。</p>
+  <p class="sub">由上面的<b>分頁</b>決定。兩個分頁各有各的電路圖。</p>
   <div id="modeNote" class="sub"></div>
 
   <h3 style="margin-top:14px">參數掃描</h3>
   <p class="sub">把某個元件的值從頭掃到尾，看另一個量怎麼變。
-     最大功率轉移就是這樣看出來的：掃負載電阻，功率會在 R<sub>L</sub> = R<sub>th</sub> 出現峰值。</p>
+     掃負載電阻，功率會在 R<sub>L</sub> = R<sub>th</sub> 出現峰值。</p>
   <div class="field"><label for="swPart">掃這個元件</label>
     <select id="swPart"></select></div>
   <div class="field"><label for="swFrom">從</label><input id="swFrom" class="mono" value="1"></div>
@@ -525,9 +524,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="keyList"></div>
   <button class="btn" id="keyReset" style="min-height:34px;margin-top:4px">還原預設</button>
   <p class="sub">點右邊的按鍵再按一個新的鍵就會改掉，設定存在這台裝置上。
-    Esc（取消）、Ctrl+Z／Ctrl+Shift+Z（復原／重做）、
-    Ctrl+C／Ctrl+V／Ctrl+X（複製／貼上／剪下）固定不變，不開放更改——
-    這些是全世界共通的肌肉記憶，讓它可以被改掉只會製造困惑。</p>
+    Esc、Ctrl+Z／Ctrl+Shift+Z、Ctrl+C／Ctrl+V／Ctrl+X 固定不變。</p>
   <p class="sub" style="margin-top:8px">滑鼠還有這些：<br>
     ・拖曳空白處＝框選一整組，Shift 點擊＝加選或退選<br>
     ・框選後 Ctrl+C 複製、Ctrl+V 貼上（會錯開一格並重新編號）<br>
@@ -1545,7 +1542,7 @@ $('copyTabBtn').onclick = () => {
     applyTab(to);
     autosave.flush();
     show('ok', `已複製到${TAB_LABEL[to]}分頁`,
-         [`同一張電路，換成${TAB_LABEL[to]}的元件模型。兩邊從現在起各走各的，改一邊不會動到另一邊。`]);
+         ['兩邊從此各走各的，改一邊不會動到另一邊。']);
 };
 function switchTab(t){
     if (t === tab) return;
@@ -2283,9 +2280,9 @@ const VAL_HINT = {
 };
 function inspect(){
     const box = $('insp');
-    if (!sel.length){ box.innerHTML = '<p class="sub">點畫布上的元件或線，這裡就會顯示它的參數。<br>' +
-        '沒有彈出視窗，改完立刻生效。<br>拖曳空白處可以框選一整組，Shift 點擊可加選。<br>' +
-        '游標停在元件上滾滑鼠會轉 45 度，Shift+滾輪則是照 E12 換數值。</p>'; return; }
+    if (!sel.length){ box.innerHTML = '<p class="sub">點元件或線，這裡會顯示它的參數。<br>' +
+        '拖曳空白處框選一整組，Shift 點擊可加選。<br>' +
+        '游標停在元件上滾滾輪＝轉 45 度，Shift+滾輪＝E12 換值。</p>'; return; }
     if (sel.length > 1){
         box.innerHTML = `<p class="sub">已選取 <b>${sel.length}</b> 個物件，可以整組搬移。</p>
           <div class="palette" style="margin-top:8px">
@@ -3925,7 +3922,7 @@ function renderAnswer(){
             const L = [];
 
             /* 三個答案先給，推導再說。學生要對答案的時候不想先讀三段文字。 */
-            L.push(`<b style="color:var(--ink);font-size:13px">R<sub>th</sub> = ${eng(t.R)}Ω` +
+            L.push(`<b style="color:var(--ink);font-size:15px">R<sub>th</sub> = ${eng(t.R)}Ω` +
                    (t.Vth != null ? `　V<sub>th</sub> = ${eng(t.Vth)}V` : '') +
                    (t.IN  != null ? `　I<sub>N</sub> = ${eng(t.IN)}A`  : '') + '</b>');
 
@@ -4602,8 +4599,7 @@ $('saveBtn').onclick = async () => {
     if (data.length > SAVE_MAX)
         return show('err','這張電路太大，存不進雲端',
             [`編碼後有 ${data.length.toLocaleString()} 字元，上限是 ${SAVE_MAX.toLocaleString()}。`,
-             '可以先用「匯出檔案」存成本機檔案，那個沒有大小限制。',
-             '（以前的版本會直接把超出的部分切掉，存檔看似成功但打不開。現在改成擋下來。）']);
+             '可以先用「匯出檔案」存成本機檔案，那個沒有大小限制。']);
     try { await addDoc(collection(db,path), { name:(name||'未命名電路').slice(0,60),
             data, updatedAt: Date.now() });
           show('ok','已存檔',[`編碼後 ${data.length.toLocaleString()} 字元。`]); renderMine(); }
@@ -4632,9 +4628,7 @@ $('expFileBtn').onclick = () => {
     const doc = Object.assign({ app:'blackcatspice', ver:1, tab }, packObj());
     download(new Blob([JSON.stringify(doc, null, 1)], {type:'application/json'}),
              `blackcat-${tab}-${stamp()}.json`);
-    show('ok','已匯出檔案',
-         ['這個檔可以用「匯入檔案」讀回來，也可以直接附在作業裡。' ,
-          '沒有大小限制，而且是純文字，用記事本打得開。']);
+    show('ok','已匯出檔案', ['可以用「匯入檔案」讀回來，也可以直接附在作業裡。']);
 };
 $('impFileBtn').onclick = () => $('impFile').click();
 $('impFile').onchange = async e => {
@@ -4657,7 +4651,7 @@ $('impFile').onchange = async e => {
         inspect(); refreshNet(); drawSheet(); fit(); autosave.flush();
         show('ok', `已匯入 ${f.name}`,
              [`${sch.parts.length} 個元件、${sch.wires.length} 段線，放在${TAB_LABEL[tab]}分頁。`,
-              '匯入是一個可以復原的動作，按 Ctrl+Z 就回到匯入前。']);
+              '按 Ctrl+Z 可以回到匯入前。']);
     } catch(err){
         show('err','匯入失敗', [(err && err.message) || String(err),
              '請確認選的是「匯出檔案」產生的 .json。']);
@@ -4685,9 +4679,7 @@ $('schPngBtn').onclick = () => {
     c.translate(PAD - x1, PAD - y1);
     drawSchTo(c);
     download2(out, `blackcat-schematic-${stamp()}.png`);
-    show('ok','已存成 PNG',
-         [`${Math.round(W)} × ${Math.round(H)} 的兩倍圖，只包含電路本身，沒有多餘空白。`,
-          '底色跟著目前的深淺色主題，深色模式存出來就是深色底。']);
+    show('ok','已存成 PNG', [`${Math.round(W)} × ${Math.round(H)}，兩倍解析度。`]);
 };
 /** 把電路畫到任意 2D context 上（世界座標，不含縮放與平移）。 */
 function drawSchTo(c){
@@ -4753,7 +4745,7 @@ if (q){
     if (restored){
         applyTab(TABS.includes(last) ? last : 'ideal');
         show('ok', `已接續上次編輯的電路（${restored} 個分頁有內容）`,
-             ['分頁在元件盤上面，三個各自獨立。要改用範例請從工具列的下拉選單挑一個。']);
+             ['三個分頁各自獨立。要換範例請用工具列的下拉選單。']);
     } else {
         loadExample('RC 低通（步階）');
     }
