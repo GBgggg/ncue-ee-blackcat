@@ -2413,23 +2413,19 @@ function paintPalette(){
 /* ==========================================================
    常駐屬性面板：點元件直接改，不跳彈窗
    ========================================================== */
+/* 只留「接錯就量錯」的部分。內阻的實際數值下面那行「型別：」已經有了。 */
 const METER_HINT = {
-  V:'電壓表要**並聯**在待測的兩點上。理想電壓表內阻無限大，不會從電路吸走電流；' +
-    '現實模式用 10MΩ，那是真實三用電表的輸入阻抗——拿它去量高阻抗的電路，' +
-    '就會看到教科書講的「量測本身把電壓拉低了」。',
-  A:'電流表要**串聯**在待測支路上，也就是把線剪斷、讓電流從電表流過。' +
-    '理想電流表內阻為零。它在 netlist 裡是一個 0V 的電壓源，' +
-    '所以也可以直接被流控電源（H、F）指定為控制源。',
-  R:'**不能在通電的電路上量電阻**。' +
-    '按下「量電阻」會另外跑一次分析，把所有獨立電源歸零（電壓源短路、電流源斷路），' +
-    '再從兩支腳看進去。量到的就是戴維寧等效電阻 R_th。'
+  V:'**並聯**在待測的兩點上。',
+  A:'**串聯**在待測支路上。它在 netlist 裡是一個 0V 電壓源，' +
+    '所以也可以被流控電源（H、F）指定為控制源。',
+  R:'**不能在通電的電路上量電阻**。這一檔會把獨立電源歸零' +
+    '（電壓源短路、電流源斷路）再看進去，量到的就是 R_th。'
 };
 const DEP_HINT = {
   EE:'輸出電壓 = 增益 × 控制端兩點的電壓差。控制端不吃電流（輸入阻抗無限大）。',
   G:'輸出電流 = 轉導 × 控制端兩點的電壓差。電流方向由上往下流出。',
   H:'輸出電壓 = 轉阻 × 流過控制源的電流。',
-  F:'輸出電流 = 增益 × 流過控制源的電流。想量某條支路的電流，' +
-    '可以在那裡串一個 DC 0 的電壓源當電流計，再指定它。'
+  F:'輸出電流 = 增益 × 流過控制源的電流。'
 };
 const VAL_HINT = {
   R:'例：1k、4.7k、100', C:'例：1u、100n、10p', L:'例：10m、1u',
@@ -2440,11 +2436,10 @@ const VAL_HINT = {
 };
 function inspect(){
     const box = $('insp');
-    if (!sel.length){ box.innerHTML = '<p class="sub">點元件或線，這裡會顯示它的參數。<br>' +
-        '拖曳空白處框選一整組，Shift 點擊可加選。<br>' +
-        '游標停在元件上滾滾輪＝轉 45 度，Shift+滾輪＝E12 換值。</p>'; return; }
+    /* 操作方式在「熱鍵與操作」面板裡有完整一份，這裡不再抄一遍。 */
+    if (!sel.length){ box.innerHTML = '<p class="sub">點元件或線看參數。</p>'; return; }
     if (sel.length > 1){
-        box.innerHTML = `<p class="sub">已選取 <b>${sel.length}</b> 個物件，可以整組搬移。</p>
+        box.innerHTML = `<p class="sub">已選取 <b>${sel.length}</b> 個物件。</p>
           <div class="palette" style="margin-top:8px">
             <button class="btn" id="ip_rot">整組旋轉</button>
             <button class="btn" id="ip_del">整組刪除</button>
@@ -2453,9 +2448,8 @@ function inspect(){
     }
     const one = sel[0];
     if (one.kind === 'wire'){
-        box.innerHTML = '<p class="sub">選取的是一段導線。</p>';
-        box.insertAdjacentHTML('beforeend',
-            '<button class="btn" id="ip_del" style="margin-top:6px">刪除這段線</button>');
+        box.innerHTML =
+            '<button class="btn" id="ip_del">刪除這段線</button>';
         $('ip_del').onclick = del; return;
     }
     const p = sch.parts[one.i], T = DEF(p.type);
@@ -2535,8 +2529,7 @@ function inspect(){
             <button class="btn" id="ip_del">刪除</button>
           </div>
           <div id="cmpMeas"></div>
-          <p class="sub">型別：${tip('SW', DEF('SW'))}。閉合時是很小的導通電阻，斷開時是很大的電阻，
-             不需要 SPICE 模型。${realMode ? '現實模式下有接點電阻與漏電流。' : ''}</p>`;
+          <p class="sub">型別：${tip('SW', DEF('SW'))}。${realMode ? '現實模式有接點電阻與漏電流。' : ''}</p>`;
         $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
                                      refreshNet(); drawSheet(); };
         $('ip_sw').onclick = () => toggleSwitch(one.i);
@@ -2564,8 +2557,7 @@ function inspect(){
             <button class="btn" id="ip_rot">旋轉</button>
             <button class="btn" id="ip_del">刪除</button>
           </div>
-          <p class="sub">型別：${tip(p.type, d)}。這一頁是數位邏輯，
-             只有 0 和 1，沒有電壓電流，也不會產生 SPICE netlist。</p>`;
+          <p class="sub">型別：${tip(p.type, d)}</p>`;
         $('ip_ref').oninput = e => { pushUndo(); p.ref = e.target.value.replace(/\s/g,'');
                                      refreshNet(); drawSheet(); };
         if ($('ip_tog')) $('ip_tog').onclick = () => toggleSwitch(one.i);
@@ -2621,7 +2613,7 @@ function renderCmpMeas(p){
             ? `<p class="sub" style="margin-top:8px">這個元件的電壓電流沒辦法直接推算${
                  /^[DQE]$/.test(p.type)
                    ? '：非線性元件沒有封閉解。要看它的電流，可以在旁邊串一顆很小的電阻去量' : ''}。</p>`
-            : '<p class="sub" style="margin-top:8px">按「執行模擬」之後，這裡會顯示這個元件的電壓與電流。</p>';
+            : '<p class="sub" style="margin-top:8px"></p>';
         return;
     }
     const uv = ser.ac ? '' : 'V';
@@ -4147,15 +4139,15 @@ function ansLoad(k){
         const dir = `${NM(na)} − ${NM(nb)}`;
         const rows = [
             ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—',
-             `戴維寧電壓＝把負載拿掉之後的開路電壓，方向是 ${dir}`],
+             `負載拿掉後的開路電壓，方向是 ${dir}`],
             ['R<sub>Th</sub>', eng(R) + 'Ω',
-             '戴維寧等效電阻，也就是內阻。把獨立電源歸零，從負載這兩點看進去'],
-            ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val, `負載 ${p.ref} 本身的電阻`],
+             '把獨立電源歸零，從負載這兩點看進去'],
+            ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val, ''],
             ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—', `負載兩端的電壓，方向是 ${dir}`],
             ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—',
              `流過負載的電流，從 ${p.ref} 的第一支腳流向第二支腳為正`],
             ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—',
-             '負載消耗的功率（電壓與電流同號，所以一定是正的）'],
+             ''],
         ];
         body = `<table class="ans-tbl">
             <tr><th>量</th><th style="text-align:right">數值</th><th>是什麼</th></tr>
@@ -4198,7 +4190,7 @@ function ansLoad(k){
                      `P<sub>max</sub> = ${eng(Pmax)}W。` +
                      (now != null && Pmax > 0
                        ? `目前是 ${eng(now)}W，等於最大值的 ${(now/Pmax*100).toFixed(0)}%。` : '') +
-                     `用工具列的<b>參數掃描</b>掃 ${p.ref} 可以看到整條曲線。`);
+                     '');
         }
         if (loadEq.removed && loadEq.removed.length > 1)
             why.push(`求等效時一起開路的還有：${loadEq.removed.filter(r=>r!==p.ref).join('、')}` +
