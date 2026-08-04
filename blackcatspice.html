@@ -4739,10 +4739,26 @@ async function theveninFull(na, nb, keepLoad){
     if (na === nb) throw new Error('這兩點是同一個節點，量不出東西');
     if (running) throw new Error('模擬正在跑，等一下再試');
     const cross  = bridgingParts(na, nb);
-    const loads  = keepLoad ? [] : cross.filter(p => LOADISH.includes(p.type) && !p.off);
+    /* ★ 有專用的負載元件（RL）時，只拿掉它。
+       LOADISH 把普通 R 也算成負載，那是還沒有 RL 元件時的寫法——
+       當時使用者只能拿一顆普通電阻當負載，所以得靠型別去猜。
+       現在再這樣猜就會出事：負載旁邊並聯一顆普通電阻（很常見，
+       例如「6Ω 並上負載」），那顆會被一起開路，於是
+       V_th 從 6V 變成 12V、R_th 從 3Ω 變成 6Ω，全錯。
+
+       實測就是這樣抓到的：12V 串 6Ω 並上 6Ω、負載 3Ω，
+       畫面給 V_th=12V／R_th=6Ω，然後自己的驗算說「分壓算出 4.00V、
+       實際量到 3.00V，差 25%」——驗算有抓到，但理由寫成
+       「可能有非線性元件」，而那張電路全是線性的。
+
+       沒有 RL 元件時維持舊行為（靠型別猜），才不會弄壞既有的電路。 */
+    const rls    = cross.filter(p => p.type === 'RL' && !p.off);
+    const loads  = keepLoad ? []
+                 : rls.length ? rls
+                 : cross.filter(p => LOADISH.includes(p.type) && !p.off);
     const open   = new Set(loads);
     const guard  = [na, nb];
-    const stuck  = cross.filter(p => !LOADISH.includes(p.type));
+    const stuck  = cross.filter(p => !open.has(p) && !LOADISH.includes(p.type));
     running = true;
     try {
         const ro  = await opRun({ zero:true, open, guard, inject:{ a:nb, b:na, amps:1 } });
