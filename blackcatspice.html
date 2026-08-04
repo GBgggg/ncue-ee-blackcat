@@ -567,6 +567,9 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <h3>產生的 netlist</h3>
   <textarea id="net" spellcheck="false" readonly aria-label="產生的 netlist"></textarea>
   <p class="sub">唯讀。電路圖或元件模型改了就會跟著變。</p>
+  <div class="palette" style="margin-top:6px">
+    <button class="btn" id="vlogBtn">轉成 Verilog</button>
+  </div>
 </div>
 
 <div class="pop" id="popProb" hidden>
@@ -1664,9 +1667,11 @@ function fitTabButtons(){
         set('waveBtn',  false);            // 邏輯沒有波形可看
         set('btnSim',   false);            // 也沒有分析種類、參數掃描
         set('btnNet',   true,  '電路摘要 ▾');
+        set('vlogBtn',  true);             // 轉 Verilog 只有邏輯電路有意義
         set('copyTabBtn', false);          // 邏輯電路貼到類比分頁沒有意義
     } else {
         set('run',      true,  '執行模擬 <small>Enter</small>');
+        set('vlogBtn',  false);            // 類比電路沒有 Verilog 可轉
         set('valBtn',   true,  '數值視窗');
         set('wkBtn',    true,  '解題卡');
         set('waveBtn',  true,  '波形視窗');
@@ -3105,6 +3110,115 @@ function logicSummary(){
     if (!logicOutputs().length) warn.push('還沒有輸出元件，看不到結果。');
     return { text: lines.join('\n') + '\n', warn, inner:new Set() };
 }
+/* ==========================================================
+   轉成 Verilog
+
+   邏輯閘的連接圖已經在 solveLogic() 裡建好了（gates、ins、out），
+   所以這裡不需要新的演算法，只是換一種寫法輸出。
+
+   ★ 命名要小心兩件事：
+   1. Verilog 的識別字只能是 [A-Za-z_][A-Za-z0-9_$]*，而使用者可以把
+      元件命名成「開關 1」或「A-B」。不清理的話產生出來的檔案根本不能編譯，
+      但畫面上看起來完全正常——又是一個「壞掉像正常」的形狀。
+   2. 清理之後可能撞名（「A-B」和「A_B」都會變成 A_B），所以要去重。
+   ========================================================== */
+const VLOG_KEYWORDS = new Set(['module','endmodule','input','output','wire','reg',
+    'assign','always','begin','end','if','else','case','endcase','and','or','not',
+    'nand','nor','xor','xnor','buf','parameter','initial','posedge','negedge']);
+
+/** 把任意名稱變成合法且唯一的 Verilog 識別字。 */
+function vlogName(raw, used){
+    let n = String(raw || '').trim().replace(/[^A-Za-z0-9_$]/g, '_');
+    if (!n || /^[0-9]/.test(n)) n = 'n_' + n;
+    if (VLOG_KEYWORDS.has(n)) n = n + '_';
+    let out = n, i = 2;
+    while (used.has(out)) out = n + '_' + (i++);
+    used.add(out);
+    return out;
+}
+
+/** 回傳 { text, warn }。沒有輸入或輸出時仍然產生得出來，只是會警告。 */
+function toVerilog(){
+    const nd = buildNodes();
+    const nodeOf = p => pinsOf(p).map(([x,y]) => nd.nameOf(nd.key(x,y)));
+    const used = new Set(), warn = [];
+    const ins = logicInputs(), outs = logicOutputs();
+
+    /* 節點 → 線名。被 IN 驅動的節點直接沿用那個埠的名字，
+       其餘用 w_<節點>，讀起來就看得出哪些是外部訊號。 */
+    const wire = new Map();
+    const inPorts = ins.map(p => {
+        const nm = vlogName(p.ref || 'in', used);
+        wire.set(nodeOf(p)[0], nm);
+        return nm;
+    });
+    const outPorts = outs.map(o => ({ name: vlogName(o.p.ref || 'out', used), node: o.node }));
+
+    const gates = [];
+    for (const p of sch.parts){
+        const d = DEF(p.type);
+        if (!d || !d.logic || d.logic === 'in' || d.logic === 'out') continue;
+        const ns = nodeOf(p);
+        gates.push({ ref: p.ref || p.type, op: d.logic,
+                     ins: ns.slice(0, -1), out: ns[ns.length - 1] });
+    }
+    // 內部線：閘的輸出且還沒有名字的
+    const inner = [];
+    for (const g of gates)
+        if (!wire.has(g.out)){ const nm = vlogName('w_' + g.out, used); wire.set(g.out, nm); inner.push(nm); }
+
+    const W = n => wire.get(n) || ('/* ' + n + ' 未連接 */ 1\'bx');
+    const EXPR = {
+        not: a => '~' + a[0],
+        and: a => a.join(' & '),
+        nand: a => '~(' + a.join(' & ') + ')',
+        or:  a => a.join(' | '),
+        nor: a => '~(' + a.join(' | ') + ')',
+        xor: a => a.join(' ^ '),
+    };
+
+    const L = [];
+    L.push('// 由彰師電子小黑貓電路模擬器產生');
+    L.push('// 組合邏輯，沒有暫存器；閘的順序不影響結果（assign 是連續指定）。');
+    L.push('module blackcat_logic (');
+    const ports = inPorts.map(n => '    input  wire ' + n)
+        .concat(outPorts.map(o => '    output wire ' + o.name));
+    L.push(ports.join(',\n'));
+    L.push(');');
+    if (inner.length) L.push('    wire ' + inner.join(', ') + ';');
+    L.push('');
+    for (const g of gates){
+        const e = EXPR[g.op];
+        if (!e){ warn.push(g.ref + ' 的型別不認得，沒有寫進去。'); continue; }
+        L.push('    assign ' + W(g.out) + ' = ' + e(g.ins.map(W)) + ';'
+               + '   // ' + g.ref);
+    }
+    if (gates.length && outPorts.length) L.push('');
+    for (const o of outPorts) L.push('    assign ' + o.name + ' = ' + W(o.node) + ';');
+    L.push('endmodule');
+
+    if (!ins.length)  warn.push('沒有輸入元件，產生出來的模組沒有輸入埠。');
+    if (!outs.length) warn.push('沒有輸出元件，產生出來的模組沒有輸出埠。');
+    const bad = gates.filter(g => g.ins.some(n => !wire.has(n)));
+    if (bad.length) warn.push(bad.map(g=>g.ref).join('、') + ' 有輸入沒接上，那幾條會是 1\'bx。');
+    /* 回授迴路在 Verilog 裡是合法語法但會變成組合迴路，合成器會擋。
+       這裡沿用求解器的判斷，先講出來。 */
+    const r = solveLogic();
+    if (r.err) warn.push(r.err);
+
+    return { text: L.join('\n') + '\n', warn };
+}
+
+/* 產生的 Verilog 直接放進同一個框。改電路時 refreshNet() 會把摘要寫回去，
+   所以這是非破壞性的——不需要另外開視窗，也不會有「兩份不同步」的問題。 */
+$('vlogBtn').onclick = () => {
+    if (!isLogic()) return;
+    const v = toVerilog();
+    $('net').value = v.text;
+    if (v.warn.length) show('warn', 'Verilog 產生了，但有可疑的地方', v.warn);
+    else show('ok', 'Verilog 產生了', ['在上面那個框裡，可以直接複製。改電路會換回電路摘要。']);
+};
+
 /** 目前這組輸入下的結果，畫在畫布上（節點值）＋列出真值表。 */
 function runLogic(){
     const r = solveLogic();
