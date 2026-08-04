@@ -226,6 +226,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
            transition:transform .15s ease}
 .ans-row.open .ans-caret{transform:rotate(90deg);color:var(--accent)}
 .ans-why-row[hidden]{display:none}
+.ans-hr{border:0;border-top:1px solid var(--rule);margin:2px 0}
 .ans-tbl{border-collapse:collapse;width:100%;font:14px ui-monospace,Menlo,Consolas,monospace}
 .ans-tbl th,.ans-tbl td{padding:4px 7px;border-bottom:1px solid var(--rule);vertical-align:top}
 .ans-tbl th{color:var(--ink-3);font-weight:600;text-align:left;white-space:nowrap}
@@ -3984,9 +3985,10 @@ function ansNodes(k){
                    `<td>V(${n})</td><td class="n">${
                 t || '<span class="sub">這次結果裡沒有這個節點</span>'}</td></tr>`; })
         .join('');
-    return rows ? `<h4>節點電壓</h4><table class="ans-tbl">
-        <tr><th>節點</th><th style="text-align:right">數值</th></tr>${rows}</table>
-        <p class="ans-why">接地是 0 V。<b>點任一節點會在電路圖上亮起來</b>（再點一次取消）。</p>` : '';
+    /* 「接地是 0V」「點一下會亮起來」搬進 title：滑鼠停著查得到，不佔版面。 */
+    return rows ? `<h4>節點電壓</h4><table class="ans-tbl"
+            title="接地是 0 V。點任一節點會在電路圖上亮起來，再點一次取消。">
+        <tr><th>節點</th><th style="text-align:right">數值</th></tr>${rows}</table>` : '';
 }
 /** 每個元件的跨壓、電流、功率，附上用了哪條式子。 */
 function ansParts(k){
@@ -4013,12 +4015,13 @@ function ansParts(k){
                   `<td class="n">${i == null ? '—' : eng(v*i)+'W'}</td></tr>` +
                   `<tr class="ans-why-row" data-i="${ri}" hidden><td colspan="4" class="ans-why">${why}</td></tr>`);
     }
-    return rows.length ? `<h4>各元件</h4><table class="ans-tbl">
-        <tr><th>元件</th><th style="text-align:right">跨壓</th>
+    /* 正負號約定與「點一下展開」搬進 title。約定本身不能刪——沒有它會看錯號——
+       但它每次都一樣，擺在畫面上就是常駐雜訊。 */
+    return rows.length ? `<h4>各元件</h4><table class="ans-tbl"
+            title="點任一列展開算式。電流以第一支腳流向第二支腳為正；功率為正＝吸收，為負＝提供。">
+        <tr><th></th><th style="text-align:right">跨壓</th>
             <th style="text-align:right">電流</th><th style="text-align:right">功率</th></tr>
-        ${rows.join('')}</table>
-        <p class="ans-why"><b>點任一列展開算式</b>。電流以第一支腳流向第二支腳為正；
-           功率為正＝<b>吸收</b>，為負＝<b>提供</b>。</p>` : '';
+        ${rows.join('')}</table>` : '';
 }
 /** 功率守恆檢查：所有元件的功率加起來應該接近 0。 */
 function ansBalance(k){
@@ -4137,23 +4140,29 @@ function ansLoad(k){
            會讓人以為壞了。實測就踩到這個。 */
         const NM = n => n === '0' ? '接地' : 'V(' + n + ')';
         const dir = `${NM(na)} − ${NM(nb)}`;
+        /* 只有兩欄：符號與數值。原本第三欄「是什麼」每一列都在把符號名稱
+           再唸一次，六列常駐在畫面上。方向與正負號的約定改放 title——
+           那個約定不能刪（沒有它會看錯號），但它每次都一樣，不必一直佔位子。
+
+           上半是等效電路的三個參數，下半是接上去之後負載上的量，中間畫一條線分開。 */
+        const Pmax = (isFinite(R) && R > 1e-9 && Vth != null) ? Vth*Vth/(4*R) : null;
         const rows = [
-            ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—',
-             `負載拿掉後的開路電壓，方向是 ${dir}`],
-            ['R<sub>Th</sub>', eng(R) + 'Ω',
-             '把獨立電源歸零，從負載這兩點看進去'],
-            ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val, ''],
-            ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—', `負載兩端的電壓，方向是 ${dir}`],
-            ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—',
-             `流過負載的電流，從 ${p.ref} 的第一支腳流向第二支腳為正`],
-            ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—',
-             ''],
+            ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—'],
+            ['R<sub>Th</sub>', eng(R) + 'Ω'],
+            ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val],
+            ['—'],                                     // 分隔：以上是等效，以下是負載上的量
+            ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—'],
+            ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—'],
+            ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—'],
+            ['P<sub>max</sub>', Pmax != null ? eng(Pmax) + 'W' : '—'],
         ];
-        body = `<table class="ans-tbl">
-            <tr><th>量</th><th style="text-align:right">數值</th><th>是什麼</th></tr>
-            ${rows.map(([n,v,why]) =>
-              `<tr><td>${n}</td><td class="n">${v}</td><td class="sub">${why}</td></tr>`)
-             .join('')}</table>`;
+        body = `<table class="ans-tbl" title="V_Th 是負載拿掉後的開路電壓，方向是 ${dir}；`
+             + `R_Th 是把獨立電源歸零、從負載這兩點看進去；`
+             + `I_L 從 ${p.ref} 的第一支腳流向第二支腳為正；`
+             + `P_max 是 R_L 取 R_Th 時能拿到的最大功率。">
+            ${rows.map(r => r.length === 1
+                ? `<tr><td colspan="2"><hr class="ans-hr"></td></tr>`
+                : `<tr><td>${r[0]}</td><td class="n">${r[1]}</td></tr>`).join('')}</table>`;
 
         const why = [];
         /* 負號只代表參考方向，不是算錯。轉 180° 就全部翻正——講清楚，
@@ -4162,11 +4171,8 @@ function ansLoad(k){
             why.push(`<b>V<sub>Th</sub> 是負的，這不是算錯</b>：方向取 ${dir}，` +
                      `而實際上 ${NM(nb)} 比 ${NM(na)} 高。把 ${p.ref} 轉 180° 就會全部變正號，` +
                      `功率 P<sub>L</sub> 不受方向影響，永遠是正的。`);
-        why.push(`等效電路：<b>V<sub>Th</sub> = ${Vth != null ? eng(Vth) : '?'}V</b> 串 ` +
-                 `<b>R<sub>Th</sub> = ${eng(R)}Ω</b>，接上 R<sub>L</sub> = ${p.val}Ω。`);
-        if (pred != null)
-            why.push(`分壓：V<sub>L</sub> = V<sub>Th</sub> · R<sub>L</sub> / (R<sub>Th</sub> + R<sub>L</sub>) = ` +
-                     `${eng(Vth)} × ${eng(RLv)} ÷ (${eng(R)} + ${eng(RLv)}) = <b>${eng(pred)}V</b>。`);
+        /* 等效電路長什麼樣、分壓怎麼列——表格上面那三個數字已經講完了，
+           寫成句子只是再唸一次。留下面那行驗算結論就好，那才是結果。 */
         /* ★ 等效電路算出來的分壓，必須跟直接量到的負載電壓相同。
            這是「等效」兩個字唯一的意思，也是這張卡片最值得看的一行。 */
         const isOp = !!(simData && simData.x && simData.x.length === 1);
@@ -4184,13 +4190,11 @@ function ansLoad(k){
                 `實際量到 ${eng(meas.v)}V（差 ${(err*100).toFixed(1)}%）。` +
                 `電路裡若有二極體、電晶體這類非線性元件，戴維寧等效本來就不成立。`);
         }
-        if (isFinite(R) && R > 1e-9 && Vth != null){
-            const Pmax = Vth*Vth/(4*R), now = (vR != null && iR != null) ? vR*iR : null;
-            why.push(`<b>最大功率轉移</b>：R<sub>L</sub> 取 R<sub>Th</sub> = ${eng(R)}Ω 時功率最大，` +
-                     `P<sub>max</sub> = ${eng(Pmax)}W。` +
-                     (now != null && Pmax > 0
-                       ? `目前是 ${eng(now)}W，等於最大值的 ${(now/Pmax*100).toFixed(0)}%。` : '') +
-                     '');
+        /* P_max 本身已經是表格的一列。這裡只補「離最大值多遠」——
+           那是表格看不出來的比較，而且是最大功率轉移題唯一要回答的東西。 */
+        if (Pmax != null && Pmax > 0 && vR != null && iR != null){
+            const pct = vR*iR / Pmax * 100;
+            if (pct < 99.5) why.push(`目前 P<sub>L</sub> 是 P<sub>max</sub> 的 ${pct.toFixed(0)}%。`);
         }
         if (loadEq.removed && loadEq.removed.length > 1)
             why.push(`求等效時一起開路的還有：${loadEq.removed.filter(r=>r!==p.ref).join('、')}` +
@@ -4228,10 +4232,7 @@ function ansThevenin(){
       </div>
       <label class="chk" for="thKeep"><input type="checkbox" id="thKeep">
         <span>把跨接在這兩點之間的元件留著</span></label>
-      <div id="thOut" class="ans-why" style="margin-top:6px">
-        R<sub>th</sub>、V<sub>th</sub>、I<sub>N</sub> 三個量會各跑一次獨立的分析，
-        分別用自己的定義去求，最後再互相驗算。預設會先把跨接在這兩點之間的負載移除
-        ——那是戴維寧定義的一部分。</div>`;
+      <div id="thOut" class="ans-why" style="margin-top:6px"></div>`;
 }
 function renderAnswer(){
     const box = $('ansBox');
@@ -4249,9 +4250,7 @@ function renderAnswer(){
           (cursorIdx != null ? '（游標所在）' : '（最後一點）') + '</p>'
         : '<p class="sub">直流工作點（.op），只有一組值。</p>';
     bindAnswer(box);
-    box.innerHTML = at + ansLoad(k) + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin() +
-        /* 這一句不是旁白，是誠實的限制：模擬只給得出數值。 */
-        '<p class="ans-why" style="margin-top:10px">模擬只給數值，證明題與推導要自己寫。</p>';
+    box.innerHTML = at + ansLoad(k) + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin();
     const go = $('thGo');
     if (go) go.onclick = async () => {
         const a = $('thA').value, b = $('thB').value, out = $('thOut');
