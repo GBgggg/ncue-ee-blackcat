@@ -1228,6 +1228,9 @@
                 </div>
                 <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
                     <button type="button" class="logo-menu-item" data-go="home" role="menuitem">回首頁</button>
+                    <button type="button" class="logo-menu-item" data-go="about" role="menuitem">
+                        關於小黑貓<small>更新紀錄與使用說明</small>
+                    </button>
                     <a class="logo-menu-item" href="blackcatspice.html" role="menuitem">
                         電路模擬器<small>免安裝，用電腦開</small>
                     </a>
@@ -1235,7 +1238,11 @@
             </div>
 
             <nav id="mainNav" class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
-                <!-- JS 動態生成分頁按鈕 -->
+                <!-- JS 動態生成三大分頁按鈕 -->
+            </nav>
+            <!-- 第二排：目前大分頁底下的子分頁。電路那一頁沒有子分頁，整排會收起來 -->
+            <nav id="subNav" class="w-full flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-2 order-4 mt-1 pb-1 touch-pan-x">
+                <!-- JS 動態生成 -->
             </nav>
 
             <div class="relative order-2 md:order-none">
@@ -1327,7 +1334,13 @@
                 </div>
             </div>
 
-            <!-- 共用區塊：最新消息與常用連結 -->
+        </div>
+
+        <!-- ==================== 消息與連結（彰師電子） ====================
+             原本長在首頁裡，跟自編課表擠在同一個容器。拆分之後課表屬於
+             小黑貓（誰都用得上），消息與連結是校系專屬的（分類就是共同／新生／舊生），
+             兩者歸屬不同大分頁，所以必須真的拆成兩個 page-section。 -->
+        <div id="page-news" class="page-section hidden">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-5 md:gap-8">
                 <div class="lg:col-span-2 bg-white rounded-3xl p-6 shadow-sm border border-slate-100 relative">
                     <div class="flex justify-between items-center mb-6">
@@ -2394,11 +2407,31 @@
         // 分類 → 顯示文字（含舊資料 elective 的相容對應）
         const categoryMap = Object.fromEntries([...CATEGORIES, ['elective','系選修']]);
 
+        /* 三大分頁。每一個底下掛一組現有的 page-section 當子分頁——
+           DOM 一塊都沒有搬，只是在上面多一層路由。
+           會這樣做是因為 page-section 是幾百行的大塊，搬動它們的風險
+           遠高於這件事的收益，而且搬錯不會報錯、只會有一頁打不開。
+
+           ★ 「首頁」不再是分頁名稱：小黑貓底下的第一個子分頁是課表。
+           原本擠在首頁裡的「最新消息／常用連結」屬於彰師電子（分類就是
+           共同／新生／舊生），已經切成獨立的 #page-news。 */
         const TABS = [
-            // 「測驗」已併入「學習」，不再是頂層分頁
-            ['home','首頁'], ['evaluation','課程'], ['self-study','學習'],
-            ['finance','理財'], ['about','關於黑貓'], ['management','管理']
+            ['cat','小黑貓'], ['ncue','彰師電子'], ['circuit','電路']
         ];
+        const GROUP_SUBS = {
+            cat:  ['home','self-study','finance'],
+            ncue: ['evaluation','quiz','news','management'],
+            circuit: []           // 模擬器是獨立頁面，點了直接跳過去
+        };
+        const SUB_LABEL = {
+            home:'課表', 'self-study':'學習', finance:'理財',
+            evaluation:'課程評價', quiz:'測驗', news:'消息與連結', management:'管理'
+        };
+        /* 反查：某個 page-section 屬於哪一個大分頁。
+           手動維護兩份對照表遲早會不一致，所以由上面那張表算出來。 */
+        const GROUP_OF = Object.fromEntries(
+            Object.entries(GROUP_SUBS).flatMap(([g, subs]) => subs.map(x => [x, g])));
+        const CIRCUIT_URL = 'blackcatspice.html';
         const NEWS_CATEGORIES = ['共同','新生','舊生'];
         const FILTERS = [
             ['all','全部'], ['1-1','一上'], ['1-2','一下'], ['2-1','二上'], ['2-2','二下'],
@@ -2467,6 +2500,33 @@
         };
 
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
+
+        /* ★ 拆分之後有兩條互不相干的階梯：
+             currentUserLevel — 貓族階級，只管彰師電子（課程、教材、測驗、消息）
+             currentUserTier  — 小黑貓，管通用功能（自學課程、英文閱讀、單字庫）
+           每一個舊的 currentUserLevel 判斷都必須回答「這一條屬於哪一套」，
+           而且**答錯不會報錯**——只會變成某個階級的人突然不能做某件事，
+           只有正好是那個階級的人會遇到，他多半也不會回報。
+           所以下面每一處都留了歸屬註記。 */
+        let currentUserTier = 0;                          // 0 訪客 1 一般 2 會員 3 管理員
+        let currentUserTierField = null;                  // 文件上的原始值（可能不存在）
+        const TIER_LEVELS = { '管理員':3, '會員':2, '一般':1 };
+        /* 跟 firestore.rules 的 tier() 是同一套換算，包含「舊帳號沒有 tier 欄位」
+           的後備：星族→管理員、族長以上→會員、其餘→一般。
+           兩邊不一致的話，畫面上看得到按鈕但按下去被規則拒絕（或反過來，
+           明明有權限卻看不到入口）——兩種都不會有錯誤訊息。 */
+        /* ★ 認不得的 tier 值要退到「一般」，**不能**掉回 role 的後備換算。
+           第一版寫成「認得就用、認不得就走後備」，看起來很寬容，
+           但規則那邊是 `.get(userDoc().tier, 1)`——認不得一律當一般。
+           於是一個 tier 打錯字的星族，在畫面上是管理員、在規則裡是一般：
+           按鈕都在，按下去全部被拒，而且沒有任何錯誤訊息。
+           這個不一致是 tests/tier.mjs 的交叉比對抓到的，不是我看出來的。 */
+        const tierOf = (tierField, level) =>
+            tierField == null
+              ? (level >= 5 ? 3 : level >= 3 ? 2 : level >= 1 ? 1 : 0)
+              : (TIER_LEVELS[tierField] != null ? TIER_LEVELS[tierField] : 1);
+        const catAtLeast = (n) => currentUserTier >= n;    // 小黑貓
+        const isCatAdmin = () => currentUserTier >= 3;
         let userDisplayName ='無名小貓', userSchedule = {};
         let searchQuery ='', activeSemesterFilter ='all', selectedFilterCourseId = null;
 
@@ -2618,6 +2678,12 @@
                 date: '2026-07-29',
                 title: '電路模擬器',
                 items: [
+                    ['權限拆成兩條互不相干的階梯', '原本整站只有一條階梯：見習生、戰士、族長、巫醫、星族。拆分之後貓族階級只管彰師電子那一側——課程評價、分級教材、測驗、消息與連結；通用功能改看另一條：一般、會員、管理員。兩者互不換算，一個人可以是彰師電子的星族但小黑貓的一般使用者。真正花時間的不是寫新的判斷，是把原本二十幾處的舊判斷一個一個回答「這條屬於哪一套」。答錯不會報錯，只會變成某個階級的人突然不能做某件事，而且只有正好是那個階級的人會遇到，他多半也不會回報，只會覺得這個網站怪怪的。所以每一處都留了歸屬註記，原本那張混著兩種權限的元素清單也拆成兩張——不拆的話，小黑貓的管理員看不到自學課程的新增鈕，而彰師電子的巫醫卻看得到英文閱讀的匯入鈕。'],
+                    ['現有帳號一個都不會掉權限，因為規則裡留了一段後備換算', '新的階梯需要在使用者資料上多一個欄位，但現有的帳號通通沒有那個欄位。如果規則直接看它，上線那一秒所有人都會掉到最低階，按什麼都是權限不足——而且資料庫不會留下任何錯誤紀錄，只有使用者自己發現做不了事。所以規則裡寫了一段後備：欄位不存在時就照原本的階級推一個出來，星族當管理員、族長以上當會員、其餘一般。選這個而不是「先跑一次回填腳本」，理由跟之前搬資料庫那次一樣——能讓「忘記做某個步驟」不會造成損害的設計，比「記得做某個步驟」的流程可靠。另外也補了一道門：新欄位跟原本的階級一樣不能自己改，漏掉的話任何人在瀏覽器主控台打一行就是管理員。'],
+                    ['交叉比對抓到一個畫面說有、規則說沒有的權限', '前端算出來的階級決定按鈕給不給看，規則算出來的決定寫不寫得進去。兩邊一旦不一致，症狀是畫面上按鈕都在、按下去全部被拒（或反過來，明明有權限卻找不到入口），而且兩種都沒有錯誤訊息。所以測試把兩邊的換算各自從原始碼抽出來，餵同一組輸入比對，掃過五個階級乘上所有可能的欄位值。第一次跑就紅了：欄位值打錯字的時候，規則一律當成最低階，而我寫的前端卻會退回去看原本的階級——於是一個欄位打錯的星族，在畫面上是管理員、在規則裡是一般。這個不一致是測試抓到的，不是我看出來的，而且用眼睛看兩段程式碼大概也看不出來。'],
+                    ['網站拆成三大分頁：小黑貓、彰師電子、電路', '原本六個頂層分頁——首頁、課程、學習、理財、關於黑貓、管理——擠在同一排，而其中一半的東西跟彰師電子一點關係都沒有。課表是自己編的、記帳投資是自己的錢、單字本跟英文閱讀誰都用得上，只有課程評價與分級教材是校系專屬。現在改成三個大分頁：小黑貓收課表、學習、理財，彰師電子收課程評價、測驗、消息與連結，電路就是模擬器。對外名稱也跟著改成「小黑貓」，彰師電子降成其中一個分頁。做法上刻意沒有搬動任何一塊頁面——那些區塊動輒幾百行，搬動的風險遠高於收益，而且搬錯不會報錯，只會有某一頁打不開。所以是在原本的頁面上面多加一層路由，大分頁決定顯示哪一組子分頁，子分頁對到原本就存在的頁面。唯一真的動刀的地方是首頁：最新消息與常用連結原本跟課表擠在同一個容器裡，但課表屬於小黑貓、消息的分類卻是共同／新生／舊生這種校系專屬的東西，兩者歸屬不同的大分頁，只好真的切成兩塊。'],
+                    ['分頁改完之後，測試不再只是「載得起來」，而是每一頁真的按過一遍', '這種重排最容易出的錯是某一頁點了沒反應，或是兩頁疊在一起顯示——兩種都不會有錯誤訊息。所以測試改成真的把每個大分頁、每個子分頁都切一遍，走完換頁那整條鏈，任何一個環節找錯元素都會在那裡炸出來；切完之後再數一次「畫面上開著的頁面剛好是一個」，兩頁都開跟一頁都沒開一樣是壞的。寫的過程自己踩了兩個坑，而且兩個都長得像通過。一個是測試程式碼寫在樣板字串裡卻用了反引號，整支測試檔變成語法錯；另一個更陰險：正規表示式裡的反斜線被樣板字串吃掉，抓頁面清單的樣式變成抓不到任何東西，於是「同時只有一頁開著」這條檢查數的是一個空陣列——空集合上的判斷永遠成立，畫面上就是一條漂亮的通過。所以另外加了一條「到底數到幾頁」，讓空的跟對的分得出來。'],
+                    ['加分頁的時候差點又把首頁弄成白畫面', '新的子分頁列每次換大分頁都會重畫，而管理那顆按鈕的顯示與否本來是登入流程在管的，所以我在重畫的地方順手叫了一次那支函式。問題是頁面初始化跑在登入狀態確定之前，那時候還沒有使用者，函式裡直接讀使用者的信箱，整個程式當場掛掉、首頁全白。這次是測試先抓到的——上一批剛補的那支主站測試，它會真的把初始化跑一遍。如果是上禮拜，這個錯會一路發布出去，而且我完全不會知道。修法是不要呼叫那支函式，直接用一個從零開始、永遠有值的階級變數判斷就好。'],
                     ['主站三千行程式碼一直沒有任何測試，直到差點把首頁改成白畫面', '改更新紀錄的時候把字串拼錯，變成兩個相鄰的字面值，那是語法錯——整個程式區塊一行都不會執行，首頁會是一片白。而當時整套測試是全綠的：三十八支測試檔載的全是模擬器那個檔案，沒有任何一支碰過主站。模擬器早就有一支「把程式真的載入一次」的測試，主站什麼都沒有，等於三千多行的初始化程式碼完全沒有守衛。抓到它純粹是運氣，我剛好習慣改完資料就把它執行一次確認結構，才先撞到語法錯。現在補上同一層防護：每一段程式先逐段剖析（語法錯就是白畫面，這一條直接對應這次的事）、整包真的載入一次（抓宣告順序那類靜態檢查看不到的錯）、而且要真的觸發一次開站流程——主站的初始化全在載入完成事件裡，只把檔案讀進來等於什麼都沒跑，第一版就是這樣，跑完是綠的但畫面上空空如也。最後再把更新紀錄這類資料表抽出來執行，確認每一項都是完整的兩段文字，少一個逗號的話畫面上會安靜地印出 undefined。照慣例每一條都故意弄壞一次確認會紅——其中一次弄壞的時候測試自己中斷了，後面十幾條一條都沒跑，那不是紅是沒測到，這個專案在同一件事上已經栽過第二次了。'],
                     ['AI 講解上線後複查，抓到一個快取把跨網站權限標頭一起存起來的問題', '講解會快取——同一張電路問同一件事，答案本來就一樣，存起來既快又省額度。但快取存下來的是「整個回應」，包含那個決定「哪個網站可以讀這份資料」的標頭，而第一版的快取鍵只看電路內容。這代表我在本機測過的某張電路，線上使用者打同一張電路時會命中同一份快取，拿到的標頭卻寫著「只有本機可以讀」，於是瀏覽器直接擋掉，畫面顯示講解失敗。麻煩的是伺服器那邊從頭到尾都是成功的回應，日誌上完全看不出異常，症狀只有「有些人的某些電路按了沒反應」，而且隔一天快取過期又自己好了——又是這個專案最常踩的那一類：壞掉的時候看起來像正常的。修法是把來源網站併進快取鍵，白名單只有四個網站，多幾筆快取無所謂。測試照這個專案的規矩寫——不是檢查原始碼裡有沒有出現那個字，而是把產生快取鍵的那一行抽出來真的執行，餵兩個不同來源比對，再加一組對照確認把來源拿掉時它會紅。'],
                     ['解題卡多了「AI 講解」，但模型不負責計算', '按下去會把電路交給模型，請它把算式串成看得懂的推導過程。關鍵的設計是：模型不算數學。答案是 SPICE 引擎算出來的，節點法與網目法的方程式是解題卡列的，而且都通過了回代殘差檢查——這些全部一起送過去，模型的工作只剩下把它們講成人話。指令裡明白寫著不要自己計算、不要修改任何數字、就算覺得哪裡怪也照著寫。理由很實際：模型自己解電路錯誤率高，而且錯得很難察覺，講得頭頭是道但數字是錯的，那正好是這個專案最怕的那種錯。畫面上也標明「數字來自模擬器，不是模型算的」，不讓人誤會來源。'],
@@ -2924,10 +2990,11 @@
         // 首頁看起來正常只是因為範本沒給它 text-slate-400。
         const NAV_ACTIVE = ['is-active'];
         function buildStaticUI() {
-            $('mainNav').innerHTML = TABS.map(([tab, label]) => `
-                <button data-tab="${tab}" ${tab ==='management' ?'id="navManagementTab"' :''}
-                    class="tab-btn ${tab ==='management' ?'hidden' :''} whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab ==='home' ? NAV_ACTIVE.join(' ') :''}">${label}</button>
+            $('mainNav').innerHTML = TABS.map(([g, label]) => `
+                <button data-group="${g}"
+                    class="tab-btn whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all ${g ==='cat' ? NAV_ACTIVE.join(' ') :''}">${label}</button>
             `).join('');
+            renderSubNav('cat');
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
                 <button data-action="news-tab" data-cat="${cat}"
@@ -2949,13 +3016,66 @@
         /* ==========================================================
          * 7. 分頁切換
          * ========================================================== */
+        /* 目前的大分頁。子分頁列跟著它換。 */
+        let activeGroup = 'cat';
+
+        /* ★ 不要寫成 classList.toggle(...NAV_ACTIVE, cond)。
+           NAV_ACTIVE 現在只有一個 class，展開之後剛好變成
+           toggle('is-active', cond) 而看起來是對的——哪天它多一個 class，
+           第二個 class 就會被當成 force 參數，而且不會報錯。 */
+        const markGroup = (g) => document.querySelectorAll('#mainNav .tab-btn').forEach(b => {
+            const on = b.dataset.group === g;
+            NAV_ACTIVE.forEach(c => b.classList[on ? 'add' : 'remove'](c));
+        });
+
+        function renderSubNav(group) {
+            activeGroup = group;
+            const subs = GROUP_SUBS[group] || [];
+            $('subNav').innerHTML = subs.map(x => `
+                <button data-tab="${x}" ${x ==='management' ?'id="navManagementTab"' :''}
+                    class="sub-tab-btn ${x ==='management' ?'hidden' :''} whitespace-nowrap shrink-0 px-3 py-1.5 rounded-lg text-xs font-bold transition-all">${SUB_LABEL[x] || x}</button>
+            `).join('');
+            /* 只有一個子分頁時整排藏起來——一顆孤零零的按鈕比沒有還難懂。
+               電路那一組是空的，也走這條。 */
+            $('subNav').classList.toggle('hidden', subs.length <= 1);
+            /* ★ 管理鈕平常是 updateAdminUI() 在管，但那支只在登入狀態變化時跑，
+               而這一排是每次換大分頁都重畫的。不補這一行的話，
+               已經登入的巫醫切到彰師電子就看不到管理——而且不會有任何錯誤，
+               那顆鈕只是不見了。
+               ★ 這裡不能直接叫 updateAdminUI()：buildStaticUI 在
+               onAuthStateChanged 之前就跑了，那時候還沒有使用者，
+               它會在 user.email.split 上炸掉、整個模組載入失敗、畫面全白。
+               （這條是 mainsmoke 抓到的，不是我想到的。）
+               currentUserLevel 從 0 開始、永遠有值，直接用它就好。 */
+            const mgBtn = $('navManagementTab');
+            if (mgBtn) mgBtn.classList.toggle('hidden', currentUserLevel < 4);
+        }
+
+        /* 測試要能從外面叫得動這幾支（模組作用域是封閉的）。
+           掛在 window 上不影響瀏覽器行為，但讓 mainsmoke 可以真的按一遍分頁。 */
+        function switchGroup(group) {
+            if (group === 'circuit') { location.href = CIRCUIT_URL; return; }
+            markGroup(group);
+            renderSubNav(group);
+            switchTab((GROUP_SUBS[group] || [])[0]);
+        }
+
         function switchTab(tab) {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
+            /* 子分頁可能不屬於目前的大分頁（例如 logo 選單直接跳「關於」），
+               所以先把大分頁校正回來，不然導覽列會停在錯的地方。 */
+            const g = GROUP_OF[tab];
+            if (g && g !== activeGroup) {
+                markGroup(g);
+                renderSubNav(g);
+            }
+            document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
 
             document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
-            const activePage = $(`page-${tab}`);
+            /* 「測驗」的畫面住在 #page-quiz，交給 switchStudySub 開；
+               這裡先拿 #page-quiz 當作 activePage 讓動畫與載入照舊。 */
+            const activePage = $(`page-${tab === 'quiz' ? 'quiz' : tab}`);
             activePage.classList.remove('hidden');
             // 重播進場動畫：先移除再強制 reflow 後加回
             activePage.classList.remove('page-enter');
@@ -2979,7 +3099,8 @@
             }
             // 學習頁含四個子分頁，其中測驗／單字庫實際住在 #page-quiz，
             // 交給 switchStudySub 決定要顯示哪一個 page-section
-            if (tab ==='self-study') switchStudySub(studySub);
+            if (tab ==='self-study') switchStudySub(STUDY_SUBS.includes(studySub) ? studySub : 'course');
+            if (tab ==='quiz') switchStudySub('kahoot');
             if (tab ==='finance') renderFinance();
             icons();
         }
@@ -3822,7 +3943,11 @@
          * 由這裡決定要顯示 #page-self-study 還是 #page-quiz，
          * 兩邊都放同一份子分頁列，所以使用者感覺就是同一頁的四個子分頁。
          * ========================================================== */
-        const STUDY_SUBS = ['course','reading','kahoot','vocab'];
+        /* ★ 'kahoot' 特意不在這裡：測驗歸彰師電子，是大分頁底下的子分頁，
+   不再是「學習」裡的一個選項。但 switchStudySub('kahoot') 仍然要能用——
+   測驗的畫面機制沒有變，變的只是從哪裡進去。 */
+        const STUDY_SUBS = ['course','reading','vocab'];
+        const ALL_STUDY_SUBS = ['course','reading','kahoot','vocab'];
         let studySub ='course';
         // 舊變數保留別名，避免其他地方引用時出錯
         let quizSub ='kahoot';
@@ -3839,7 +3964,7 @@
         }
 
         function switchStudySub(sub) {
-            studySub = STUDY_SUBS.includes(sub) ? sub :'course';
+            studySub = ALL_STUDY_SUBS.includes(sub) ? sub :'course';
             quizSub = (studySub ==='vocab') ?'vocab' :'kahoot';
 
             // 測驗與單字庫住在另一個 page-section，這裡決定顯示哪一個
@@ -4514,12 +4639,12 @@
             const el = $('readingList');
             if (!el) return;
             if (state.articles.length === 0) {
-                el.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有文章${currentUserLevel >= 4 ?'，按上方「匯入文章」加入最新的 Global Voices 文章' :'，等巫醫匯入文章'}</div>`;
+                el.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有文章${isCatAdmin() ?'，按上方「匯入文章」加入最新的 Global Voices 文章' :'，等巫醫匯入文章'}</div>`;
                 return;
             }
             el.innerHTML = state.articles.map(a => `
                 <div data-action="reading-open" data-id="${a.id}" class="cursor-pointer bg-white rounded-2xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all relative">
-                    ${currentUserLevel >= 4 ? `<button data-action="delete" data-type="article" data-id="${a.id}" class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                    ${isCatAdmin() ? `<button data-action="delete" data-type="article" data-id="${a.id}" class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
                     <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 pr-6">${escapeHTML(a.topic ||'')}</div>
                     <h4 class="font-black text-slate-900 mb-1 leading-snug break-words pr-6">${escapeHTML(a.title)}</h4>
                     <p class="text-xs text-slate-400">${escapeHTML(a.source ||'')}${a.author ?' ·' + escapeHTML(a.author) :''}</p>
@@ -4529,7 +4654,8 @@
         }
 
         async function importArticles() {
-            if (currentUserLevel < 4) return showToast("只有巫醫以上才能匯入文章！");
+            // 小黑貓：英文閱讀是通用功能，看 tier 不看貓族階級
+            if (!isCatAdmin()) return showToast("只有小黑貓管理員才能匯入文章！");
             const exists = (a) => state.articles.some(x => (x.sourceUrl && x.sourceUrl === a.sourceUrl) || (x.title === a.title && x.source === a.source));
             const toAdd = ARTICLE_IMPORTS.filter(a => a.title && (a.paragraphs || []).length && !exists(a));
             if (toAdd.length === 0) return showToast("目前沒有新文章可匯入");
@@ -4582,7 +4708,8 @@
         const vocabBookPath = (scope) => scope ==='mine' ? PU('vocabBooks') : PATHS.vocabBooks;
         const vocabWordPath = (scope) => scope ==='mine' ? PU('vocabWords') : PATHS.vocabWords;
         // 自己的東西自己全權管理；公有的要巫醫以上
-        const canEditVocab = (scope) => scope ==='mine' ? isSignedInMember() : currentUserLevel >= 4;
+        // 小黑貓：單字庫是通用功能。自己的冊子誰都能建，公有的要管理員
+        const canEditVocab = (scope) => scope ==='mine' ? isSignedInMember() : isCatAdmin();
 
         function updateVocabScopeUI() {
             document.querySelectorAll('.vocab-scope-opt').forEach(btn => {
@@ -4780,6 +4907,7 @@
         let kahootScope ='public';   //'public' |'mine'
         const kahootsOf = (scope) => scope ==='mine' ? state.myKahoots : state.kahoots;
         const kahootPath = (scope) => scope ==='mine' ? PU('kahoots') : PATHS.kahoots;
+        // 彰師電子：測驗留在那一側，門檻沿用貓族階級（巫醫以上）
         const canEditKahoot = (scope) => scope ==='mine' ? isSignedInMember() : currentUserLevel >= 4;
 
         function updateShuffleToggleUI() {
@@ -5170,10 +5298,16 @@
         // 注意：openCreateKahootBtn / addVocabBookBtn / addVocabWordBtn 已從這裡移除。
         // 它們的顯示與否改由「公有／我的」決定——自己的單字冊與測驗人人都能建，
         // 只有公有的才需要 Lv4。相關邏輯在 updateVocabScopeUI / updateKahootScopeUI / renderVocabWords。
-        const LEVEL4_ELEMENT_IDS = [
+        /* ★ 這張表原本混著兩種東西。拆分之後必須分家，
+           不然「小黑貓的管理員」看不到自學課程的新增鈕，
+           而「彰師電子的巫醫」卻看得到英文閱讀的匯入鈕——
+           兩種都只是按鈕在不在，不會有任何錯誤訊息。 */
+        const LEVEL4_ELEMENT_IDS = [          // 彰師電子：巫醫(4)以上
 'navManagementTab','adminUploadSection','importCoursesSection',
-'addSelfStudyCourseBtn','addSelfStudyUnitBtn',
-'addNewsBtn','addLinkBtn','importArticlesBtn'
+'addNewsBtn','addLinkBtn'
+        ];
+        const CAT_ADMIN_ELEMENT_IDS = [       // 小黑貓：管理員
+'addSelfStudyCourseBtn','addSelfStudyUnitBtn','importArticlesBtn'
         ];
 
         function updateAdminUI() {
@@ -5203,10 +5337,15 @@
                 adminBtn.className ='flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold bg-slate-900 text-white';
             }
 
-            // 巫醫 (Lv4) 以上功能
+            // 彰師電子：巫醫 (Lv4) 以上功能
             LEVEL4_ELEMENT_IDS.forEach(id => {
                 const el = $(id);
                 if (el) el.classList.toggle('hidden', currentUserLevel < 4);
+            });
+            // 小黑貓：管理員功能（自學課程、英文閱讀）
+            CAT_ADMIN_ELEMENT_IDS.forEach(id => {
+                const el = $(id);
+                if (el) el.classList.toggle('hidden', !isCatAdmin());
             });
 
             // 星族 (Lv5) 專屬：名冊訂閱與星族大會
@@ -5224,7 +5363,9 @@
                 state.allUsers = [];
             }
 
-            // 權限不足時離開管理頁
+            /* 權限不足時離開管理頁。管理頁屬於彰師電子，所以看貓族階級。
+               ★ 退到 'home'（課表）而不是原本的首頁——拆分之後 'home' 是
+               小黑貓底下的第一個子分頁，誰都進得去。 */
             if (currentUserLevel < 4 && !$('page-management').classList.contains('hidden')) {
                 switchTab('home');
             }
@@ -5443,6 +5584,7 @@
         }
 
         async function saveNewCourse() {
+            // 彰師電子：新增學校課程
             if (currentUserLevel < 4) return showToast("權限不足喔！");
             const name = getVal('newCourseName');
             const instructor = getVal('newInstructor');
@@ -5650,11 +5792,13 @@
                         // 存在個人資料文件裡的話星族會連帶讀到（見下方 loadPrivateSchedule 說明）。
                         await setDoc(userRef, { email: user.email, role:'見習生', displayName:'無名小貓', theme: currentTheme, createdAt: Date.now() });
                         currentUserRole ='見習生';
+                        currentUserTierField = null;      // 新帳號不寫 tier，走後備換算
                         userDisplayName ='無名小貓';
                         userSchedule = {};
                     } else {
                         const data = userSnap.data();
                         currentUserRole = data.role ||'見習生';
+                        currentUserTierField = data.tier ?? null;   // 舊帳號沒有這個欄位
                         userDisplayName = data.displayName ||'無名小貓';
                         // 套用此帳號上次選擇的顯示模式
                         if (data.theme) applyTheme(data.theme);
@@ -5667,6 +5811,7 @@
                     return;
                 }
                 currentUserLevel = ROLE_LEVELS[currentUserRole] || 1;
+                currentUserTier = tierOf(currentUserTierField, currentUserLevel);
                 isAdmin = (currentUserLevel === 5);
 
                 $('home-guest-hero').classList.add('hidden');
@@ -5681,6 +5826,8 @@
                 isAdmin = false;
                 currentUserRole ="訪客";
                 currentUserLevel = 0;
+                currentUserTier = 0;
+                currentUserTierField = null;
                 userDisplayName ="無名小貓";
                 userSchedule = {};
 
@@ -5732,7 +5879,8 @@
 'remove-draft-q':  (t) => removeDraftQ(parseInt(t.dataset.index)),
 'edit-draft-q':    (t) => editDraftQ(parseInt(t.dataset.index)),
 'open-add-course': () => {
-                if (currentUserLevel < 4) return showToast("你的階位還不夠新增課程喔！");
+                // 彰師電子：學校課程
+            if (currentUserLevel < 4) return showToast("你的階位還不夠新增課程喔！");
                 openModal('courseModal');
             },
 'next-review-step': () => {
@@ -5879,6 +6027,8 @@
             }
 
             // 分頁按鈕
+            const grpBtn = e.target.closest('[data-group]');
+            if (grpBtn) { switchGroup(grpBtn.dataset.group); return; }
             const tabBtn = e.target.closest('[data-tab]');
             if (tabBtn) { switchTab(tabBtn.dataset.tab); return; }
 
@@ -6010,6 +6160,7 @@
         const courseLocation = (c) => COURSE_LOCATIONS[courseKey(c)] ||'';
 
         async function importEECourses() {
+            // 彰師電子：匯入學校課程
             if (currentUserLevel < 4) return showToast("只有巫醫以上才能匯入課程！");
             const btn = $('importEECoursesBtn');
             const same = (a, b) => a.name === b.name && a.instructor === b.instructor &&
@@ -6054,6 +6205,10 @@
                     e.preventDefault();
                     setLogoMenu(logoMenu.classList.contains('hidden'));
                 }
+            });
+            const goAbout = logoMenu.querySelector('[data-go="about"]');
+            if (goAbout) goAbout.addEventListener('click', () => {
+                setLogoMenu(false); switchTab('about'); scrollTopSmooth();
             });
             logoMenu.querySelector('[data-go="home"]').addEventListener('click', () => {
                 setLogoMenu(false); switchTab('home');
@@ -6218,7 +6373,9 @@
         setTimeout(hideSplash, 6000);
 
         const TAB_DATA = {
-'home':       ['news','links','courses'],
+'home':       ['courses'],          // 課表要對到課程名稱
+'news':       ['news','links'],     // 消息與連結搬去彰師電子了
+'quiz':       ['kahoots','courses'],
 'evaluation': ['courses','reviews','matWarrior','matLeader'],
             // 測驗與單字庫已併入學習頁，四個子分頁的資料集在此一併載入
             // （自學課程與測驗的管理表單會關聯「學校課程」，故需要 courses）
@@ -6239,7 +6396,10 @@
             keys.forEach(key => {
                 if (activeSubs[key] || !SUB_MAP[key]) return;
                 const { path, sort, render, minLevel, private: isPrivate } = SUB_MAP[key];
-                // 階級不足就別訂閱：規則會拒絕，硬訂閱只會讓整個 listener 報錯
+                /* 階級不足就別訂閱：規則會拒絕，硬訂閱只會讓整個 listener 報錯。
+                   目前有 minLevel 的三個集合（分級教材 ×2、測驗）都屬於彰師電子，
+                   所以這裡看的是貓族階級。日後若有通用集合要設門檻，
+                   要另外開一個 minTier 欄位，不要把兩套混進同一個判斷。 */
                 if (minLevel && currentUserLevel < minLevel) return;
                 // 私人資料要登入才有路徑（匿名帳號也不算）
                 if (isPrivate && !(auth.currentUser && !auth.currentUser.isAnonymous)) return;
@@ -6276,6 +6436,8 @@
             renderKahoots();
             renderVocabBooks();
         }
+
+        Object.assign(window, { TABS, GROUP_SUBS, GROUP_OF, switchGroup, switchTab });
 
         window.onload = () => {
             buildStaticUI();

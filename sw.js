@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v36';
+const CACHE = 'blackcat-v38';
 const CORE = ['./', './index.html', './image.png', './manifest.json',
               './blackcatspice.html'];   // 電路模擬器（獨立頁）
 const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
