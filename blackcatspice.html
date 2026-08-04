@@ -389,7 +389,6 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
       <button class="tab on" data-tab="ideal" role="tab">理想<small>電路學／電子學考題的預設</small></button>
       <button class="tab"    data-tab="real"  role="tab">現實<small>加上寄生參數與真實模型</small></button>
       <button class="tab"    data-tab="fpga"  role="tab">FPGA<small>數位邏輯閘與真值表</small></button>
-      <button class="tab"    data-tab="prob"  role="tab">題目<small>課本習題，可直接跑</small></button>
     </div>
 
     <!-- 右側群組要包成一個，不然工具列換行時 spacer 失效。 -->
@@ -953,13 +952,14 @@ let truthRows = null;      // 上一次算出來的真值表（解題卡要重�
    畫面全白。node --check 看不出來，只有冒煙測試會抓到。 */
 let tab = 'ideal';
 const docs = {};
-const TABS = ['ideal','real','fpga','prob'];
-const TAB_LABEL = { ideal:'理想', real:'現實', fpga:'FPGA', prob:'題目' };
+const TABS = ['ideal','real','fpga'];
+const TAB_LABEL = { ideal:'理想', real:'現實', fpga:'FPGA' };
 const isLogic = () => tab === 'fpga';
-/* 題目分頁：行為跟理想分頁一樣（同一套元件、同一套分析），
-   差別只在工具列的下拉選單列的是題庫而不是範例，而且會多一張題目卡。
+/* 題目不是獨立分頁，就長在理想分頁裡——課本習題本來就是理想元件的題目，
+   分出去只會讓人先選分頁再選題，而且兩邊的電路還不能互通。
+   現在同一個下拉選單分成兩組：上面是範例，下面是題目。
    ★ 跟 isLogic 一樣放在狀態區——buildAna／refreshNet 在載入時就會呼叫。 */
-const isProb = () => tab === 'prob';
+const isProb = () => tab === 'ideal';
 /* ★ 目前選到的題目。放在狀態區而不是題目卡那一段——applyTab() 在載入時
    就會呼叫 drawProblem()，宣告在下面的話又是一次暫時性死區。 */
 let probCard = null;
@@ -1550,6 +1550,10 @@ function stashTab(){
     const d = docOf(tab);
     d.s = sch; d.seq = seq;
     d.a = $('anaSel').value; d.v = anaVals;
+    /* 題目卡是這張電路的一部分，要跟著分頁收好。不收的話，
+       在理想頁選了一題再切去現實頁，題目卡會留在旁邊，
+       但畫布上已經是另一張無關的電路了。 */
+    d.prob = probCard;
 }
 /** 把某個分頁的抽屜攤到畫面上。 */
 function applyTab(t){
@@ -1557,6 +1561,7 @@ function applyTab(t){
     realMode = tab === 'real';
     const d = docOf(tab);
     sch = d.s; seq = d.seq; sel = []; clip = clip;   // 剪貼簿刻意跨分頁共用
+    probCard = d.prob || null;
     simData = null; cursorIdx = null; plotData = null; loadEq = null; loadEqKey = '';
     scopeStop();
     document.querySelectorAll('.tab').forEach(b =>
@@ -2814,12 +2819,15 @@ const PROBLEMS = {
 };
 
 /* 範例清單也要跟著分頁換——在 FPGA 分頁列一堆 RC、RLC 只會讓人選了發現放不進去。 */
-function exTable(){ return isLogic() ? LOGIC_EX : isProb() ? PROBLEMS : EXAMPLES; }
+function exTable(){
+    return isLogic() ? LOGIC_EX : isProb() ? { ...EXAMPLES, ...PROBLEMS } : EXAMPLES;
+}
 function fillExamples(){
-    const tbl = exTable();
-    $('exSel').innerHTML =
-        `<option value="">${isProb() ? '選一題…' : '範例電路…'}</option>` +
-        Object.keys(tbl).map(k => `<option value="${k}">${k}</option>`).join('');
+    const opt = t => Object.keys(t).map(k => `<option value="${k}">${k}</option>`).join('');
+    const grp = (label, t) => `<optgroup label="${label}">${opt(t)}</optgroup>`;
+    $('exSel').innerHTML = `<option value="">範例與題目…</option>` +
+        (isLogic() ? opt(LOGIC_EX)
+                   : grp('範例電路', EXAMPLES) + (isProb() ? grp('課本題目', PROBLEMS) : ''));
 }
 $('exSel').onchange = () => { if ($('exSel').value) loadExample($('exSel').value); };
 function loadExample(k){
@@ -2849,7 +2857,7 @@ function showProblem(k, e){
 function drawProblem(){
     const box = $('probBox');
     if (!box) return;
-    if (!probCard || !isProb()){ box.hidden = true; return; }
+    if (!probCard || isLogic()){ box.hidden = true; return; }
     const { k, e, open } = probCard;
     box.hidden = false;
     box.innerHTML =
