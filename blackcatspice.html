@@ -267,6 +267,12 @@ button,select,input{font:inherit;color:var(--ink)}
     font-weight:700;color:var(--ink-2)}
 .pi svg{width:30px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.6;
         stroke-linecap:round;stroke-linejoin:round}
+#probBox{border:1px solid var(--rule);border-radius:11px;padding:10px 12px;
+    margin-bottom:12px;background:var(--paper)}
+#probBox h2{margin:0 0 2px}
+#probBox .ask{margin:8px 0 10px;font-size:15px;line-height:1.55}
+#probBox .ansline{margin:10px 0 0;padding-top:10px;border-top:1px solid var(--rule);
+    font-size:15px;line-height:1.55;font-weight:600}
 .pi:hover{background:var(--accent-soft)}
 .pi.on{background:var(--accent-fill);border-color:transparent;color:#fff}
 .pi.on svg{stroke:#fff}
@@ -383,6 +389,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
       <button class="tab on" data-tab="ideal" role="tab">理想<small>電路學／電子學考題的預設</small></button>
       <button class="tab"    data-tab="real"  role="tab">現實<small>加上寄生參數與真實模型</small></button>
       <button class="tab"    data-tab="fpga"  role="tab">FPGA<small>數位邏輯閘與真值表</small></button>
+      <button class="tab"    data-tab="prob"  role="tab">題目<small>課本習題，可直接跑</small></button>
     </div>
 
     <!-- 右側群組要包成一個，不然工具列換行時 spacer 失效。 -->
@@ -427,6 +434,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <button id="sideBtn" title="收合／展開屬性面板" aria-label="收合屬性面板">▶</button>
   <div id="rightCol">
     <aside id="side">
+      <div id="probBox" hidden></div>
       <h2>屬性</h2>
       <div id="insp"></div>
     </aside>
@@ -945,9 +953,16 @@ let truthRows = null;      // 上一次算出來的真值表（解題卡要重�
    畫面全白。node --check 看不出來，只有冒煙測試會抓到。 */
 let tab = 'ideal';
 const docs = {};
-const TABS = ['ideal','real','fpga'];
-const TAB_LABEL = { ideal:'理想', real:'現實', fpga:'FPGA' };
+const TABS = ['ideal','real','fpga','prob'];
+const TAB_LABEL = { ideal:'理想', real:'現實', fpga:'FPGA', prob:'題目' };
 const isLogic = () => tab === 'fpga';
+/* 題目分頁：行為跟理想分頁一樣（同一套元件、同一套分析），
+   差別只在工具列的下拉選單列的是題庫而不是範例，而且會多一張題目卡。
+   ★ 跟 isLogic 一樣放在狀態區——buildAna／refreshNet 在載入時就會呼叫。 */
+const isProb = () => tab === 'prob';
+/* ★ 目前選到的題目。放在狀態區而不是題目卡那一段——applyTab() 在載入時
+   就會呼叫 drawProblem()，宣告在下面的話又是一次暫時性死區。 */
+let probCard = null;
 let sch = { parts:[], wires:[] };
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
@@ -1552,6 +1567,7 @@ function applyTab(t){
     $('anaSel').value = d.a; anaVals = d.v; buildAna();
     buildPalette();
     inspect(); refreshNet(); drawSheet(); fit();
+    drawProblem();
     try { localStorage.setItem(TAB_KEY, tab); } catch(e){}
 }
 /* 每個分頁該有哪些按鈕。
@@ -2704,15 +2720,110 @@ const LOGIC_EX = {
            [360,220,420,220],[420,220,420,160],[420,160,460,160],
            [500,150,580,150]] }),
 };
+
+/* ==========================================================
+   題庫（[題目] 分頁）
+
+   ★ 這裡只放「電路」與「我自己寫的一句話」，不放課本題目原文。
+   來源是 Alexander & Sadiku《Fundamentals of Electric Circuits》，
+   題目敘述是 McGraw-Hill 的著作，整本搬到公開網站上是重製不是引用。
+   電路的接法與元件值是事實，敘述由這裡自己寫，原文請翻自己的書——
+   所以每一題都標了章節與題號（ref），對得回去。
+
+   ans 是課本的標準答案，用來給使用者對照，也是我建這些電路時的驗證基準：
+   每一題都在瀏覽器上真的跑過，跑出來跟 ans 不合就是電路接錯了。
+   ========================================================== */
+const PROBLEMS = {
+ '電路學1': () => ({ ana:'op', ch:'CH2', ref:'2.21(a)',
+    ask:'單迴路。求迴路電流，以及 2Ω 與 3Ω 各自的跨壓。',
+    ans:'i = 4 A；2Ω 跨壓 8 V，3Ω 跨壓 12 V。'
+      + '（課本圖上 3Ω 的極性標記與電流方向相反，所以答案寫成 −12 V。）',
+    parts:[['V',60,140,0,'V1','DC 20'], ['R',180,60,1,'R1','2'],
+           ['R',300,140,0,'R2','3'], ['GND',60,220,0,'','']],
+    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,300,120],
+           [300,160,300,220],[60,220,300,220],[60,160,60,220]] }),
+
+ '電路學2': () => ({ ana:'op', ch:'CH2', ref:'2.22',
+    ask:'單迴路，兩個電壓源。求迴路電流與兩顆電阻的跨壓。'
+      + '（右側 8 V 電源正端朝上。）',
+    ans:'i = 4 A；4Ω 跨壓 16 V，2Ω 跨壓 8 V。'
+      + '（課本圖上 2Ω 的極性標記相反，答案寫成 −8 V。）',
+    parts:[['V',60,140,0,'V1','DC 32'], ['R',180,60,1,'R1','4'],
+           ['V',300,140,0,'V2','DC 8'], ['R',180,220,1,'R2','2'],
+           ['GND',60,220,0,'','']],
+    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,300,120],
+           [300,160,300,220],[300,220,200,220],[160,220,60,220],[60,220,60,160]] }),
+
+ /* ★ 受控源那兩題：控制線的走法要小心。接腳本身也是會被線段吸收的點，
+    路徑不能經過同一顆元件的另一支腳，也儘量不要跟其他線交叉
+    （交叉會讓網目法判定成非平面圖而停用）。 */
+ '電路學3': () => ({ ana:'op', ch:'CH2', ref:'2.23(a)',
+    ask:'單迴路，含一個壓控電壓源（增益 2，控制量是 6Ω 的跨壓）。求迴路電流與 6Ω 的跨壓。',
+    ans:'i = −8 A，v_o = 48 V。電流是負的，代表實際方向與圖上標的箭頭相反。',
+    /* ★ 兩個極性都是實測才發現接反的（第一版跑出 364 mA，應該是 −8 A）：
+       ‧ 課本寫 v_o = −6i，代表 v_o 的正端在接地那一側，不是電流流出的那一側。
+       ‧ 4 V 電源在迴路裡跟 12 V 同向相加（KVL 裡是 −12 … −4），所以要倒過來放。
+       這兩個錯都不會讓模擬報錯，只會給出一組看起來很正常的數字。 */
+    parts:[['V',60,140,0,'V1','DC 12'], ['R',200,60,1,'R1','4'],
+           ['EE',400,140,0,'E1','2'], ['V',400,220,2,'V2','DC 4'],
+           ['R',230,300,1,'R2','6'], ['GND',60,300,0,'','']],
+    wires:[[60,120,60,60],[60,60,180,60],[220,60,400,60],[400,60,400,120],
+           [400,160,400,200],[400,240,400,300],[400,300,250,300],
+           [210,300,60,300],[60,300,60,160],
+           /* 控制＋ 繞外側到 6Ω 的接地端 */
+           [370,130,450,130],[450,130,450,400],[450,400,150,400],[150,400,150,300],
+           /* 控制− 走內側到 6Ω 的另一端 */
+           [370,150,340,150],[340,150,340,270],[340,270,250,270],[250,270,250,300]] }),
+
+ '電路學4': () => ({ ana:'op', ch:'CH2', ref:'2.24',
+    ask:'單迴路，含一個壓控電壓源（增益 2，控制量是 10Ω 的跨壓）。求迴路電流與 10Ω 的跨壓。',
+    ans:'i = 2 A，v_x = 20 V，5Ω 跨壓 10 V。'
+      + '（課本圖上 5Ω 的極性標記相反，答案寫成 −10 V。）',
+    parts:[['V',60,180,0,'V1','DC 70'], ['R',200,60,1,'R1','10'],
+           ['EE',400,180,0,'E1','2'], ['R',230,300,1,'R2','5'],
+           ['GND',60,300,0,'','']],
+    wires:[[60,160,60,60],[60,60,180,60],[220,60,400,60],[400,60,400,160],
+           [400,200,400,300],[400,300,250,300],[210,300,60,300],[60,300,60,200],
+           /* 控制＋ 從上方繞外側到 10Ω 左端 */
+           [370,170,450,170],[450,170,450,10],[450,10,180,10],[180,10,180,60],
+           /* 控制− 走迴路內側到 10Ω 右端 */
+           [370,190,340,190],[340,190,340,110],[340,110,220,110],[220,110,220,60]] }),
+
+ '電路學5': () => ({ ana:'op', ch:'CH2', ref:'2.27(a)',
+    ask:'3Ω 與 6Ω 並聯後再與 8Ω 串聯。求三條支路的電流與各電阻的跨壓。',
+    ans:'i₁ = 3 A（8Ω）、i₂ = 2 A（3Ω）、i₃ = 1 A（6Ω）；'
+      + 'v₁ = 24 V、v₂ = v₃ = 6 V。',
+    parts:[['V',60,140,0,'V1','DC 30'], ['R',180,60,1,'R1','8'],
+           ['R',300,140,0,'R2','3'], ['R',420,140,0,'R3','6'],
+           ['GND',60,220,0,'','']],
+    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,420,60],
+           [300,60,300,120],[420,60,420,120],[300,160,300,220],[420,160,420,220],
+           [300,220,420,220],[60,220,300,220],[60,160,60,220]] }),
+
+ '電路學6': () => ({ ana:'op', ch:'CH2', ref:'2.28',
+    ask:'兩個電壓源、三顆電阻。求三條支路的電流與各電阻的跨壓。'
+      + '（右側 6 V 電源正端朝下。）',
+    ans:'i₁ = 3 A（2Ω）、i₂ = 0.5 A（8Ω）、i₃ = 2.5 A（4Ω）；'
+      + 'v₁ = 6 V、v₂ = 4 V、v₃ = 10 V。',
+    parts:[['V',60,140,0,'V1','DC 10'], ['R',180,60,1,'R1','2'],
+           ['R',300,140,0,'R2','8'], ['R',420,60,1,'R3','4'],
+           ['V',540,140,2,'V2','DC 6'], ['GND',60,220,0,'','']],
+    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,300,120],
+           [300,160,300,220],[300,60,400,60],[440,60,540,60],[540,60,540,120],
+           [540,160,540,220],[60,220,300,220],[300,220,540,220],[60,160,60,220]] }),
+};
+
 /* 範例清單也要跟著分頁換——在 FPGA 分頁列一堆 RC、RLC 只會讓人選了發現放不進去。 */
+function exTable(){ return isLogic() ? LOGIC_EX : isProb() ? PROBLEMS : EXAMPLES; }
 function fillExamples(){
-    const tbl = isLogic() ? LOGIC_EX : EXAMPLES;
-    $('exSel').innerHTML = `<option value="">範例電路…</option>` +
+    const tbl = exTable();
+    $('exSel').innerHTML =
+        `<option value="">${isProb() ? '選一題…' : '範例電路…'}</option>` +
         Object.keys(tbl).map(k => `<option value="${k}">${k}</option>`).join('');
 }
 $('exSel').onchange = () => { if ($('exSel').value) loadExample($('exSel').value); };
 function loadExample(k){
-    const tbl = isLogic() ? LOGIC_EX : EXAMPLES;
+    const tbl = exTable();
     if (!tbl[k]) return;
     const e = tbl[k](); sch = {parts:[],wires:[]}; seq = 1; sel = [];
     /* 範例裡的第四個數字沿用「90 度一格」的舊寫法（0~3），這裡乘 2 換成新的
@@ -2724,7 +2835,30 @@ function loadExample(k){
     if (e.ana){ $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); }
     buildAna();
     inspect(); refreshNet(); fit();
+    if (e.ask) showProblem(k, e); else probCard = null;
     if (e.tip) show('ok', '已載入：' + k, [e.tip]);
+}
+
+/* ---------- 題目卡 ----------
+   答案預設收起來。攤開來擺在旁邊的話，題目就不是題目了——
+   眼睛會先看到數字，再回頭去湊過程。 */
+function showProblem(k, e){
+    probCard = { k, e, open:false };
+    drawProblem();
+}
+function drawProblem(){
+    const box = $('probBox');
+    if (!box) return;
+    if (!probCard || !isProb()){ box.hidden = true; return; }
+    const { k, e, open } = probCard;
+    box.hidden = false;
+    box.innerHTML =
+        `<h2>${k}</h2>
+         <p class="sub">${e.ch}　課本題號 ${e.ref}（原文請看課本）</p>
+         <p class="ask">${e.ask}</p>
+         <button class="btn" id="ansBtn">${open ? '收起答案' : '對答案'}</button>
+         ${open ? `<p class="ansline">${e.ans}</p>` : ''}`;
+    $('ansBtn').onclick = () => { probCard.open = !probCard.open; drawProblem(); };
 }
 
 /* ==========================================================
