@@ -628,7 +628,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs }
+import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
@@ -2838,6 +2838,13 @@ function loadExample(k){
    而課本敘述是出版社的著作。這裡存的是電路 ＋ 自己寫的一句話 ＋ 章節題號。
    ========================================================== */
 const PROB_PATH = () => P('spiceProblems');
+/* ★ 電路資料另存一份，不跟題目的文字放在同一份文件。
+
+   為什麼：清單只需要題號、章節、敘述，但電路那一欄可以到 60 KB。
+   放在同一份文件的話，任何人一開模擬器就會把「整個題庫的所有電路」
+   下載一遍，而其中他只會打開一題。題目愈多，浪費愈是線性成長。
+   拆開之後清單只讀輕量欄位，電路等到真的要開那一題才抓。 */
+const PROB_DATA = () => P('spiceProblemData');
 
 /* 讀回整份題庫。公開集合，沒登入也讀得到——只是不能新增。 */
 async function loadProblems(){
@@ -2895,8 +2902,17 @@ function drawProbList(){
 }
 $('probQ').oninput = drawProbList;
 
-function openProblem(p){
-    try { unpack(p.data); }
+async function openProblem(p){
+    let data = p.data;                       // 舊資料可能還把電路存在同一份文件裡
+    if (!data){
+        try {
+            const d = await getDoc(doc(db, PROB_DATA(), p.id));
+            data = d.exists() ? d.data().data : null;
+        } catch(e){ return show('err','這一題的電路讀不到',[e.message||String(e)]); }
+    }
+    if (!data) return show('err','這一題沒有電路資料',
+        ['題目的文字存進去了，但電路那一份沒有。可以請出題的人重存一次。']);
+    try { unpack(data); }
     catch(e){ return show('err','這一題的電路讀不開',[e.message||String(e)]); }
     probCard = { p, open:false };
     drawProblem();
@@ -2941,11 +2957,18 @@ $('probForm').onsubmit = async ev => {
         return show('err','這張電路太大，存不進雲端',
             [`編碼後有 ${data.length.toLocaleString()} 字元，上限是 ${SAVE_MAX.toLocaleString()}。`]);
     const body = { no, ask, ch:$('pf_ch').value.trim(), ref:$('pf_ref').value.trim(),
-                   ans:$('pf_ans').value.trim(), data,
-                   owner:me.uid, updatedAt:Date.now() };
+                   ans:$('pf_ans').value.trim(), owner:me.uid, updatedAt:Date.now() };
+    /* ★ 順序很重要：先寫電路，再寫題目。
+       兩份文件不是原子的，中間斷掉一定會留下不一致的東西——
+       差別在於留下哪一種。先寫題目的話，失敗會留下一筆「清單上看得到、
+       點開卻沒有電路」的題目；先寫電路的話，失敗只留下一份沒人指向的
+       孤兒電路，使用者完全看不到。壞得看不見，比壞得看得見好。
+       ID 自己先產，才能在寫題目之前就知道要把電路寫到哪裡。 */
+    const ref = probEdit ? doc(db, PROB_PATH(), probEdit.id)
+                         : doc(collection(db, PROB_PATH()));
     try {
-        if (probEdit) await updateDoc(doc(db, PROB_PATH(), probEdit.id), body);
-        else          await addDoc(collection(db, PROB_PATH()), body);
+        await setDoc(doc(db, PROB_DATA(), ref.id), { data, owner:me.uid, updatedAt:Date.now() });
+        await setDoc(ref, body);
         $('probForm').hidden = true; probEdit = null;
         show('ok', '已儲存 ' + no, []);
         await loadProblems();
@@ -2954,7 +2977,10 @@ $('probForm').onsubmit = async ev => {
 };
 async function delProblem(p){
     if (!confirm(`要刪掉「${p.no}」嗎？這個動作無法復原。`)) return;
+    /* 先刪題目再刪電路，理由同儲存：中途斷掉只會留下孤兒電路，
+       不會留下點開沒東西的題目。 */
     try { await deleteDoc(doc(db, PROB_PATH(), p.id));
+          await deleteDoc(doc(db, PROB_DATA(), p.id)).catch(() => {});
           if (probCard && probCard.p && probCard.p.id === p.id){ probCard = null; drawProblem(); }
           show('ok','已刪掉 ' + p.no, []); await loadProblems(); }
     catch(e){ show('err','刪不掉',[e.message||String(e)]); }
