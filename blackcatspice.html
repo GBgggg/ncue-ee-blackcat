@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>小黑貓電路模擬器</title>
 <link rel="icon" href="image.png">
-<meta name="description" content="彰師電子小黑貓的電路模擬器。畫電路、按執行、看波形。免安裝，手機也能跑。">
+<meta name="description" content="小黑貓的電路模擬器。畫電路、按執行、看波形。免安裝，手機也能跑。">
 <style>
 /* ==========================================================
    設計 token 與主站 publicnew.html 共用同一組值。改配色要兩邊一起改。
@@ -3183,7 +3183,7 @@ function toVerilog(){
     };
 
     const L = [];
-    L.push('// 由彰師電子小黑貓電路模擬器產生');
+    L.push('// 由小黑貓電路模擬器產生');
     L.push('// 組合邏輯，沒有暫存器；閘的順序不影響結果（assign 是連續指定）。');
     L.push('module blackcat_logic (');
     const ports = inPorts.map(n => '    input  wire ' + n)

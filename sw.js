@@ -1,4 +1,4 @@
-/* 彰師電子小黑貓 Service Worker：離線可開 App 外殼
+/* 小黑貓 Service Worker：離線可開 App 外殼
  *
  * 快取策略（改過，請勿改回去）：
  *   - HTML／導覽請求 → 「網路優先」。發布後使用者一開就是新版，
@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v35';
+const CACHE = 'blackcat-v36';
 const CORE = ['./', './index.html', './image.png', './manifest.json',
               './blackcatspice.html'];   // 電路模擬器（獨立頁）
 const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
