@@ -2387,7 +2387,18 @@ function paintPalette(){
     document.querySelectorAll('.pi').forEach(el => {
         const c = el.querySelector('canvas'), k = el.dataset.t;
         const dpr = devicePixelRatio || 1;
+        /* ★ 改 canvas 的 width／height 屬性是在動「畫布有幾個像素」，
+           不是在動「畫面上佔多大」。沒有另外指定 CSS 尺寸的話，
+           canvas 就照屬性值排版——所以在 HiDPI 螢幕（dpr=2）上，
+           每顆縮圖會變成 120×80 CSS px，是設計值的兩倍。
+
+           實測（dpr≈2 的筆電）：每顆按鈕從 74px 撐到 134px，
+           元件盤從一排變三排、吃掉 365px 高，視窗矮一點時
+           畫布高度直接被擠成 0。而且因為圖是「等比放大」的，
+           看起來只是「圖示比較大」，不會讓人聯想到是 bug。
+           要同時設 CSS 尺寸把版面鎖回 60×40。 */
         c.width = 60*dpr; c.height = 40*dpr;
+        c.style.width = '60px'; c.style.height = '40px';
         const cg = c.getContext('2d');
         cg.setTransform(dpr,0,0,dpr,0,0);
         cg.clearRect(0,0,60,40);
@@ -3247,11 +3258,21 @@ $('run').onclick = async () => {
                           $('rawBox').style.display=''; $('rawBox').open=true; } } catch(_){}
         const txt = (e && (e.message||e.toString())) || '未知錯誤';
         const tm = txt.match(/^TIMEOUT:(.+)$/);
+        /* ★ 失敗的時候更要把接線警告講出來。
+           上面那段註解講的是「成功訊息會蓋掉警告」，但失敗這一支當時漏了：
+           原本 catch 完全不看 r.warn，於是接線錯導致算不出來時，
+           畫面只說「等太久，已中止」，而真正的線索（受控源兩支控制腳
+           接在一起、元件被短路、沒接地）一個字都沒出現。
+           模擬失敗最常見的原因就是接線錯，這裡藏起來等於白做。 */
+        const withWarn = arr => r.warn.length
+            ? arr.concat(['另外，電路本身也有可疑的地方——失敗多半就是從這裡來的：'], r.warn)
+            : arr;
         if (tm) show('err', `「${tm[1]}」這一步等太久，已中止`,
-            tm[1]==='下載' ? ['兩個 CDN 都沒回應，換個網路再試。']
+            withWarn(tm[1]==='下載' ? ['兩個 CDN 都沒回應，換個網路再試。']
           : tm[1]==='啟動' ? ['引擎起不來，多半是記憶體不足，關掉其他分頁。']
-          : ['進度列有出現 ngspice 訊息 → 電路算太久或收斂不了；完全沒出現 → 按「重設引擎」。']);
-        else { const h = explain(txt); h.length ? showHints(h,'模擬失敗') : show('err','模擬失敗',[txt]); }
+          : ['進度列有出現 ngspice 訊息 → 電路算太久或收斂不了；完全沒出現 → 按「重設引擎」。']));
+        else { const h = explain(txt);
+               h.length ? showHints(h,'模擬失敗') : show('err','模擬失敗', withWarn([txt])); }
         scopeStop('模擬失敗，已停止連續掃描');
     } finally { running = false; btn.disabled = false; btn.textContent = '執行模擬'; }
 };
