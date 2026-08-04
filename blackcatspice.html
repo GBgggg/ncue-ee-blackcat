@@ -267,6 +267,29 @@ button,select,input{font:inherit;color:var(--ink)}
     font-weight:700;color:var(--ink-2)}
 .pi svg{width:30px;height:20px;stroke:var(--ink);fill:none;stroke-width:1.6;
         stroke-linecap:round;stroke-linejoin:round}
+.probbar{display:flex;gap:6px;align-items:center;margin-bottom:8px}
+.probbar input[type=search]{flex:1;min-width:180px;height:34px;padding:0 10px;
+    border:1px solid var(--rule);border-radius:9px;background:var(--paper);
+    color:var(--ink);font-size:14px}
+.problist{max-height:300px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.prow{display:flex;gap:8px;align-items:baseline;padding:7px 9px;border-radius:9px;
+    border:1px solid var(--rule);background:var(--paper)}
+.prow:hover{background:var(--accent-soft)}
+.prow .pno{font-weight:700;white-space:nowrap}
+.prow .pmeta{color:var(--ink-2);font-size:12px;white-space:nowrap}
+.prow .pask{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.prow button{border:0;background:none;color:var(--ink-2);cursor:pointer;
+    font-size:13px;padding:2px 4px}
+.prow button:hover{color:var(--ink);text-decoration:underline}
+.prow .popen{flex:1;text-align:left;font:inherit;overflow:hidden}
+#probForm{margin-top:10px;padding-top:10px;border-top:1px solid var(--rule)}
+.probgrid{display:flex;gap:8px;flex-wrap:wrap}
+#probForm label{display:flex;flex-direction:column;gap:3px;font-size:12px;
+    color:var(--ink-2);margin-bottom:8px}
+#probForm label.wide{width:100%}
+#probForm input,#probForm textarea{height:34px;padding:0 9px;border:1px solid var(--rule);
+    border-radius:9px;background:var(--paper);color:var(--ink);font-size:14px;font-family:inherit}
+#probForm textarea{height:auto;padding:7px 9px;resize:vertical}
 #probBox{border:1px solid var(--rule);border-radius:11px;padding:10px 12px;
     margin-bottom:12px;background:var(--paper)}
 #probBox h2{margin:0 0 2px}
@@ -414,6 +437,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     <span class="tsep"></span>
     <button class="btn pop-btn" id="btnSim" aria-haspopup="true">模擬設定 ▾</button>
     <button class="btn pop-btn" id="btnNet" aria-haspopup="true">netlist ▾</button>
+    <button class="btn pop-btn" id="btnProb" aria-haspopup="true">題目 ▾</button>
     <button class="btn pop-btn" id="btnMine" aria-haspopup="true">存檔／分享 ▾</button>
     <button class="btn pop-btn" id="btnKeys" aria-haspopup="true">熱鍵與操作 ▾</button>
     <select id="exSel" class="btn" style="padding:0 8px" aria-label="範例電路"></select>
@@ -544,6 +568,30 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <p class="sub">唯讀。電路圖或元件模型改了就會跟著變。</p>
 </div>
 
+<div class="pop" id="popProb" hidden>
+  <div class="probbar">
+    <input id="probQ" type="search" placeholder="搜尋題號、章節、敘述…" aria-label="搜尋題目">
+    <button class="btn" id="probNew">用目前畫布新增一題</button>
+  </div>
+  <div id="probList" class="problist"></div>
+  <form id="probForm" hidden>
+    <div class="probgrid">
+      <label>題號<input id="pf_no" maxlength="40" placeholder="電路學1"></label>
+      <label>章節<input id="pf_ch" maxlength="40" placeholder="CH2"></label>
+      <label>課本題號<input id="pf_ref" maxlength="40" placeholder="2.24"></label>
+    </div>
+    <label class="wide">題目敘述（自己寫，不要貼課本原文）
+      <textarea id="pf_ask" maxlength="200" rows="2"
+        placeholder="例：單迴路含一個壓控電壓源，求迴路電流與 10Ω 的跨壓。"></textarea></label>
+    <label class="wide">答案（對照用，可留空）
+      <input id="pf_ans" maxlength="200" placeholder="例：i = 2 A，v_x = 20 V"></label>
+    <p class="sub" id="pf_note"></p>
+    <div class="palette">
+      <button class="btn" id="pf_save" type="submit">儲存</button>
+      <button class="btn" id="pf_cancel" type="button">取消</button>
+    </div>
+  </form>
+</div>
 <div class="pop" id="popMine" hidden>
   <div class="palette">
     <button class="btn" id="saveBtn">存到我的</button>
@@ -580,7 +628,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, doc, addDoc, getDoc, getDocs }
+import { getFirestore, collection, doc, addDoc, updateDoc, deleteDoc, getDoc, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
@@ -656,11 +704,20 @@ const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestor
 let me = null;
 onAuthStateChanged(auth, async (user) => {
     me = (user && !user.isAnonymous) ? user : null;
-    if (!me) { $('whoami').textContent = '訪客'; renderMine(); return; }
+    /* 訪客也要讀題庫——題目是公開的，只是不能新增與修改。
+       這裡漏掉的話，沒登入的人會看到一片空白，以為功能壞了。 */
+    if (!me) { myRole = ''; $('whoami').textContent = '訪客';
+               renderMine(); loadProblems(); return; }
     let name = '已登入';
+    myRole = '';
     try { const s = await getDoc(doc(db, P('users'), me.uid));
-          if (s.exists()) name = s.data().displayName || '無名小貓'; } catch(e){}
+          if (s.exists()){ name = s.data().displayName || '無名小貓';
+                           myRole = s.data().role || ''; } } catch(e){}
     $('whoami').textContent = name; renderMine();
+    /* 只有星族能新增與編輯，所以登入狀態（連同階級）一變就得重畫一次清單。
+       ★ 這裡的判斷只是介面上的收放，真正的防線在 firestore.rules——
+       前端藏起來的按鈕擋不住有心人直接打 API。 */
+    loadProblems();
 });
 
 /* ==========================================================
@@ -955,14 +1012,31 @@ const docs = {};
 const TABS = ['ideal','real','fpga'];
 const TAB_LABEL = { ideal:'理想', real:'現實', fpga:'FPGA' };
 const isLogic = () => tab === 'fpga';
-/* 題目不是獨立分頁，就長在理想分頁裡——課本習題本來就是理想元件的題目，
-   分出去只會讓人先選分頁再選題，而且兩邊的電路還不能互通。
-   現在同一個下拉選單分成兩組：上面是範例，下面是題目。
+/* 題庫長在理想分頁裡（課本習題本來就是理想元件的題目），但跟範例是兩塊東西：
+   範例是內建的、唯讀的、拿來看某個現象長什麼樣；
+   題目是使用者自己建的、可改可刪、拿來練習。
+   兩者混在同一個下拉選單裡只會互相干擾——選單愈長愈難找，
+   而且「刪掉」這個動作對範例沒有意義。所以拆開：範例留在下拉選單，
+   題目獨立一塊，有自己的搜尋框與清單。
    ★ 跟 isLogic 一樣放在狀態區——buildAna／refreshNet 在載入時就會呼叫。 */
 const isProb = () => tab === 'ideal';
 /* ★ 目前選到的題目。放在狀態區而不是題目卡那一段——applyTab() 在載入時
    就會呼叫 drawProblem()，宣告在下面的話又是一次暫時性死區。 */
 let probCard = null;
+let probAll = [];            // 雲端讀回來的整份題庫
+let probEdit = null;         // 正在編輯的那一題（null = 新增）
+let probErr = '';            // 讀題庫失敗的原因，顯示在清單裡
+let myRole = '';             // 目前登入者的階級，決定題庫能不能編輯
+/* 題庫是全站共用的教材，不是各自的練習簿——放給每個人寫，
+   內容品質與著作權都管不住。所以新增與編輯限星族。
+   這只是介面上的收放，真正的防線在 firestore.rules。 */
+const canEditProb = () => myRole === '星族';
+/* ★ 題庫是公開的，別人寫的字會出現在你的畫面上，而且是塞進 innerHTML。
+   不跳脫的話，任何人都可以在題目敘述裡寫 <img onerror=...> 打到所有讀者。
+   這個檔案原本沒有跳脫函式，因為以前所有字串都是自己寫死的。 */
+const esc = v => String(v == null ? '' : v)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 let sch = { parts:[], wires:[] };
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
@@ -2726,108 +2800,13 @@ const LOGIC_EX = {
            [500,150,580,150]] }),
 };
 
-/* ==========================================================
-   題庫（[題目] 分頁）
-
-   ★ 這裡只放「電路」與「我自己寫的一句話」，不放課本題目原文。
-   來源是 Alexander & Sadiku《Fundamentals of Electric Circuits》，
-   題目敘述是 McGraw-Hill 的著作，整本搬到公開網站上是重製不是引用。
-   電路的接法與元件值是事實，敘述由這裡自己寫，原文請翻自己的書——
-   所以每一題都標了章節與題號（ref），對得回去。
-
-   ans 是課本的標準答案，用來給使用者對照，也是我建這些電路時的驗證基準：
-   每一題都在瀏覽器上真的跑過，跑出來跟 ans 不合就是電路接錯了。
-   ========================================================== */
-const PROBLEMS = {
- '電路學1': () => ({ ana:'op', ch:'CH2', ref:'2.21(a)',
-    ask:'單迴路。求迴路電流，以及 2Ω 與 3Ω 各自的跨壓。',
-    ans:'i = 4 A；2Ω 跨壓 8 V，3Ω 跨壓 12 V。'
-      + '（課本圖上 3Ω 的極性標記與電流方向相反，所以答案寫成 −12 V。）',
-    parts:[['V',60,140,0,'V1','DC 20'], ['R',180,60,1,'R1','2'],
-           ['R',300,140,0,'R2','3'], ['GND',60,220,0,'','']],
-    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,300,120],
-           [300,160,300,220],[60,220,300,220],[60,160,60,220]] }),
-
- '電路學2': () => ({ ana:'op', ch:'CH2', ref:'2.22',
-    ask:'單迴路，兩個電壓源。求迴路電流與兩顆電阻的跨壓。'
-      + '（右側 8 V 電源正端朝上。）',
-    ans:'i = 4 A；4Ω 跨壓 16 V，2Ω 跨壓 8 V。'
-      + '（課本圖上 2Ω 的極性標記相反，答案寫成 −8 V。）',
-    parts:[['V',60,140,0,'V1','DC 32'], ['R',180,60,1,'R1','4'],
-           ['V',300,140,0,'V2','DC 8'], ['R',180,220,1,'R2','2'],
-           ['GND',60,220,0,'','']],
-    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,300,120],
-           [300,160,300,220],[300,220,200,220],[160,220,60,220],[60,220,60,160]] }),
-
- /* ★ 受控源那兩題：控制線的走法要小心。接腳本身也是會被線段吸收的點，
-    路徑不能經過同一顆元件的另一支腳，也儘量不要跟其他線交叉
-    （交叉會讓網目法判定成非平面圖而停用）。 */
- '電路學3': () => ({ ana:'op', ch:'CH2', ref:'2.23(a)',
-    ask:'單迴路，含一個壓控電壓源（增益 2，控制量是 6Ω 的跨壓）。求迴路電流與 6Ω 的跨壓。',
-    ans:'i = −8 A，v_o = 48 V。電流是負的，代表實際方向與圖上標的箭頭相反。',
-    /* ★ 兩個極性都是實測才發現接反的（第一版跑出 364 mA，應該是 −8 A）：
-       ‧ 課本寫 v_o = −6i，代表 v_o 的正端在接地那一側，不是電流流出的那一側。
-       ‧ 4 V 電源在迴路裡跟 12 V 同向相加（KVL 裡是 −12 … −4），所以要倒過來放。
-       這兩個錯都不會讓模擬報錯，只會給出一組看起來很正常的數字。 */
-    parts:[['V',60,140,0,'V1','DC 12'], ['R',200,60,1,'R1','4'],
-           ['EE',400,140,0,'E1','2'], ['V',400,220,2,'V2','DC 4'],
-           ['R',230,300,1,'R2','6'], ['GND',60,300,0,'','']],
-    wires:[[60,120,60,60],[60,60,180,60],[220,60,400,60],[400,60,400,120],
-           [400,160,400,200],[400,240,400,300],[400,300,250,300],
-           [210,300,60,300],[60,300,60,160],
-           /* 控制＋ 繞外側到 6Ω 的接地端 */
-           [370,130,450,130],[450,130,450,400],[450,400,150,400],[150,400,150,300],
-           /* 控制− 走內側到 6Ω 的另一端 */
-           [370,150,340,150],[340,150,340,270],[340,270,250,270],[250,270,250,300]] }),
-
- '電路學4': () => ({ ana:'op', ch:'CH2', ref:'2.24',
-    ask:'單迴路，含一個壓控電壓源（增益 2，控制量是 10Ω 的跨壓）。求迴路電流與 10Ω 的跨壓。',
-    ans:'i = 2 A，v_x = 20 V，5Ω 跨壓 10 V。'
-      + '（課本圖上 5Ω 的極性標記相反，答案寫成 −10 V。）',
-    parts:[['V',60,180,0,'V1','DC 70'], ['R',200,60,1,'R1','10'],
-           ['EE',400,180,0,'E1','2'], ['R',230,300,1,'R2','5'],
-           ['GND',60,300,0,'','']],
-    wires:[[60,160,60,60],[60,60,180,60],[220,60,400,60],[400,60,400,160],
-           [400,200,400,300],[400,300,250,300],[210,300,60,300],[60,300,60,200],
-           /* 控制＋ 從上方繞外側到 10Ω 左端 */
-           [370,170,450,170],[450,170,450,10],[450,10,180,10],[180,10,180,60],
-           /* 控制− 走迴路內側到 10Ω 右端 */
-           [370,190,340,190],[340,190,340,110],[340,110,220,110],[220,110,220,60]] }),
-
- '電路學5': () => ({ ana:'op', ch:'CH2', ref:'2.27(a)',
-    ask:'3Ω 與 6Ω 並聯後再與 8Ω 串聯。求三條支路的電流與各電阻的跨壓。',
-    ans:'i₁ = 3 A（8Ω）、i₂ = 2 A（3Ω）、i₃ = 1 A（6Ω）；'
-      + 'v₁ = 24 V、v₂ = v₃ = 6 V。',
-    parts:[['V',60,140,0,'V1','DC 30'], ['R',180,60,1,'R1','8'],
-           ['R',300,140,0,'R2','3'], ['R',420,140,0,'R3','6'],
-           ['GND',60,220,0,'','']],
-    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,420,60],
-           [300,60,300,120],[420,60,420,120],[300,160,300,220],[420,160,420,220],
-           [300,220,420,220],[60,220,300,220],[60,160,60,220]] }),
-
- '電路學6': () => ({ ana:'op', ch:'CH2', ref:'2.28',
-    ask:'兩個電壓源、三顆電阻。求三條支路的電流與各電阻的跨壓。'
-      + '（右側 6 V 電源正端朝下。）',
-    ans:'i₁ = 3 A（2Ω）、i₂ = 0.5 A（8Ω）、i₃ = 2.5 A（4Ω）；'
-      + 'v₁ = 6 V、v₂ = 4 V、v₃ = 10 V。',
-    parts:[['V',60,140,0,'V1','DC 10'], ['R',180,60,1,'R1','2'],
-           ['R',300,140,0,'R2','8'], ['R',420,60,1,'R3','4'],
-           ['V',540,140,2,'V2','DC 6'], ['GND',60,220,0,'','']],
-    wires:[[60,120,60,60],[60,60,160,60],[200,60,300,60],[300,60,300,120],
-           [300,160,300,220],[300,60,400,60],[440,60,540,60],[540,60,540,120],
-           [540,160,540,220],[60,220,300,220],[300,220,540,220],[60,160,60,220]] }),
-};
 
 /* 範例清單也要跟著分頁換——在 FPGA 分頁列一堆 RC、RLC 只會讓人選了發現放不進去。 */
-function exTable(){
-    return isLogic() ? LOGIC_EX : isProb() ? { ...EXAMPLES, ...PROBLEMS } : EXAMPLES;
-}
+function exTable(){ return isLogic() ? LOGIC_EX : EXAMPLES; }
 function fillExamples(){
-    const opt = t => Object.keys(t).map(k => `<option value="${k}">${k}</option>`).join('');
-    const grp = (label, t) => `<optgroup label="${label}">${opt(t)}</optgroup>`;
-    $('exSel').innerHTML = `<option value="">範例與題目…</option>` +
-        (isLogic() ? opt(LOGIC_EX)
-                   : grp('範例電路', EXAMPLES) + (isProb() ? grp('課本題目', PROBLEMS) : ''));
+    const tbl = exTable();
+    $('exSel').innerHTML = `<option value="">範例電路…</option>` +
+        Object.keys(tbl).map(k => `<option value="${k}">${k}</option>`).join('');
 }
 $('exSel').onchange = () => { if ($('exSel').value) loadExample($('exSel').value); };
 function loadExample(k){
@@ -2843,30 +2822,160 @@ function loadExample(k){
     if (e.ana){ $('anaSel').value = e.ana; anaVals = Object.assign({}, e.v); }
     buildAna();
     inspect(); refreshNet(); fit();
-    if (e.ask) showProblem(k, e); else probCard = null;
+    /* 載入範例＝離開目前那一題，題目卡要收起來。 */
+    probCard = null; drawProblem();
     if (e.tip) show('ok', '已載入：' + k, [e.tip]);
+}
+
+/* ==========================================================
+   題庫：使用者自己出題，存在公開雲端
+
+   跟範例的差別：範例是內建、唯讀、給人看某個現象長什麼樣；
+   題目是自己建的、可改可刪、拿來練習。兩者混在同一個下拉選單裡
+   只會互相干擾——選單愈長愈難找，而且「刪掉」對範例沒有意義。
+
+   ★ 課本題目原文不要打進來。這個集合是公開的（任何人都讀得到），
+   而課本敘述是出版社的著作。這裡存的是電路 ＋ 自己寫的一句話 ＋ 章節題號。
+   ========================================================== */
+const PROB_PATH = () => P('spiceProblems');
+
+/* 讀回整份題庫。公開集合，沒登入也讀得到——只是不能新增。 */
+async function loadProblems(){
+    try {
+        const snap = await getDocs(collection(db, PROB_PATH()));
+        probAll = [];
+        snap.forEach(d => probAll.push(Object.assign({ id:d.id }, d.data())));
+        /* 題號裡的數字照大小排，不要照字串排——不然「電路學10」會排在「電路學2」前面。 */
+        const num = v => { const m = /(\d+)/.exec(v || ''); return m ? +m[1] : 1e9; };
+        probAll.sort((a,b) => num(a.no) - num(b.no) || String(a.no).localeCompare(b.no));
+    } catch(e){ probAll = null; probErr = e.message || String(e); }
+    drawProbList();
+}
+
+/* 搜尋：題號、章節、課本題號、敘述、答案都比對。
+   全部轉小寫再比，打「ch2」跟「CH2」要一樣找得到。 */
+function probMatch(p, q){
+    if (!q) return true;
+    return [p.no, p.ch, p.ref, p.ask, p.ans].join('\n').toLowerCase().includes(q);
+}
+function drawProbList(){
+    const box = $('probList'); if (!box) return;
+    /* 不能編輯的人連按鈕都不要看到——點下去才被拒絕是很差的體驗。 */
+    $('probNew').hidden = !canEditProb();
+    if (probAll === null){
+        box.innerHTML = `<span class="sub">題庫讀不到：${esc(probErr)}</span>`; return;
+    }
+    const q = ($('probQ').value || '').trim().toLowerCase();
+    const hit = probAll.filter(p => probMatch(p, q));
+    if (!probAll.length){
+        box.innerHTML = `<span class="sub">還沒有任何題目。畫好一張電路之後按「用目前畫布新增一題」。</span>`;
+        return;
+    }
+    if (!hit.length){ box.innerHTML = `<span class="sub">沒有符合「${esc(q)}」的題目。</span>`; return; }
+    box.innerHTML = hit.map(p => {
+        const mine = canEditProb();
+        return `<div class="prow" data-id="${esc(p.id)}">
+            <button class="popen" data-act="open">
+              <span class="pno">${esc(p.no)}</span>
+              <span class="pmeta"> ${esc(p.ch)}${p.ref ? ' · ' + esc(p.ref) : ''}</span>
+              <span class="pask"> ${esc(p.ask)}</span>
+            </button>
+            ${mine ? `<button data-act="edit">改</button><button data-act="del">刪</button>` : ''}
+        </div>`;
+    }).join('');
+    box.querySelectorAll('.prow button').forEach(b => {
+        b.onclick = () => {
+            const p = probAll.find(x => x.id === b.closest('.prow').dataset.id);
+            if (!p) return;
+            if (b.dataset.act === 'open') openProblem(p);
+            if (b.dataset.act === 'edit') showProbForm(p);
+            if (b.dataset.act === 'del') delProblem(p);
+        };
+    });
+}
+$('probQ').oninput = drawProbList;
+
+function openProblem(p){
+    try { unpack(p.data); }
+    catch(e){ return show('err','這一題的電路讀不開',[e.message||String(e)]); }
+    probCard = { p, open:false };
+    drawProblem();
+    closePop();
+}
+
+/* ---------- 新增／編輯 ---------- */
+function nextNo(){
+    const used = new Set((probAll||[]).map(p => p.no));
+    for (let i = 1; ; i++) if (!used.has('電路學' + i)) return '電路學' + i;
+}
+function showProbForm(p){
+    probEdit = p || null;
+    $('pf_no').value  = p ? p.no  : nextNo();
+    $('pf_ch').value  = p ? p.ch  : '';
+    $('pf_ref').value = p ? p.ref : '';
+    $('pf_ask').value = p ? p.ask : '';
+    $('pf_ans').value = p ? p.ans : '';
+    /* 改舊題時，電路要不要一起換掉？講清楚，不要讓人猜。 */
+    $('pf_note').textContent = p
+        ? '按儲存會把這一題的電路換成目前畫布上的電路。只想改文字的話也一樣要先把原本的電路載回來。'
+        : `會用目前畫布上的 ${sch.parts.length} 個元件當作這一題的電路。`;
+    $('probForm').hidden = false;
+}
+$('probNew').onclick = () => {
+    if (!canEditProb())
+        return show('warn','只有星族能新增公開題目',
+            ['這份題庫是全站共用的教材，不是個人練習簿。',
+             '想自己留一張電路，可以用「存到我的」或「匯出檔案」。']);
+    if (!sch.parts.length) return show('warn','畫布是空的',['先把電路畫出來，再回來新增題目。']);
+    showProbForm(null);
+};
+$('pf_cancel').onclick = () => { $('probForm').hidden = true; probEdit = null; };
+$('probForm').onsubmit = async ev => {
+    ev.preventDefault();
+    if (!canEditProb()) return show('warn','只有星族能新增公開題目',[]);
+    const no = $('pf_no').value.trim(), ask = $('pf_ask').value.trim();
+    if (!no)  return show('warn','題號不能空白',[]);
+    if (!ask) return show('warn','題目敘述不能空白',['自己寫一句就好，不用照抄課本。']);
+    const data = pack();
+    if (data.length > SAVE_MAX)
+        return show('err','這張電路太大，存不進雲端',
+            [`編碼後有 ${data.length.toLocaleString()} 字元，上限是 ${SAVE_MAX.toLocaleString()}。`]);
+    const body = { no, ask, ch:$('pf_ch').value.trim(), ref:$('pf_ref').value.trim(),
+                   ans:$('pf_ans').value.trim(), data,
+                   owner:me.uid, updatedAt:Date.now() };
+    try {
+        if (probEdit) await updateDoc(doc(db, PROB_PATH(), probEdit.id), body);
+        else          await addDoc(collection(db, PROB_PATH()), body);
+        $('probForm').hidden = true; probEdit = null;
+        show('ok', '已儲存 ' + no, []);
+        await loadProblems();
+    } catch(e){ show('err','存不進去',[e.message||String(e),
+        '如果訊息是權限不足，代表 firestore.rules 還沒推到 Firebase 主控台。']); }
+};
+async function delProblem(p){
+    if (!confirm(`要刪掉「${p.no}」嗎？這個動作無法復原。`)) return;
+    try { await deleteDoc(doc(db, PROB_PATH(), p.id));
+          if (probCard && probCard.p && probCard.p.id === p.id){ probCard = null; drawProblem(); }
+          show('ok','已刪掉 ' + p.no, []); await loadProblems(); }
+    catch(e){ show('err','刪不掉',[e.message||String(e)]); }
 }
 
 /* ---------- 題目卡 ----------
    答案預設收起來。攤開來擺在旁邊的話，題目就不是題目了——
    眼睛會先看到數字，再回頭去湊過程。 */
-function showProblem(k, e){
-    probCard = { k, e, open:false };
-    drawProblem();
-}
 function drawProblem(){
     const box = $('probBox');
     if (!box) return;
     if (!probCard || isLogic()){ box.hidden = true; return; }
-    const { k, e, open } = probCard;
+    const { p, open } = probCard;
     box.hidden = false;
     box.innerHTML =
-        `<h2>${k}</h2>
-         <p class="sub">${e.ch}　課本題號 ${e.ref}（原文請看課本）</p>
-         <p class="ask">${e.ask}</p>
-         <button class="btn" id="ansBtn">${open ? '收起答案' : '對答案'}</button>
-         ${open ? `<p class="ansline">${e.ans}</p>` : ''}`;
-    $('ansBtn').onclick = () => { probCard.open = !probCard.open; drawProblem(); };
+        `<h2>${esc(p.no)}</h2>
+         <p class="sub">${esc(p.ch)}${p.ref ? '　課本題號 ' + esc(p.ref) : ''}</p>
+         <p class="ask">${esc(p.ask)}</p>
+         ${p.ans ? `<button class="btn" id="ansBtn">${open ? '收起答案' : '對答案'}</button>` : ''}
+         ${open && p.ans ? `<p class="ansline">${esc(p.ans)}</p>` : ''}`;
+    if ($('ansBtn')) $('ansBtn').onclick = () => { probCard.open = !probCard.open; drawProblem(); };
 }
 
 /* ==========================================================
@@ -4804,7 +4913,7 @@ logoBtn.addEventListener('keydown', e => {
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 
 /* ---- 工具列彈出面板 ---- */
-const POPS = [['btnSim','popSim'], ['btnNet','popNet'],
+const POPS = [['btnSim','popSim'], ['btnNet','popNet'], ['btnProb','popProb'],
               ['btnMine','popMine'], ['btnKeys','popKeys']];
 let openPop = null;
 function closePop(){
