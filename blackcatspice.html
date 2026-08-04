@@ -291,6 +291,10 @@ button,select,input{font:inherit;color:var(--ink)}
 #probForm input,#probForm textarea{height:34px;padding:0 9px;border:1px solid var(--rule);
     border-radius:9px;background:var(--paper);color:var(--ink);font-size:14px;font-family:inherit}
 #probForm textarea{height:auto;padding:7px 9px;resize:vertical}
+#wkAiOut{border:1px solid var(--rule);border-radius:11px;padding:10px 12px;
+    margin-bottom:10px;background:var(--paper);font-size:14px;line-height:1.7;
+    white-space:pre-wrap}
+#wkAiOut .who{color:var(--ink-3);font-size:12px;margin-bottom:4px}
 #probBox{border:1px solid var(--rule);border-radius:11px;padding:10px 12px;
     margin-bottom:12px;background:var(--paper)}
 #probBox h2{margin:0 0 2px}
@@ -546,10 +550,11 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
   <div id="wkHead">
     <span>解題卡</span>
     <div class="spacer"></div>
+    <button class="btn tiny" id="wkAi" title="請 AI 把算式講成推導過程">AI 講解</button>
     <button class="btn tiny" id="wkCopy" title="複製全部算式">複製</button>
     <button class="icb tiny" id="wkClose" title="關閉" aria-label="關閉">✕</button>
   </div>
-  <div id="wkBody"><div id="wkBox"></div></div>
+  <div id="wkBody"><div id="wkAiOut" hidden></div><div id="wkBox"></div></div>
   <div id="wkGrip" title="拖曳改變大小"></div>
 </div>
 
@@ -5191,6 +5196,50 @@ function showWork(on){
 }
 $('wkBtn').onclick = () => showWork(wkWin.classList.contains('hidden'));
 $('wkClose').onclick = () => showWork(false);
+/* ==========================================================
+   AI 講解
+
+   ★ 模型不算數學。答案是 ngspice 算的、方程式是解題卡列的、
+   而且已經做過回代殘差檢查——全部一起送過去，模型只負責串成人話。
+   讓模型自己解電路，錯得又多又難察覺，正好是這個專案最怕的那種錯。
+
+   金鑰不在前端：AI 繫結掛在 Worker 上，瀏覽器只看得到這個端點。
+   （這也是不用 Gemini 的原因——純前端靜態站放不了 API key。） */
+const AI_API = 'https://blackcat-quote.cctsai03.workers.dev';
+
+$('wkAi').onclick = async () => {
+    const box = $('wkBox'), out = $('wkAiOut');
+    if (isLogic()) return show('warn','這一頁是數位邏輯',['真值表本身就是答案，不需要推導。']);
+    if (!simData) return show('warn','先按執行模擬',['要有數值才講得出推導過程。']);
+
+    const txt = box.innerText || '';
+    const cut = (t, from, to) => {
+        const i = t.indexOf(from); if (i < 0) return '';
+        const j = to ? t.indexOf(to, i) : -1;
+        return t.slice(i, j < 0 ? undefined : j).trim();
+    };
+    const payload = {
+        netlist: $('net').value,
+        eqs: [cut(txt,'節點法','各元件'), ''].join(''),
+        parts: cut(txt,'各元件'),
+        ask: (probCard && probCard.p && probCard.p.ask) || '',
+    };
+
+    out.hidden = false;
+    out.textContent = '正在請 AI 把算式串成推導…（第一次可能要幾秒）';
+    try {
+        const r = await fetch(AI_API + '/ai/solve', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(payload) });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.detail || j.error || '未知錯誤');
+        out.innerHTML = `<div class="who">AI 講解（${esc(j.model||'')}）　`
+            + `數字來自模擬器，不是模型算的</div>${esc(j.text)}`;
+    } catch(e){
+        out.textContent = '講解失敗：' + (e.message || e);
+    }
+};
+
 $('wkCopy').onclick = () => {
     const t = $('wkBox').innerText;
     if (!t.trim()) return;
