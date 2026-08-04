@@ -226,7 +226,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
            transition:transform .15s ease}
 .ans-row.open .ans-caret{transform:rotate(90deg);color:var(--accent)}
 .ans-why-row[hidden]{display:none}
-.ans-hr{border:0;border-top:1px solid var(--rule);margin:2px 0}
+.ans-split td{border-top:2px solid var(--ink-3)}
 .ans-tbl{border-collapse:collapse;width:100%;font:14px ui-monospace,Menlo,Consolas,monospace}
 .ans-tbl th,.ans-tbl td{padding:4px 7px;border-bottom:1px solid var(--rule);vertical-align:top}
 .ans-tbl th{color:var(--ink-3);font-weight:600;text-align:left;white-space:nowrap}
@@ -4150,19 +4150,23 @@ function ansLoad(k){
             ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—'],
             ['R<sub>Th</sub>', eng(R) + 'Ω'],
             ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val],
-            ['—'],                                     // 分隔：以上是等效，以下是負載上的量
             ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—'],
             ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—'],
             ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—'],
             ['P<sub>max</sub>', Pmax != null ? eng(Pmax) + 'W' : '—'],
         ];
+        /* 以上是等效電路的參數，以下是接上去之後量到的。
+           ★ 分隔線不要另外插一列 <hr>——每個 td 本來就有 border-bottom，
+           插了就會變成上下兩條。把這一列的上緣加粗即可：
+           border-collapse 之下粗的會蓋過細的，看起來剛好一條。 */
+        const SPLIT = 3;
         body = `<table class="ans-tbl" title="V_Th 是負載拿掉後的開路電壓，方向是 ${dir}；`
              + `R_Th 是把獨立電源歸零、從負載這兩點看進去；`
              + `I_L 從 ${p.ref} 的第一支腳流向第二支腳為正；`
              + `P_max 是 R_L 取 R_Th 時能拿到的最大功率。">
-            ${rows.map(r => r.length === 1
-                ? `<tr><td colspan="2"><hr class="ans-hr"></td></tr>`
-                : `<tr><td>${r[0]}</td><td class="n">${r[1]}</td></tr>`).join('')}</table>`;
+            ${rows.map(([n,v], i) =>
+                `<tr${i === SPLIT ? ' class="ans-split"' : ''}>` +
+                `<td>${n}</td><td class="n">${v}</td></tr>`).join('')}</table>`;
 
         const why = [];
         /* 負號只代表參考方向，不是算錯。轉 180° 就全部翻正——講清楚，
