@@ -2272,7 +2272,21 @@
                 </h3>
                 <button data-close="starclanModal" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-6 h-6 pointer-events-none"></i></button>
             </div>
-            <p class="text-sm font-medium text-slate-500 mb-6 border-b-2 border-slate-100 pb-4">只有星族可以管理部族。為小黑貓的夥伴們指派合適的階位吧！</p>
+            <p class="text-sm font-medium text-slate-500 mb-4 border-b-2 border-slate-100 pb-4">只有星族可以管理部族。為小黑貓的夥伴們指派合適的階位吧！</p>
+            <!-- ★ 搜尋框刻意放在 #usersListContainer **外面**。
+                 名冊是即時訂閱的，改任何人的階位都會觸發重畫、整個容器的
+                 innerHTML 被換掉。放在裡面的話，打到一半的字會在別人加入或
+                 自己改完階級的瞬間消失，而且完全不會報錯。 -->
+            <div class="flex items-center gap-3 mb-4">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="search" id="starclanSearch" placeholder="搜尋信箱、暱稱或階級"
+                           class="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-400 font-bold text-sm">
+                </div>
+                <!-- 顯示幾筆／共幾筆。★ 這不是裝飾：搜不到東西時的空白
+                     跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
+                <span id="starclanCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
+            </div>
             <div class="overflow-y-auto flex-1 pr-2 space-y-3" id="usersListContainer">
                 <div class="text-center py-10 text-slate-400 font-medium">名冊載入中...</div>
             </div>
@@ -2741,6 +2755,7 @@
                 date: '2026-08-07',
                 title: '可以用 Google 帳號登入了',
                 items: [
+                    ['星族大會多了搜尋', '名冊十幾個人的時候還能用眼睛找，再多就不行了。現在上面有一個搜尋框，比對信箱、暱稱與階級三個欄位，大小寫不分。階級也放進去比對是因為這個面板真正的用途是指派階位，而指派之前通常想先看「同一階的有誰」。實作上有兩個地方是刻意的：搜尋框放在名冊清單的外面，因為名冊是即時訂閱的，任何人改階級都會把整份清單重畫一次，放在裡面的話打到一半的字會憑空消失，而且不會報錯；另外搜不到的時候不能跟「名冊真的沒人」講同一句話，不然打錯字的人會以為整份名冊不見了——現在會說「找不到符合某某的貓咪」並附上名冊實際有幾位，右上角也一直顯示「幾筆／共幾筆」。順帶把暱稱顯示出來了，因為搜尋會比對它；比對得到卻看不見的話，畫面上會是「搜了一個名字，跳出一個看起來完全不相干的信箱」。'],
                     ['登入視窗多一顆「使用 Google 帳號登入」', '接上 API 本身只有三行，這一筆值得記的全是失敗的路徑。Firebase 的錯誤是一串英文代碼，直接丟給使用者等於沒有訊息，而其中好幾種的表現是「按了完全沒反應」——彈窗被瀏覽器擋掉、把網站裝成 App 之後的環境不支援彈窗、網域沒加進允許清單。三種都沒有畫面變化也沒有紅字，而且後兩種只有特定的人遇得到，回報時也只會說「按了沒用」。所以彈窗開不起來會自動改走整頁跳轉，其餘每一種都各給一句中文；認不得的代碼會把代碼本身印出來，不然使用者說「它說登入失敗」，我們完全無從查起。使用者自己關掉彈窗則是刻意不跳訊息，也刻意不跳轉——取消了還被罵一句很煩，畫面整個跳走更糟。'],
                     ['★ 信箱已經用密碼註冊過的人，可以把 Google 綁上去', '同一個信箱不能同時是兩個帳號，所以原本用密碼註冊的人直接按 Google 登入會被擋下來，而預設訊息是看不懂的英文，那個人就永遠用不了這個功能。現在會跳出說明，輸入原本的密碼就把 Google 綁到同一個帳號上，之後兩種方式都能登入。綁定前一定要先用舊密碼登入過一次，不然等於誰都能把別人的信箱綁走。順帶說明另一條看起來省事的路為什麼沒走：資料庫那邊有個開關可以允許同一個信箱存在多個帳號，開了就不會有衝突——但同一個人會變成兩個不同的身分，課表、單字庫、記帳全部分家，而且完全不會報錯，只是登進去發現東西不見了。'],
                     ['用 Google 註冊的人，暱稱仍然是「無名小貓」', '可以直接帶入 Google 帳號上的名字，但沒有這樣做。課程評價會公開顯示暱稱，自動帶入等於預設把真實姓名公開，而使用者多半不會意識到。維持原本的預設，想改的人自己改。另外建立帳號的程式只有一條路——Google 首次登入走的是跟密碼註冊完全相同的那一段，兩條就會分岔，而分岔的症狀是「用 Google 註冊的人沒有階級」。'],
@@ -5530,20 +5545,55 @@
             if (currentViewVocabBookId) renderVocabWords();
         }
 
+        /* 星族大會的搜尋。比對信箱、暱稱、階級三個欄位。
+           ★ 階級也放進去比對，是因為「找出所有戰士」是這個面板真正的用途——
+           指派階位的時候要先看得到同一階的有誰。
+
+           ★ 暱稱有比對就一定要顯示出來（下面那一列有 u.displayName）。
+           比對得到卻看不見的話，畫面上會是「搜尋『阿明』跳出一個看起來
+           完全不相干的信箱」——沒有錯誤，只是看起來像壞了。 */
+        const matchUser = (u, q) => {
+            const k = String(q ||'').trim().toLowerCase();
+            if (!k) return true;
+            return [u.email, u.displayName, u.role]
+                .some(v => String(v ||'').toLowerCase().includes(k));
+        };
+
         function renderStarclanPanel() {
             const container = $('usersListContainer');
-            if (state.allUsers.length === 0) {
+            const countEl = $('starclanCount');
+            /* ★ 不要直接 getVal——它裡面是 $(id).value，元素不在就會丟例外。
+               這支是即時訂閱的回呼，丟例外等於整個名冊監聽從此不再更新，
+               而畫面上只是「別人改了階級但這裡沒變」。 */
+            const q = $('starclanSearch') ? getVal('starclanSearch') :'';
+            const all = state.allUsers;
+            const list = all.filter(u => matchUser(u, q));
+
+            /* ★ 三種空畫面要分得出來，不然使用者不知道自己該做什麼：
+                 名冊真的沒人 → 沒有人可以管
+                 搜尋沒有結果 → 換個關鍵字
+               第一版只有一句「目前沒有其他貓咪」，打錯字的時候會讓人
+               以為整份名冊不見了。這個專案在「空的跟壞的長得一樣」上
+               已經栽過很多次，這裡直接把兩者拆開講。 */
+            if (countEl) countEl.textContent = all.length === 0 ?''
+                : (q.trim() ? `${list.length} / ${all.length} 位` : `共 ${all.length} 位`);
+
+            if (all.length === 0) {
                 container.innerHTML ='<div class="text-center py-10 text-slate-400">目前沒有其他貓咪...</div>';
                 return;
             }
-            container.innerHTML = state.allUsers.map(u => `
+            if (list.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 font-medium">找不到符合「${escapeHTML(q.trim())}」的貓咪<br><span class="text-xs">名冊裡共有 ${all.length} 位</span></div>`;
+                return;
+            }
+            container.innerHTML = list.map(u => `
                 <div class="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-200">
-                    <div class="flex flex-col">
-                        <span class="font-bold text-slate-800 text-sm">${escapeHTML(u.email)}</span>
-                        <span class="text-xs text-slate-400">${new Date(u.createdAt).toLocaleDateString()} 加入</span>
+                    <div class="flex flex-col min-w-0">
+                        <span class="font-bold text-slate-800 text-sm truncate">${escapeHTML(u.email)}</span>
+                        <span class="text-xs text-slate-400 truncate">${escapeHTML(u.displayName ||'無名小貓')}・${new Date(u.createdAt).toLocaleDateString()} 加入</span>
                     </div>
                     <select data-action="change-role" data-uid="${u.uid}"
-                            class="px-3 py-1.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-fuchsia-400 transition-colors">
+                            class="shrink-0 ml-3 px-3 py-1.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-fuchsia-400 transition-colors">
                         ${ROLES.map(r => `<option value="${r}" ${u.role === r ?'selected' :''}>${r}</option>`).join('')}
                     </select>
                 </div>
@@ -6558,7 +6608,16 @@
             bind('kahootNextBtn', kahootNext);
             bind('closeResultBtn', () => { $('kahootResultModal').classList.add('hidden'); $('kahootResultModal').classList.remove('flex'); });
 
-            bind('openStarclanBtn', () => { renderStarclanPanel(); openModal('starclanModal'); });
+            /* 每次開啟先把搜尋清掉。留著上次的關鍵字的話，下次點開會看到
+               一份被過濾過的名冊，而畫面上沒有任何東西提示「你正在搜尋中」——
+               看起來就像有人不見了。 */
+            bind('openStarclanBtn', () => {
+                setVals({ starclanSearch:'' });
+                renderStarclanPanel();
+                openModal('starclanModal');
+            });
+            // 邊打邊篩。input 事件才涵蓋得到「按 × 清空」與貼上
+            $('starclanSearch').addEventListener('input', renderStarclanPanel);
             bind('confirmDelete', executeDelete);
 
             $('searchInput').addEventListener('input', (e) => $('searchClear').classList.toggle('hidden', !e.target.value));
