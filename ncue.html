@@ -369,6 +369,20 @@
         .logo-menu-item:hover { background: var(--accent-soft) !important; }
         .logo-menu-item + .logo-menu-item { border-top: 1px solid var(--rule); }
 
+        /* ★ 觸控裝置不顯示電路小黑貓的入口。
+           那一頁在觸控裝置上是**硬擋**的（blackcatspice.html 的 TOUCH_ONLY），
+           點進去只會看到「請用桌機或筆電開這一頁」——留著入口等於留一條死路。
+
+           條件刻意跟模擬器的擋門用同一個 media query，不是用網站的 767px 斷點：
+           兩邊門檻不一樣的話會出現「看得到入口、點進去被擋」或
+           「明明能跑卻找不到入口」，兩種都沒有錯誤訊息。
+           （tests/logomenu.mjs 會比對這一行與模擬器裡的那一行是否相同。）
+           用 CSS 藏而不是不產生：桌機把視窗拉窄不會影響 pointer，
+           而觸控裝置也不會因為橫放就突然冒出一個進不去的連結。 */
+        @media (pointer: coarse) and (hover: none) {
+            .logo-menu-item.desktop-only { display: none; }
+        }
+
         /* ---- 大分頁：現在在哪一頁 ----
            這組規則之前根本不存在。JS 有把 .is-active 加上去（NAV_ACTIVE），
            但沒有任何 CSS 在畫它，所以六個分頁長得一模一樣，看不出在哪頁。
@@ -1222,7 +1236,9 @@
                     <img src="image.png" alt="小黑貓 Logo" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
                     <div class="flex flex-col">
                         <h1 id="siteName" class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">小黑貓</h1>
-                        <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">NCUE EE Black Cat</span>
+                        <!-- 文字由 buildStaticUI() 依 PRODUCT 填入，這裡留空。
+                             寫死的話會出現「小黑貓 / NCUE EE Black Cat」這種組合。 -->
+                        <span id="siteNameEn" class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest"></span>
                     </div>
                     <span id="logoChev" aria-hidden="true">▾</span>
                 </div>
@@ -1755,7 +1771,7 @@
                     <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="book-open" class="w-6 h-6 text-emerald-500"></i> 使用說明</h3>
                     <div class="space-y-4">
                         <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
-                        <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">首頁：</span>查看最新公告與常用連結；登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
+                        <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">主頁：</span>登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。（最新消息與常用連結拆分之後歸「彰師電子小黑貓」，從左上角 logo 切過去）課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
                         <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
                         <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>四個子頁一次到位。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">測驗</span>與<span class="font-bold text-slate-800">單字庫</span>都分「公有」與「我的」——公有的由巫醫以上維護（測驗需戰士以上解鎖），<span class="font-bold text-slate-800">「我的」任何登入者都能自己建，而且只有你看得到，管理員也讀不到</span>。答錯會直接顯示正解，結束後也會列出錯題；電腦上可用 1～4 鍵作答。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>分成「記帳」與「投資」。記帳可記錄收支；投資可登錄持倉與交易，按「更新現價」會自動帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價為延遲資料，僅供個人記錄參考，不構成投資建議。</span>這裡的資料只有你自己看得到。</p></div>
@@ -2410,16 +2426,30 @@
         const PRODUCT = 'ncue';                 // 'cat' 小黑貓 ／ 'ncue' 彰師電子
 
         const PRODUCT_TABS = {
-            cat:  [['home','課表'], ['self-study','學習'], ['finance','理財']],
+            /* ★「課表」改名「主頁」：那一頁上面不只有課表，還有登入後的問候與入口，
+               而且「關於」裡早就寫成「首頁」了——分頁列與說明文件叫不同的名字，
+               不會有任何錯誤，只會讓人找不到自己剛剛看過的東西。三處統一叫「主頁」。 */
+            cat:  [['home','主頁'], ['self-study','學習'], ['finance','理財']],
             ncue: [['evaluation','課程評價'], ['quiz','測驗'],
                    ['news','消息與連結'], ['management','管理']]
         };
         const TABS = PRODUCT_TABS[PRODUCT];
         /* 產品切換靠 logo 選單，不是分頁列。目前所在的那一項要標出來，
            不然使用者不知道自己在哪一個產品裡。 */
+        /* ★ `en`：頁首那行小字（原本是寫死在 HTML 裡的 `NCUE EE Black Cat`）。
+           寫死的後果跟中文站名那次一模一樣——拆分之後從小黑貓進來的人，
+           頁首中文寫「小黑貓」、底下英文卻寫「NCUE EE Black Cat」。
+           沒有錯誤訊息，只是顯示了另一個產品的名字。所以英文名也跟著產品走。
+           ★ 這是**小黑貓這個產品**的英文名，跟模擬器頁首的 BLACKCAT SPICE 是兩回事。
+
+           `ladder`：這個產品的頁首徽章要顯示哪一條階梯。兩條互不換算
+           （見下方 currentUserTier 那一段），所以徽章不能兩邊共用一張表——
+           同一個人可以是彰師電子的星族、同時是小黑貓的一般使用者。 */
         const PRODUCT_META = {
-            cat:  { name:'小黑貓',   title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./' },
-            ncue: { name:'彰師電子小黑貓', title:'彰師電子小黑貓 - 課程評價與資源', href:'ncue.html' }
+            cat:  { name:'小黑貓',   en:'Little Black Cat',
+                    title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./', ladder:'tier' },
+            ncue: { name:'彰師電子小黑貓', en:'NCUE EE Black Cat',
+                    title:'彰師電子小黑貓 - 課程評價與資源', href:'ncue.html', ladder:'role' }
         };
         const NEWS_CATEGORIES = ['共同','新生','舊生'];
         const FILTERS = [
@@ -2516,6 +2546,31 @@
               : (TIER_LEVELS[tierField] != null ? TIER_LEVELS[tierField] : 1);
         const catAtLeast = (n) => currentUserTier >= n;    // 小黑貓
         const isCatAdmin = () => currentUserTier >= 3;
+
+        /* 頁首與帳號選單的徽章：顯示哪一條階梯由 PRODUCT_META[PRODUCT].ladder 決定。
+           ★ 為什麼要做這件事：徽章原本一律印 currentUserRole（貓族階級）。
+           拆分之後，一個 tier 是「一般」的星族從小黑貓進來，頁首寫著「星族」，
+           但自學課程的新增鈕不會出現——畫面上的頭銜與實際能做的事對不起來，
+           而且不會有任何錯誤訊息，只會讓人覺得「這個網站怪怪的」。
+
+           ★ 徽章只是把**已經算好的**結果顯示出來。權限判斷仍然各走各的
+           （彰師電子走 atLeast／currentUserLevel，小黑貓走 catAtLeast／currentUserTier）。
+           不要拿徽章的字回頭做判斷——那等於把兩條階梯又接回一起。 */
+        const TIER_NAMES  = ['訪客','一般','會員','管理員'];   // 索引＝currentUserTier
+        const TIER_COLORS = {
+'管理員':'bg-slate-800 text-white border-slate-900',
+'會員'  :'bg-teal-500 text-white border-teal-600',
+'一般'  :'bg-slate-400 text-white border-slate-500',
+'訪客'  :'bg-slate-300 text-white border-slate-400'
+        };
+        function currentBadge(){
+            if (PRODUCT_META[PRODUCT].ladder ==='tier'){
+                const name = TIER_NAMES[currentUserTier] ||'一般';
+                return { name, style: TIER_COLORS[name] || TIER_COLORS['一般'] };
+            }
+            return { name: currentUserRole,
+                     style: ROLE_COLORS[currentUserRole] || ROLE_COLORS['見習生'] };
+        }
         let userDisplayName ='無名小貓', userSchedule = {};
         let searchQuery ='', activeSemesterFilter ='all', selectedFilterCourseId = null;
 
@@ -2663,6 +2718,18 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-05',
+                title: '名稱與階級跟著產品走',
+                items: [
+                    ['小黑貓的英文名改成 Little Black Cat', '頁首中文名底下那一行小字，原本寫死在 HTML 裡是「NCUE EE Black Cat」。拆分成三個產品之後這行就不成立了：從小黑貓進來的人，中文寫著「小黑貓」，底下英文卻是另一個產品的名字。這種錯不會報錯、不會有紅字，畫面上就是有東西，只是那個東西屬於別人。跟上一批中文站名寫死的那次是同一件事，所以這次連做法一起改掉——英文名放進產品資料表，跟中文名、標題、階梯歸屬放在一起，開站時依產品填。順帶一提這裡有兩個容易混的名字：模擬器頁首那行 BLACKCAT SPICE 是模擬器的英文名，跟這一項無關。測試釘的是「跑完之後畫面上那一行真的有字」，不是「資料表裡有這個欄位」——只檢查欄位的話，忘了填一樣是綠的，而使用者看到的是一片空白。'],
+                    ['「課表」改叫「主頁」', '那一頁上面不只有課表，還有登入後的問候與各種入口，而「關於」裡的說明從以前就寫成「首頁」。分頁列叫一個名字、說明文件叫另一個名字，不會有任何錯誤，只會讓人找不到自己剛剛看過的東西。現在三處統一叫「主頁」。分頁的內部代號沒有跟著改——切換分頁、頁面元素、管理頁權限不足時的退路都寫著那個代號，一起改掉的話症狀是「點了沒反應」。順帶修掉「關於」裡一句已經不成立的話：那裡還寫著主頁可以看最新消息與常用連結，但那兩塊在上一批就跟著彰師電子搬走了。'],
+                    ['頁首的階級徽章依產品顯示', '權限上一批就拆成兩條互不換算的階梯了，但頁首徽章一直只印貓族階級。結果是一個在小黑貓這側只是「一般」的星族，頁首寫著「星族」，卻找不到任何管理功能——頭銜與實際能做的事對不起來，而這種落差不會有錯誤訊息，只會讓人覺得這個網站怪怪的。現在彰師電子那一頁印見習生到星族，小黑貓那一頁印一般、會員、管理員，帳號選單的徽章和登入時的招呼語走同一條。要強調的是徽章只是把已經算好的結果顯示出來，權限判斷仍然各走各的——不要拿徽章的字回頭做判斷，那等於把兩條階梯又接回一起。測試的作法是把徽章那一段從原始碼抽出來，對兩個產品乘上每一個階級真的各跑一次，而且每一列都刻意配一個相反的階級：如果哪天有人把它接回貓族階級，每一條都會紅。'],
+                    ['手機上不再顯示電路小黑貓的入口', '模擬器在觸控裝置上是硬擋的，點進去只會看到「請用桌機或筆電開這一頁」。留著入口等於留一條死路。判斷條件刻意跟模擬器的擋門用同一句，不是用網站自己的手機斷點——兩邊門檻不一樣的話會出現「看得到入口、點進去被擋」或「明明跑得動卻找不到入口」，兩種都沒有錯誤訊息。測試直接比對兩個檔案裡的那一句是否相同。'],
+                    ['產生器不再默默地什麼都沒換', '彰師電子那一頁是從小黑貓那份原始碼產生出來的，產生器做的事就是換掉兩個地方。問題是字串取代找不到目標時不會報錯，只會原封不動地回傳——所以只要有人改了標題，產生出來的頁面會安靜地繼續掛著另一個產品的名字。現在每一次取代都要求「剛好換到一次」，零次或多次都直接停下來；標題也不再抄一份寫在產生器裡，改成從產品資料表讀，少一個會分岔的地方。順手把測試用的原始碼抽取工具也修了同一類的毛病：原本抽函式是靠「行首的大括號」找結尾，主站的程式全都縮排在腳本標籤裡，於是它會一路吃到檔案後段某個剛好頂格的括號，抽出來是半截的——而半截的東西丟進去執行，錯誤訊息看起來像原始碼有語法錯，其實是量測工具自己抓錯。'],
+                    ['三個頁面的選單文案現在會互相比對', '左上角的產品切換選單，主站那份是程式產生的，模擬器那份是寫死的 HTML。改名的時候主站改成了「主頁、學習、理財」，模擬器那份還留著「課表」——同一個產品在不同頁面有不同的說明，沒有任何錯誤訊息。這正是外殼複製三份的固定代價，所以補了一條守衛：兩邊的項目名稱與副標要逐字相同。照慣例每一條新測試都故意弄壞一次確認會紅，這次一共弄壞八種，八種都紅了。']
+                ]
+            },
             {
                 date: '2026-07-29',
                 title: '電路模擬器',
@@ -2991,6 +3058,7 @@
                不會報錯，只是使用者以為自己點錯了。 */
             const meta = PRODUCT_META[PRODUCT];
             if ($('siteName')) $('siteName').textContent = meta.name;
+            if ($('siteNameEn')) $('siteNameEn').textContent = meta.en;
             document.title = meta.title;
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
@@ -3016,18 +3084,21 @@
         /* 依 PRODUCT 產生 logo 選單＝產品切換器。三個檔案共用同一段程式碼，
            所以三頁的選單一定長得一樣——這正是不手寫兩份的理由。 */
         function buildLogoMenu(){
+            /* 第五欄＝只在桌機顯示。目前只有電路小黑貓是這樣（觸控裝置硬擋），
+               寫成資料而不是在樣板裡判斷 k === 'spice'，
+               是因為將來多一個「要用電腦開」的產品時不必再改樣板。 */
             const items = [
-                ['cat',  '小黑貓',         './',                 '課表、學習、理財'],
+                ['cat',  '小黑貓',         './',                 '主頁、學習、理財'],
                 ['ncue', '彰師電子小黑貓', 'ncue.html',          '課程評價、教材、測驗'],
-                ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開']
+                ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開', true]
             ];
             const el = $('logoMenu');
             if (!el) return;
-            el.innerHTML = items.map(([k, name, href, sub]) => k === PRODUCT
+            el.innerHTML = items.map(([k, name, href, sub, deskOnly]) => k === PRODUCT
                 /* 目前這一個不做成連結——點了跳回自己很莫名，
                    而且使用者需要看得出自己在哪一個產品裡 */
                 ? `<span class="logo-menu-item is-here" role="menuitem" aria-current="page">${name}<small>${sub}（目前所在）</small></span>`
-                : `<a class="logo-menu-item" href="${href}" role="menuitem">${name}<small>${sub}</small></a>`
+                : `<a class="logo-menu-item${deskOnly ?' desktop-only' :''}" href="${href}" role="menuitem">${name}<small>${sub}</small></a>`
             ).join('') +
                 `<button type="button" class="logo-menu-item" data-go="about" role="menuitem">關於<small>更新紀錄與說明</small></button>`;
         }
@@ -5279,11 +5350,21 @@
             const loggedIn = user && !user.isAnonymous;
 
             if (loggedIn) {
-                const badgeStyle = ROLE_COLORS[currentUserRole] || ROLE_COLORS['見習生'];
-                const roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest ${badgeStyle} shadow-sm border">${currentUserRole}</span>`;
-                const displayText = isAdmin ?'管理員' : escapeHTML(user.email.split('@')[0]);
+                /* 徽章依產品選階梯（見 currentBadge）。彰師電子印貓族階級，
+                   小黑貓印一般／會員／管理員——同一個帳號在兩邊可以不一樣。 */
+                const badge = currentBadge();
+                const badgeStyle = badge.style;
+                const roleBadge = `<span class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest ${badgeStyle} shadow-sm border">${badge.name}</span>`;
+                /* 「最高階」在兩邊是不同的東西：彰師電子是星族，小黑貓是管理員。
+                   拿 isAdmin（＝星族）去畫小黑貓的按鈕，會讓一個 tier 只是「一般」
+                   的星族在小黑貓看到管理員配色，但什麼管理功能都沒有。 */
+                const isTop = PRODUCT_META[PRODUCT].ladder ==='tier' ? isCatAdmin() : isAdmin;
+                /* 徽章已經寫了「管理員」，按鈕文字就不要再重複一次；
+                   只有彰師電子那條階梯的最高階（星族）才用文字取代信箱前綴。 */
+                const displayText = (PRODUCT_META[PRODUCT].ladder ==='role' && isAdmin)
+                    ?'管理員' : escapeHTML(user.email.split('@')[0]);
                 adminBtn.innerHTML = `${roleBadge} <span class="truncate max-w-[80px]">${displayText}</span> <i data-lucide="log-out" class="w-4 h-4 ml-1"></i>`;
-                adminBtn.className = isAdmin
+                adminBtn.className = isTop
                     ?'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-800 text-white shadow-md hover:bg-slate-700 transition-colors border border-slate-600'
                     :'flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-bold bg-slate-900 text-white shadow-sm hover:bg-slate-800 transition-colors';
 
@@ -5292,7 +5373,7 @@
                 if (nameEl) nameEl.textContent = userDisplayName ||'無名小貓';
                 if (mailEl) mailEl.textContent = user.email ||'';
                 if (badgeEl) {
-                    badgeEl.textContent = currentUserRole;
+                    badgeEl.textContent = badge.name;
                     badgeEl.className = `px-2 py-0.5 rounded text-[10px] font-black tracking-widest shadow-sm border ${badgeStyle}`;
                 }
             } else {
@@ -5327,7 +5408,7 @@
             }
 
             /* 權限不足時離開管理頁。管理頁屬於彰師電子，所以看貓族階級。
-               ★ 退到 'home'（課表）而不是原本的首頁——拆分之後 'home' 是
+               ★ 退到 'home'（主頁）而不是原本的首頁——拆分之後 'home' 是
                小黑貓底下的第一個子分頁，誰都進得去。 */
             if (currentUserLevel < 4 && !$('page-management').classList.contains('hidden')) {
                 switchTab(TABS[0][0]);
@@ -5784,7 +5865,8 @@
 
                 renderSchedule();
                 highlightCurrentClass();
-                showToast(`歡迎回來，${currentUserRole} ${userDisplayName}`);
+                // 招呼語也走同一條階梯，不然頁首徽章寫「一般」、吐司卻喊你「星族」
+                showToast(`歡迎回來，${currentBadge().name} ${userDisplayName}`);
             } else {
                 isAdmin = false;
                 currentUserRole ="訪客";
