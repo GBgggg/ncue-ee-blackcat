@@ -2216,15 +2216,24 @@
     <!-- 新增／編輯計劃 -->
     <div id="planModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-amber-500">
-            <h3 id="planModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增計劃</h3>
+            <h3 id="planModalTitle" class="text-2xl font-bold mb-2 text-slate-900">新增計劃</h3>
+            <p id="planZoneHint" class="hidden text-xs font-bold text-slate-400 mb-4"></p>
             <input type="hidden" id="editPlanId" value="">
             <div class="space-y-4">
                 <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：電路學期中考）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg">
                 <!-- ★ datetime-local 是絕對時間點，跟課表的「星期幾＋第幾節」是兩種東西。
                      這正是後端要另開一張表的原因。 -->
-                <div>
-                    <label class="text-xs font-bold text-slate-400 mb-1 block">時間</label>
-                    <input type="datetime-local" id="planAt" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                <!-- ★ 計劃是一段時間，不是一個時間點。兩個欄位擺在一起，
+                     形狀本身就說明了這件事，不必靠說明文字。 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block">開始</label>
+                        <input type="datetime-local" id="planAt" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block">結束</label>
+                        <input type="datetime-local" id="planEnd" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                    </div>
                 </div>
                 <div>
                     <label class="text-xs font-bold text-slate-400 mb-1 block">提前多久通知</label>
@@ -2745,6 +2754,10 @@
            放在函式旁邊就是暫時性死區，而症狀是整頁全白（已踩六次）。 */
         let userPlans = [];
         let planTicker = null;      // 計劃倒數用的計時器（只在看得到的時候跑）
+        /* 拖曳中的那一筆，以及「拖到本周／未來、正在等使用者選日期」的那一筆。
+           宣告在狀態區的理由跟其他狀態一樣（暫時性死區已踩過六次）。 */
+        let draggingPlanId = null;
+        let pendingZoneMove = null;
 
         /* 倒數（只記日期）。跟計劃是兩件事，刻意分開存也分開顯示：
              計劃 — 某個時間點要做某件事，會通知，倒數到秒
@@ -2900,8 +2913,11 @@
         const CHANGELOG = [
             {
                 date: '2026-08-10',
-                title: '主頁分成課表、計劃、倒數；計劃可打勾',
+                title: '計劃表改成五個可拖曳的區塊',
                 items: [
+                    ['計劃表改成五個區塊，可以用拖的搬', '昨日、今天、明天、本周、未來。今天與明天按新增會自動帶好日期（今天是下一個整點、明天是早上九點），本周與未來刻意留白要自己選——系統替你挑一個的話你多半不會注意到，然後那筆就默默跑錯區塊。計劃可以直接拖到別的區塊，拖過去就是改日期，而且會保留原本的時分與長度：搬的是「哪一天」，不是「幾點」，一個排在早上八點半的會議被拖一下就跑到九點整會很煩。拖到本周或未來時會跳出來讓你選日期，按取消就什麼都不做。昨日那一區只收「過了今天還沒打勾的」，不能自己往裡面放，而且只活一天——再往前的會在下次開啟時清掉，並且跳一則訊息說清了幾筆，因為安靜地消失跟「東西不見了」是同一件事。'],
+                    ['★ 區塊只看日期，不看時間', '上一版用「開始時間過了沒」來判斷，結果今天早上的計劃到了下午就跳出「今天」——但它明明還是今天的事。現在今天的計劃一整天都待在今天，直到日期真的換了才落到昨日。進行中的那一筆仍然會用綠色標示、倒數改成「剩多久結束」，只是那件事不再影響它待在哪一區。另外五個區塊一律都畫出來，即使是空的：不畫的話「今天沒事」跟「今天那一區不見了」長得一樣，而且沒有空區塊就沒有地方可以把計劃拖進去。拖曳的事件是綁在整個容器上而不是每一列，因為清單每次重畫都會換掉所有的列，各綁一次的話重畫之後就全部失效，而畫面看起來完全正常，只是拖不動。'],
+                    ['★ 計劃改成一段時間，不是一個時間點', '原本一筆計劃只有一個時間，但實際上大多數事情是「幾點到幾點」——上課、開會、讀書、社團。現在有開始與結束兩個欄位，清單上寫成「8/12（三）14:00 – 16:00」，同一天只寫一次日期。這個改動真正的重點在分組：開始過了但還沒結束的計劃是**進行中**，不是過期。用開始時間判斷過期的話，一個從早開到晚的活動整天都會掛在「已過期」底下，而畫面上兩個時間都好好地寫著，看不出哪裡不對。進行中的那一筆會排在最前面、用綠色標示，而且倒數改成「剩多久結束」——人在活動當中想知道的是那個，不是已經開始多久了。舊的計劃沒有結束時間，一律當成時間點處理，行為跟以前完全一樣；如果直接去讀那個欄位會拿到空值，而空值進到比較式一律不成立，症狀會是「舊的計劃全部跑到某一組」，同樣不會報錯。另外結束早於開始要擋下來，不擋的話那筆會永遠停在已過期。'],
                     ['計劃可以打勾完成，而且依今天／明天／本週分組', '參考了幾份待辦軟體的評測，對照之下最明顯的缺口是「做完只能刪掉」——等於不留紀錄，而使用者常常想回頭看這週做完了什麼。現在每一筆左邊有一個勾選框，完成的會劃線並收到最後。另外整條清單改成分組顯示，因為使用者真正要問的是「今天要幹嘛」，而不是「所有事情的先後順序」，一條長清單答不了那個問題。已過期與已完成各自成組排在最後，才不會擠掉還沒做的。★ 這裡有一個沒有症狀的坑：打勾之後一定要把那筆從推播清單移掉，否則明明做完了、畫面上還劃著線，時間到卻還是會響——而那則通知看起來完全正常，沒有人會想到問題出在「已完成沒有被移掉」。順帶一提全部打勾之後那個每秒重畫的計時器也會停，因為畫面上一個秒數都沒有了。'],
                     ['計劃與倒數拆成兩件事', '一開始把兩者放在同一份清單，但它們的資料形狀就不一樣：計劃是某個時間點（要到分鐘），倒數是日曆上的一天。混在一起的後果很直接——畫面上會有一半的項目秒數在跳、一半整天不動，看起來像壞了。現在分成兩個小分頁：計劃有日期時間、可設提前多久通知；倒數只填一個日期，顯示「還有 N 天」，每一筆可以自己決定要不要在當天早上八點提醒。倒數不需要每秒重畫，所以那個每秒跑的計時器只綁在計劃那一頁。'],
                     ['★ 算「還有幾天」不能拿毫秒差去除', '直覺的寫法是把兩個時間相減再除以一天的毫秒數，但那樣「明天早上八點」和「今天晚上十一點」相差不到一天，會被算成 0 天——而使用者眼中那明明是明天。正確的是算日曆上的天數差：把兩個日期都正規化到當天零點再相減，不受時分與時區影響。測試裡留了一組對照，直接證明那兩種算法在同一組輸入下會給出不同答案，順便涵蓋跨月、跨年、閏年二月。另外倒數只有日期，所以「幾點響」要自己決定；建構那個時間點時不能去解析日期字串，因為那會被當成世界時的午夜，在台北變成前一天早上八點——一樣不會報錯，只是提醒早一天響。'],
@@ -3697,24 +3713,93 @@
 
            ★ 用日曆天數差，不是毫秒差除以一天——同一個坑在倒數那邊已經踩過：
            今晚十一點與明早八點只差 9 小時，除下來是 0 天，會被歸成「今天」。 */
-        const PLAN_GROUPS = ['done','overdue','today','tomorrow','week','later'];
-        const PLAN_GROUP_LABEL = {
-'today':'今天', 'tomorrow':'明天', 'week':'本週', 'later':'更遠',
-'overdue':'已過期', 'done':'已完成'
+        /* 五個區塊。順序就是畫面上由上而下的順序。
+           ★「昨日」在最上面是刻意的：那是「昨天沒做完」的東西，
+           擺在最下面等於鼓勵大家忽略它，而它才是最需要處理的一批。 */
+        const PLAN_ZONES = ['yesterday','today','tomorrow','week','later'];
+        const PLAN_ZONE_META = {
+'yesterday': { label:'昨日', hint:'過了今天還沒打勾的。拖到其他區塊就能重新安排，放著的話明天會自動清掉',
+               addable:false, tone:'rose' },
+'today':     { label:'今天', hint:'', addable:true,  tone:'emerald' },
+'tomorrow':  { label:'明天', hint:'', addable:true,  tone:'amber' },
+'week':      { label:'本周', hint:'七天內',   addable:true, tone:'sky',    pickDate:true },
+'later':     { label:'未來', hint:'七天以後', addable:true, tone:'violet', pickDate:true }
         };
-        function planGroup(plan, now) {
-            if (plan && plan.done) return 'done';
+        /* 已完成不佔區塊，收在最下面單獨一區——它不是「待安排」的東西。 */
+        const PLAN_DONE_LABEL = '已完成';
+
+        /* ★ 計劃是**一段時間**，不是一個時間點：`at` 是開始，`end` 是結束。
+           舊資料沒有 end——那時候是時間點——所以一律用這支取值，
+           缺欄位就當成「開始即結束」，行為跟以前一模一樣。
+           直接讀 p.end 的地方會拿到 undefined，而 undefined 進到比較式
+           一律是 false，症狀是「舊的計劃全部跑到某一組」，不會報錯。 */
+        const planEnd = (plan) => {
+            const e = Number(plan && plan.end);
+            return isFinite(e) ? e : Number(plan && plan.at);
+        };
+
+        /* 三個階段。抽出來是因為「已過期」的定義變了：
+           ★ 開始過了但還沒結束的計劃是**進行中**，不是過期。
+           用開始時間判斷過期的話，一個從早開到晚的活動整天都掛在「已過期」底下。 */
+        function planPhase(plan, now) {
+            const at = Number(plan && plan.at), end = planEnd(plan);
+            if (!isFinite(at)) return 'before';
+            if (now < at) return 'before';
+            if (isFinite(end) && now <= end) return 'during';
+            return 'after';
+        }
+
+        /* ★ 區塊完全由「日期」決定，不看時間。
+           這是跟上一版最大的差別：上一版用「開始時間過了沒」判斷過期，
+           結果今天早上的計劃到了下午就跳出「今天」——但它明明還是今天的事。
+           現在今天的計劃一整天都待在「今天」，直到日期換了才落到昨日。 */
+        function planZone(plan, now) {
             const at = Number(plan && plan.at);
             if (!isFinite(at)) return 'later';
             const d = countdownDays(todayStr(new Date(at)), todayStr(new Date(now)));
             if (d === null) return 'later';
-            /* 已過期看的是「時間點過了沒」，不是「今天過了沒」——
-               今天早上八點的計劃到了下午就該進已過期，而它還是今天。 */
-            if (at < now) return 'overdue';
+            if (d < 0)  return 'yesterday';   // 昨日以前的一律收在這裡
             if (d === 0) return 'today';
             if (d === 1) return 'tomorrow';
             if (d <= 7) return 'week';
             return 'later';
+        }
+
+        /* ★「昨日」只收**還沒打勾**的。打勾的直接進已完成——
+           做完的東西不需要被催，混進去只會讓那一區看起來永遠清不完。 */
+        function planGroup(plan, now) {
+            if (plan && plan.done) return 'done';
+            return planZone(plan, now);
+        }
+
+        /* 過期太久的自動清掉。★ 這是整個計劃表**唯一會弄丟資料**的地方，
+           所以定義要寫死並且測到：昨日區只留「昨天」那一天，
+           再往前的（今天以前兩天含以上）在下一次載入時刪除。
+           使用者的說法是「昨日過了一天後自動刪除」——也就是它只活一天。
+
+           ★ 已完成的不在這裡刪：那是紀錄，使用者可能想回頭看。 */
+        function plansToPurge(plans, now) {
+            const today = todayStr(new Date(now));
+            return (plans || []).filter(p => {
+                if (p && p.done) return false;
+                const d = countdownDays(todayStr(new Date(Number(p && p.at))), today);
+                return d !== null && d <= -2;
+            });
+        }
+
+        /* 一段時間怎麼寫成一行字。同一天只寫一次日期——
+           「8/12 14:00 – 8/12 16:00」讀起來要多花一秒才知道是同一天。 */
+        function planWhenText(plan) {
+            const at = Number(plan && plan.at), end = planEnd(plan);
+            const d1 = new Date(at);
+            const day = (d) => d.toLocaleString('zh-TW', { month:'numeric', day:'numeric', weekday:'short' });
+            const hm  = (d) => d.toLocaleString('zh-TW', { hour:'2-digit', minute:'2-digit' });
+            if (!isFinite(at)) return '時間有誤';
+            if (!isFinite(end) || end === at) return `${day(d1)} ${hm(d1)}`;
+            const d2 = new Date(end);
+            const sameDay = todayStr(d1) === todayStr(d2);
+            return sameDay ? `${day(d1)} ${hm(d1)} – ${hm(d2)}`
+                           : `${day(d1)} ${hm(d1)} – ${day(d2)} ${hm(d2)}`;
         }
 
         function planCountdown(atTs, now) {
@@ -3798,58 +3883,172 @@
             } catch (e) { console.warn('同步計劃提醒失敗', e); }
         }
 
+        /* 一列計劃。抽出來是因為五個區塊都要用，
+           而且拖曳需要 draggable 與 data-id，寫在兩個地方一定會分岔。 */
+        function planRowHTML(p, now) {
+            const phase = planPhase(p, now);
+            const target = phase === 'during' ? planEnd(p) : Number(p.at);
+            const c = planCountdown(target, now);
+            const when = planWhenText(p);
+            const prefix = phase === 'during' ?'剩 ' :'';
+            return `
+            <div class="plan-row flex items-center justify-between gap-3 p-3 rounded-2xl border bg-white ${p.done ?'border-slate-200' : phase === 'during' ?'border-emerald-300' :'border-slate-200'}"
+                 draggable="true" data-id="${escapeHTML(p.id)}">
+                <div class="flex items-center gap-3 min-w-0">
+                    <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" title="${p.done ?'標成未完成' :'標成完成'}"
+                            class="shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
+                    ${p.done ?'<i data-lucide="check" class="w-4 h-4 pointer-events-none"></i>' :''}
+                    </button>
+                    <div class="min-w-0">
+                        <div class="font-bold truncate ${p.done ?'text-slate-400 line-through' :'text-slate-800'}">${escapeHTML(p.title)}</div>
+                        <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
+                    </div>
+                </div>
+                <div class="flex items-center gap-1 shrink-0">
+                    ${p.done ?'' : `<span class="plan-countdown text-xs font-black mr-1 ${c.past ?'text-slate-400' : phase === 'during' ?'text-emerald-600' :'text-amber-600'}" data-at="${target}" data-prefix="${prefix}">${escapeHTML(prefix + c.text)}</span>`}
+                    <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
+                    <button data-action="delete-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                </div>
+            </div>`;
+        }
+
         function renderPlans() {
             const box = $('planList');
             if (!box) return;
             const note = $('planReminderNote');
             if (note) note.textContent = classReminderOn
-                ?'到時間會用通知提醒你，App 關著也會響。'
+                ?'到時間會用通知提醒你，App 關著也會響。拖曳可以把計劃搬到別的區塊。'
                 :'⚠️ 還沒開「提醒」，所以只有畫面上的倒數，不會有通知。到課表右上角開啟。';
 
-            if (userPlans.length === 0) {
-                box.innerHTML = '<div class="text-center py-8 text-slate-400 font-medium">還沒有計劃。按上面的「新增計劃」加一個，會顯示倒數並在時間到之前通知你。</div>';
-                return;
-            }
             const now = Date.now();
-            /* 依「今天／明天／本週／更遠」分組。使用者真正要問的是「今天要幹嘛」，
-               不是「所有事情的先後順序」——一整條長清單答不了那個問題。
-               已過期與已完成各自成組收在最後，才不會擠掉還沒做的。 */
             const buckets = {};
             for (const p of userPlans) (buckets[planGroup(p, now)] ||= []).push(p);
-            const order = ['today','tomorrow','week','later','overdue','done'];
 
-            box.innerHTML = order.filter(g => (buckets[g] || []).length).map(g => {
-                const rows = buckets[g]
-                    .sort((a, b) => g === 'done' || g === 'overdue'
-                        ? Number(b.at) - Number(a.at)      // 過去的：近的排前面
-                        : Number(a.at) - Number(b.at))
-                    .map(p => {
-                        const c = planCountdown(p.at, now);
-                        const dim = p.done || c.past;
-                        const when = new Date(Number(p.at)).toLocaleString('zh-TW',
-                            { month:'numeric', day:'numeric', weekday:'short', hour:'2-digit', minute:'2-digit' });
-                        return `
-                <div class="flex items-center justify-between gap-3 p-4 rounded-2xl border ${dim ?'bg-slate-50 border-slate-200' :'bg-amber-50 border-amber-200'}">
-                    <div class="flex items-center gap-3 min-w-0">
-                        <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" title="${p.done ?'標成未完成' :'標成完成'}"
-                                class="shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
-                        ${p.done ?'<i data-lucide="check" class="w-4 h-4 pointer-events-none"></i>' :''}
-                        </button>
-                        <div class="min-w-0">
-                            <div class="font-bold truncate ${p.done ?'text-slate-400 line-through' :'text-slate-800'}">${escapeHTML(p.title)}</div>
-                            <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
-                        </div>
+            /* ★ 五個區塊一律都畫出來，即使是空的。
+               空的就不畫的話，「今天沒事」跟「今天那一區不見了」長得一樣，
+               而且沒有空區塊就沒有地方可以把計劃拖進去。 */
+            const zones = PLAN_ZONES.map(z => {
+                const meta = PLAN_ZONE_META[z];
+                const list = (buckets[z] || []).sort((a, b) => Number(a.at) - Number(b.at));
+                const rows = list.length
+                    ? list.map(p => planRowHTML(p, now)).join('')
+                    : `<div class="text-center py-4 text-xs text-slate-300 font-medium">${meta.addable ?'把計劃拖進來，或按右上角新增' :'目前沒有'}</div>`;
+                return `
+            <section class="plan-zone rounded-2xl border-2 border-dashed border-slate-200 p-3" data-zone="${z}">
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="min-w-0">
+                        <span class="text-sm font-black text-${meta.tone}-600">${meta.label}</span>
+                        <span class="text-xs font-bold text-slate-400 ml-1">${list.length}</span>
+                        ${meta.hint ? `<div class="text-[11px] text-slate-400 font-medium truncate">${meta.hint}</div>` :''}
                     </div>
-                    <div class="flex items-center gap-2 shrink-0">
-                        ${p.done ?'' : `<span class="plan-countdown text-sm font-black ${c.past ?'text-slate-400' :'text-amber-600'}" data-at="${Number(p.at)}">${escapeHTML(c.text)}</span>`}
-                        <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
-                    </div>
-                </div>`;
-                    }).join('');
-                return `<div class="pt-2"><div class="text-xs font-black text-slate-400 mb-2 px-1">${PLAN_GROUP_LABEL[g]}・${buckets[g].length}</div>${rows}</div>`;
+                    ${meta.addable
+                        ? `<button data-action="add-plan-zone" data-zone="${z}" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-black bg-${meta.tone}-50 text-${meta.tone}-600 hover:bg-${meta.tone}-100 transition">＋ 新增</button>`
+                        : ''}
+                </div>
+                <div class="space-y-2">${rows}</div>
+            </section>`;
             }).join('');
+
+            const doneList = (buckets.done || []).sort((a, b) => Number(b.at) - Number(a.at));
+            const doneBlock = doneList.length ? `
+            <section class="pt-2">
+                <div class="text-xs font-black text-slate-400 mb-2 px-1">${PLAN_DONE_LABEL}・${doneList.length}</div>
+                <div class="space-y-2">${doneList.map(p => planRowHTML(p, now)).join('')}</div>
+            </section>` : '';
+
+            box.innerHTML = zones + doneBlock;
             icons();
+        }
+
+        /* ==========================================================
+         * 拖曳：把計劃搬到別的區塊
+         *
+         * ★ 搬區塊＝改日期。這一點要想清楚，不然會做成「區塊是另一個欄位」，
+         * 然後日期與區塊各說各話——畫面寫著「明天」，時間卻是上週三。
+         * 所以拖曳只做一件事：算出新的開始時間，其餘照原本的存檔流程走。
+         * ========================================================== */
+        function zoneTargetAt(zone, plan, now) {
+            /* 保留原本的時分——使用者搬的是「哪一天」，不是「幾點」。
+               全部重設成整點的話，一個排在早上八點的會議被拖一下就跑到九點。 */
+            const src = new Date(Number(plan && plan.at));
+            const h = isFinite(src.getTime()) ? src.getHours() : 9;
+            const mi = isFinite(src.getTime()) ? src.getMinutes() : 0;
+            const d = new Date(now);
+            if (zone === 'today'){ /* 就是今天 */ }
+            else if (zone === 'tomorrow') d.setDate(d.getDate() + 1);
+            else return null;                     // 本周／未來要自己選日期
+            d.setHours(h, mi, 0, 0);
+            return d.getTime();
+        }
+
+        /* 把一筆計劃移到某個區塊。日期定不出來（本周／未來）就跳出選日期。 */
+        async function movePlanToZone(id, zone) {
+            const p = userPlans.find(x => x.id === id);
+            if (!p) return;
+            if (zone === 'yesterday') return showToast('昨日只收過期的計劃，不能自己放進去');
+            const now = Date.now();
+            const at = zoneTargetAt(zone, p, now);
+            if (at === null){
+                /* ★ 本周／未來要使用者自己填日期（這是講好的行為）。
+                   系統替他挑一個的話，他多半不會注意到，那筆就默默跑錯區塊。
+                   取消的話什麼都不做——拖到一半反悔是很常見的事。 */
+                pendingZoneMove = { id, zone };
+                openPlanModal(id, zone);
+                return;
+            }
+            const span = planEnd(p) - Number(p.at);         // 維持原本的長度
+            userPlans = userPlans.map(x => x.id === id
+                ? { ...x, at, end: at + (isFinite(span) && span > 0 ? span : 0) } : x);
+            try {
+                await savePlans();
+                renderPlans(); updatePlanTicker();
+                showToast(`已移到「${PLAN_ZONE_META[zone].label}」`);
+            } catch (e) { showToast('存檔失敗，請稍後再試'); }
+        }
+
+        /* 拖曳的接線。★ 用事件委派綁在容器上，不是每一列各綁一次——
+           清單每次重畫都會換掉所有的列，各綁一次的話重畫之後就全部失效了，
+           而畫面看起來完全正常，只是拖不動。 */
+        function bindPlanDragAndDrop() {
+            const box = $('planList');
+            if (!box || box.dataset.dndBound) return;
+            box.dataset.dndBound = '1';
+
+            box.addEventListener('dragstart', (e) => {
+                const row = e.target.closest && e.target.closest('.plan-row');
+                if (!row) return;
+                draggingPlanId = row.dataset.id;
+                e.dataTransfer.effectAllowed = 'move';
+                /* Firefox 不設 data 就不會開始拖 */
+                try { e.dataTransfer.setData('text/plain', draggingPlanId); } catch (err) {}
+                row.classList.add('opacity-40');
+            });
+            box.addEventListener('dragend', (e) => {
+                const row = e.target.closest && e.target.closest('.plan-row');
+                if (row) row.classList.remove('opacity-40');
+                box.querySelectorAll('.plan-zone').forEach(z => z.classList.remove('bg-slate-100'));
+                draggingPlanId = null;
+            });
+            box.addEventListener('dragover', (e) => {
+                const zone = e.target.closest && e.target.closest('.plan-zone');
+                if (!zone) return;
+                e.preventDefault();                     // 不擋掉就不會觸發 drop
+                e.dataTransfer.dropEffect = 'move';
+                zone.classList.add('bg-slate-100');
+            });
+            box.addEventListener('dragleave', (e) => {
+                const zone = e.target.closest && e.target.closest('.plan-zone');
+                if (zone) zone.classList.remove('bg-slate-100');
+            });
+            box.addEventListener('drop', (e) => {
+                const zone = e.target.closest && e.target.closest('.plan-zone');
+                if (!zone) return;
+                e.preventDefault();
+                zone.classList.remove('bg-slate-100');
+                const id = draggingPlanId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
+                draggingPlanId = null;
+                if (id) movePlanToZone(id, zone.dataset.zone);
+            });
         }
 
         async function togglePlanDone(id) {
@@ -3868,7 +4067,9 @@
             const now = Date.now();
             document.querySelectorAll('.plan-countdown').forEach(el => {
                 const c = planCountdown(Number(el.dataset.at), now);
-                if (el.textContent !== c.text) el.textContent = c.text;
+                /* 前綴（進行中的「剩 」）存在 data 上，不然每秒重畫會把它抹掉 */
+                const text = (el.dataset.prefix ||'') + c.text;
+                if (el.textContent !== text) el.textContent = text;
             });
         }
 
@@ -3890,19 +4091,53 @@
             if (!visible && planTicker) { clearInterval(planTicker); planTicker = null; }
         }
 
-        function openPlanModal(id) {
+        /* 某個區塊的預設開始時間。★「今天／明天自動填入日期」就是這裡：
+           今天＝今天的下一個整點、明天＝明天早上九點。
+           本周／未來刻意回 null，讓表單留空、逼使用者自己選——
+           系統替他挑一個日期的話，他多半不會注意到，然後那筆就跑錯區塊。 */
+        function zoneDefaultAt(zone, now) {
+            const d = new Date(now);
+            if (zone === 'today'){
+                d.setMinutes(0, 0, 0); d.setHours(d.getHours() + 1);
+                return d.getTime();
+            }
+            if (zone === 'tomorrow'){
+                d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0);
+                return d.getTime();
+            }
+            return null;   // 本周／未來：使用者自己填
+        }
+
+        function openPlanModal(id, zone) {
             const p = id ? userPlans.find(x => x.id === id) : null;
             $('planModalTitle').textContent = p ?'編輯計劃' :'新增計劃';
             $('editPlanId').value = p ? p.id :'';
             /* datetime-local 要的是本地時間字串，不能直接丟 ISO（那是 UTC，
                會整個差八小時——而且看起來只是「時間怪怪的」，不會報錯）。 */
-            const d = p ? new Date(Number(p.at)) : new Date(Date.now() + 3600000);
+            const dflt = zone ? zoneDefaultAt(zone, Date.now()) : null;
+            const d = p ? new Date(Number(p.at))
+                        : (dflt ? new Date(dflt) : null);
+            /* 預設結束時間是開始的一小時後。新增一筆時最常見的就是一小時的事，
+               預填之後多數人不必動它——而留空會逼每個人都填兩次。 */
+            const e = p ? new Date(planEnd(p)) : (d ? new Date(d.getTime() + 3600000) : null);
             const pad = (n) => String(n).padStart(2,'0');
+            const local = (x) => `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}T${pad(x.getHours())}:${pad(x.getMinutes())}`;
             setVals({
                 planTitle: p ? p.title :'',
-                planAt: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`,
+                planAt: d ? local(d) :'',
+                planEnd: e ? local(e) :'',
                 planNote: p ? (p.note ||'') :'',
             });
+            /* 本周／未來沒有預設日期，提示要自己選——留白而不說明的話
+               使用者會以為是壞掉，或隨便填一個。 */
+            const hint = $('planZoneHint');
+            if (hint){
+                const meta = zone ? PLAN_ZONE_META[zone] : null;
+                hint.textContent = (meta && meta.pickDate)
+                    ? `這一筆會放進「${meta.label}」，請自己選日期`
+                    : (meta ? `這一筆會放進「${meta.label}」` :'');
+                hint.classList.toggle('hidden', !hint.textContent);
+            }
             $('planLead').value = String(p ? p.lead : 10);
             openModal('planModal');
         }
@@ -3914,10 +4149,18 @@
             if (!atStr) return showToast('請選時間');
             const at = new Date(atStr).getTime();
             if (!isFinite(at)) return showToast('時間格式不太對');
+            /* 結束留空就當成「一個時間點」，跟舊資料的行為一致。 */
+            const endStr = getVal('planEnd');
+            const end = endStr ? new Date(endStr).getTime() : at;
+            if (!isFinite(end)) return showToast('結束時間格式不太對');
+            /* ★ 結束早於開始要擋下來。不擋的話那筆計劃會永遠停在「已過期」，
+               而使用者看不出為什麼——畫面上兩個時間都好好地寫著。 */
+            if (end < at) return showToast('結束時間不能早於開始時間');
 
             const id = getVal('editPlanId');
             const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
-                          title, at, lead: Number($('planLead').value) || 0, note: getVal('planNote') };
+                          title, at, end, lead: Number($('planLead').value) || 0,
+                          note: getVal('planNote'), done: !!(id && (userPlans.find(x => x.id === id) || {}).done) };
             if (id) userPlans = userPlans.map(p => p.id === id ? rec : p);
             else {
                 if (userPlans.length >= PLAN_MAX) return showToast(`最多 ${PLAN_MAX} 個計劃`);
@@ -3928,6 +4171,7 @@
             try {
                 await savePlans();
                 closeModal('planModal');
+                pendingZoneMove = null;      // 拖曳觸發的那一次已經完成
                 renderPlans(); updatePlanTicker();
                 showToast(id ?'計劃已更新' :'計劃已新增');
             } catch (e) {
@@ -6781,7 +7025,22 @@
                 /* 計劃跟課表一樣是私人資料，登入才讀得到。
                    ★ 不 await：這一段是登入流程，卡在網路來回上會讓
                    載入畫面停在那裡（那條路以前踩過，見載入動畫那一段）。 */
-                loadPlans().then(list => { userPlans = list; renderPlans(); updatePlanTicker(); });
+                loadPlans().then(list => {
+                    userPlans = list;
+                    /* ★ 昨日區只活一天：載入時把「今天以前兩天含以上、而且沒打勾」的清掉。
+                       這是整個計劃表唯一會弄丟資料的地方，所以：
+                         一、只在真的有東西要刪時才寫回去（不然每次開站都白寫一次）
+                         二、刪掉要說一聲。安靜地消失跟「東西不見了」是同一件事，
+                            而使用者會以為是程式把資料弄丟了。 */
+                    const gone = plansToPurge(userPlans, Date.now());
+                    if (gone.length){
+                        const ids = new Set(gone.map(g => g.id));
+                        userPlans = userPlans.filter(x => !ids.has(x.id));
+                        savePlans().catch(e => console.warn('清理過期計劃失敗', e));
+                        showToast(`清掉 ${gone.length} 筆過期沒做的計劃`);
+                    }
+                    renderPlans(); updatePlanTicker();
+                });
                 loadCountdowns().then(list => { userCountdowns = list; renderCountdowns(); });
                 // 招呼語也走同一條階梯，不然頁首徽章寫「一般」、吐司卻喊你「星族」
                 showToast(`歡迎回來，${currentBadge().name} ${userDisplayName}`);
@@ -6941,6 +7200,7 @@
 'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode ==='edit'); renderSchedule(); },
 'toggle-class-reminder': () => toggleClassReminder(),
 'edit-plan':   (t) => openPlanModal(t.dataset.id),
+'add-plan-zone': (t) => openPlanModal(null, t.dataset.zone),
 'delete-plan': (t) => deletePlan(t.dataset.id),
 'toggle-plan': (t) => togglePlanDone(t.dataset.id),
 'edit-countdown':   (t) => openCountdownModal(t.dataset.id),
@@ -6999,6 +7259,9 @@
                 if (closer.dataset.close ==='createKahootModal' && draftQuestions.length > 0) {
                     if (!confirm(`還有 ${draftQuestions.length} 題沒有儲存，關閉後會全部消失。確定要關嗎？`)) return;
                 }
+                /* 拖到本周／未來之後按取消＝那次拖曳作廢，計劃留在原地。
+                   ★ 不清掉的話，下一次不相干的存檔會被當成「那次拖曳完成了」。 */
+                if (closer.dataset.close ==='planModal') pendingZoneMove = null;
                 closeModal(closer.dataset.close);
                 return;
             }
@@ -7236,8 +7499,9 @@
             bind('editNameBtn', () => { $('editDisplayName').value = userDisplayName; openModal('nameModal'); });
             bind('confirmSaveName', saveDisplayName);
             bind('confirmSaveSchedule', saveScheduleCell);
-            bind('addPlanBtn', () => openPlanModal(null));
+            bind('addPlanBtn', () => openPlanModal(null, 'today'));
             bind('confirmSavePlan', savePlanFromModal);
+            bindPlanDragAndDrop();
             bind('addCountdownBtn', () => openCountdownModal(null));
             bind('confirmSaveCountdown', saveCountdownFromModal);
             bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleLocation:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
