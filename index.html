@@ -2900,8 +2900,9 @@
         const CHANGELOG = [
             {
                 date: '2026-08-10',
-                title: '主頁分成課表、計劃、倒數',
+                title: '主頁分成課表、計劃、倒數；計劃可打勾',
                 items: [
+                    ['計劃可以打勾完成，而且依今天／明天／本週分組', '參考了幾份待辦軟體的評測，對照之下最明顯的缺口是「做完只能刪掉」——等於不留紀錄，而使用者常常想回頭看這週做完了什麼。現在每一筆左邊有一個勾選框，完成的會劃線並收到最後。另外整條清單改成分組顯示，因為使用者真正要問的是「今天要幹嘛」，而不是「所有事情的先後順序」，一條長清單答不了那個問題。已過期與已完成各自成組排在最後，才不會擠掉還沒做的。★ 這裡有一個沒有症狀的坑：打勾之後一定要把那筆從推播清單移掉，否則明明做完了、畫面上還劃著線，時間到卻還是會響——而那則通知看起來完全正常，沒有人會想到問題出在「已完成沒有被移掉」。順帶一提全部打勾之後那個每秒重畫的計時器也會停，因為畫面上一個秒數都沒有了。'],
                     ['計劃與倒數拆成兩件事', '一開始把兩者放在同一份清單，但它們的資料形狀就不一樣：計劃是某個時間點（要到分鐘），倒數是日曆上的一天。混在一起的後果很直接——畫面上會有一半的項目秒數在跳、一半整天不動，看起來像壞了。現在分成兩個小分頁：計劃有日期時間、可設提前多久通知；倒數只填一個日期，顯示「還有 N 天」，每一筆可以自己決定要不要在當天早上八點提醒。倒數不需要每秒重畫，所以那個每秒跑的計時器只綁在計劃那一頁。'],
                     ['★ 算「還有幾天」不能拿毫秒差去除', '直覺的寫法是把兩個時間相減再除以一天的毫秒數，但那樣「明天早上八點」和「今天晚上十一點」相差不到一天，會被算成 0 天——而使用者眼中那明明是明天。正確的是算日曆上的天數差：把兩個日期都正規化到當天零點再相減，不受時分與時區影響。測試裡留了一組對照，直接證明那兩種算法在同一組輸入下會給出不同答案，順便涵蓋跨月、跨年、閏年二月。另外倒數只有日期，所以「幾點響」要自己決定；建構那個時間點時不能去解析日期字串，因為那會被當成世界時的午夜，在台北變成前一天早上八點——一樣不會報錯，只是提醒早一天響。'],
                     ['主頁分成「課表」和「倒數」兩個小分頁', '計劃那一區加進來之後，主頁一路往下捲才看得完，而課表跟倒數本來就是兩件事。現在上面多一排切換，兩個 Hero（歡迎詞、現在時間）留在外面不屬於任何一邊。實作上順手把子分頁的切換邏輯整個換掉：原本是一串寫死的顯示／隱藏，先判斷「在不在測驗那一頁」再逐一處理四個區塊；擴到六個子分頁、三個頁面之後那種寫法會愈接愈長，而且漏掉一行不會報錯，只會變成兩塊內容疊在一起、或者什麼都沒有。改成查一張表，全部由資料決定。另外主頁那兩塊各包了一層外殼，因為「登入才顯示」和「子分頁選了哪個」都要控制顯示——共用同一個元素的話會互相蓋掉，症狀是切到倒數、登出、再切回課表，課表明明選著卻是空的。倒數的計時器條件也跟著收緊成「倒數那個子分頁真的看得到」，停在課表時那些數字根本沒顯示出來，還每秒跑一次只是白白讓手機醒著。'],
@@ -3690,6 +3691,32 @@
 
         /* 倒數文字。★ 抽成純函式是為了測試能真的餵時間進去跑——
            「還剩多久」這種東西用眼睛看很難確認邊界（剛好 0、負的、跨天）。 */
+        /* 一筆計劃該歸到哪一組。★ 抽成純函式的理由跟 planCountdown 一樣：
+           邊界（今天的最後一秒、明天的第一秒、第七天）用眼睛看不出來，
+           而分錯組只是「東西跑到別的標題底下」，不會報錯。
+
+           ★ 用日曆天數差，不是毫秒差除以一天——同一個坑在倒數那邊已經踩過：
+           今晚十一點與明早八點只差 9 小時，除下來是 0 天，會被歸成「今天」。 */
+        const PLAN_GROUPS = ['done','overdue','today','tomorrow','week','later'];
+        const PLAN_GROUP_LABEL = {
+'today':'今天', 'tomorrow':'明天', 'week':'本週', 'later':'更遠',
+'overdue':'已過期', 'done':'已完成'
+        };
+        function planGroup(plan, now) {
+            if (plan && plan.done) return 'done';
+            const at = Number(plan && plan.at);
+            if (!isFinite(at)) return 'later';
+            const d = countdownDays(todayStr(new Date(at)), todayStr(new Date(now)));
+            if (d === null) return 'later';
+            /* 已過期看的是「時間點過了沒」，不是「今天過了沒」——
+               今天早上八點的計劃到了下午就該進已過期，而它還是今天。 */
+            if (at < now) return 'overdue';
+            if (d === 0) return 'today';
+            if (d === 1) return 'tomorrow';
+            if (d <= 7) return 'week';
+            return 'later';
+        }
+
         function planCountdown(atTs, now) {
             const diff = Number(atTs) - now;
             if (!isFinite(diff)) return { text:'時間有誤', past:true };
@@ -3743,7 +3770,11 @@
                 /* 計劃與「勾了提醒的倒數」共用同一張 events 表。
                    ★ 兩邊的 id 前綴不同（p… / c…），不然同一天建的兩筆會撞在一起，
                    而撞到的表現是「其中一個提醒不見了」——沒有錯誤訊息。 */
+                /* ★ 打勾完成的不要推。
+                   漏掉這個 filter 的症狀是：明明做完了、畫面上劃著線，時間到還是響。
+                   而那則通知看起來完全正常，沒有人會想到是「已完成沒有被移掉」。 */
                 const planEvents = userPlans
+                    .filter(p => !p.done)
                     .filter(p => Number(p.at) > now - 3600000)
                     .map(p => ({ id: p.id, at: Number(p.at), lead: Number(p.lead) || 0,
                                  title: p.title, note: p.note ||'' }));
@@ -3780,25 +3811,55 @@
                 return;
             }
             const now = Date.now();
-            const sorted = [...userPlans].sort((a, b) => Number(a.at) - Number(b.at));
-            box.innerHTML = sorted.map(p => {
-                const c = planCountdown(p.at, now);
-                const when = new Date(Number(p.at)).toLocaleString('zh-TW',
-                    { month:'numeric', day:'numeric', weekday:'short', hour:'2-digit', minute:'2-digit' });
-                return `
-                <div class="flex items-center justify-between gap-3 p-4 rounded-2xl border ${c.past ?'bg-slate-50 border-slate-200 opacity-60' :'bg-amber-50 border-amber-200'}">
-                    <div class="min-w-0">
-                        <div class="font-bold text-slate-800 truncate">${escapeHTML(p.title)}</div>
-                        <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
+            /* 依「今天／明天／本週／更遠」分組。使用者真正要問的是「今天要幹嘛」，
+               不是「所有事情的先後順序」——一整條長清單答不了那個問題。
+               已過期與已完成各自成組收在最後，才不會擠掉還沒做的。 */
+            const buckets = {};
+            for (const p of userPlans) (buckets[planGroup(p, now)] ||= []).push(p);
+            const order = ['today','tomorrow','week','later','overdue','done'];
+
+            box.innerHTML = order.filter(g => (buckets[g] || []).length).map(g => {
+                const rows = buckets[g]
+                    .sort((a, b) => g === 'done' || g === 'overdue'
+                        ? Number(b.at) - Number(a.at)      // 過去的：近的排前面
+                        : Number(a.at) - Number(b.at))
+                    .map(p => {
+                        const c = planCountdown(p.at, now);
+                        const dim = p.done || c.past;
+                        const when = new Date(Number(p.at)).toLocaleString('zh-TW',
+                            { month:'numeric', day:'numeric', weekday:'short', hour:'2-digit', minute:'2-digit' });
+                        return `
+                <div class="flex items-center justify-between gap-3 p-4 rounded-2xl border ${dim ?'bg-slate-50 border-slate-200' :'bg-amber-50 border-amber-200'}">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" title="${p.done ?'標成未完成' :'標成完成'}"
+                                class="shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
+                        ${p.done ?'<i data-lucide="check" class="w-4 h-4 pointer-events-none"></i>' :''}
+                        </button>
+                        <div class="min-w-0">
+                            <div class="font-bold truncate ${p.done ?'text-slate-400 line-through' :'text-slate-800'}">${escapeHTML(p.title)}</div>
+                            <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
+                        </div>
                     </div>
                     <div class="flex items-center gap-2 shrink-0">
-                        <span class="plan-countdown text-sm font-black ${c.past ?'text-slate-400' :'text-amber-600'}" data-at="${Number(p.at)}">${escapeHTML(c.text)}</span>
+                        ${p.done ?'' : `<span class="plan-countdown text-sm font-black ${c.past ?'text-slate-400' :'text-amber-600'}" data-at="${Number(p.at)}">${escapeHTML(c.text)}</span>`}
                         <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
                         <button data-action="delete-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>
                 </div>`;
+                    }).join('');
+                return `<div class="pt-2"><div class="text-xs font-black text-slate-400 mb-2 px-1">${PLAN_GROUP_LABEL[g]}・${buckets[g].length}</div>${rows}</div>`;
             }).join('');
             icons();
+        }
+
+        async function togglePlanDone(id) {
+            const p = userPlans.find(x => x.id === id);
+            if (!p) return;
+            userPlans = userPlans.map(x => x.id === id ? { ...x, done: !x.done } : x);
+            try {
+                await savePlans();
+                renderPlans(); updatePlanTicker();
+            } catch (e) { showToast('存檔失敗，請稍後再試'); }
         }
 
         /* 每秒只更新倒數那幾個字，不重畫整份清單——
@@ -3820,7 +3881,9 @@
             /* ★ 條件是「計劃那個子分頁真的看得到」。倒數只記日期，一天才變一次，
                完全不需要每秒重畫——所以計時器跟倒數那一頁無關。 */
             const box = $('home-sub-plan');
-            const visible = userPlans.length > 0
+            /* 只數還沒完成的：全部打勾之後畫面上一個秒數都沒有，
+               計時器再跑就純粹是浪費電。 */
+            const visible = userPlans.some(p => !p.done)
                 && !!$('page-home') && !$('page-home').classList.contains('hidden')
                 && !!box && !box.classList.contains('hidden');
             if (visible && !planTicker) planTicker = setInterval(tickPlanCountdowns, 1000);
@@ -6879,6 +6942,7 @@
 'toggle-class-reminder': () => toggleClassReminder(),
 'edit-plan':   (t) => openPlanModal(t.dataset.id),
 'delete-plan': (t) => deletePlan(t.dataset.id),
+'toggle-plan': (t) => togglePlanDone(t.dataset.id),
 'edit-countdown':   (t) => openCountdownModal(t.dataset.id),
 'delete-countdown': (t) => deleteCountdown(t.dataset.id),
 'set-study-sub': (t) => switchStudySub(t.dataset.sub),
