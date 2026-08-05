@@ -1620,10 +1620,12 @@
                     </button>
                 </div>
             </div>
-            <!-- 公有／我的 切換。「我的」只有本人看得到，連管理員都讀不到 -->
+            <!-- ★ 原本這裡有一排「公有／我的」。測驗對半拆之後，
+                 看哪一種由產品決定（見 KAHOOT_SCOPE），不再是使用者按的開關。
+                 留著的話兩邊都看得到兩種，等於這件事沒做。
+                 這一行標示現在在看哪一種，文字由 buildStaticUI 依產品填。 -->
             <div class="flex flex-wrap items-center gap-2 mb-5">
-                <button data-action="set-kahoot-scope" data-scope="public" class="kahoot-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
-                <button data-action="set-kahoot-scope" data-scope="mine" class="kahoot-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
+                <span id="kahootScopeNote" class="px-4 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 flex items-center gap-2"></span>
                 <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="ml-auto px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
             </div>
             <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1767,7 +1769,7 @@
                         <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
                         <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">主頁：</span>登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。（最新消息與常用連結拆分之後歸「彰師電子小黑貓」，從左上角 logo 切過去）課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
                         <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
-                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span><span class="font-bold text-slate-800">自學課程</span>，整理好的單元教材。</p></div>
+                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>兩個子頁。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">測驗</span>是你自己出的練習題——<span class="font-bold text-slate-800">只有你看得到，管理員也讀不到</span>，登入就能建。答錯會直接顯示正解，結束後也會列出錯題；電腦上可用 1～4 鍵作答。（彰師電子小黑貓那邊的測驗是公有題庫，由巫醫以上維護、戰士以上解鎖，跟這裡是兩回事）</p></div>
                         <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>兩個子頁。<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">單字庫</span>分「公有」與「我的」——公有的由巫醫以上維護，<span class="font-bold text-slate-800">「我的」任何登入者都能自己建，而且只有你看得到，管理員也讀不到</span>。閱讀時看到的生字可以直接加進單字冊，欄位由 AI 先填好，存檔前還能改。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>分成「記帳」與「投資」。記帳可記錄收支；投資可登錄持倉與交易，按「更新現價」會自動帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價為延遲資料，僅供個人記錄參考，不構成投資建議。</span>這裡的資料只有你自己看得到。</p></div>
                         <div class="flex gap-3"><i data-lucide="bell-ring" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">上課提醒：</span>課表右上角的「提醒」按鈕可開啟上課前 10 分鐘通知，關掉 App 也會準時響。iPhone 需先用 Safari「分享 → 加入主畫面」安裝成 App，按下按鈕時會有圖解步驟帶你裝。</p></div>
@@ -2758,6 +2760,15 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-08-09',
+                title: '測驗對半拆',
+                items: [
+                    ['自己出的測驗歸小黑貓，公有題庫歸彰師電子', '原本兩種測驗擠在同一頁，上面一排「公有／我的」讓你切。問題是它們根本是兩件不同的東西：公有題庫是校系共用的教材，由巫醫以上維護、戰士以上解鎖；「我的」是自己出給自己的練習題，誰都能建，而且只有本人讀得到，管理員也讀不到。放在同一排切換，會讓人以為那只是同一份東西的兩個檢視。現在小黑貓的「學習」底下多一個「測驗」，那裡只有你自己的；彰師電子的「測驗」只剩公有的。那排切換按鈕整個拿掉了——看哪一種由所在的產品決定，留著開關的話兩邊都看得到兩種，等於這件事沒做。資料庫的規則一行都沒改，本來就是分開存、分開授權的，改的只是介面歸屬。'],
+                    ['★ 順手修掉一條會叫人去按不存在按鈕的說明', '彰師電子那邊階級不夠時會顯示「升級為戰士後即可解鎖公有測驗」，後面接著一句「但你隨時可以在『我的』建立自己的測驗」。拆分之後那一頁已經沒有「我的」了——照著做的人會在畫面上到處找一顆不存在的按鈕，而這不會有任何錯誤訊息，只是指了一條死路。現在改成指到小黑貓那一邊，並說清楚在哪個分頁底下。'],
+                    ['★ 測試裡有一條不變式本來就寫錯了', '原本有一條檢查是「沒有子分頁同時掛在兩個大分頁底下」。這次改完它紅了——但那不是程式壞掉，是那條規則寫得太寬。測驗現在確實同時掛在小黑貓的學習和彰師電子的測驗底下，而那兩個分頁永遠不會出現在同一個產品裡。真正該擋的是「同一個產品裡出現兩個入口指到同一塊內容」，那才會變成兩個分頁列都有同一顆按鈕、點了跳到另一頁。改成按產品分別檢查之後，原本想擋的情況照樣擋得住。順帶一提私有測驗的資料訂閱這一輪搬了兩次家，每次搬都得記得把訂閱一起帶走，漏掉的話那一頁是永遠空的，而空清單跟「你還沒建過測驗」長得一模一樣。']
+                ]
+            },
+            {
                 date: '2026-08-08',
                 title: '彰師電子有自己的 logo 了',
                 items: [
@@ -3130,6 +3141,12 @@
             if ($('siteName')) $('siteName').textContent = meta.name;
             if ($('siteNameEn')) $('siteNameEn').textContent = meta.en;
             document.title = meta.title;
+
+            /* 測驗頁現在只顯示一種，要講清楚是哪一種——不然使用者會以為
+               「我出的測驗不見了」或「大家的測驗怎麼只有一題」。 */
+            if ($('kahootScopeNote')) $('kahootScopeNote').textContent =
+                KAHOOT_SCOPE ==='mine' ?'🔒 只有你看得到的測驗'
+                                       :'🌐 公有測驗（巫醫以上維護）';
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
                 <button data-action="news-tab" data-cat="${cat}"
@@ -4083,9 +4100,9 @@
 'kahoot':  { label:'測驗',     icon:'gamepad-2' }
         };
         const TAB_SUBS = {
-'self-study': ['course'],            // 學習只剩自學課程
+'self-study': ['course','kahoot'],   // 學習＝自學課程＋（自己出的）測驗
 'english':    ['reading','vocab'],   // 英文＝英文閱讀＋單字庫
-'quiz':       ['kahoot']             // 彰師電子的測驗
+'quiz':       ['kahoot']             // 彰師電子的測驗（只有公有的）
         };
         /* ★ 英文分頁沒有自己的 page-section。
            英文閱讀住在 #page-self-study、單字庫住在 #page-quiz，兩塊都好幾百行。
@@ -5066,10 +5083,25 @@
          * 測驗：公有 / 我的
          * 「我的」存在 users/{uid}/kahoots，只有本人讀得到。
          * ========================================================== */
-        let kahootScope ='public';   //'public' |'mine'
+        /* ★ 測驗對半拆（2026-08-08）：
+           公有測驗歸彰師電子、私有測驗歸小黑貓，所以「看哪一種」不再是
+           使用者按的開關，而是**由產品決定**——原本那排「公有／我的」拿掉了。
+
+           為什麼不留著讓使用者自己切：留著的話兩個產品都看得到兩種，
+           等於這件事沒做。而且那排按鈕的存在會讓「彰師電子的公有測驗」
+           跟「自己出的練習題」看起來是同一件東西的兩個分頁，
+           但它們的權限、來源、讀得到的人完全不同。
+
+           ★ 規則一行都不用改：`kahoots`（公有）本來就看貓族階級，
+           `users/{uid}/kahoots`（私有）本來就只有本人讀得到。改的是介面歸屬。 */
+        const KAHOOT_SCOPE = PRODUCT ==='cat' ?'mine' :'public';
+        let kahootScope = KAHOOT_SCOPE;   //'public'（彰師電子）|'mine'（小黑貓）
         const kahootsOf = (scope) => scope ==='mine' ? state.myKahoots : state.kahoots;
         const kahootPath = (scope) => scope ==='mine' ? PU('kahoots') : PATHS.kahoots;
-        // 彰師電子：測驗留在那一側，門檻沿用貓族階級（巫醫以上）
+        /* 兩邊的「能不能出題」走各自的階梯：
+             公有（彰師電子）— 貓族階級巫醫(4)以上
+             私有（小黑貓）  — 登入就好。那是你自己出給自己的練習題，
+                               不該再設門檻（isSignedInMember 等同 tier ≥ 1）。 */
         const canEditKahoot = (scope) => scope ==='mine' ? isSignedInMember() : currentUserLevel >= 4;
 
         function updateShuffleToggleUI() {
@@ -5091,21 +5123,8 @@
 
         function updateKahootScopeUI() {
             updateShuffleToggleUI();
-            document.querySelectorAll('.kahoot-scope-opt').forEach(btn => {
-                const on = btn.dataset.scope === kahootScope;
-                btn.classList.toggle('bg-emerald-500', on);
-                btn.classList.toggle('text-white', on);
-                btn.classList.toggle('shadow-md', on);
-                btn.classList.toggle('bg-slate-100', !on);
-                btn.classList.toggle('text-slate-500', !on);
-            });
             const b = $('openCreateKahootBtn');
             if (b) b.classList.toggle('hidden', !canEditKahoot(kahootScope));
-        }
-
-        function switchKahootScope(scope) {
-            kahootScope = (scope ==='mine') ?'mine' :'public';
-            renderKahoots();
         }
 
         function renderKahoots() {
@@ -5113,9 +5132,13 @@
             if (!list) return;
             updateKahootScopeUI();
 
-            // 自己的測驗不受階級限制——那是你自己出的題
+            /* 自己的測驗不受階級限制——那是你自己出的題。
+               ★ 這句原本寫「但你隨時可以在『我的』建立自己的測驗」。
+               對半拆之後彰師電子這一頁已經沒有「我的」了，照舊寫的話
+               會叫人去按一顆不存在的按鈕——沒有錯誤，只是指了一條死路。
+               現在改成指到小黑貓那一邊，那才是私有測驗真正的所在。 */
             if (kahootScope ==='public' && currentUserLevel < 2) {
-                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖公有測驗！<br><span class="text-xs">但你隨時可以在「我的」建立自己的測驗</span></div>`;
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖公有測驗！<br><span class="text-xs">想自己出題的話，到「${PRODUCT_META.cat.name}」的「學習 → 測驗」，那裡誰都能建，而且只有你看得到</span></div>`;
                 icons();
                 return;
             }
@@ -6195,7 +6218,6 @@
 'start-kahoot':    (t) => startKahoot(t.dataset.id),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
-'set-kahoot-scope':(t) => switchKahootScope(t.dataset.scope),
 'toggle-shuffle':  () => toggleShuffle(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
@@ -6706,14 +6728,17 @@
         const TAB_DATA = {
 'home':       ['courses'],          // 課表要對到課程名稱
 'news':       ['news','links'],     // 消息與連結搬去彰師電子了
-            /* ★ myKahoots 原本掛在 self-study 底下（測驗曾經是學習的子分頁），
-               拆掉學習之後如果沒補到這裡，「我的測驗」會變成永遠空的一頁——
-               沒有錯誤訊息，跟「你還沒建過測驗」長得一模一樣。
-               （測驗要對半拆的那兩項還沒做，先讓現況是對的。） */
-'quiz':       ['kahoots','courses','myKahoots'],
+            /* ★ 測驗對半拆之後這裡也跟著拆：彰師電子的測驗頁只讀公有題庫，
+               不再訂閱 myKahoots——那是別的產品的東西，多訂一份沒有好處
+               （讀取量、以及「這一頁到底屬於誰」都會變模糊）。 */
+'quiz':       ['kahoots','courses'],
 'evaluation': ['courses','reviews','matWarrior','matLeader'],
-            // 學習只剩自學課程（管理表單會關聯「學校課程」，故需要 courses）
-'self-study': ['ssCourses','ssUnits','courses'],
+            /* 學習＝自學課程＋自己出的測驗（管理表單會關聯「學校課程」，故需要 courses）。
+               ★ myKahoots 就是拆過來的那一份。漏掉的話「我的測驗」會是永遠空的一頁，
+               而空清單跟「你還沒建過測驗」長得一模一樣，不會有錯誤訊息。
+               這份資料在這一輪已經搬過一次家（self-study → quiz → self-study），
+               每次搬都要記得把訂閱一起帶走。 */
+'self-study': ['ssCourses','ssUnits','courses','myKahoots'],
             /* 英文分頁：英文閱讀與單字庫。★ 這一組是從 self-study 拆出來的——
                拆的時候要真的把資料集跟著搬，不然畫面切過去了、清單卻是空的，
                而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。 */
