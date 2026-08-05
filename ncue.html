@@ -11,7 +11,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="小黑貓">
-    <link rel="apple-touch-icon" href="image.png">
+    <link rel="apple-touch-icon" href="image2.jpg">
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -1141,7 +1141,7 @@
     <!-- 開站載入畫面：一隻喵繞著 logo 跑。首頁資料到齊後淡出 -->
     <div id="splash" aria-hidden="true">
         <div class="splash-stage">
-            <img src="image.png" alt="" class="splash-logo">
+            <img src="image2.jpg" alt="" class="splash-logo">
             <div class="splash-orbit">
                 <span class="splash-cat">
                     <!-- 這隻貓不是畫的，是從影片描出來的。
@@ -1233,7 +1233,7 @@
             <div id="logoWrap" class="relative w-full md:w-auto">
                 <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 cursor-pointer group"
                      role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
-                    <img src="image.png" alt="小黑貓 Logo" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
+                    <img src="image2.jpg" alt="" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
                     <div class="flex flex-col">
                         <h1 id="siteName" class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">小黑貓</h1>
                         <!-- 文字由 buildStaticUI() 依 PRODUCT 填入，這裡留空。
@@ -1335,7 +1335,7 @@
                 </table>
                 </div>
                 <div class="mt-6 text-center text-sm font-bold text-slate-400 flex items-center justify-center gap-2">
-                    <img src="image.png" class="w-6 h-6 rounded-full opacity-50 border border-slate-200">
+                    <img src="image2.jpg" class="w-6 h-6 rounded-full opacity-50 border border-slate-200">
                     本學期自編課表
                 </div>
             </div>
@@ -1755,7 +1755,7 @@
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-xl border-2 border-slate-100 text-center relative overflow-hidden">
                     <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-50 rounded-full mix-blend-multiply opacity-60"></div>
                     <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-rose-50 rounded-full mix-blend-multiply opacity-60"></div>
-                    <img src="image.png" alt="小黑貓" class="w-20 h-20 rounded-full object-cover shadow-lg mx-auto mb-4 relative z-10 border-4 border-emerald-500/20">
+                    <img src="image2.jpg" alt="" class="w-20 h-20 rounded-full object-cover shadow-lg mx-auto mb-4 relative z-10 border-4 border-emerald-500/20">
                     <h2 class="text-2xl md:text-3xl font-black text-slate-900 mb-2 relative z-10">小黑貓・使用手冊</h2>
                     <p class="text-slate-500 font-medium relative z-10">課程評價、學習資源、自編課表、記帳理財，一站幫你搞定</p>
                 </div>
@@ -2125,7 +2125,7 @@
     <!-- 登入 / 註冊 -->
     <div id="adminModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl text-center">
-             <img src="image.png" alt="登入認證" class="w-16 h-16 rounded-full object-cover shadow-md mx-auto mb-4 border-2 border-emerald-500/20">
+             <img src="image2.jpg" alt="登入認證" class="w-16 h-16 rounded-full object-cover shadow-md mx-auto mb-4 border-2 border-emerald-500/20">
             <h3 id="modalTitle" class="text-2xl font-bold mb-2">身分認證</h3>
             <p class="text-slate-400 text-xs mb-6">歡迎來到黑貓的領地</p>
             <input type="email" id="adminEmail" placeholder="電子信箱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-3">
@@ -2474,11 +2474,17 @@
            （見下方 currentUserTier 那一段），所以徽章不能兩邊共用一張表——
            同一個人可以是彰師電子的星族、同時是小黑貓的一般使用者。 */
         const PRODUCT_META = {
-            cat:  { name:'小黑貓',   en:'Little Black Cat',
+            cat:  { name:'小黑貓',   en:'Little Black Cat', logo:'image.png',
                     title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./', ladder:'tier' },
-            ncue: { name:'彰師電子小黑貓', en:'NCUE EE Black Cat',
+            ncue: { name:'彰師電子小黑貓', en:'NCUE EE Black Cat', logo:'image2.jpg',
                     title:'彰師電子小黑貓 - 課程評價與資源', href:'ncue.html', ladder:'role' }
         };
+        /* ★ `logo` 是唯一來源，但**填的人是產生器不是這支程式**（見 tools/mkpages.mjs）。
+           跟站名、英文名那種「載入後用 JS 填」不一樣，理由是圖片會被看見：
+           開站載入動畫的那隻貓在 window.onload 之前就顯示了，用 JS 事後換的話
+           彰師電子那一頁會先閃一下小黑貓的圖再跳成自己的。
+           產生器直接把 ncue.html 裡的圖檔路徑換掉，沒有閃動，也不依賴 JS。
+           代價是「改這張表要重跑產生器」——而 mainsmoke 本來就會擋過期的 ncue.html。 */
         const NEWS_CATEGORIES = ['共同','新生','舊生'];
         const FILTERS = [
             ['all','全部'], ['1-1','一上'], ['1-2','一下'], ['2-1','二上'], ['2-2','二下'],
@@ -2751,6 +2757,15 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-08',
+                title: '彰師電子有自己的 logo 了',
+                items: [
+                    ['彰師電子小黑貓換上電路板主題的黑貓', '原本三個產品共用同一張圖。現在彰師電子那一頁——載入動畫、頁首、課表角落、關於頁、登入視窗，連加到主畫面的圖示——全部換成新的那張。做法跟站名、英文名一樣放進產品資料表，唯一來源只有一處。但填的人不同：站名是載入後用程式填的，logo 改成由產生器在做出彰師電子那個檔案時就換掉。理由是圖片會被看見——載入動畫那隻貓在程式跑起來之前就顯示了，事後才換的話那一頁會先閃一下另一個產品的圖再跳成自己的。沒有錯誤，就只是難看。順帶一提資料表本身不能被換，它在兩份檔案裡必須一模一樣，換掉的話小黑貓的 logo 會跟著錯，所以取代的樣式釘死了圖片標籤的寫法。'],
+                    ['★ 加圖片最容易漏的兩個地方，兩個都沒有錯誤訊息', '一是發布腳本沒複製新檔案，線上就是破圖；二是離線快取的清單沒加，只有離線或已經把網站裝成 App 的人會看到破圖。兩種都不會有紅字，瀏覽器對找不到的圖片是安靜的——那一格就只是空著，而載入動畫的貓不見了很難有人立刻回報。現在測試會拿產品資料表裡的每一張圖去比對這兩份清單，也順便確認檔案真的存在。'],
+                    ['「兩份檔案只差兩行」這條檢查改掉了', '產生器多換一處 logo 之後，那個數字從二變成八。問題是把數字改成八等於每次擴充都要重猜一次，而猜錯只會讓這條檢查失去意義——它本來要抓的是「有人手改了產生出來的那個檔案」。現在改成釘住「每一行差異都說得出理由」：不在清單上的差異才算手改。另外補了一條反向的守衛，因為取代找不到目標時不會報錯、只會原封不動地回傳，那時兩個檔案會一模一樣，而「一模一樣」看起來比「差很多」還無害。實測把取代關掉，這條會紅。']
+                ]
+            },
             {
                 date: '2026-08-07',
                 title: '可以用 Google 帳號登入了',
