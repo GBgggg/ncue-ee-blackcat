@@ -2912,6 +2912,14 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-08-11',
+                title: '修掉一個「拖了但沒搬成功」的問題',
+                items: [
+                    ['★ 拖到「本周」或「未來」之後，直接按儲存等於沒搬', '在瀏覽器上實際點過一遍才發現的。拖到那兩個區塊時會跳出視窗讓你選日期，但日期欄位裡預先填著原本那一天，所以直接按儲存的話那筆計劃會留在原地——而畫面上沒有任何東西說它沒搬成功，你會以為搬好了。現在拖到那兩區時欄位是空的，逼你真的選一個。另外就算選了，也可能選到落在別區的日期（拖到本周卻選了明天），所以存檔時會再確認一次，不符的話直接說「這個日期會落在『明天』，不是『本周』」，而不是默默存進另一區。這一類「做了但沒發生」是這個專案最貴的錯，因為它沒有任何症狀——測試原本也抓不到，因為那不是算錯，是接線接錯。'],
+                    ['順帶記一件不是 bug 的事', '偵錯時發現這台電腦上「提醒」是關的，但資料庫裡有兩筆訂閱——那是因為推播訂閱綁的是裝置，不是帳號。在手機上開了提醒，電腦上不會跟著開，反過來也一樣。想在哪台裝置收通知，就要在那台裝置上開一次。']
+                ]
+            },
+            {
                 date: '2026-08-10',
                 title: '計劃表改成五個可拖曳的區塊',
                 items: [
@@ -4122,10 +4130,15 @@
             const e = p ? new Date(planEnd(p)) : (d ? new Date(d.getTime() + 3600000) : null);
             const pad = (n) => String(n).padStart(2,'0');
             const local = (x) => `${x.getFullYear()}-${pad(x.getMonth()+1)}-${pad(x.getDate())}T${pad(x.getHours())}:${pad(x.getMinutes())}`;
+            /* ★ 拖到「本周／未來」時要把日期清空。
+               不清的話欄位裡還是原本那一天，使用者直接按儲存 → 那筆留在原地，
+               而畫面上沒有任何東西說它沒搬成功——他會以為搬好了。
+               實際踩過：拖到本周、按儲存，結果它還在明天。 */
+            const mustPick = !!(zone && PLAN_ZONE_META[zone] && PLAN_ZONE_META[zone].pickDate);
             setVals({
                 planTitle: p ? p.title :'',
-                planAt: d ? local(d) :'',
-                planEnd: e ? local(e) :'',
+                planAt: (d && !mustPick) ? local(d) :'',
+                planEnd: (e && !mustPick) ? local(e) :'',
                 planNote: p ? (p.note ||'') :'',
             });
             /* 本周／未來沒有預設日期，提示要自己選——留白而不說明的話
@@ -4156,6 +4169,17 @@
             /* ★ 結束早於開始要擋下來。不擋的話那筆計劃會永遠停在「已過期」，
                而使用者看不出為什麼——畫面上兩個時間都好好地寫著。 */
             if (end < at) return showToast('結束時間不能早於開始時間');
+
+            /* ★ 拖曳過來的那一次，要確認選的日期真的落在目標區塊。
+               不檢查的話：拖到「本周」卻選了明天的日期 → 存完它回到「明天」，
+               而使用者剛剛明明把它拖到本周，畫面上也沒有任何話說明。
+               這種「做了但沒發生」是這個專案最貴的那一類。 */
+            if (pendingZoneMove && pendingZoneMove.id === getVal('editPlanId')){
+                const want = pendingZoneMove.zone;
+                const got = planZone({ at }, Date.now());
+                if (got !== want)
+                    return showToast(`這個日期會落在「${PLAN_ZONE_META[got] ? PLAN_ZONE_META[got].label : got}」，不是「${PLAN_ZONE_META[want].label}」`);
+            }
 
             const id = getVal('editPlanId');
             const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
