@@ -1314,6 +1314,15 @@
                 </div>
             </div>
 
+            <!-- 主頁的子分頁列（課表／倒數），由 renderStudySubNav() 產生。
+                 兩個 Hero 刻意留在外面：那是問候語，不屬於任何一個子分頁。 -->
+            <div class="study-sub-row flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1"></div>
+
+            <!-- ★ 外層是子分頁的容器，內層才是「登入才顯示」的那一塊。
+                 兩件事分開的原因：登入狀態與子分頁都要控制顯示，
+                 共用同一個元素的 hidden 會互相蓋掉——切到倒數再登出再切回來，
+                 就會出現「課表明明選著卻是空的」，而且不會報錯。 -->
+            <div id="home-sub-schedule">
             <!-- 專屬課表 (已登入顯示) -->
             <div id="home-user-schedule" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8 hidden">
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
@@ -1339,7 +1348,9 @@
                     本學期自編課表
                 </div>
             </div>
+            </div><!-- /#home-sub-schedule -->
 
+            <div id="home-sub-countdown" class="hidden">
             <!-- ==================== 計劃與倒數 ====================
                  課表是「每週重複」的，計劃是絕對時間點——資料、提醒、
                  去重的邏輯完全不同，所以後端另開一張 events 表（見 Worker）。
@@ -1361,6 +1372,7 @@
                     <div class="text-center py-8 text-slate-400 font-medium">載入中...</div>
                 </div>
             </div>
+            </div><!-- /#home-sub-countdown -->
 
         </div>
 
@@ -2830,8 +2842,9 @@
         const CHANGELOG = [
             {
                 date: '2026-08-10',
-                title: '計劃與倒數',
+                title: '計劃與倒數，主頁分成課表與倒數',
                 items: [
+                    ['主頁分成「課表」和「倒數」兩個小分頁', '計劃那一區加進來之後，主頁一路往下捲才看得完，而課表跟倒數本來就是兩件事。現在上面多一排切換，兩個 Hero（歡迎詞、現在時間）留在外面不屬於任何一邊。實作上順手把子分頁的切換邏輯整個換掉：原本是一串寫死的顯示／隱藏，先判斷「在不在測驗那一頁」再逐一處理四個區塊；擴到六個子分頁、三個頁面之後那種寫法會愈接愈長，而且漏掉一行不會報錯，只會變成兩塊內容疊在一起、或者什麼都沒有。改成查一張表，全部由資料決定。另外主頁那兩塊各包了一層外殼，因為「登入才顯示」和「子分頁選了哪個」都要控制顯示——共用同一個元素的話會互相蓋掉，症狀是切到倒數、登出、再切回課表，課表明明選著卻是空的。倒數的計時器條件也跟著收緊成「倒數那個子分頁真的看得到」，停在課表時那些數字根本沒顯示出來，還每秒跑一次只是白白讓手機醒著。'],
                     ['主頁可以排計劃了，會倒數也會通知', '課表管的是每週固定的課，但期中考、報告死線、社團活動這類是「某一個時間點」，塞不進課表。現在主頁多一區可以自己加，畫面上有即時倒數，時間快到之前會用通知提醒，App 關著也會響。倒數的顯示刻意分層：一天以上只講到小時，一小時以上只講到分，剩不到一小時才顯示秒——每秒重畫一次卻只有天數在變，看起來反而像畫面卡住。通知精度大約五分鐘，因為伺服器是每五分鐘掃一次，這件事直接寫在設定畫面上，免得有人以為「準時」是秒級的。'],
                     ['★ 為什麼另外開一張表，而不是塞進課表那張', '課表那張的主鍵是「哪一天、第幾分鐘」，去重也假設每週重複一次。計劃硬塞進去會有兩個後果：同一個時段的兩件事互相蓋掉，而且下週同一時間會再響一次。所以後端另開一張表存絕對時間點。順帶說明一個看起來多餘、其實很重要的設計：整份計劃是一次覆寫的，但已經發過的那幾筆不會被重設——不這樣做的話，每編輯一次計劃，今天已經響過的提醒就會再響一次。'],
                     ['★ 一種完全沒有症狀的漏接：先建計劃、後開提醒', '通知要靠推播訂閱，而訂閱是按下「提醒」才拿到的。如果有人先建了一堆計劃、之後才開提醒，那些計劃從來沒被送到伺服器——畫面上它們好好地列著、倒數也在跑，但時間到什麼都不會發生。現在開啟提醒的當下會把既有的計劃補送一次。沒開提醒的時候，計劃區會直接寫明「只有畫面上的倒數，不會有通知」，不讓人誤會。'],
@@ -3726,8 +3739,13 @@
         /* ★ 計時器只在「主頁開著而且有計劃」時跑。
            一直跑的話，手機在背景會被系統一直喚醒，而畫面根本沒人看。 */
         function updatePlanTicker() {
+            /* ★ 條件是「倒數那個子分頁真的看得到」，不只是「主頁開著」。
+               主頁分成課表／倒數之後，停在課表時那些數字根本沒被顯示出來，
+               還每秒跑一次只是白白讓手機醒著——不會報錯，只會耗電。 */
+            const box = $('home-sub-countdown');
             const visible = userPlans.length > 0
-                && !!$('page-home') && !$('page-home').classList.contains('hidden');
+                && !!$('page-home') && !$('page-home').classList.contains('hidden')
+                && !!box && !box.classList.contains('hidden');
             if (visible && !planTicker) planTicker = setInterval(tickPlanCountdowns, 1000);
             if (!visible && planTicker) { clearInterval(planTicker); planTicker = null; }
         }
@@ -4361,7 +4379,25 @@
            STUDY_SUBS 就成了第二份答案——留著不會報錯，只會在下次有人改其中一份時
            安靜地分岔，所以直接刪掉。ALL_STUDY_SUBS 留著是另一個用途：
            它是 switchStudySub 的白名單（認不得的參數退回預設）。 */
-        const ALL_STUDY_SUBS = ['course','reading','kahoot','vocab'];
+        const ALL_STUDY_SUBS = ['schedule','countdown','course','reading','kahoot','vocab'];
+
+        /* ★ 每一個子分頁住在哪個 page-section、哪個區塊。
+           這張表取代原本那串寫死的 toggle——六個子分頁散在三個 page-section，
+           寫死的話漏一行不會報錯，只會變成「兩塊內容疊在一起」或「什麼都沒有」。
+
+           ★ 這裡再次出現「使用者看到的分組」與「HTML 位置」不一致：
+           主頁的兩塊本來就在 #page-home，但英文閱讀住在 #page-self-study、
+           單字庫住在 #page-quiz。搬動那些區塊的風險遠高於收益（各好幾百行，
+           搬錯不報錯只會有某頁打不開），所以維持原狀、由這張表對起來。 */
+        const SUB_PLACE = {
+'schedule':  { section:'page-home',       block:'home-sub-schedule'  },
+'countdown': { section:'page-home',       block:'home-sub-countdown' },
+'course':    { section:'page-self-study', block:'study-sub-course'   },
+'reading':   { section:'page-self-study', block:'study-sub-reading'  },
+'kahoot':    { section:'page-quiz',       block:'quiz-sub-kahoot'    },
+'vocab':     { section:'page-quiz',       block:'quiz-sub-vocab'     }
+        };
+        const SUB_SECTIONS = [...new Set(Object.values(SUB_PLACE).map(p => p.section))];
 
         /* 每個大分頁底下有哪些子分頁。子分頁列由這張表產生，不寫死在 HTML——
            原本兩個 page-section 各寫死一份四顆按鈕的清單，兩份不一致不會報錯，
@@ -4369,15 +4405,18 @@
            ★ 英文分頁的兩個子頁分別住在不同的 page-section（見 TAB_PAGE），
            這張表描述的是**使用者看到的分組**，不是 HTML 的實際位置。 */
         const SUB_META = {
-'course':  { label:'自學課程', icon:'book-open' },
-'reading': { label:'英文閱讀', icon:'newspaper' },
-'vocab':   { label:'單字庫',   icon:'library'   },
-'kahoot':  { label:'測驗',     icon:'gamepad-2' }
+'schedule':  { label:'課表',     icon:'calendar-days'  },
+'countdown': { label:'倒數',     icon:'calendar-clock' },
+'course':    { label:'自學課程', icon:'book-open'  },
+'reading':   { label:'英文閱讀', icon:'newspaper'  },
+'vocab':     { label:'單字庫',   icon:'library'    },
+'kahoot':    { label:'測驗',     icon:'gamepad-2'  }
         };
         const TAB_SUBS = {
-'self-study': ['course','kahoot'],   // 學習＝自學課程＋（自己出的）測驗
-'english':    ['reading','vocab'],   // 英文＝英文閱讀＋單字庫
-'quiz':       ['kahoot']             // 彰師電子的測驗（只有公有的）
+'home':       ['schedule','countdown'],  // 主頁＝課表＋倒數
+'self-study': ['course','kahoot'],       // 學習＝自學課程＋（自己出的）測驗
+'english':    ['reading','vocab'],       // 英文＝英文閱讀＋單字庫
+'quiz':       ['kahoot']                 // 彰師電子的測驗（只有公有的）
         };
         /* ★ 英文分頁沒有自己的 page-section。
            英文閱讀住在 #page-self-study、單字庫住在 #page-quiz，兩塊都好幾百行。
@@ -4421,15 +4460,16 @@
             studySub = ALL_STUDY_SUBS.includes(sub) ? sub :'course';
             quizSub = (studySub ==='vocab') ?'vocab' :'kahoot';
 
-            // 測驗與單字庫住在另一個 page-section，這裡決定顯示哪一個
-            const inQuizSection = (studySub ==='kahoot' || studySub ==='vocab');
-            $('page-self-study').classList.toggle('hidden', inQuizSection);
-            $('page-quiz').classList.toggle('hidden', !inQuizSection);
-
-            $('study-sub-course').classList.toggle('hidden', studySub !=='course');
-            $('study-sub-reading').classList.toggle('hidden', studySub !=='reading');
-            $('quiz-sub-kahoot').classList.toggle('hidden', studySub !=='kahoot');
-            $('quiz-sub-vocab').classList.toggle('hidden', studySub !=='vocab');
+            /* ★ 原本這裡是一串寫死的 toggle：先判斷「在不在測驗那一頁」，
+               再逐一 toggle 四個區塊。加到六個子分頁、三個 page-section 之後
+               那種寫法會愈接愈長，而且**漏掉一行不會報錯**——只會變成
+               「切過去之後兩塊內容疊在一起」或「什麼都沒有」。
+               改成查 SUB_PLACE 那張表，全部由資料決定。 */
+            const place = SUB_PLACE[studySub];
+            for (const sec of SUB_SECTIONS)
+                $(sec).classList.toggle('hidden', sec !== place.section);
+            for (const [s, p] of Object.entries(SUB_PLACE))
+                if ($(p.block)) $(p.block).classList.toggle('hidden', s !== studySub);
 
             if (studySub ==='course') {
                 closeModalView('page-self-study-details','page-self-study-main');
@@ -4443,10 +4483,16 @@
                 closeModalView('page-vocabulary-details','page-vocabulary-main');
                 currentViewVocabBookId = null;
                 renderVocabBooks();
+            } else if (studySub ==='schedule') {
+                highlightCurrentClass();
+            } else if (studySub ==='countdown') {
+                renderPlans();
             } else {
                 renderKahoots();
             }
             updateStudySubUI();
+            /* 倒數的計時器只在「倒數」那個子分頁開著時才該跑 */
+            updatePlanTicker();
             icons();
         }
 
