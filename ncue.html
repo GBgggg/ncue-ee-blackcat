@@ -1340,6 +1340,28 @@
                 </div>
             </div>
 
+            <!-- ==================== 計劃與倒數 ====================
+                 課表是「每週重複」的，計劃是絕對時間點——資料、提醒、
+                 去重的邏輯完全不同，所以後端另開一張 events 表（見 Worker）。
+                 這一區跟課表一樣只有登入後才有意義。 -->
+            <div id="home-user-plans" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8 hidden">
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <i data-lucide="calendar-clock" class="w-5 h-5 text-amber-500"></i> 計劃與倒數
+                    </h3>
+                    <button id="addPlanBtn" class="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold shadow hover:bg-amber-600 transition text-sm flex items-center gap-2">
+                        <i data-lucide="plus" class="w-4 h-4 pointer-events-none"></i> 新增計劃
+                    </button>
+                </div>
+                <!-- ★ 提醒狀態寫在這裡：計劃的通知跟上課提醒共用同一個訂閱，
+                     沒開提醒的話計劃只會有畫面上的倒數、不會有推播。
+                     不講的話使用者會以為設了就會響。 -->
+                <p id="planReminderNote" class="text-xs font-bold text-slate-400 mb-4"></p>
+                <div id="planList" class="space-y-3">
+                    <div class="text-center py-8 text-slate-400 font-medium">載入中...</div>
+                </div>
+            </div>
+
         </div>
 
         <!-- ==================== 消息與連結（彰師電子） ====================
@@ -2158,6 +2180,43 @@
         </div>
     </div>
 
+    <!-- 新增／編輯計劃 -->
+    <div id="planModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-amber-500">
+            <h3 id="planModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增計劃</h3>
+            <input type="hidden" id="editPlanId" value="">
+            <div class="space-y-4">
+                <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：電路學期中考）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg">
+                <!-- ★ datetime-local 是絕對時間點，跟課表的「星期幾＋第幾節」是兩種東西。
+                     這正是後端要另開一張表的原因。 -->
+                <div>
+                    <label class="text-xs font-bold text-slate-400 mb-1 block">時間</label>
+                    <input type="datetime-local" id="planAt" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                </div>
+                <div>
+                    <label class="text-xs font-bold text-slate-400 mb-1 block">提前多久通知</label>
+                    <select id="planLead" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                        <option value="0">準時</option>
+                        <option value="5">5 分鐘前</option>
+                        <option value="10" selected>10 分鐘前</option>
+                        <option value="30">30 分鐘前</option>
+                        <option value="60">1 小時前</option>
+                        <option value="180">3 小時前</option>
+                        <option value="1440">1 天前</option>
+                    </select>
+                    <!-- ★ cron 是每 5 分鐘掃一次，所以通知精度就是 5 分鐘。
+                         寫出來免得使用者以為「準時」是秒級的。 -->
+                    <p class="text-xs text-slate-400 font-medium mt-1">通知精度約 5 分鐘（畫面上的倒數是即時的）</p>
+                </div>
+                <textarea id="planNote" maxlength="120" placeholder="備註（選填）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-medium resize-none min-h-[80px]"></textarea>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button data-close="planModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl">取消</button>
+                <button id="confirmSavePlan" class="flex-1 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow-lg shadow-amber-200 hover:bg-amber-600">儲存</button>
+            </div>
+        </div>
+    </div>
+
     <!-- 刪除確認 -->
     <div id="deleteModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-8 text-center shadow-2xl">
@@ -2613,6 +2672,16 @@
                      style: ROLE_COLORS[currentUserRole] || ROLE_COLORS['見習生'] };
         }
         let userDisplayName ='無名小貓', userSchedule = {};
+        /* 計劃與倒數。存在 users/{uid}/settings/plans 這一份文件裡（不是各自一列）。
+           ★ 選單一份文件而不是新開一個集合，是為了不必動 Firestore 規則——
+           規則的私人集合白名單裡已經有 'settings'，新增集合要改規則、
+           推規則、而且忘了推的症狀是「存檔按了沒反應」（權限被拒，只有主控台看得到）。
+           計劃頂多幾十筆，一份文件綽綽有餘。
+
+           ★ 宣告在狀態區：renderPlans() 會被 window.onload 之後的流程碰到，
+           放在函式旁邊就是暫時性死區，而症狀是整頁全白（已踩六次）。 */
+        let userPlans = [];
+        let planTicker = null;      // 倒數用的計時器（只在看得到的時候跑）
         let searchQuery ='', activeSemesterFilter ='all', selectedFilterCourseId = null;
 
         // 課程頁分批顯示。改搜尋或篩選時要退回第一批，否則使用者搜完
@@ -2759,6 +2828,16 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-10',
+                title: '計劃與倒數',
+                items: [
+                    ['主頁可以排計劃了，會倒數也會通知', '課表管的是每週固定的課，但期中考、報告死線、社團活動這類是「某一個時間點」，塞不進課表。現在主頁多一區可以自己加，畫面上有即時倒數，時間快到之前會用通知提醒，App 關著也會響。倒數的顯示刻意分層：一天以上只講到小時，一小時以上只講到分，剩不到一小時才顯示秒——每秒重畫一次卻只有天數在變，看起來反而像畫面卡住。通知精度大約五分鐘，因為伺服器是每五分鐘掃一次，這件事直接寫在設定畫面上，免得有人以為「準時」是秒級的。'],
+                    ['★ 為什麼另外開一張表，而不是塞進課表那張', '課表那張的主鍵是「哪一天、第幾分鐘」，去重也假設每週重複一次。計劃硬塞進去會有兩個後果：同一個時段的兩件事互相蓋掉，而且下週同一時間會再響一次。所以後端另開一張表存絕對時間點。順帶說明一個看起來多餘、其實很重要的設計：整份計劃是一次覆寫的，但已經發過的那幾筆不會被重設——不這樣做的話，每編輯一次計劃，今天已經響過的提醒就會再響一次。'],
+                    ['★ 一種完全沒有症狀的漏接：先建計劃、後開提醒', '通知要靠推播訂閱，而訂閱是按下「提醒」才拿到的。如果有人先建了一堆計劃、之後才開提醒，那些計劃從來沒被送到伺服器——畫面上它們好好地列著、倒數也在跑，但時間到什麼都不會發生。現在開啟提醒的當下會把既有的計劃補送一次。沒開提醒的時候，計劃區會直接寫明「只有畫面上的倒數，不會有通知」，不讓人誤會。'],
+                    ['★ 又抓到一條「測試釘住排版而不是行為」', '有一條舊檢查是數某段刪除語句出現幾次，而它連空白數量都比對了。這次因為多一張表、把幾行的對齊改掉，它就紅了——程式一點問題都沒有。改成真正想釘的那件事：每一個「清掉這個訂閱」的地方，四張表都要清乾淨。改完之後它立刻抓到一個真的漏洞——訂閱失效時有一處只清了三張，會留下一批孤兒資料。原本那種寫法永遠抓不到這種事，因為它只會數次數。']
+                ]
+            },
             {
                 date: '2026-08-09',
                 title: '測驗對半拆',
@@ -3216,7 +3295,11 @@
                 renderAllLists();
             }
 
+            /* ★ 倒數的計時器只在主頁開著時跑，所以每次切分頁都要重新評估。
+               不做的話離開主頁後計時器還在，手機在背景會被一直喚醒，
+               而畫面上根本沒人在看那個數字。 */
             if (tab ==='home') highlightCurrentClass();
+            updatePlanTicker();
             if (tab ==='evaluation') {
                 closeModalView('course-detail-view','course-list-view');
                 $('evaluationHero').classList.remove('hidden');
@@ -3521,6 +3604,191 @@
             openModal('iosInstallModal');
         }
 
+        /* ==========================================================
+         * 計劃與倒數
+         *
+         * 資料在 Firestore（users/{uid}/settings/plans），那是唯一來源；
+         * D1 的 events 表只是「通知索引」，每次改動就整份推過去。
+         * 兩邊角色不同：Firestore 要能讀回來給畫面用（D1 沒有讀取端點），
+         * D1 要能被 cron 用索引掃到（Firestore 掃不動）。
+         * ========================================================== */
+        const plansPath = () => PU('settings');
+        const PLAN_MAX = 100;                       // 跟 Worker 的 slice(0,100) 一致
+
+        /* 倒數文字。★ 抽成純函式是為了測試能真的餵時間進去跑——
+           「還剩多久」這種東西用眼睛看很難確認邊界（剛好 0、負的、跨天）。 */
+        function planCountdown(atTs, now) {
+            const diff = Number(atTs) - now;
+            if (!isFinite(diff)) return { text:'時間有誤', past:true };
+            if (diff <= 0) {
+                const ago = -diff;
+                if (ago < 60000) return { text:'就是現在', past:true };
+                if (ago < 3600000) return { text:`${Math.floor(ago / 60000)} 分鐘前`, past:true };
+                if (ago < 86400000) return { text:`${Math.floor(ago / 3600000)} 小時前`, past:true };
+                return { text:`${Math.floor(ago / 86400000)} 天前`, past:true };
+            }
+            const d = Math.floor(diff / 86400000);
+            const h = Math.floor(diff % 86400000 / 3600000);
+            const m = Math.floor(diff % 3600000 / 60000);
+            const s = Math.floor(diff % 60000 / 1000);
+            /* 一天以上就不必顯示秒——每秒重畫一次卻只有天數在變，
+               既浪費又讓人以為畫面卡住。 */
+            if (d > 0) return { text:`${d} 天 ${h} 小時`, past:false };
+            if (h > 0) return { text:`${h} 小時 ${m} 分`, past:false };
+            return { text:`${m} 分 ${s} 秒`, past:false };
+        }
+
+        async function loadPlans() {
+            const p = plansPath();
+            if (!p) return [];
+            try {
+                const snap = await getDoc(doc(db, p,'plans'));
+                const list = snap.exists() ? (snap.data().list || []) : [];
+                return Array.isArray(list) ? list : [];
+            } catch (e) { console.warn('讀取計劃失敗', e); return []; }
+        }
+
+        async function savePlans() {
+            const p = plansPath();
+            if (!p) throw new Error('not signed in');
+            await setDoc(doc(db, p,'plans'), { list: userPlans, updatedAt: Date.now() });
+            syncPlanSubscription();        // 不 await：存檔成功就該關視窗，推播晚一點沒關係
+        }
+
+        /* 把計劃推到 Worker。★ 沒開上課提醒就沒有訂閱，這時候什麼都不用做——
+           不是錯誤，所以安靜地跳過（但畫面上會寫著「沒開提醒就只有倒數」）。 */
+        async function syncPlanSubscription() {
+            if (!QUOTE_API) return;
+            try {
+                if (!('serviceWorker' in navigator)) return;
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (!sub) return;
+                /* 只送還沒過期的。過期的送過去也只會被 Worker 判成遲到而跳過，
+                   但白白佔著那一百筆的額度。 */
+                const now = Date.now();
+                const events = userPlans
+                    .filter(p => Number(p.at) > now - 3600000)
+                    .slice(0, PLAN_MAX)
+                    .map(p => ({ id: p.id, at: Number(p.at), lead: Number(p.lead) || 0,
+                                 title: p.title, note: p.note ||'' }));
+                await fetch(`${QUOTE_API}/push/events`, {
+                    method:'POST', headers: {'Content-Type':'application/json' },
+                    body: JSON.stringify({ endpoint: sub.endpoint, events }),
+                });
+            } catch (e) { console.warn('同步計劃提醒失敗', e); }
+        }
+
+        function renderPlans() {
+            const box = $('planList');
+            if (!box) return;
+            const note = $('planReminderNote');
+            if (note) note.textContent = classReminderOn
+                ?'到時間會用通知提醒你，App 關著也會響。'
+                :'⚠️ 還沒開「提醒」，所以只有畫面上的倒數，不會有通知。到課表右上角開啟。';
+
+            if (userPlans.length === 0) {
+                box.innerHTML = '<div class="text-center py-8 text-slate-400 font-medium">還沒有計劃。按上面的「新增計劃」加一個，會顯示倒數並在時間到之前通知你。</div>';
+                return;
+            }
+            const now = Date.now();
+            const sorted = [...userPlans].sort((a, b) => Number(a.at) - Number(b.at));
+            box.innerHTML = sorted.map(p => {
+                const c = planCountdown(p.at, now);
+                const when = new Date(Number(p.at)).toLocaleString('zh-TW',
+                    { month:'numeric', day:'numeric', weekday:'short', hour:'2-digit', minute:'2-digit' });
+                return `
+                <div class="flex items-center justify-between gap-3 p-4 rounded-2xl border ${c.past ?'bg-slate-50 border-slate-200 opacity-60' :'bg-amber-50 border-amber-200'}">
+                    <div class="min-w-0">
+                        <div class="font-bold text-slate-800 truncate">${escapeHTML(p.title)}</div>
+                        <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
+                    </div>
+                    <div class="flex items-center gap-2 shrink-0">
+                        <span class="plan-countdown text-sm font-black ${c.past ?'text-slate-400' :'text-amber-600'}" data-at="${Number(p.at)}">${escapeHTML(c.text)}</span>
+                        <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>
+                </div>`;
+            }).join('');
+            icons();
+        }
+
+        /* 每秒只更新倒數那幾個字，不重畫整份清單——
+           重畫的話正在按的按鈕會在手指底下被換掉，而且圖示要重新產生。 */
+        function tickPlanCountdowns() {
+            const now = Date.now();
+            document.querySelectorAll('.plan-countdown').forEach(el => {
+                const c = planCountdown(Number(el.dataset.at), now);
+                if (el.textContent !== c.text) el.textContent = c.text;
+            });
+        }
+
+        /* ★ 計時器只在「主頁開著而且有計劃」時跑。
+           一直跑的話，手機在背景會被系統一直喚醒，而畫面根本沒人看。 */
+        function updatePlanTicker() {
+            const visible = userPlans.length > 0
+                && !!$('page-home') && !$('page-home').classList.contains('hidden');
+            if (visible && !planTicker) planTicker = setInterval(tickPlanCountdowns, 1000);
+            if (!visible && planTicker) { clearInterval(planTicker); planTicker = null; }
+        }
+
+        function openPlanModal(id) {
+            const p = id ? userPlans.find(x => x.id === id) : null;
+            $('planModalTitle').textContent = p ?'編輯計劃' :'新增計劃';
+            $('editPlanId').value = p ? p.id :'';
+            /* datetime-local 要的是本地時間字串，不能直接丟 ISO（那是 UTC，
+               會整個差八小時——而且看起來只是「時間怪怪的」，不會報錯）。 */
+            const d = p ? new Date(Number(p.at)) : new Date(Date.now() + 3600000);
+            const pad = (n) => String(n).padStart(2,'0');
+            setVals({
+                planTitle: p ? p.title :'',
+                planAt: `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`,
+                planNote: p ? (p.note ||'') :'',
+            });
+            $('planLead').value = String(p ? p.lead : 10);
+            openModal('planModal');
+        }
+
+        async function savePlanFromModal() {
+            const title = getVal('planTitle');
+            const atStr = getVal('planAt');
+            if (!title) return showToast('請填要做什麼');
+            if (!atStr) return showToast('請選時間');
+            const at = new Date(atStr).getTime();
+            if (!isFinite(at)) return showToast('時間格式不太對');
+
+            const id = getVal('editPlanId');
+            const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+                          title, at, lead: Number($('planLead').value) || 0, note: getVal('planNote') };
+            if (id) userPlans = userPlans.map(p => p.id === id ? rec : p);
+            else {
+                if (userPlans.length >= PLAN_MAX) return showToast(`最多 ${PLAN_MAX} 個計劃`);
+                userPlans = [...userPlans, rec];
+            }
+            const btn = $('confirmSavePlan');
+            btn.disabled = true;
+            try {
+                await savePlans();
+                closeModal('planModal');
+                renderPlans(); updatePlanTicker();
+                showToast(id ?'計劃已更新' :'計劃已新增');
+            } catch (e) {
+                console.error(e);
+                showToast('存檔失敗，請稍後再試');
+            } finally { btn.disabled = false; }
+        }
+
+        async function deletePlan(id) {
+            const before = userPlans.length;
+            userPlans = userPlans.filter(p => p.id !== id);
+            if (userPlans.length === before) return;      // 沒這一筆，不要白寫一次
+            try {
+                await savePlans();
+                renderPlans(); updatePlanTicker();
+                showToast('已刪除');
+            } catch (e) { showToast('刪除失敗，請稍後再試'); }
+        }
+
         async function toggleClassReminder() {
             // 先關閉的情形：解除訂閱並停用
             if (classReminderOn) {
@@ -3539,6 +3807,7 @@
                 } catch (e) {}
                 showToast("已關閉上課提醒");
                 updateClassReminderUI();
+                renderPlans();   // 計劃區要換成「只有倒數、不會通知」的說明
                 return;
             }
 
@@ -3575,6 +3844,12 @@
 
                 classReminderOn = true;
                 try { localStorage.setItem('eeblackcat-reminder','1'); } catch (e) {}
+                /* ★ 剛拿到訂閱，計劃也要跟著推上去。
+                   漏了的話症狀是：先建計劃、後開提醒的人，計劃提醒永遠不會發——
+                   而畫面上計劃好好地列著、倒數也在跑，完全看不出哪裡不對。
+                   （課表不必補這一步，因為上面那次 subscribe 已經帶了 items。） */
+                syncPlanSubscription();
+                renderPlans();   // 那行「還沒開提醒」的警告要跟著消失
                 showToast(items.length
                     ? `已開啟：上課前 ${REMIND_LEAD} 分鐘通知，App 關著也會響`
                     : `已開啟，但課表還是空的——先去排課才會有提醒`);
@@ -6163,10 +6438,15 @@
                 $('home-guest-hero').classList.add('hidden');
                 $('home-user-hero').classList.remove('hidden');
                 $('home-user-schedule').classList.remove('hidden');
+                $('home-user-plans').classList.remove('hidden');
                 $('displayUserName').textContent = userDisplayName;
 
                 renderSchedule();
                 highlightCurrentClass();
+                /* 計劃跟課表一樣是私人資料，登入才讀得到。
+                   ★ 不 await：這一段是登入流程，卡在網路來回上會讓
+                   載入畫面停在那裡（那條路以前踩過，見載入動畫那一段）。 */
+                loadPlans().then(list => { userPlans = list; renderPlans(); updatePlanTicker(); });
                 // 招呼語也走同一條階梯，不然頁首徽章寫「一般」、吐司卻喊你「星族」
                 showToast(`歡迎回來，${currentBadge().name} ${userDisplayName}`);
             } else {
@@ -6181,6 +6461,13 @@
                 $('home-guest-hero').classList.remove('hidden');
                 $('home-user-hero').classList.add('hidden');
                 $('home-user-schedule').classList.add('hidden');
+                /* ★ 登出一定要把計劃清空並停掉計時器。
+                   留著的話下一個登入的人會在自己的主頁看到別人的計劃——
+                   那是私人資料，而畫面上完全看不出它屬於誰。 */
+                $('home-user-plans').classList.add('hidden');
+                userPlans = [];
+                renderPlans();
+                updatePlanTicker();
 
                 if (!user) signInAnonymously(auth).catch(e => console.error(e));
             }
@@ -6314,6 +6601,8 @@
 'set-theme': (t) => setTheme(t.dataset.theme),
 'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode ==='edit'); renderSchedule(); },
 'toggle-class-reminder': () => toggleClassReminder(),
+'edit-plan':   (t) => openPlanModal(t.dataset.id),
+'delete-plan': (t) => deletePlan(t.dataset.id),
 'set-study-sub': (t) => switchStudySub(t.dataset.sub),
 'set-finance-sub': (t) => switchFinanceSub(t.dataset.sub),
 'open-expense-modal': () => openExpenseModal(),
@@ -6605,6 +6894,8 @@
             bind('editNameBtn', () => { $('editDisplayName').value = userDisplayName; openModal('nameModal'); });
             bind('confirmSaveName', saveDisplayName);
             bind('confirmSaveSchedule', saveScheduleCell);
+            bind('addPlanBtn', () => openPlanModal(null));
+            bind('confirmSavePlan', savePlanFromModal);
             bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleLocation:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
             // 課名可搜尋課程庫：聚焦/輸入時顯示過濾結果，手動打字則解除連動
             $('editScheduleCourse').addEventListener('focus', (e) => renderScheduleCourseResults(e.target.value));
