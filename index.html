@@ -1368,6 +1368,17 @@
                      沒開提醒的話計劃只會有畫面上的倒數、不會有推播。
                      不講的話使用者會以為設了就會響。 -->
                 <p id="planReminderNote" class="text-xs font-bold text-slate-400 mb-4"></p>
+                <!-- 快速新增：一行字建一筆。★ 底下那行預覽不是裝飾——
+                     解析錯不會報錯，只會把時間記到別的地方，
+                     所以「我聽成什麼」一定要在按下去之前就寫出來。 -->
+                <div class="mb-5">
+                    <div class="flex gap-2">
+                        <input type="text" id="quickPlanInput" maxlength="80" placeholder="一行新增：明天下午三點 交報告"
+                               class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                        <button id="quickPlanBtn" class="shrink-0 px-4 py-3 bg-slate-800 text-white rounded-2xl font-bold text-sm hover:bg-slate-900 transition">新增</button>
+                    </div>
+                    <p id="quickPlanPreview" class="text-xs font-bold text-slate-400 mt-2 min-h-[1.25rem] break-words"></p>
+                </div>
                 <div id="planList" class="space-y-3">
                     <div class="text-center py-8 text-slate-400 font-medium">載入中...</div>
                 </div>
@@ -2915,6 +2926,17 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-08-12',
+                title: '計劃可以打一行字新增了',
+                items: [
+                    ['一行就建一筆：「明天下午三點 交報告」', '主流待辦軟體的評測裡，這個功能永遠排第一，而且對手機最有感——原本要開視窗、點日期、選時間、再打字，現在打完一行按 Enter 就好。看得懂相對日（今天／明天／後天／大後天／今晚）、星期幾（週五、下週三、這禮拜六）、日期（8/20、8月20日、2027/1/5）、時間（下午三點、七點半、15:00、十點十五分）、區間（3點到5點、09:00-11:00）與時長（兩小時、一個半小時、90分鐘）。'],
+                    ['★ 這個功能最危險的地方是它不會報錯', '解析錯的表現不是當掉，是把時間安靜地記到別的地方——那筆計劃在畫面上長得完全正常，只是日期不對。跟這個站以前踩過的「電路接錯不會報錯」是同一種病。所以做了兩件事：一是輸入框底下永遠有一行字寫著「我聽成什麼」，按下去之前就看得到；二是整支解析器不碰畫面、時間從外面傳進去，這樣測試能真的餵字串進去比對毫秒數，而不是只檢查原始碼裡有沒有寫過這段。'],
+                    ['寫測試時抓到的三個真的會出錯的地方', '第一，「9點 兩小時 複習」原本會變成 9 點 2 分——「兩」被當成分鐘吃掉了，時長那一段跟著消失，標題還多出「小時」兩個字。分鐘現在一定要跟著「分」字。第二，「晚上11點到1點」的後半原本會被猜成下午一點，於是結束比開始早，跨日處理再把它推到隔天下午，整整差十二小時；改成從前半推，補不上去就當成跨午夜。第三，十二月打「1/5」原本會排到今年一月，那筆計劃一出生就在「昨日」區。'],
+                    ['沒寫清楚的地方會說出來，不會裝作知道', '只寫「三點」而沒寫早晚的，當成下午三點——但預覽會註明這是猜的。時間今天已經過了的會自動排到明天並說明。什麼都沒寫就放今天的下一個整點，跟「＋新增」按鈕的預設一致。看不出要做什麼的（例如只打了「8/20」）直接擋下來，不會存成一筆沒有標題的計劃。'],
+                    ['順手補一個沒有症狀的漏洞', '新增計劃是先改畫面再存檔的，但存檔失敗時原本不會把清單改回去，於是畫面上多了一筆、重新整理又不見了，中間沒有任何訊息。快速新增和原本的表單兩邊都補上還原。']
+                ]
+            },
+            {
                 date: '2026-08-11',
                 title: '資料載入失敗現在看得見了',
                 items: [
@@ -3821,6 +3843,263 @@
                            : `${day(d1)} ${hm(d1)} – ${day(d2)} ${hm(d2)}`;
         }
 
+        /* ==========================================================
+         * 快速新增：一行字建一筆計劃
+         *
+         * 「明天下午三點 交報告」→ 標題「交報告」、開始 明天 15:00、結束 16:00。
+         *
+         * ★ 這一整段刻意不碰 DOM、不讀任何全域狀態，`now` 由呼叫端傳進來。
+         * 理由是這個功能最危險的地方：**解析錯不會報錯**，只會把時間設到
+         * 別的地方，而那筆計劃在畫面上看起來完全正常（這正是本專案
+         * 「電路接錯不會報錯」的同一種病）。所以：
+         *   1. 解析器要能單獨餵字串進去跑 —— tests/quickadd.mjs 就是這樣測的
+         *   2. 存檔前一定要把「我聽成什麼」顯示出來讓人確認
+         * ========================================================== */
+        const QUICK_PLAN_HELP = '例：明天下午三點 交報告　／　週五 09:00-11:00 電路實驗　／　8/20 兩小時 讀書';
+
+        const CN_DIGIT = { '零':0,'〇':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9 };
+        /* 中文數字轉阿拉伯。只需要到 59（分鐘），所以支援到兩位數就夠。 */
+        function cnToNum(s) {
+            if (s === undefined || s === null) return NaN;
+            s = String(s).trim();
+            if (!s) return NaN;
+            if (/^\d+$/.test(s)) return Number(s);
+            const m = /^([零〇一二兩三四五六七八九]?)十([零〇一二兩三四五六七八九]?)$/.exec(s);
+            if (m) return (m[1] ? CN_DIGIT[m[1]] : 1) * 10 + (m[2] ? CN_DIGIT[m[2]] : 0);
+            if (s.length === 1 && s in CN_DIGIT) return CN_DIGIT[s];
+            return NaN;
+        }
+
+        const QP_NUM  = '(?:\\d{1,2}|[零〇一二兩三四五六七八九十]{1,3})';
+        const QP_MERI = '(清晨|早上|上午|中午|下午|傍晚|晚上|夜裡|凌晨)?';
+        /* 一個「幾點幾分」＝五個捕捉組：早晚、24 小時制的時與分、中文的時與分。
+           兩種寫法（15:00 與 三點半）合在同一段，是為了讓「區間」可以直接
+           把它接兩次；分成兩個 regex 的話「3點到5點」與「15:00-17:00」
+           會走不同的路，而走不同的路的東西一定會分岔。 */
+        /* ★ 分鐘那一格**一定要跟著「分」字**（「半」除外）。
+           上一版寫成 `(半|NUM)?\s*分?`，於是「明天9點 兩小時 複習」裡的
+           「兩」被當成分鐘吃掉，時間變成 9 點 2 分、時長那一段又消失，
+           而且標題還會多出「小時」兩個字。整筆看起來完全正常，只是全錯——
+           這正是為什麼這支解析器一定要能單獨跑測試。 */
+        /* ★ 兩個「不要往下吃」的但書，兩個都是實際測出來的：
+             半(?!小時|鐘頭) — 不然「9點 半小時 複習」的半被當成 9:30，時長消失
+             分(?!鐘)        — 不然「9點 90分鐘 複習」的 90 被當成分鐘（90 > 59 直接整段解析失敗，
+                               然後時間安靜地退回預設的早上九點，標題還留著「9點」） */
+        const QP_HM = QP_MERI + '\\s*(?:(\\d{1,2})\\s*[:：]\\s*(\\d{2})|(' + QP_NUM + ')\\s*(?:點|時)\\s*(?:(半)(?!\\s*(?:小時|鐘頭))|(' + QP_NUM + ')\\s*分(?!鐘))?)';
+
+        function qpToHM(meri, hh, mm, ch, half, cmin, noBareGuess) {
+            let h, m = 0, guessed = false;
+            if (hh !== undefined && hh !== null && hh !== '') { h = Number(hh); m = Number(mm); }
+            else {
+                h = cnToNum(ch);
+                if (half) m = 30;
+                else if (cmin) { const v = cnToNum(cmin); if (isFinite(v)) m = v; }
+            }
+            if (!isFinite(h) || h > 23 || h < 0 || !isFinite(m) || m > 59) return null;
+            if (meri === '下午' || meri === '傍晚' || meri === '晚上' || meri === '夜裡' || meri === '中午') {
+                if (h < 12) h += 12;                      // 中午 12 點維持 12，中午 1 點是 13
+            } else if (meri === '早上' || meri === '上午' || meri === '清晨' || meri === '凌晨') {
+                if (h === 12) h = 0;                      // 凌晨 12 點是 0 點
+            } else if (h >= 1 && h <= 6 && !noBareGuess) {
+                /* ★ 沒寫早晚而只寫「三點」的，實際上幾乎都是指下午三點。
+                   但這是**猜的**，所以要把 guessed 傳回去讓預覽寫明白——
+                   猜錯又不說的話，那筆計劃會安靜地排在凌晨三點，
+                   而畫面上「凌晨 3:00」四個字看起來一點問題也沒有。 */
+                h += 12; guessed = true;
+            }
+            return { h, m, guessed };
+        }
+
+        function parsePlanText(raw, now) {
+            const res = { ok:false, title:'', at:null, end:null,
+                          dateGiven:false, timeGiven:false, guessed:false, notes:[], reason:'' };
+            /* 全形數字轉半形：手機中文輸入法很容易打出「８／２０」。 */
+            const text = String(raw || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).trim();
+            if (!text) { res.reason = '還沒輸入'; return res; }
+
+            /* 吃掉一段就換成同樣長度的空白。★ 用等長的填充而不是刪掉，
+               是因為後面每一條 regex 都還要在同一個字串上跑；長度變了
+               index 就對不上，而對不上的症狀是「標題少了一個字」——
+               看起來像使用者自己打錯。 */
+            let masked = text;
+            const eat = (m) => { masked = masked.slice(0, m.index) + ' '.repeat(m[0].length) + masked.slice(m.index + m[0].length); };
+            const find = (re) => re.exec(masked);
+            let m;
+
+            /* 1. 時間區間。★ 一定要在單一時間之前跑，
+                  否則「3點到5點」只會吃到 3 點，結束時間安靜地變成 4 點。 */
+            let hmStart = null, hmEnd = null;
+            m = find(new RegExp(QP_HM + '\\s*(?:到|至|~|～|-|–|—|－)\\s*' + QP_HM));
+            if (m) {
+                const a = qpToHM(m[1], m[2], m[3], m[4], m[5], m[6]);
+                /* ★ 區間的後半刻意關掉「1～6 點當下午」那個猜測，改成從前半推。
+                   理由是後半從來不是獨立的一個時間，它一定跟著前半：
+                     「下午2點到8點」— 8 不在 1～6，單看它不會加，但顯然是 20:00
+                     「晚上11點到1點」— 1 在 1～6，單看它會變 13:00，其實是隔天凌晨
+                   兩種都不會報錯，只會把結束時間記到別的地方。 */
+                const b = qpToHM(m[7], m[8], m[9], m[10], m[11], m[12], !m[7]);
+                if (a && b) {
+                    /* 後半沒寫早晚時：能補成同一個下午就補，補了還是早於開始
+                       （例如跨午夜的 23:00 → 01:00）就維持原樣，交給下面的跨日處理。 */
+                    if (!m[7] && b.h < a.h && b.h + 12 <= 23 && b.h + 12 >= a.h) { b.h += 12; b.guessed = true; }
+                    hmStart = a; hmEnd = b; eat(m);
+                }
+            }
+
+            /* 2. 明確日期：2026/8/12、8/12、8月12日 */
+            let mo = null, da = null, yr = null;
+            m = find(/(?:(\d{4})\s*[\/\-年]\s*)?(\d{1,2})\s*[\/\-月]\s*(\d{1,2})\s*日?/);
+            if (m) {
+                const mm2 = Number(m[2]), dd2 = Number(m[3]);
+                if (mm2 >= 1 && mm2 <= 12 && dd2 >= 1 && dd2 <= 31) {
+                    yr = m[1] ? Number(m[1]) : null; mo = mm2; da = dd2; eat(m);
+                }
+            }
+
+            /* 3. 相對日 */
+            let dayOffset = null, hourHint = null;
+            m = find(/(今天|今日|今晚|今早|明天|明日|明晚|明早|後天|大後天)/);
+            if (m) {
+                const w = m[1];
+                dayOffset = w === '大後天' ? 3 : w === '後天' ? 2 : /^明/.test(w) ? 1 : 0;
+                if (/晚$/.test(w)) hourHint = 19;
+                else if (/早$/.test(w)) hourHint = 8;
+                eat(m);
+            }
+
+            /* 4. 星期幾 */
+            let wdTs = null;
+            if (mo === null && dayOffset === null) {
+                m = find(/(這|本|下下|下個|下)?\s*(?:週|周|星期|禮拜)\s*([一二三四五六日天1-7])/);
+                if (m) {
+                    const WD = { '一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':0,'天':0,
+                                 '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':0 };
+                    const target = WD[m[2]];
+                    const base = new Date(now); base.setHours(0, 0, 0, 0);
+                    const cur = base.getDay(), pre = m[1] || '';
+                    if (!pre) {
+                        /* ★ 沒加字的「週三」是**下一個**週三（今天也算）。
+                           解析成「這一週的週三」而它已經過了的話，那筆計劃
+                           一建立就落在「昨日」區、還帶著刪除線——
+                           使用者只會覺得新增功能壞了。 */
+                        base.setDate(base.getDate() + ((target - cur + 7) % 7));
+                    } else {
+                        /* 台灣的一週從星期一開始，所以先退回本週一再往前加。
+                           用 getDay() 直接算的話星期日會被算成「下一週」。 */
+                        const mon = new Date(base);
+                        mon.setDate(mon.getDate() - ((cur + 6) % 7));
+                        const add = pre === '下下' ? 14 : (pre === '下' || pre === '下個') ? 7 : 0;
+                        mon.setDate(mon.getDate() + add + ((target + 6) % 7));
+                        base.setTime(mon.getTime());
+                    }
+                    wdTs = base.getTime(); eat(m);
+                }
+            }
+
+            /* 5. 單一時間 */
+            if (!hmStart) {
+                m = find(new RegExp(QP_HM));
+                if (m) { const a = qpToHM(m[1], m[2], m[3], m[4], m[5], m[6]); if (a) { hmStart = a; eat(m); } }
+            }
+            /* 5b. 只寫「下午」沒寫幾點。這也算有講時間，只是很粗——
+                   當成沒講的話會被排到早上九點，跟他說的正好相反。 */
+            if (!hmStart) {
+                m = find(/(清晨|早上|上午|中午|下午|傍晚|晚上)/);
+                if (m) {
+                    const DEF = { '清晨':7, '早上':9, '上午':9, '中午':12, '下午':14, '傍晚':17, '晚上':19 };
+                    hmStart = { h: DEF[m[1]], m: 0, guessed: true }; eat(m);
+                }
+            }
+
+            /* 6. 時長 */
+            let spanMs = null;
+            m = find(new RegExp('(' + QP_NUM + ')\\s*個?\\s*(半)?\\s*(?:小時|鐘頭)'));
+            if (m) { const n = cnToNum(m[1]); if (isFinite(n) && n > 0) { spanMs = (n + (m[2] ? 0.5 : 0)) * 3600000; eat(m); } }
+            if (spanMs === null) { m = find(/半\s*(?:小時|鐘頭)/); if (m) { spanMs = 1800000; eat(m); } }
+            if (spanMs === null) {
+                m = find(new RegExp('(\\d{1,3}|' + QP_NUM + ')\\s*分鐘'));
+                if (m) { const n = cnToNum(m[1]); if (isFinite(n) && n > 0) { spanMs = n * 60000; eat(m); } }
+            }
+
+            /* ---- 組出開始時間 ---- */
+            const start = new Date(now);
+            let dateGiven = true;
+            if (mo !== null) {
+                start.setHours(0, 0, 0, 0);
+                start.setFullYear(yr !== null ? yr : start.getFullYear(), mo - 1, da);
+                if (yr === null) {
+                    /* ★ 沒寫年份而那個日期今年已經過了 → 是明年的。
+                       十二月打「1/5」不處理這一段的話會排到今年一月，
+                       那筆計劃一出生就在「昨日」區。 */
+                    const t0 = new Date(now); t0.setHours(0, 0, 0, 0);
+                    if (start.getTime() < t0.getTime()) start.setFullYear(start.getFullYear() + 1);
+                }
+                /* 2/30 這種不存在的日期，Date 會安靜地滾到 3/2。 */
+                if (start.getMonth() !== mo - 1) { res.reason = '沒有 ' + mo + '/' + da + ' 這一天'; return res; }
+            } else if (dayOffset !== null) {
+                start.setHours(0, 0, 0, 0); start.setDate(start.getDate() + dayOffset);
+            } else if (wdTs !== null) {
+                start.setTime(wdTs);
+            } else {
+                dateGiven = false; start.setHours(0, 0, 0, 0);
+            }
+
+            let hm = hmStart;
+            if (!hm && hourHint !== null) hm = { h: hourHint, m: 0, guessed: true };
+            const timeGiven = !!(hmStart || hourHint !== null);
+            if (hm) start.setHours(hm.h, hm.m, 0, 0);
+            else if (dateGiven) start.setHours(9, 0, 0, 0);
+            else {
+                /* 什麼都沒寫：今天的下一個整點，跟「＋新增」按鈕在「今天」區
+                   的預設一致（zoneDefaultAt）。兩邊不一致的話同一句話
+                   從兩個入口進來會落在不同時間。 */
+                start.setTime(now); start.setMinutes(0, 0, 0); start.setHours(start.getHours() + 1);
+            }
+
+            /* ★ 只寫時間沒寫日期、而那個時間今天已經過了 → 是明天的事。
+               不處理的話「三點 交報告」在下午四點打進去，會建立一筆
+               已經過期的計劃，直接掛在「昨日」區。 */
+            if (!dateGiven && hm && start.getTime() <= now) {
+                start.setDate(start.getDate() + 1);
+                res.notes.push('今天這個時間過了，排到明天');
+            }
+
+            let endTs;
+            if (hmEnd) {
+                const e = new Date(start); e.setHours(hmEnd.h, hmEnd.m, 0, 0);
+                if (e.getTime() < start.getTime()) e.setDate(e.getDate() + 1);   // 跨午夜
+                endTs = e.getTime();
+            } else {
+                endTs = start.getTime() + (spanMs !== null ? spanMs : 3600000);
+            }
+
+            /* ---- 剩下的字就是標題 ---- */
+            let title = masked.replace(/[，,。、；;：:]+/g, ' ').replace(/\s+/g, ' ').trim();
+            if (!title) { res.reason = '看不出要做什麼，時間後面再寫一句'; return res; }
+            if (title.length > 60) title = title.slice(0, 60);
+
+            if (!dateGiven && !timeGiven) res.notes.push('沒寫時間，先排在今天的下一個整點');
+            if (hm && hm.guessed) res.notes.push('時間是猜的，請確認');
+
+            res.ok = true; res.title = title;
+            res.at = start.getTime(); res.end = endTs;
+            res.dateGiven = dateGiven; res.timeGiven = timeGiven;
+            res.guessed = !!(hm && hm.guessed);
+            return res;
+        }
+
+        /* 預覽字串。★ 這是整個快速新增的安全閥：解析錯不會報錯，
+           所以存檔前一定要把「我聽成什麼」原原本本寫出來給人看。
+           少了這一行，這個功能就從「省時間」變成「安靜地記錯時間」。 */
+        function quickPlanPreview(raw, now) {
+            if (!String(raw || '').trim()) return QUICK_PLAN_HELP;
+            const r = parsePlanText(raw, now);
+            if (!r.ok) return '⚠️ ' + (r.reason || '看不懂這一行');
+            const when = planWhenText({ at: r.at, end: r.end });
+            const tail = r.notes.length ? '（' + r.notes.join('、') + '）' : '';
+            return '→ ' + when + '　' + r.title + tail;
+        }
+
         function planCountdown(atTs, now) {
             const diff = Number(atTs) - now;
             if (!isFinite(diff)) return { text:'時間有誤', past:true };
@@ -4196,6 +4475,9 @@
             const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
                           title, at, end, lead: Number($('planLead').value) || 0,
                           note: getVal('planNote'), done: !!(id && (userPlans.find(x => x.id === id) || {}).done) };
+            /* ★ 跟快速新增同一個坑：先改清單再存檔，存檔失敗就得還原，
+               否則畫面上是新的、重整之後又變回舊的，中間沒有任何訊息。 */
+            const beforePlans = userPlans;
             if (id) userPlans = userPlans.map(p => p.id === id ? rec : p);
             else {
                 if (userPlans.length >= PLAN_MAX) return showToast(`最多 ${PLAN_MAX} 個計劃`);
@@ -4210,9 +4492,44 @@
                 renderPlans(); updatePlanTicker();
                 showToast(id ?'計劃已更新' :'計劃已新增');
             } catch (e) {
+                userPlans = beforePlans;
                 console.error(e);
                 showToast('存檔失敗，請稍後再試');
             } finally { btn.disabled = false; }
+        }
+
+        function updateQuickPlanPreview() {
+            const input = $('quickPlanInput'), out = $('quickPlanPreview');
+            if (!input || !out) return;
+            out.textContent = quickPlanPreview(input.value, Date.now());
+        }
+
+        async function submitQuickPlan() {
+            const input = $('quickPlanInput');
+            if (!input) return;
+            const r = parsePlanText(input.value, Date.now());
+            if (!r.ok) return showToast(r.reason || '看不懂這一行');
+            if (userPlans.length >= PLAN_MAX) return showToast(`最多 ${PLAN_MAX} 個計劃`);
+            const rec = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                          title: r.title, at: r.at, end: r.end, lead: 10, note: '', done: false };
+            const btn = $('quickPlanBtn');
+            if (btn) btn.disabled = true;
+            /* ★ 存檔失敗要把清單還原。不還原的話畫面上多了一筆、
+               重整之後又不見了——而中間完全沒有任何錯誤訊息，
+               使用者只會覺得「有時候會存不進去」。 */
+            const before = userPlans;
+            userPlans = [...userPlans, rec];
+            try {
+                await savePlans();
+                input.value = '';
+                updateQuickPlanPreview();
+                renderPlans(); updatePlanTicker();
+                showToast('已新增：' + planWhenText(rec));
+            } catch (e) {
+                userPlans = before;
+                console.error(e);
+                showToast('存檔失敗，請稍後再試');
+            } finally { if (btn) btn.disabled = false; }
         }
 
         /* ==========================================================
@@ -7535,6 +7852,16 @@
             bind('confirmSaveName', saveDisplayName);
             bind('confirmSaveSchedule', saveScheduleCell);
             bind('addPlanBtn', () => openPlanModal(null, 'today'));
+            bind('quickPlanBtn', submitQuickPlan);
+            const quickPlanBox = $('quickPlanInput');
+            if (quickPlanBox) {
+                quickPlanBox.addEventListener('input', updateQuickPlanPreview);
+                /* Enter 直接送出：快速新增的重點就是不要離開鍵盤。 */
+                quickPlanBox.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); submitQuickPlan(); }
+                });
+                updateQuickPlanPreview();          // 一開始就把用法寫在那一行
+            }
             bind('confirmSavePlan', savePlanFromModal);
             bindPlanDragAndDrop();
             bind('addCountdownBtn', () => openCountdownModal(null));
