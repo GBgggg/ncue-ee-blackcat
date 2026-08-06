@@ -1,6 +1,11 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
+    <!-- ★ 字型從 Google 來，@import 要先解析 DNS 再握手才開始下載。
+         preconnect 把那兩趟提前到 HTML 一進來就開始做——
+         省的不是流量是延遲，而字型是這一頁最大的一筆資產。 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-product-title>小黑貓 - 課表、學習、理財與電路模擬</title>
@@ -20,7 +25,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@500;700;900&display=swap');
+        /* ★ 字重從 7 個砍到 5 個（Sans 去掉 500、Serif 去掉 500）。
+           這是整頁最大的一筆資產（約 231 KB，見 使用量評估.md）。
+           砍掉的都是「中間那一階」：中文小字在 400 與 500 之間的差別
+           幾乎看不出來，而 font-medium 用了 90 次，全部會落到 400——
+           那是**變淡一點**，不是變成預設字型，所以不會有破版。
+           ★ 不能砍 900：font-black 用了 154 次，而且標題全靠它撐起層次；
+           少了它瀏覽器會用 700 硬撐，標題與內文就分不出來了。 */
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Noto+Serif+TC:wght@700;900&display=swap');
         body { font-family:'Noto Sans TC', sans-serif; }
         .hidden { display: none !important; }
         .toast-animate { animation: slideUp 0.3s ease-out; }
@@ -180,6 +192,60 @@
         }
 
         body { background-color: var(--paper); color: var(--ink); }
+
+        /* ==========================================================
+           鍵盤焦點
+           ★ 這一段以前完全不存在（全站 focus-visible 的數量是 0）。
+           症狀不是「難看」，是**用鍵盤 Tab 過去時看不出焦點在哪**——
+           而且沒有任何錯誤訊息，用滑鼠的人永遠不會發現。
+
+           用 :focus-visible 而不是 :focus：滑鼠點擊不會跳外框，
+           所以現有的觀感一點都不會變，只有鍵盤操作時才出現。
+           顏色走 token，不寫死色碼——不然深色模式下會看不見。
+           ========================================================== */
+        :focus-visible {
+            outline: 2px solid var(--accent) !important;
+            outline-offset: 2px;
+            border-radius: 6px;
+        }
+        /* 深色模式的強調色偏亮，外框直接用它就夠亮；淺色模式維持磚紅。 */
+        html.dark :focus-visible { outline-color: var(--accent) !important; }
+        /* 深色墨塊上的按鈕（頁首）外框要用淺色，磚紅壓在墨底上看不見。 */
+        header :focus-visible, .bg-slate-900 :focus-visible, .bg-slate-800 :focus-visible {
+            outline-color: rgba(255, 255, 255, .85) !important;
+        }
+
+        /* ==========================================================
+           按下的回饋
+           ★ 手機沒有 hover，所以在這之前**按下去幾乎沒有任何視覺回應**，
+           只能靠畫面換掉來確認「有按到」。慢一點的操作就會被連按兩次。
+           （改之前全站 active:scale 只有 1 處。）
+
+           只縮 3%、只花 90ms：再多會像玩具，而這是每天要按幾十次的工具。
+           ★ 排除拖曳中的計劃列——拖到一半又被縮放會看起來像壞掉。
+           ★ 也排除 disabled：按不下去的東西不該有回饋。
+           ========================================================== */
+        button:not(:disabled):active,
+        [data-action]:not(:disabled):active,
+        [data-tab]:not(:disabled):active,
+        .logo-menu-item:active {
+            transform: scale(0.97);
+        }
+        /* ★ 只補「原本沒有 transition 的」那些元素，不要整批覆寫。
+           寫成 `button { transition-property: … }` 的話，屬性選擇器
+           `[data-action]` 的優先級跟 Tailwind 的 `.transition-all` 一樣，
+           而它排在後面就會贏——結果是把全站所有按鈕的過場時間都改成 90ms。
+           那是我沒打算做的改動，而且**不會報錯**，只會讓某些動畫忽然變快。
+           `:not([class*="transition"])` 讓這條只補真正缺的那些。 */
+        button:not([class*="transition"]),
+        [data-action]:not([class*="transition"]),
+        [data-tab]:not([class*="transition"]),
+        .logo-menu-item { transition: transform .09s ease; }
+        .plan-row[draggable="true"]:active { transform: none; }
+        @media (prefers-reduced-motion: reduce) {
+            button:active, [data-action]:active, [data-tab]:active, .logo-menu-item:active { transform: none; }
+        }
+
 
         /* 標題改用明體，內文維持黑體以確保小字可讀 */
         h1, h2, h3, h4, .serif {
@@ -543,7 +609,13 @@
         .border-fuchsia-600, .border-amber-600, .border-rose-600,
         .border-slate-500, .border-slate-400 { border-color: transparent !important; }
 
-        /* ---- 陰影：紙張只要極淡的落影 ---- */
+        /* ---- 陰影：紙張只要極淡的落影 ----
+           ★ HTML 裡有五十幾處 shadow-xl／shadow-2xl，看起來像跟「一律細線」
+           的編輯感打架——但那是**看 HTML 得到的錯覺**：這一條早就把它們
+           全部收成同一層極淡的落影了。
+           （做設計優化提案時我就是漏看這一段，數了 HTML 的 class 就下結論說
+           「有 54 處重陰影」，差點又加一份重複的規則上去。這個專案的老教訓：
+           先確認量測工具本身是對的。） */
         .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
             box-shadow: 0 1px 2px rgba(26, 24, 21, 0.05), 0 1px 12px rgba(26, 24, 21, 0.04) !important;
         }
@@ -3050,6 +3122,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-15',
+                title: '介面細節：鍵盤看得到焦點、手機按得到回饋',
+                items: [
+                    ['★ 用鍵盤操作時，之前完全看不出「現在選到哪」', '這個站從頭到尾沒有任何一條自訂的焦點樣式，而 Tailwind 的一些設定又把瀏覽器預設的外框蓋掉了。結果是：用 Tab 鍵移動時，很多按鈕根本不會有任何變化，等於用鍵盤的人是在盲按。這不是「不夠漂亮」，是真的有人用不了，而且完全沒有錯誤訊息，用滑鼠的人永遠不會發現。現在補上了，而且只在鍵盤操作時出現——滑鼠點擊不會跳外框，所以看起來跟以前一模一樣。深色墨塊上的按鈕另外給淺色外框，磚紅壓在墨底上幾乎看不見。'],
+                    ['手機上按下去終於有反應了', '手機沒有滑鼠的「移過去變色」，而這個站幾乎沒有做按下的效果，所以按鈕按下去在畫面換掉之前是完全沒有回應的——慢一點的操作很容易被連按兩次。現在按下去會縮 3%，90 毫秒。刻意做得很輕：這是每天要按幾十次的工具，回饋太誇張會膩。拖曳中的計劃不套用（拖到一半被縮放會像壞掉），系統設定「減少動態」的人也不會有。'],
+                    ['★ 補這個效果時差點把全站的動畫都改快', '第一版寫成「所有按鈕的過場屬性都改成只動變形」，但那條規則的優先級跟現有的樣式一樣，而它排在後面就會贏——等於把全站按鈕的動畫時間統一改成 90 毫秒。那不是我要做的事，而且不會報錯，只會讓某些地方忽然變得很快。改成只補「本來就沒有過場」的那些元素。'],
+                    ['字型從七個字重砍到五個', '這是整頁最大的一筆檔案。砍掉的是兩個「中間那一階」——中文小字在那個粗細差幾乎看不出來。另外補上兩行預先連線的宣告，讓瀏覽器一拿到頁面就開始跟字型伺服器握手，不必等樣式表解析完才開始。省的不是流量是等待時間。'],
+                    ['★ 順手記一個我自己看錯的東西', '本來還打算「把過重的陰影收斂成編輯感的細影」，理由是原始碼裡有五十幾處寫著重陰影。結果那是看錯：設計系統老早就有一條規則把五個階的陰影全部收成同一層極淡的落影了，我只數了標記卻沒看樣式，差點又加一份重複的規則上去——而且會加在前面，被原本那條蓋掉，等於寫了一段永遠不會生效的程式。這個站的老教訓又中一次：先確認量測工具本身是對的。現在改成寫一條測試守住原本那條規則。']
+                ]
+            },
             {
                 date: '2026-08-14',
                 title: '設定集中到一個地方，分頁重新排過',

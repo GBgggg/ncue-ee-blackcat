@@ -331,6 +331,21 @@ button,select,input{font:inherit;color:var(--ink)}
     border:1px solid var(--rule);background:var(--paper);padding:0 9px}
 .field input:focus,.field select:focus,.btn:focus-visible,.pi:focus-visible{
     outline:2px solid var(--accent);outline-offset:2px}
+/* ★ 上面那條只涵蓋幾個特定的元件，工具列、分頁、彈出面板裡的按鈕
+   通通沒有焦點樣式——用鍵盤 Tab 過去看不出自己在哪，而且不會報錯。
+   主站是全站都沒有（focus-visible 數量是 0），這裡是「有一部分」，
+   兩種在鍵盤使用者眼裡是同一件事。補一條全域的，兩個檔案的作法一致。 */
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* ★ 按下的回饋。模擬器多半在桌機用（觸控裝置是硬擋的），
+   但按鈕密度高、而且很多是「按了要等一下才有結果」的（執行模擬、AI 講解），
+   沒有回饋的話很容易被連按兩次。只縮 3%、90ms。 */
+button:not(:disabled):active,.btn:not(:disabled):active,.pi:not(:disabled):active{
+    transform:scale(.97)}
+button,.btn,.pi{transition:transform .09s ease, background-color .12s, color .12s, border-color .12s}
+@media (prefers-reduced-motion: reduce){
+    button:active,.btn:active,.pi:active{transform:none}
+}
 .sub{font-size:14px;color:var(--ink-3);margin:4px 0 0}
 code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
 #directive{background:var(--paper);border:1px solid var(--rule);border-radius:9px;
