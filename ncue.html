@@ -1230,12 +1230,17 @@
     <header id="mainHeader" class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30 transition-transform duration-300 ease-in-out transform translate-y-0">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
 
-            <div id="logoWrap" class="relative w-full md:w-auto">
+            <!-- ★ 手機上這一格不能是 w-full。獨佔一整列的話帳號就被擠到第二列，
+                 分頁再被擠到第三列——頁首吃掉三行，畫面剩不到一半。
+                 改成 flex-1，讓「logo｜站名」與「帳號」共用第一列。
+                 min-w-0 是必要的：沒有它，站名不會縮，長一點的產品名會把
+                 帳號按鈕推出畫面外，而且不會出現捲軸。 -->
+            <div id="logoWrap" class="relative flex-1 min-w-0 md:flex-none md:w-auto">
                 <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 cursor-pointer group"
                      role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
                     <img src="image2.jpg" alt="" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
-                    <div class="flex flex-col">
-                        <h1 id="siteName" class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight">小黑貓</h1>
+                    <div class="flex flex-col min-w-0">
+                        <h1 id="siteName" class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight truncate">小黑貓</h1>
                         <!-- 文字由 buildStaticUI() 依 PRODUCT 填入，這裡留空。
                              寫死的話會出現「小黑貓 / NCUE EE Black Cat」這種組合。 -->
                         <span id="siteNameEn" class="text-[10px] font-bold text-emerald-500 uppercase tracking-widest"></span>
@@ -1247,23 +1252,33 @@
                 </div>
             </div>
 
-            <!-- ★ 桌機等寬置中、手機維持橫向捲動。
-                 手機也套 flex-1 的話，分頁一多每顆就被壓到剩幾個字寬，
-                 而 overflow-x-auto 會因為子元素會縮而根本不出現捲軸——
-                 症狀是「分頁的字被截掉」，不是「捲不動」。 -->
-            <nav id="mainNav" class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1 md:gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
-                <!-- JS 動態生成分頁按鈕 -->
-            </nav>
-
-            <div class="relative order-2 md:order-none flex items-center gap-2">
-                <!-- ⚙️ 設定：跟站名、分頁列同一排。★ 刻意不放進 mainNav——
-                     它不是「內容」而是「工具」，混進分頁列的話三個產品的
-                     分頁數各不相同，置中排列會被它拉歪，而且手機橫捲時
-                     設定會被推到看不到的地方。 -->
+            <!-- 第二列：分頁 ＋ ⚙️。
+                 ★ 兩者包在同一個容器裡，而不是各自當 header 的子元素——
+                 各自放的話，手機上 ⚙️ 會被 flex-wrap 擠到第三列去
+                 （分頁那一列是 w-full，後面的東西一定換行）。
+                 桌機上這個容器就是原本 nav 佔的那一格（md:flex-1），
+                 所以桌機的版面跟以前一樣：logo ｜ 分頁 ｜ ⚙️ 帳號。 -->
+            <div id="navRow" class="w-full order-3 md:order-none md:w-auto md:flex-1 flex items-center gap-2 mt-1 md:mt-0">
+                <!-- ★ 桌機等寬置中、手機維持橫向捲動。
+                     手機也套 flex-1 到**每顆按鈕**的話，分頁一多每顆就被壓到
+                     剩幾個字寬，而 overflow-x-auto 會因為子元素會縮而根本
+                     不出現捲軸——症狀是「分頁的字被截掉」，不是「捲不動」。 -->
+                <nav id="mainNav" class="flex-1 min-w-0 flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1 md:gap-2 pb-1 touch-pan-x">
+                    <!-- JS 動態生成分頁按鈕 -->
+                </nav>
+                <!-- ⚙️ 設定。★ 刻意不放進 mainNav——它不是「內容」而是「工具」，
+                     混進分頁列的話三個產品的分頁數各不相同，置中排列會被它拉歪，
+                     而且手機橫捲時設定會被推到看不到的地方。
+                     放在 nav **旁邊**（同一列、不捲動）就兩全。 -->
                 <button id="settingsBtn" data-tab="settings" title="設定" aria-label="設定"
                         class="shrink-0 p-2 rounded-xl transition-all text-slate-400 hover:text-emerald-400 hover:bg-white/10">
                     <i data-lucide="settings" class="w-5 h-5 pointer-events-none"></i>
                 </button>
+            </div>
+
+            <!-- 第一列的右半：帳號。order-2 讓它在手機上緊接著 logo，
+                 桌機則回到原本的最右邊。 -->
+            <div class="relative order-2 md:order-none shrink-0 flex items-center gap-2">
                 <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
                     <i data-lucide="log-in" class="w-4 h-4"></i>
                     <span>登入 / 註冊</span>
@@ -2703,7 +2718,7 @@
                混在同一頁的時候，一個巫醫點進「管理」只會看到半頁空白——
                另一半是星族專屬，而畫面上沒有任何東西說明這件事。 */
             ncue: [['evaluation','課程評價'], ['data','資料'], ['quiz','測驗'],
-                   ['news','消息與連結'], ['account-admin','帳號權限管理']]
+                   ['news','消息與連結']]
         };
         const TABS = PRODUCT_TABS[PRODUCT];
         /* 產品切換靠 logo 選單，不是分頁列。目前所在的那一項要標出來，
@@ -3031,9 +3046,10 @@
                 items: [
                     ['右上角多了一顆 ⚙️', '以前設定散在三個地方：深色模式在帳號選單裡、上課提醒在課表右上角、上傳與匯入在「管理」分頁。散著的問題不是難看，是找不到——「我記得可以關掉提醒，但那個開關在哪」。現在全部集中在一頁：帳號、外觀、通知、內容管理。齒輪放在站名與分頁列的同一排，刻意不放進分頁列本身，因為它是工具不是內容，混進去會被算進置中排版裡，而三個站的分頁數量不一樣。'],
                     ['★ 同一個開關不能有兩個入口', '搬的時候把原本的位置整個拿掉了，不是留一份在原地。留著的話同一個開關會有兩處，而兩處遲早會長得不一樣——一邊改了另一邊沒改，然後就變成「我明明關掉了怎麼還會響」。測試因此釘的是「只有一顆」而不是「有一顆」。'],
-                    ['「管理」分頁拆成兩件事', '那一頁原本上半是內容管理、下半是星族專屬，混在一起的結果是一個巫醫點進去只會看到半頁空白，而畫面上沒有任何東西說明另一半是別人的。現在內容管理進了設定頁，星族大會拉成獨立分頁並改名「帳號權限管理」——指派階位是要對照名冊慢慢看的事，塞在彈出視窗裡既窄又不好捲。守門的門檻也跟著從巫醫改成星族，沿用舊判斷的話巫醫會停在一頁他改不動的名冊上，按下去全被規則擋掉而畫面沒有說明。'],
+                    ['「管理」分頁拆成兩件事', '那一頁原本上半是內容管理、下半是星族專屬，混在一起的結果是一個巫醫點進去只會看到半頁空白，而畫面上沒有任何東西說明另一半是別人的。現在內容管理進了設定頁，星族大會變成一個完整的頁面並改名「帳號權限管理」——指派階位是要對照名冊慢慢看的事，塞在彈出視窗裡既窄又不好捲。入口放在左上角 logo 選單，跟「關於」放在一起：分頁列是每天都會點的東西，而指派階位一個月用一次，放進分頁列只會把常用的四個往旁邊擠；何況它對絕大多數人是隱藏的，塞進去會讓同一個站在不同人眼裡分頁數不一樣，置中排版也跟著跳。守門的門檻也跟著從巫醫改成星族，沿用舊判斷的話巫醫會停在一頁他改不動的名冊上，按下去全被規則擋掉而畫面沒有說明。'],
                     ['「寶藏庫」改叫「資料」，變成獨立分頁', '原本要先進課程評價、點某一門課、再往下捲才找得到——也就是要先知道資料掛在哪一門課。但使用者要的是「有什麼資料可以下載」，不是「這門課有什麼資料」。現在是彰師電子的一個大分頁，卡片上本來就寫著課名。它有自己的搜尋框，刻意不共用課程評價那一個：共用的話在別頁搜過的字會跟著跑過來，而這一頁上沒有任何東西提示「你正在搜尋中」，看起來就是資料不見了。順帶把課程評價那一頁多讀的兩份資料拿掉了。'],
                     ['解題卡的算式改用數學排版', '分數、積分、Σ 這些以前是用一般文字硬拼的，現在交給排版引擎。★ 但這個站可以離線開，而排版引擎是從外部載入的——離線、被擋、或還沒載完就先按了執行，它都不會在。所以每一條算式都先把純文字寫進畫面，排版引擎只是「有的話就升級」。反過來做（先留空白等它填）的症狀是算式那一行整片空白，而且完全不會報錯。'],
+                    ['手機上的頁首從三列變成兩列', '拆完之後手機上變成 logo 一列、帳號一列、分頁一列——頁首吃掉將近半個畫面。原因是 logo 那一格寫著「佔滿整列」，後面的東西只好一路往下擠。現在是第一列 logo、站名、帳號，第二列分頁與 ⚙️。分頁與 ⚙️ 特地包在同一個容器裡，各自擺的話 ⚙️ 又會被擠到第三列去，因為分頁那一列本身就佔滿整列。另外站名加了可縮排：不加的話，字比較長的產品名會把帳號按鈕推出畫面外，而且不會出現捲軸，看起來就是「登入鈕不見了」。'],
                     ['「關於」重寫成寫給使用者看的', '以前每加一個功能就往那裡追加一段，追到每一項都有三四行實作理由。現在一項一句話，只講「在哪裡、能做什麼」。順便修掉幾句已經不成立的話——提醒的位置、還在講「寶藏庫」的段落。功能搬了說明沒搬，是這個站踩過最多次的那一類。']
                 ]
             },
@@ -3463,8 +3479,8 @@
         const NAV_ACTIVE = ['is-active'];
         function buildStaticUI() {
             $('mainNav').innerHTML = TABS.map(([tab, label], i) => `
-                <button data-tab="${tab}" ${tab ==='account-admin' ?'id="navAccountAdminTab"' :''}
-                    class="tab-btn ${tab ==='account-admin' ?'hidden' :''} whitespace-nowrap shrink-0 md:flex-1 md:shrink md:max-w-[11rem] text-center px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}">${label}</button>
+                <button data-tab="${tab}"
+                    class="tab-btn whitespace-nowrap shrink-0 md:flex-1 md:shrink md:max-w-[11rem] text-center px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}">${label}</button>
             `).join('');
             buildLogoMenu();
             /* ★ 頁首名稱、標題、logo 的替代文字都要跟著產品走。
@@ -3520,6 +3536,12 @@
                 ? `<span class="logo-menu-item is-here" role="menuitem" aria-current="page">${name}<small>${sub}（目前所在）</small></span>`
                 : `<a class="logo-menu-item${deskOnly ?' desktop-only' :''}" href="${href}" role="menuitem">${name}<small>${sub}</small></a>`
             ).join('') +
+                /* ★ 帳號權限管理跟「關於」是同一類：**不佔分頁列的位置**。
+                   分頁列是每天都會點的東西，而指派階位是一個月用一次的工具；
+                   放進去只會把四個常用分頁往旁邊擠，而且它對絕大多數人是隱藏的，
+                   於是同一個站在不同人眼裡分頁數不一樣，置中排版也跟著跳。
+                   預設 hidden，由 updateAdminUI 依「是不是星族」打開。 */
+                `<button type="button" id="logoAccountAdmin" class="logo-menu-item hidden" data-go="account-admin" role="menuitem">帳號權限管理<small>指派階位</small></button>` +
                 `<button type="button" class="logo-menu-item" data-go="about" role="menuitem">關於<small>更新紀錄與說明</small></button>`;
         }
 
@@ -7168,8 +7190,8 @@
                直接把整區藏起來的話，使用者會以為這個網站沒有通知功能。 */
             if ($('settingsNotifyNeedLogin')) $('settingsNotifyNeedLogin').classList.toggle('hidden', !!loggedIn);
 
-            // 星族 (Lv5) 專屬：名冊訂閱與「帳號權限管理」那個大分頁
-            if ($('navAccountAdminTab')) $('navAccountAdminTab').classList.toggle('hidden', !isAdmin);
+            // 星族 (Lv5) 專屬：名冊訂閱與 logo 選單裡的「帳號權限管理」
+            if ($('logoAccountAdmin')) $('logoAccountAdmin').classList.toggle('hidden', !isAdmin);
             if (isAdmin) {
                 if (!usersUnsubscribe) {
                     usersUnsubscribe = onSnapshot(collection(db, PATHS.users), (snapshot) => {
@@ -8225,9 +8247,13 @@
                     setLogoMenu(logoMenu.classList.contains('hidden'));
                 }
             });
-            const goAbout = logoMenu.querySelector('[data-go="about"]');
-            if (goAbout) goAbout.addEventListener('click', () => {
-                setLogoMenu(false); switchTab('about'); scrollTopSmooth();
+            /* ★ 改成綁「所有 [data-go]」而不是只綁那一顆「關於」。
+               只綁一顆的話，之後每加一個選單項目都要記得再綁一次，
+               而忘了綁的症狀是「點了沒反應」——沒有錯誤訊息。 */
+            logoMenu.querySelectorAll('[data-go]').forEach(b => {
+                b.addEventListener('click', () => {
+                    setLogoMenu(false); switchTab(b.dataset.go); scrollTopSmooth();
+                });
             });
 
             // 點外面關掉。判斷用 #logoWrap 而不是 #logoBtn，
