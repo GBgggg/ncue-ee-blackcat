@@ -97,7 +97,30 @@
             box-shadow: inset 0 -2px 0 var(--accent) !important;
         }
 
-        /* 分頁切換：淡入 + 輕微上滑，每次切換重新播放 */
+        /* ==========================================================
+           View Transitions：分頁切換的原生轉場
+
+           ★ 只調時間與曲線，不自己寫 keyframes——瀏覽器預設的
+           cross-fade 就是我們要的，覆寫它只會多一份要維護的東西。
+           時間與曲線走跟其他動效同一組 token，這樣「整站的感覺」
+           仍然是一個旋鈕在管。
+
+           ★ `prefers-reduced-motion` 這一段是**雙保險**：JS 那邊
+           （canViewTransition）已經會直接跳過轉場，但萬一哪天有人
+           把那個判斷拿掉，這裡還擋得住。動效的無障礙不該只有一道門。
+           ========================================================== */
+        ::view-transition-old(root),
+        ::view-transition-new(root) {
+            animation-duration: var(--dur-page);
+            animation-timing-function: var(--ease);
+        }
+        @media (prefers-reduced-motion: reduce) {
+            ::view-transition-group(*),
+            ::view-transition-old(*),
+            ::view-transition-new(*) { animation: none !important; }
+        }
+
+        /* 分頁切換：淡入 + 輕微上滑，每次切換重新播放（沒有 View Transitions 時的作法） */
         @keyframes pageFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .page-enter { animation: pageFade var(--dur-page) var(--ease); }
 
@@ -601,6 +624,61 @@
         @media (prefers-reduced-motion: reduce) {
             .splash-orbit, .cat .cf { animation: none !important; }
             .cat .cf:nth-child(1) { opacity: 1 }
+        }
+
+        /* ==========================================================
+           M4：空狀態的小黑貓
+
+           ★ 沒有引入任何新素材。開站畫面那隻貓已經是手刻的十格 2D 動畫，
+           這裡用 <use> 參照它的**第一格**——多出來的位元組是一個
+           `<use href="#catFrame1">`，大約六十個字元。
+           （`#splash` 收起來用的是 visibility:hidden，元素還在 DOM 裡，
+             所以參照得到。改成把它 remove() 的話這裡會變成空白，
+             而且不會報錯——那是這一段唯一的地雷。）
+
+           ★ 不播十格奔跑，只做一個很慢的上下浮動：空狀態要的是
+           「有人情味但不吵」，一隻在空頁面上全速狂奔的貓會把注意力
+           從那句「你可以做什麼」上面搶走。
+           transform 走合成器，不會逼版面重算。
+           ========================================================== */
+        .empty-cat {
+            width: 64px; height: 64px; display: block; margin: 0 auto 10px;
+            color: var(--ink-3); opacity: .55;
+            animation: catBob 2.6s var(--ease) infinite;
+        }
+        .empty-cat use { fill: currentColor; }
+        @keyframes catBob {
+            0%, 100% { transform: translateY(0) }
+            50%      { transform: translateY(-7%) }
+        }
+
+        /* ==========================================================
+           M5：打勾的動畫
+
+           ★ 只在**剛剛按下去**的那一次播，不是「已完成就播」。
+           寫成後者的話，每次清單重畫（換分頁、存檔、別的操作）
+           所有已完成的項目都會一起跳一下——那是雜訊，而且看起來像壞掉。
+           所以由 togglePlanDone 在重畫之後把 class 掛上去。
+
+           ★ 也只在「打勾」時播，取消打勾不播：取消是修正動作，
+           給它一個慶祝式的回饋很奇怪。
+
+           勾勾用 clip-path 從左往右揭開（走合成器），外框用 scale 彈一下。
+           ========================================================== */
+        .plan-check-pop { animation: checkPop var(--dur-base) var(--ease); }
+        .plan-check-pop svg { animation: checkDraw var(--dur-base) var(--ease) both; }
+        @keyframes checkPop {
+            0%   { transform: scale(1) }
+            45%  { transform: scale(1.22) }
+            100% { transform: scale(1) }
+        }
+        @keyframes checkDraw {
+            from { clip-path: inset(0 100% 0 0) }
+            to   { clip-path: inset(0 0 0 0) }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .empty-cat { animation: none !important; }
+            .plan-check-pop, .plan-check-pop svg { animation: none !important; }
         }
 
         /* ---- 對話框與浮動小卡：一律不透明 ----
@@ -1323,7 +1401,7 @@
                          十格裡有三格是真的踩在 logo 上的。 -->
                     <svg class="cat-svg" viewBox="0 0 326 326" width="326" height="326" aria-hidden="true">
                         <g class="cat">
-                            <path class="cf" d="M199.1 35.8L198.9 34.2L195.4 32.2L190 26.6L189.3 24.9L189.8 24.2L194.6 25.8L196.9 24.9L198.2 23.5L198.3 19L196.6 15.2L196.7 12.6L196.1 11.8L194.8 11.2L192.8 11.5L190.1 12.8L186.9 13L180.4 11.8L177.1 12.8L153.2 9.5L150.5 9.8L148.5 9.1L141.7 9.8L139.2 10.4L132 15.4L126.8 18.2L123.8 21.1L124.5 23.7L125.8 24.1L134.6 20.5L139.8 17.2L142 16.4L140.8 19.4L138 21.8L135.4 22.9L130.4 29.6L130.1 31.5L130.9 33L132.6 33.3L134.5 32.4L133.8 34.7L134.1 35.6L137.5 34.8L139.6 32.2L141.7 30.5L144.6 29.5L151.1 25.7L153.5 25L156.2 24.8L164.6 25.8L171.5 27.6L175.1 28L176.7 30.5L177.7 31.1L181 31.4L181.2 29.5L181.6 29.1L184.9 31.5L194 36.7L197.8 37.7L198.5 37.4Z"/>
+                            <path id="catFrame1" class="cf" d="M199.1 35.8L198.9 34.2L195.4 32.2L190 26.6L189.3 24.9L189.8 24.2L194.6 25.8L196.9 24.9L198.2 23.5L198.3 19L196.6 15.2L196.7 12.6L196.1 11.8L194.8 11.2L192.8 11.5L190.1 12.8L186.9 13L180.4 11.8L177.1 12.8L153.2 9.5L150.5 9.8L148.5 9.1L141.7 9.8L139.2 10.4L132 15.4L126.8 18.2L123.8 21.1L124.5 23.7L125.8 24.1L134.6 20.5L139.8 17.2L142 16.4L140.8 19.4L138 21.8L135.4 22.9L130.4 29.6L130.1 31.5L130.9 33L132.6 33.3L134.5 32.4L133.8 34.7L134.1 35.6L137.5 34.8L139.6 32.2L141.7 30.5L144.6 29.5L151.1 25.7L153.5 25L156.2 24.8L164.6 25.8L171.5 27.6L175.1 28L176.7 30.5L177.7 31.1L181 31.4L181.2 29.5L181.6 29.1L184.9 31.5L194 36.7L197.8 37.7L198.5 37.4Z"/>
                             <path class="cf" d="M124 19.7L124.6 21.8L125.8 22.3L130.9 20.9L143.3 15.3L142.9 18.1L138.1 20.5L136 24.8L133.8 27.6L133.6 28.9L134.9 30.2L134.6 31.8L135 32.3L138.8 31.5L142.2 28.3L149.1 27.3L154.6 24.8L156.9 24.4L163.3 25L166.9 26.1L168.3 26.9L169.4 29.2L172.8 29.4L174.8 28.4L177.3 28.7L182.8 31.2L186.7 31.9L187 30.9L186.2 28L187.3 25L188.2 24.8L195.3 26L197.4 24.9L198.1 22.3L197.5 18.7L196.4 16.9L195.8 17L195.2 16.2L195 13L193.6 12L191.6 12.1L188.5 13.6L185.8 13.8L182 12.4L179.7 12.2L176.7 12.7L166.9 10.2L161.7 9.7L153.4 8L139.9 9.6L132.2 14.2L126.8 16.9L124.5 18.6Z"/>
                             <path class="cf" d="M123.5 17.8L124 20L124.8 20.8L130.1 20.4L134.7 19.3L144.5 14.9L144.9 17.7L142.4 17.7L141.1 18.9L140.8 24.1L138.4 28L139 30.3L140.3 30.8L144.4 30.2L146.1 26L153.8 25.2L158.5 22.5L161.1 22.9L161.8 24.2L164.1 24.5L165.5 25.4L163.8 28.9L161.9 31.5L161.6 32.4L162.1 32.7L166.1 32.4L171.1 27.5L172.4 26.8L173.6 27.4L176.6 31.8L180.2 32.4L179.9 28.4L184.1 24.8L187.2 24.3L194.2 25.7L196.5 24.6L197.2 22.5L196.7 18.4L195.6 16.5L194.9 16.5L194.2 15.5L194.1 12.7L193.1 11.7L190.9 11.6L187.9 13.1L184.6 13.4L180.3 11.9L176 11.7L167.3 8.5L161.4 7.8L158.7 6.9L146.2 7.8L140.5 10L133.6 13.6L125.9 15.8L124.1 16.9Z"/>
                             <path class="cf" d="M123.1 16.7L123.4 18.6L124.2 19.4L132.3 20.4L137.2 19.5L146 15.4L147.7 19.1L145.8 20.1L145.5 21.5L147.4 26.8L148.6 28.4L152.5 28.1L153 24.4L159.4 21.5L159.9 21.7L160.1 23.4L163 23.1L165.4 24.1L165.6 25L164.4 27.8L161.5 28.7L160.3 29.8L160.4 31.8L161.8 32.7L166.2 32.6L168.3 30.4L171.1 30.3L174.4 26.3L179 25.8L185.1 22.6L193.9 23.7L195.5 22.7L196.1 20.4L195.6 16.9L194.5 14.8L193.8 15L193.1 14L193 11.2L192 10.2L189.7 10.1L186.1 11.8L181.3 11.8L175.6 10.3L172.4 8L164.1 5.4L158.3 5.5L155.7 6.2L152.6 5.8L150.8 7.1L146.3 8.7L135.7 13.8L131.6 15L125.7 15L123.6 15.8Z"/>
@@ -3082,14 +3160,19 @@
          *      少了這一層的話，一個見習生會看到「新增自學課程」，
          *      按下去卻什麼都不會發生。
          * ========================================================== */
-        function emptyState({ text, hint = '', clickId = '', label = '' }) {
+        function emptyState({ text, hint = '', clickId = '', label = '', cat = true }) {
             const target = clickId ? $(clickId) : null;
             const usable = !!(target && !target.classList.contains('hidden'));
             const btn = (usable && label)
                 ? `<div class="mt-4"><button data-action="click-el" data-el="${escapeHTML(clickId)}"
                        class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors border border-emerald-100">${escapeHTML(label)}</button></div>`
                 : '';
+            /* ★ 貓是 <use> 參照開站畫面那一格，不是另一份素材（見 .empty-cat）。 */
+            const art = cat
+                ? `<svg class="empty-cat" viewBox="0 0 326 326" aria-hidden="true"><use href="#catFrame1"></use></svg>`
+                : '';
             return `<div class="col-span-full text-center py-10 bg-white rounded-3xl border border-slate-100">
+                ${art}
                 <div class="text-slate-400 font-medium">${escapeHTML(text)}</div>
                 ${hint ? `<div class="text-xs text-slate-300 font-medium mt-1.5">${escapeHTML(hint)}</div>` : ''}
                 ${btn}</div>`;
@@ -3205,6 +3288,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-17',
+                title: '換分頁的轉場交給瀏覽器，空頁面上多了一隻貓',
+                items: [
+                    ['換分頁的動畫改用瀏覽器原生的轉場', '以前是自己做的：把樣式移掉、強制重算、再加回去，讓它淡入加上滑。現在交給瀏覽器內建的頁面轉場——它會自己拍下前後兩個畫面再補間，跑在顯示晶片上，在比較舊的手機上明顯順很多，而且一個位元組都不用多載。★ 不支援這個功能的瀏覽器會直接換頁，不是卡住——跟數學排版那一輪同一個形狀：先讓沒有它的情況能動，再讓有它的情況更好。系統設定「減少動態」的人也完全不會有轉場，而且 JS 跟 CSS 各擋一道，就算哪天有人把其中一道拿掉，另一道還在。'],
+                    ['★ 改這個的時候差點把一個保護吞掉', '原本程式裡有一句「找不到這個分頁對應的區塊就直接拋錯」，那是刻意的：這種錯要立刻炸出來，不然畫面會安靜地半更新。問題是新的轉場會把回呼裡丟出來的錯誤包成一個沒有人接的東西，於是那個保護就從「整頁炸掉、馬上發現」變成「安靜地壞掉」。所以驗證那一段留在轉場外面先做。順帶一提，原本那個自己做的淡入也不能跟新轉場並存，兩個疊在一起的症狀是「偶爾閃一下」——最難查的那一種。'],
+                    ['空的頁面上會有一隻小黑貓慢慢浮動', '沒有引入任何新素材：開站畫面那隻奔跑的貓本來就是手刻的十格動畫，這裡直接參照它的第一格，多出來的只有一行參照。刻意不播十格奔跑，只做很慢的上下浮動——空頁面上一隻全速狂奔的貓會把注意力從「你可以做什麼」上面搶走。'],
+                    ['打勾的時候勾勾會畫出來', '計劃打勾時，方框會輕輕彈一下、勾勾從左往右畫出來。★ 只在「剛剛按下去」的那一次播：寫成「已完成就播」的話，每次清單重畫（換分頁、存檔、任何別的操作）所有完成的項目都會一起跳一下，那是雜訊而且看起來像壞掉。也只在打勾時播，取消打勾不播——取消是修正動作，給它慶祝式的回饋很奇怪。'],
+                    ['★ 這次的兩個坑都跟「時機」有關', '第一個：動畫要掛在清單重畫**之後**。重畫會把整份內容換掉，之前掛上去的效果一定會被丟掉，症狀是「動畫有時候有有時候沒有」。第二個：還要再多等一格畫面，因為圖示是在重畫的最後才被換成真正的圖形，太早掛的話裡面根本還沒有東西可以畫。']
+                ]
+            },
             {
                 date: '2026-08-16',
                 title: '空清單會告訴你下一步，動畫也不再拖累手機',
@@ -3734,7 +3828,42 @@
                 `<button type="button" class="logo-menu-item" data-go="about" role="menuitem">關於<small>更新紀錄與說明</small></button>`;
         }
 
+        /* ==========================================================
+         * M1：分頁切換用 View Transitions
+         *
+         * 原本是自己做的 `pageFade`（淡入＋上滑 0.32s）：JS 把 class 移掉、
+         * 強制 reflow、再加回去。改成瀏覽器原生之後由它接手快照與補間，
+         * 跑在合成器上、在低階裝置明顯更順，而且**一個位元組都不用多載**。
+         *
+         * ★ 三件一定要守住的事：
+         *   1. **沒有這個 API 要能動。** 不支援就直接換頁，不是卡住。
+         *      跟 KaTeX 那一輪同一個形狀：先讓沒有它的情況能動，
+         *      再讓有它的情況更好。
+         *   2. **有 VT 就不要再放 `page-enter`。** 兩個過場疊在一起的症狀是
+         *      「偶爾閃一下」，而那是最難查的一種。
+         *   3. **「找不到 page-section」的 throw 要留在轉場外面。**
+         *      丟在 callback 裡會被 VT 包成一個沒人接的 rejected promise，
+         *      於是那個保護就從「整頁炸掉、馬上發現」變成「安靜地半更新」。
+         * ========================================================== */
+        const canViewTransition = () =>
+            typeof document !== 'undefined' &&
+            typeof document.startViewTransition === 'function' &&
+            !(typeof calm !== 'undefined' && calm.matches);
+
         function switchTab(tab) {
+            /* ★ 先驗證，而且是在轉場**外面**驗證（見上面第 3 點）。 */
+            const activePage = $(`page-${tab}`) || $(TAB_PAGE[tab] || '');
+            if (!activePage) throw new Error(`分頁 ${tab} 找不到對應的 page-section`);
+
+            const useVT = canViewTransition();
+            const run = () => applyTab(tab, activePage, useVT);
+            if (!useVT) return run();
+            /* callback 裡只有同步的工作。資料訂閱是 fire-and-forget，
+               不會把畫面卡在轉場中間。 */
+            document.startViewTransition(run);
+        }
+
+        function applyTab(tab, activePage, useVT) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
@@ -3746,15 +3875,17 @@
 
             document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
             /* 大分頁與 page-section 多半同名，英文分頁是例外（見 TAB_PAGE）。
-               ★ 直接寫 $(`page-${tab}`) 的話，新增一個沒有同名區塊的分頁
-               會在下一行 null.classList 當場炸掉、整頁全白。 */
-            const activePage = $(`page-${tab}`) || $(TAB_PAGE[tab] || '');
-            if (!activePage) throw new Error(`分頁 ${tab} 找不到對應的 page-section`);
+               ★ 哪一塊要顯示是在 switchTab 裡先算好並驗證過的（見那一段的第 3 點）。 */
             activePage.classList.remove('hidden');
-            // 重播進場動畫：先移除再強制 reflow 後加回
+            /* ★ 有 View Transitions 的時候**不要**再放 `page-enter`：
+               兩個過場疊在一起會互相打架，症狀是「偶爾閃一下」。
+               沒有 VT 的瀏覽器維持原本的作法（先移除、強制 reflow、再加回，
+               不這樣做的話同一個 class 加第二次不會重播）。 */
             activePage.classList.remove('page-enter');
-            void activePage.offsetWidth;
-            activePage.classList.add('page-enter');
+            if (!useVT) {
+                void activePage.offsetWidth;
+                activePage.classList.add('page-enter');
+            }
 
             // 進到分頁時才載入該頁需要的資料（延遲訂閱，降低啟動負擔與 Firestore 讀取量）
             ensureLoaded(...(TAB_DATA[tab] || []));
@@ -4912,10 +5043,41 @@
             } else {
                 userPlans = userPlans.map(x => x.id === id ? { ...x, done: !x.done } : x);
             }
+            /* 這一次是「打勾」還是「取消打勾」——動畫只在打勾時播。 */
+            const after = userPlans.find(x => x.id === id) || {};
+            const nowDone = isRepeating(p)
+                ? (after.doneOn || []).indexOf(occ) >= 0
+                : !!after.done;
             try {
                 await savePlans();
                 renderPlans(); updatePlanTicker();
+                if (nowDone) playCheckAnim(id, occ);
             } catch (e) { userPlans = before; showToast('存檔失敗，請稍後再試'); }
+        }
+
+        /* ★ 動畫掛在**重畫之後**的那顆按鈕上。renderPlans 會把整份清單的
+           innerHTML 換掉，所以重畫之前掛的 class 一定會被丟掉——
+           而那種「動畫有時候有有時候沒有」是最難查的一種。
+           再等一個 frame 是因為 icons() 在重畫的最後才把 <i data-lucide>
+           換成 <svg>，太早掛的話裡面還沒有 svg 可以畫。 */
+        function playCheckAnim(id, occ) {
+            requestAnimationFrame(() => {
+                /* ★ 舊瀏覽器沒有 CSS.escape。這裡的 id 是程式產生的
+                   （`p` ＋ 36 進位時間戳 ＋ 亂數，全是英數），occ 是
+                   `YYYY-MM-DD`，兩者都不可能出現引號或反斜線，
+                   所以退路直接原樣使用是安全的。
+                   （不要在這裡寫含引號的正規表示式——tests/_lib.mjs 的
+                     括號掃描器不認得正規表示式字面值，會把那個引號當成
+                     字串開頭，於是整支函式抽出來是半截的。實際踩過。） */
+                const esc = (v) => (window.CSS && CSS.escape) ? CSS.escape(v) : String(v);
+                const sel = `[data-action="toggle-plan"][data-id="${esc(id)}"]`
+                          + (occ ? `[data-occ="${esc(occ)}"]` : '');
+                const btn = document.querySelector(sel);
+                if (!btn) return;
+                btn.classList.remove('plan-check-pop');
+                void btn.offsetWidth;              // 強制 reflow，否則同一個 class 不會重播
+                btn.classList.add('plan-check-pop');
+            });
         }
 
         /* 每秒只更新倒數那幾個字，不重畫整份清單——
