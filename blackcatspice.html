@@ -6,6 +6,13 @@
 <title>電路小黑貓 - 電路模擬器</title>
 <link rel="icon" href="image.png">
 <meta name="description" content="電路小黑貓：畫電路、按執行、看波形。畫電路、按執行、看波形。免安裝，手機也能跑。">
+<!-- 解題卡的算式用 KaTeX 排版。
+     ★ 這是**跨來源**資源，sw.js 的 CORE 不能加（service worker 只管同源），
+     所以離線、CDN 被擋、或載入比第一次算式還慢的時候，它一定會不在。
+     因此每一條算式都以純文字寫進 DOM，KaTeX 只是「有的話就升級」——
+     少了這個防護，症狀是算式那一行整片空白，而且完全不會報錯。 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
 <style>
 /* ==========================================================
    設計 token 與主站 publicnew.html 共用同一組值。改配色要兩邊一起改。
@@ -232,6 +239,11 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .ans-tbl th{color:var(--ink-3);font-weight:600;text-align:left;white-space:nowrap}
 .ans-tbl td.n{text-align:right;white-space:nowrap;font-weight:700}
 .ans-why{color:var(--ink-3);font-size:12.5px;line-height:1.55}
+/* 還沒被 KaTeX 接手的算式，維持等寬字讓它至少排得整齊。
+   接手之後 KaTeX 會自己換掉整個內容，這條就沒作用了。 */
+.tex{font-family:ui-monospace,Menlo,Consolas,monospace}
+.tex[data-done]{font-family:inherit}
+.katex{font-size:1.05em}
 
 /* ---- 樣式：手機擋門 ---- */
 #gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
@@ -1047,6 +1059,48 @@ const canEditProb = () => myRole === '星族';
 const esc = v => String(v == null ? '' : v)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+/* ==========================================================
+   算式排版（KaTeX）
+
+   ★ 這裡最重要的一件事不是「怎麼排得漂亮」，是**沒有 KaTeX 時要活著**。
+   它從 CDN 來，而這個站是可以離線開的 App：離線、CDN 被擋、或它還沒載完
+   就先按了執行——三種情況下 `window.katex` 都是 undefined。
+   所以每一條算式都先把**純文字**寫進 DOM，KaTeX 只是事後把它換掉。
+   反過來做（先留空白等 KaTeX 填）的症狀是算式整片空白，而且不會報錯。
+
+   `tex(latex, plain)`：latex 給 KaTeX，plain 是沒有 KaTeX 時看到的那一行。
+   兩者要說同一件事——只寫其中一個的話，離線的人看到的是另一種東西。
+   ========================================================== */
+function tex(latex, plain){
+    return `<span class="tex" data-tex="${esc(latex)}">${esc(plain)}</span>`;
+}
+/* 把某個容器裡還沒排版的算式交給 KaTeX。
+   ★ throwOnError:false：一條寫錯的算式不能讓整張解題卡消失。
+   ★ data-done 記號：解題卡會重畫，但游標移動時只重畫一部分，
+     沒有記號的話同一段會被重複排版（KaTeX 產出的內容裡沒有 data-tex，
+     其實不會重複，但重畫後的新節點與舊節點混在一起時很容易看錯）。 */
+function renderTex(box){
+    if (!box) return 0;
+    /* ★ 先把 katex 取出來、取不到就整支收工，不要在迴圈裡每一格各讀一次。
+       兩個理由，第二個才是重點：
+       一、沒載到的時候不必白跑一輪。
+       二、**在迴圈裡讀等於被 try/catch 吃掉**——「KaTeX 根本沒載到」
+           跟「這一條算式寫錯了」會走到同一個 catch，兩者長得一模一樣，
+           而它們該做的事完全不同。放在外面，前者是一個明確的提早返回。
+       `typeof window` 而不是直接讀：完全沒宣告時直接讀是 ReferenceError。 */
+    const K = (typeof window !== 'undefined') && window.katex;
+    if (!K) return 0;
+    let n = 0;
+    box.querySelectorAll('.tex[data-tex]:not([data-done])').forEach(el => {
+        try {
+            K.render(el.dataset.tex, el, { throwOnError:false, displayMode:false });
+            el.dataset.done = '1';
+            n++;
+        } catch (e){ /* 排版失敗就留著原本那行純文字，不要清空 */ }
+    });
+    return n;
+}
 let sch = { parts:[], wires:[] };
 let seq = 1;
 let sel = [];                           // [{kind:'part'|'wire', i}]，可多選
@@ -4118,14 +4172,25 @@ function ansParts(k){
         if (!ser) continue;
         const v = ser.dv[k], i = ser.cur ? ser.cur[k] : null;
         const [a,b] = ser.nodes;
-        let why = `V = V(${a}) − V(${b})`;
+        /* ★ 每一條都給 LaTeX 與純文字兩份，而且要說同一件事。
+           只寫 LaTeX 的話，離線或 CDN 被擋時這一行是空白的（不會報錯）；
+           只寫純文字的話，等於這個功能沒做。 */
+        let why = tex(`V = V_{${a}} - V_{${b}}`, `V = V(${a}) − V(${b})`);
         if (i != null){
-            if (p.type === 'R' || p.type === 'RL')  why += `　　I = V/R = ${eng(v)}V ÷ ${p.val}Ω = ${eng(i)}A`;
-            else if (p.type === 'C') why += `　　I = C·dV/dt（電容電流由電壓的變化率決定，電壓不變就沒有電流）`;
-            else if (p.type === 'L') why += `　　I = (1/L)∫V dt（假設起始電流為 0）`;
+            if (p.type === 'R' || p.type === 'RL')
+                why += '　　' + tex(`I = \\frac{V}{R} = \\frac{${eng(v)}\\,\\mathrm{V}}{${p.val}\\,\\Omega} = ${eng(i)}\\,\\mathrm{A}`,
+                                    `I = V/R = ${eng(v)}V ÷ ${p.val}Ω = ${eng(i)}A`);
+            else if (p.type === 'C')
+                why += '　　' + tex(`I = C\\frac{dV}{dt}`, `I = C·dV/dt`)
+                     + '（電容電流由電壓的變化率決定，電壓不變就沒有電流）';
+            else if (p.type === 'L')
+                why += '　　' + tex(`I = \\frac{1}{L}\\int V\\,dt`, `I = (1/L)∫V dt`)
+                     + '（假設起始電流為 0）';
             else if (p.type === 'V') why += `　　I 由 ngspice 直接給（電壓源的支路電流）`;
-            else if (p.type === 'SW') why += `　　I = V/R，開關目前的等效電阻`;
-            why += `　　P = V·I = ${eng(v)} × ${eng(i)} = ${eng(v*i)}W`;
+            else if (p.type === 'SW')
+                why += '　　' + tex(`I = \\frac{V}{R}`, `I = V/R`) + '，開關目前的等效電阻';
+            why += '　　' + tex(`P = V \\cdot I = ${eng(v)} \\times ${eng(i)} = ${eng(v*i)}\\,\\mathrm{W}`,
+                                `P = V·I = ${eng(v)} × ${eng(i)} = ${eng(v*i)}W`);
         }
         const ri = rows.length;
         rows.push(`<tr class="ans-row" data-i="${ri}" title="點一下看算式">` +
@@ -4152,12 +4217,12 @@ function ansBalance(k){
         sum += ser.dv[k] * ser.cur[k];
     }
     if (!ok) return `<h4>功率守恆</h4><table class="ans-tbl">
-        <tr><td>Σ P</td><td class="n">—</td></tr></table>
+        <tr><td>${tex('\\sum P', 'Σ P')}</td><td class="n">—</td></tr></table>
         <p class="ans-why">有元件的電流推算不出來。</p>`;
     /* 跟節點電壓、各元件同一種表格：數字用正常的字色與粗細，
        不要用灰色小字的說明體——它是一個要讀的數值，不是註腳。 */
     return `<h4>功率守恆</h4><table class="ans-tbl">
-        <tr><td>Σ P</td><td class="n">${eng(sum)}W</td></tr></table>`;
+        <tr><td>${tex('\\sum P', 'Σ P')}</td><td class="n">${eng(sum)}W</td></tr></table>`;
 }
 /* 解題卡的互動用事件委派掛在容器上，內容重畫時不必重綁。
    兩件事：點節點 → 在電路圖上釘住高亮；點元件那一列 → 展開算式。 */
@@ -4267,13 +4332,15 @@ function ansLoad(k){
            上半是等效電路的三個參數，下半是接上去之後負載上的量，中間畫一條線分開。 */
         const Pmax = (isFinite(R) && R > 1e-9 && Vth != null) ? Vth*Vth/(4*R) : null;
         const rows = [
-            ['V<sub>Th</sub>', Vth != null ? eng(Vth) + 'V' : '—'],
-            ['R<sub>Th</sub>', eng(R) + 'Ω'],
-            ['R<sub>L</sub>',  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val],
-            ['V<sub>L</sub>',  vR != null ? eng(vR) + 'V' : '—'],
-            ['I<sub>L</sub>',  iR != null ? eng(iR) + 'A' : '—'],
-            ['P<sub>L</sub>',  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—'],
-            ['P<sub>max</sub>', Pmax != null ? eng(Pmax) + 'W' : '—'],
+            /* ★ 左欄的符號也走 tex()：沒有 KaTeX 時退回原本的 <sub> 寫法，
+               所以就算 CDN 掛了，這張表看起來還是跟以前一模一樣。 */
+            [tex('V_{Th}', 'V_Th'), Vth != null ? eng(Vth) + 'V' : '—'],
+            [tex('R_{Th}', 'R_Th'), eng(R) + 'Ω'],
+            [tex('R_{L}',  'R_L'),  isFinite(RLv) ? eng(RLv) + 'Ω' : p.val],
+            [tex('V_{L}',  'V_L'),  vR != null ? eng(vR) + 'V' : '—'],
+            [tex('I_{L}',  'I_L'),  iR != null ? eng(iR) + 'A' : '—'],
+            [tex('P_{L}',  'P_L'),  (vR != null && iR != null) ? eng(vR * iR) + 'W' : '—'],
+            [tex('P_{max}','P_max'), Pmax != null ? eng(Pmax) + 'W' : '—'],
         ];
         /* 以上是等效電路的參數，以下是接上去之後量到的。
            ★ 分隔線不要另外插一列 <hr>——每個 td 本來就有 border-bottom，
@@ -4375,6 +4442,9 @@ function renderAnswer(){
         : '<p class="sub">直流工作點（.op），只有一組值。</p>';
     bindAnswer(box);
     box.innerHTML = at + ansLoad(k) + ansNodes(k) + ansParts(k) + ansBalance(k) + ansThevenin();
+    /* ★ 一定要在 innerHTML 之後叫。KaTeX 是改 DOM 的，先排版再換 innerHTML
+       等於白排一次——症狀是「有時候有公式有時候沒有」，很難查。 */
+    renderTex(box);
     const go = $('thGo');
     if (go) go.onclick = async () => {
         const a = $('thA').value, b = $('thB').value, out = $('thOut');

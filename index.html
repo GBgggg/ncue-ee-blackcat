@@ -1247,11 +1247,23 @@
                 </div>
             </div>
 
-            <nav id="mainNav" class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
+            <!-- ★ 桌機等寬置中、手機維持橫向捲動。
+                 手機也套 flex-1 的話，分頁一多每顆就被壓到剩幾個字寬，
+                 而 overflow-x-auto 會因為子元素會縮而根本不出現捲軸——
+                 症狀是「分頁的字被截掉」，不是「捲不動」。 -->
+            <nav id="mainNav" class="w-full md:flex-1 md:w-auto flex justify-start md:justify-center overflow-x-auto scrollbar-hide gap-1 md:gap-2 order-3 md:order-none mt-1 md:mt-0 pb-1 touch-pan-x">
                 <!-- JS 動態生成分頁按鈕 -->
             </nav>
 
-            <div class="relative order-2 md:order-none">
+            <div class="relative order-2 md:order-none flex items-center gap-2">
+                <!-- ⚙️ 設定：跟站名、分頁列同一排。★ 刻意不放進 mainNav——
+                     它不是「內容」而是「工具」，混進分頁列的話三個產品的
+                     分頁數各不相同，置中排列會被它拉歪，而且手機橫捲時
+                     設定會被推到看不到的地方。 -->
+                <button id="settingsBtn" data-tab="settings" title="設定" aria-label="設定"
+                        class="shrink-0 p-2 rounded-xl transition-all text-slate-400 hover:text-emerald-400 hover:bg-white/10">
+                    <i data-lucide="settings" class="w-5 h-5 pointer-events-none"></i>
+                </button>
                 <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
                     <i data-lucide="log-in" class="w-4 h-4"></i>
                     <span>登入 / 註冊</span>
@@ -1269,13 +1281,9 @@
                         </div>
                         <div id="accountEmail" class="text-xs text-slate-400 font-medium break-all leading-snug"></div>
                     </div>
-                    <div class="px-4 py-3">
-                        <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">顯示模式</div>
-                        <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
-                            <button data-action="set-theme" data-theme="light" class="theme-opt flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1"><i data-lucide="sun" class="w-3.5 h-3.5 pointer-events-none"></i> 淺色</button>
-                            <button data-action="set-theme" data-theme="dark" class="theme-opt flex-1 py-1.5 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1"><i data-lucide="moon" class="w-3.5 h-3.5 pointer-events-none"></i> 深色</button>
-                        </div>
-                    </div>
+                    <!-- ★ 顯示模式搬進設定頁了。留在這裡的話同一個開關會有兩個入口，
+                         而兩個入口遲早會長得不一樣（一邊改了另一邊沒改）。 -->
+                    <button data-tab="settings" class="w-full text-left px-4 py-2.5 text-sm font-black text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-2"><i data-lucide="settings" class="w-4 h-4 pointer-events-none"></i> 設定</button>
                     <button data-action="account-logout" class="w-full text-left px-4 py-2.5 text-sm font-black text-rose-500 hover:bg-rose-50 transition-colors flex items-center gap-2 border-t border-slate-100"><i data-lucide="log-out" class="w-4 h-4 pointer-events-none"></i> 登出</button>
                 </div>
             </div>
@@ -1328,7 +1336,6 @@
                 <div class="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
                     <div id="scheduleNowNext" class="flex-1 rounded-2xl px-4 py-3 bg-teal-50 border border-teal-100 text-sm font-bold text-slate-600 flex items-center gap-2"></div>
                     <div class="flex items-center gap-2 shrink-0 self-start sm:self-auto">
-                        <button id="classReminderBtn" data-action="toggle-class-reminder" title="上課提醒" class="px-3 py-1.5 rounded-xl text-xs font-black transition-all flex items-center gap-1 bg-slate-100 text-slate-500"><i data-lucide="bell" class="w-3.5 h-3.5 pointer-events-none"></i> 提醒</button>
                         <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
                             <button data-action="set-schedule-mode" data-mode="read" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> 閱讀</button>
                             <button data-action="set-schedule-mode" data-mode="edit" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5 pointer-events-none"></i> 編輯</button>
@@ -1497,28 +1504,6 @@
                             </div>
                         </div>
 
-                        <div class="mb-10" id="materialsSection">
-                            <div class="flex items-center justify-between px-2 mb-4">
-                                <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
-                                    <i data-lucide="folder-kanban" class="w-5 h-5 text-emerald-500"></i> 的寶藏庫
-                                </h3>
-                            </div>
-                            <div class="space-y-6">
-                                <div class="bg-rose-50/50 p-4 rounded-3xl border border-rose-100">
-                                    <h4 class="text-sm font-black text-rose-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
-                                        <i data-lucide="sword" class="w-4 h-4"></i> 戰士寶藏庫
-                                    </h4>
-                                    <div id="warriorMaterialsList" class="grid grid-cols-1 gap-3"></div>
-                                </div>
-                                <div class="bg-amber-50/50 p-4 rounded-3xl border border-amber-100">
-                                    <h4 class="text-sm font-black text-amber-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
-                                        <i data-lucide="crown" class="w-4 h-4"></i> 族長秘寶
-                                    </h4>
-                                    <div id="leaderMaterialsList" class="grid grid-cols-1 gap-3"></div>
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="space-y-6">
                             <div class="flex items-center justify-between px-2 border-b-2 border-slate-200 pb-3">
                                 <h3 class="text-xl font-bold flex items-center gap-2 text-slate-700">
@@ -1551,44 +1536,157 @@
             </div>
         </div>
 
-        <!-- ======================== 管理頁面 ======================== -->
-        <div id="page-management" class="page-section hidden">
-            <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+        <!-- ======================== 資料（原「寶藏庫」）========================
+             ★ 原本這一區藏在「課程評價 → 點某一門課 → 往下捲」裡面，
+             也就是要先知道資料掛在哪一門課才找得到。但使用者要的是
+             「有什麼資料可以下載」，不是「這門課有什麼資料」。
+             拉成獨立分頁之後，卡片上本來就寫著課名，反而更好找。 -->
+        <div id="page-data" class="page-section hidden">
+            <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500">
+                <i data-lucide="folder-kanban" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
-                    <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">後台管理 <span class="animate-bounce">🛠️</span></h2>
+                    <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">資料 📁</h2>
+                    <p class="text-emerald-300 font-bold text-sm mt-2">共享講義、考古題與各種整理好的檔案。階位越高，看得到的越多。</p>
                 </div>
             </div>
+            <!-- ★ 這個搜尋框是這一頁自己的，不共用課程評價那一個。
+                 共用的話，在課程評價搜過的字會跟著跑到這裡，
+                 而這一頁上沒有任何東西提示「你正在搜尋中」——看起來就像資料不見了。 -->
+            <div class="flex items-center gap-3 mb-5">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="search" id="dataSearch" placeholder="搜尋檔名或課程"
+                           class="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border-2 border-slate-100 focus:ring-2 focus:ring-emerald-400 font-bold text-sm">
+                </div>
+                <span id="dataCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
+            </div>
+            <div class="space-y-6" id="materialsSection">
+                <div class="bg-rose-50/50 p-4 rounded-3xl border border-rose-100">
+                    <h4 class="text-sm font-black text-rose-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                        <i data-lucide="sword" class="w-4 h-4"></i> 戰士資料
+                    </h4>
+                    <div id="warriorMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                </div>
+                <div class="bg-amber-50/50 p-4 rounded-3xl border border-amber-100">
+                    <h4 class="text-sm font-black text-amber-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                        <i data-lucide="crown" class="w-4 h-4"></i> 族長資料
+                    </h4>
+                    <div id="leaderMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                </div>
+            </div>
+        </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-8">
-                <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
-                    <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><i data-lucide="upload" class="w-5 h-5"></i> 擴充寶藏庫</h3>
-                    <div class="space-y-4">
-                        <select id="uploadCourseSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
-                            <option value="" disabled selected>選擇關聯課程...</option>
-                        </select>
-                        <select id="materialLevelSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
-                            <option value="2" selected>🛡️ 戰士寶藏 (戰士以上可見)</option>
-                            <option value="3">👑 族長秘寶 (族長以上可見)</option>
-                        </select>
-                        <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm">
-                        <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium">
-                        <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">確認存檔</button>
+        <!-- ======================== 帳號權限管理（原「星族大會」）========================
+             ★ 原本是一顆按鈕開一個彈出視窗，而那顆按鈕又藏在管理頁裡面。
+             指派階位是要對照名冊慢慢看的事，塞在彈窗裡既窄又不能捲得舒服。
+             改成獨立大分頁，而且只有星族看得到那顆分頁按鈕。 -->
+        <div id="page-account-admin" class="page-section hidden">
+            <div class="bg-fuchsia-600 rounded-[2rem] p-5 md:p-8 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-fuchsia-400">
+                <i data-lucide="sparkles" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                <div class="relative z-10">
+                    <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">帳號權限管理 ✨</h2>
+                    <p class="text-fuchsia-100 font-bold text-sm mt-2">只有星族可以管理部族。為夥伴們指派合適的階位吧！</p>
+                </div>
+            </div>
+            <!-- ★ 搜尋框刻意放在 #usersListContainer **外面**。
+                 名冊是即時訂閱的，改任何人的階位都會觸發重畫、整個容器的
+                 innerHTML 被換掉。放在裡面的話，打到一半的字會在別人加入或
+                 自己改完階級的瞬間消失，而且完全不會報錯。 -->
+            <div class="flex items-center gap-3 mb-4">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
+                    <input type="search" id="starclanSearch" placeholder="搜尋信箱、暱稱或階級"
+                           class="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border-2 border-slate-100 focus:ring-2 focus:ring-fuchsia-400 font-bold text-sm">
+                </div>
+                <!-- 顯示幾筆／共幾筆。★ 這不是裝飾：搜不到東西時的空白
+                     跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
+                <span id="starclanCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
+            </div>
+            <div class="space-y-3" id="usersListContainer">
+                <div class="text-center py-10 text-slate-400 font-medium">名冊載入中...</div>
+            </div>
+        </div>
+
+        <!-- ======================== 設定 ========================
+             ★ 一個共通的設定頁，三個產品都用同一份。
+             原本設定散在三個地方：帳號選單（深色模式）、課表右上角（上課提醒）、
+             管理頁（上傳與匯入）。散著的問題不是難看，是**找不到**——
+             「我記得可以關掉提醒，但那個開關在哪」。 -->
+        <div id="page-settings" class="page-section hidden">
+            <div class="max-w-3xl mx-auto space-y-6">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                    <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
+                    <div class="relative z-10">
+                        <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">設定 ⚙️</h2>
+                        <p id="settingsSiteNote" class="text-slate-300 font-bold text-sm mt-2"></p>
                     </div>
                 </div>
 
-                <div id="starclanSection" class="bg-fuchsia-600 rounded-[2rem] p-6 shadow-xl border-4 border-fuchsia-400 hidden">
-                    <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white"><i data-lucide="sparkles" class="w-5 h-5"></i> 星族專屬</h3>
-                    <p class="text-fuchsia-100 text-sm font-medium mb-5">管理所有貓咪的階位與權限，為部族指派新任務。</p>
-                    <button id="openStarclanBtn" class="w-full py-3 bg-white text-fuchsia-700 rounded-xl font-black shadow-lg hover:bg-fuchsia-50 transition-all flex items-center justify-center gap-2">召開星族大會</button>
-                </div>
-            </div>
+                <!-- 帳號 -->
+                <section class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="user" class="w-5 h-5 text-emerald-500"></i> 帳號</h3>
+                    <div id="settingsSignedIn" class="hidden">
+                        <div class="flex items-center gap-2 mb-1">
+                            <span id="settingsBadge" class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest bg-slate-300 text-white border border-slate-400">訪客</span>
+                            <span id="settingsName" class="font-black text-slate-800">無名小貓</span>
+                        </div>
+                        <div id="settingsEmail" class="text-xs text-slate-400 font-medium break-all mb-4"></div>
+                        <div class="flex flex-wrap gap-2">
+                            <button data-action="settings-rename" class="px-4 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">改暱稱</button>
+                            <button data-action="settings-password" class="px-4 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">變更密碼</button>
+                            <button data-action="account-logout" class="px-4 py-2 rounded-xl text-sm font-black bg-rose-50 text-rose-500 hover:bg-rose-100 transition">登出</button>
+                        </div>
+                    </div>
+                    <div id="settingsSignedOut">
+                        <p class="text-sm text-slate-500 font-medium mb-3">還沒登入。登入後才會有課表、計劃、提醒與個人資料。</p>
+                        <button data-action="settings-login" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">登入 / 註冊</button>
+                    </div>
+                </section>
 
-            <!-- 從教務系統匯入電子系課程（巫醫以上可見） -->
-            <div id="importCoursesSection" class="mt-8 bg-sky-600 rounded-[2rem] p-6 shadow-xl border-4 border-sky-400 hidden">
-                <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white"><i data-lucide="download-cloud" class="w-5 h-5"></i> 從教務系統匯入電子系課程</h3>
-                <p class="text-sky-100 text-sm font-medium mb-5">一鍵匯入彰師大電子系 115 學年第一學期課程（教師僅顯示姓氏）。已存在的課程會自動略過，匯入後仍可照常編輯或刪除。</p>
-                <button id="importEECoursesBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> 匯入電子系課程 (115上/114下，共 47 門)</button>
+                <!-- 外觀 -->
+                <section class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="palette" class="w-5 h-5 text-emerald-500"></i> 外觀</h3>
+                    <p class="text-xs text-slate-400 font-medium mb-4">登入的話會記在帳號上，換裝置也一樣。</p>
+                    <div class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-xs">
+                        <button data-action="set-theme" data-theme="light" class="theme-opt flex-1 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1"><i data-lucide="sun" class="w-3.5 h-3.5 pointer-events-none"></i> 淺色</button>
+                        <button data-action="set-theme" data-theme="dark" class="theme-opt flex-1 py-2 rounded-lg text-xs font-black transition-all flex items-center justify-center gap-1"><i data-lucide="moon" class="w-3.5 h-3.5 pointer-events-none"></i> 深色</button>
+                    </div>
+                </section>
+
+                <!-- 通知 -->
+                <section id="settingsNotifyBox" class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="bell-ring" class="w-5 h-5 text-emerald-500"></i> 通知</h3>
+                    <p class="text-xs text-slate-400 font-medium mb-4">開啟後：上課前 10 分鐘、計劃開始前、以及你勾了提醒的倒數當天早上 8 點會響。關掉 App 也會響。</p>
+                    <button id="classReminderBtn" data-action="toggle-class-reminder" title="上課提醒" class="px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 bg-slate-100 text-slate-500"><i data-lucide="bell" class="w-3.5 h-3.5 pointer-events-none"></i> 提醒</button>
+                    <p id="settingsNotifyNeedLogin" class="text-xs font-bold text-amber-600 mt-3 hidden">登入之後才會有課表與計劃可以提醒。</p>
+                </section>
+
+                <!-- 內容管理（原管理頁的上半部。★ 只有巫醫以上看得到） -->
+                <section id="settingsContentBox" class="hidden">
+                    <h3 class="text-lg font-black text-slate-900 mb-3 flex items-center gap-2 px-1"><i data-lucide="database" class="w-5 h-5 text-emerald-500"></i> 內容管理</h3>
+                    <div class="space-y-5">
+                        <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
+                            <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><i data-lucide="upload" class="w-5 h-5"></i> 上傳資料</h3>
+                            <div class="space-y-4">
+                                <select id="uploadCourseSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
+                                    <option value="" disabled selected>選擇關聯課程...</option>
+                                </select>
+                                <select id="materialLevelSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
+                                    <option value="2" selected>🛡️ 戰士資料 (戰士以上可見)</option>
+                                    <option value="3">👑 族長資料 (族長以上可見)</option>
+                                </select>
+                                <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm">
+                                <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium">
+                                <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">確認存檔</button>
+                            </div>
+                        </div>
+                        <div id="importCoursesSection" class="bg-sky-600 rounded-[2rem] p-6 shadow-xl border-4 border-sky-400 hidden">
+                            <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white"><i data-lucide="download-cloud" class="w-5 h-5"></i> 從教務系統匯入電子系課程</h3>
+                            <p class="text-sky-100 text-sm font-medium mb-5">一鍵匯入彰師大電子系 115 學年第一學期課程（教師僅顯示姓氏）。已存在的課程會自動略過，匯入後仍可照常編輯或刪除。</p>
+                            <button id="importEECoursesBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> 匯入電子系課程 (115上/114下，共 47 門)</button>
+                        </div>
+                    </div>
+                </section>
             </div>
         </div>
 
@@ -1825,41 +1923,50 @@
                     <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-rose-50 rounded-full mix-blend-multiply opacity-60"></div>
                     <img src="image.png" alt="" class="w-20 h-20 rounded-full object-cover shadow-lg mx-auto mb-4 relative z-10 border-4 border-emerald-500/20">
                     <h2 class="text-2xl md:text-3xl font-black text-slate-900 mb-2 relative z-10">小黑貓・使用手冊</h2>
-                    <p class="text-slate-500 font-medium relative z-10">課程評價、學習資源、自編課表、記帳理財，一站幫你搞定</p>
+                    <p class="text-slate-500 font-medium relative z-10">課表、計劃、學習、英文、理財，一站搞定</p>
                 </div>
 
-                <!-- 1. 使用說明 -->
+                <!-- 1. 使用說明
+                     ★ 這一段是寫給使用者看的，不是寫給我自己看的。
+                     以前每加一個功能就往這裡追加一段，追到每一項都有三四行，
+                     而使用者要的只是「這一頁能做什麼、在哪裡」。
+                     規則：一項一句話，講「在哪裡、能做什麼」，
+                     實作理由留在 CHANGELOG 與 架構.md。 -->
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
-                    <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="book-open" class="w-6 h-6 text-emerald-500"></i> 使用說明</h3>
+                    <h3 class="text-xl font-black text-slate-900 mb-5 flex items-center gap-2"><i data-lucide="book-open" class="w-6 h-6 text-emerald-500"></i> 這裡有什麼</h3>
                     <div class="space-y-4">
-                        <div class="flex gap-3"><i data-lucide="log-in" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">登入 / 註冊：</span>右上角按鈕註冊帳號，登入後可使用自編課表等專屬功能，並保存你的階位與個人設定。（瀏覽課程、發表評價免登入也能用）</p></div>
-                        <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">主頁：</span>登入後解鎖專屬課表，可搜尋課程庫連動、設定連上幾節自動合併、並自動帶出上課教室。（最新消息與常用連結拆分之後歸「彰師電子小黑貓」，從左上角 logo 切過去）課表有「閱讀／編輯」兩種模式，手機用閱讀模式可一頁看完整週。</p></div>
-                        <div class="flex gap-3"><i data-lucide="layout-grid" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">課程：</span>上方搜尋課名或教授，用分類篩選（年級、固態／通訊／SOC 選修、通識、校定必修）；點課程卡看難度與評價，並可透過右側精靈留下修課心得（免登入也能評價）。</p></div>
-                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>兩個子頁。<span class="font-bold text-slate-800">自學課程</span>是整理好的單元教材；<span class="font-bold text-slate-800">測驗</span>是你自己出的練習題——<span class="font-bold text-slate-800">只有你看得到，管理員也讀不到</span>，登入就能建。答錯會直接顯示正解，結束後也會列出錯題；電腦上可用 1～4 鍵作答。（彰師電子小黑貓那邊的測驗是公有題庫，由巫醫以上維護、戰士以上解鎖，跟這裡是兩回事）</p></div>
-                        <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>兩個子頁。<span class="font-bold text-slate-800">英文閱讀</span>收錄 Global Voices 文章，點任一個英文字就跳出英英解釋小卡，連定義裡的字也能再點，可以一層層往下查；<span class="font-bold text-slate-800">單字庫</span>分「公有」與「我的」——公有的由巫醫以上維護，<span class="font-bold text-slate-800">「我的」任何登入者都能自己建，而且只有你看得到，管理員也讀不到</span>。閱讀時看到的生字可以直接加進單字冊，欄位由 AI 先填好，存檔前還能改。</p></div>
-                        <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>分成「記帳」與「投資」。記帳可記錄收支；投資可登錄持倉與交易，按「更新現價」會自動帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價為延遲資料，僅供個人記錄參考，不構成投資建議。</span>這裡的資料只有你自己看得到。</p></div>
-                        <div class="flex gap-3"><i data-lucide="bell-ring" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">上課提醒：</span>課表右上角的「提醒」按鈕可開啟上課前 10 分鐘通知，關掉 App 也會準時響。iPhone 需先用 Safari「分享 → 加入主畫面」安裝成 App，按下按鈕時會有圖解步驟帶你裝。</p></div>
-                        <div class="flex gap-3"><i data-lucide="smartphone" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">安裝成 App：</span>手機與桌面都能「加到主畫面」，像原生 App 一樣開啟，離線也能讀已載入的內容。</p></div>
-                        <div class="flex gap-3"><i data-lucide="settings-2" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">帳號選單：</span>點右上角已登入的帳號，可切換深色／淺色模式（會依帳號記住）或登出。</p></div>
+                        <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">主頁：</span>自編課表、計劃、倒數。計劃可以打一行字新增（例如「明天下午三點 交報告」），也可以設每天／每週／每月重複。</p></div>
+                        <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>自學課程的單元教材，以及你自己出的測驗。<span class="font-bold text-slate-800">自己的測驗只有你看得到。</span></p></div>
+                        <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>英文閱讀點任一個字就跳出英英解釋，可以一層層往下查；看到生字直接收進自己的單字冊。</p></div>
+                        <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>記帳與投資紀錄，按一下會帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價是延遲資料，只供自己記錄，不是投資建議。</span></p></div>
+                        <div class="flex gap-3"><i data-lucide="settings" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">設定（右上角 ⚙️）：</span>深色模式、通知、暱稱與密碼都在這裡。<span class="font-bold text-slate-800">通知</span>打開之後，上課前、計劃開始前、以及你勾了提醒的倒數當天早上都會響，關掉 App 也會響。iPhone 要先用 Safari「分享 → 加入主畫面」裝成 App，按下去會有圖解帶你裝。</p></div>
+                        <div class="flex gap-3"><i data-lucide="git-branch" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">左上角 logo：</span>切到另外兩個站——<span class="font-bold text-slate-800">彰師電子小黑貓</span>（課程評價、資料、測驗、消息）與<span class="font-bold text-slate-800">電路小黑貓</span>（電路模擬器，要用電腦開）。</p></div>
                     </div>
                 </div>
 
-                <!-- 2. 階級權限說明 -->
+                <!-- 2. 你的資料 -->
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
-                    <h3 class="text-xl font-black text-slate-900 mb-2 flex items-center gap-2"><i data-lucide="shield" class="w-6 h-6 text-amber-500"></i> 階級權限說明</h3>
-                    <p class="text-sm text-slate-500 mb-5">部族階位由星族（管理員）指派，階位越高、解鎖的資源越多。分級教材由伺服器端把關，階位不足是真的讀不到。以下為一般成員的階位：</p>
+                    <h3 class="text-xl font-black text-slate-900 mb-2 flex items-center gap-2"><i data-lucide="lock" class="w-6 h-6 text-emerald-500"></i> 你的資料</h3>
+                    <p class="text-sm text-slate-500 mb-4">課表、計劃、倒數、記帳、投資、自己的單字冊與測驗，<span class="font-bold text-slate-700">只有你看得到，管理員也讀不到</span>。這是伺服器端擋的，不是介面上藏起來而已。</p>
+                    <p class="text-sm text-slate-500">課程評價完全匿名，連管理員也查不出是誰寫的——所以自己也刪不掉，需要時請找管理員。</p>
+                </div>
+
+                <!-- 3. 階級（彰師電子小黑貓那一側） -->
+                <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-xl font-black text-slate-900 mb-2 flex items-center gap-2"><i data-lucide="shield" class="w-6 h-6 text-amber-500"></i> 階級</h3>
+                    <p class="text-sm text-slate-500 mb-5">階級只影響<span class="font-bold text-slate-700">彰師電子小黑貓</span>那一側能看到的資料，由管理員指派。分級資料是伺服器端把關的，階級不足是真的讀不到。</p>
                     <div class="space-y-3">
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-slate-400 text-white border border-slate-500 shrink-0 mt-0.5">見習生</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">註冊登入即成為見習生。可解鎖 <span class="font-bold text-slate-800">自編課表</span>、<span class="font-bold text-slate-800">上課提醒</span>與 <span class="font-bold text-slate-800">記帳理財</span>，並保存個人設定與階位。（瀏覽課程、發表評價人人皆可，免登入）</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">註冊就是見習生。課表、計劃、提醒、記帳、單字冊、自己的測驗都能用。</p>
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white border border-rose-600 shrink-0 mt-0.5">戰士</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">見習生的全部功能，再加上 <span class="font-bold text-slate-800">戰士寶藏庫</span>（共享資源與考古題）與 <span class="font-bold text-slate-800">測驗</span>。</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">再加上「資料」分頁的<span class="font-bold text-slate-800">戰士資料</span>（共享講義與考古題）與公有測驗。</p>
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-amber-500 text-white border border-amber-600 shrink-0 mt-0.5">族長</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">戰士的全部權限，再解鎖 <span class="font-bold text-slate-800">族長專屬秘寶</span>——更進階的資源與資料。</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">再解鎖<span class="font-bold text-slate-800">族長資料</span>——更進階的整理與檔案。</p>
                         </div>
                     </div>
                 </div>
@@ -2246,6 +2353,24 @@
                         <input type="datetime-local" id="planEnd" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
                     </div>
                 </div>
+                <!-- ★ 重複存的是規則，不是展開後的很多筆。展開存的話
+                     改一次時間要改幾十筆，而且「它們是同一件事」會消失。 -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block">重複</label>
+                        <select id="planRepeat" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                            <option value="">不重複</option>
+                            <option value="daily">每天</option>
+                            <option value="weekly">每週（同一天）</option>
+                            <option value="monthly">每月（同一號）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block">重複到（選填）</label>
+                        <input type="date" id="planRepUntil" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                    </div>
+                </div>
+                <p id="planRepeatHint" class="text-xs text-slate-400 font-medium -mt-2"></p>
                 <div>
                     <label class="text-xs font-bold text-slate-400 mb-1 block">提前多久通知</label>
                     <select id="planLead" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
@@ -2404,36 +2529,6 @@
                 <div id="resultWrongList" class="space-y-3 max-h-64 overflow-y-auto pr-1"></div>
             </div>
             <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">回到大廳</button>
-        </div>
-    </div>
-
-    <!-- 星族大會 -->
-    <div id="starclanModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
-        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-2xl p-6 md:p-8 shadow-2xl max-h-[85vh] flex flex-col border-t-8 border-fuchsia-500">
-            <div class="flex justify-between items-center mb-6">
-                <h3 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
-                    <i data-lucide="sparkles" class="text-fuchsia-500 w-7 h-7"></i> 星族大會
-                </h3>
-                <button data-close="starclanModal" class="text-slate-400 hover:text-slate-700"><i data-lucide="x" class="w-6 h-6 pointer-events-none"></i></button>
-            </div>
-            <p class="text-sm font-medium text-slate-500 mb-4 border-b-2 border-slate-100 pb-4">只有星族可以管理部族。為小黑貓的夥伴們指派合適的階位吧！</p>
-            <!-- ★ 搜尋框刻意放在 #usersListContainer **外面**。
-                 名冊是即時訂閱的，改任何人的階位都會觸發重畫、整個容器的
-                 innerHTML 被換掉。放在裡面的話，打到一半的字會在別人加入或
-                 自己改完階級的瞬間消失，而且完全不會報錯。 -->
-            <div class="flex items-center gap-3 mb-4">
-                <div class="relative flex-1">
-                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
-                    <input type="search" id="starclanSearch" placeholder="搜尋信箱、暱稱或階級"
-                           class="w-full pl-11 pr-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-400 font-bold text-sm">
-                </div>
-                <!-- 顯示幾筆／共幾筆。★ 這不是裝飾：搜不到東西時的空白
-                     跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
-                <span id="starclanCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
-            </div>
-            <div class="overflow-y-auto flex-1 pr-2 space-y-3" id="usersListContainer">
-                <div class="text-center py-10 text-slate-400 font-medium">名冊載入中...</div>
-            </div>
         </div>
     </div>
 
@@ -2602,8 +2697,13 @@
                而且「關於」裡早就寫成「首頁」了——分頁列與說明文件叫不同的名字，
                不會有任何錯誤，只會讓人找不到自己剛剛看過的東西。三處統一叫「主頁」。 */
             cat:  [['home','主頁'], ['self-study','學習'], ['english','英文'], ['finance','理財']],
-            ncue: [['evaluation','課程評價'], ['quiz','測驗'],
-                   ['news','消息與連結'], ['management','管理']]
+            /* ★「管理」這個分頁不見了，拆成兩件事：
+               內容管理（上傳資料、匯入課程）搬進設定頁，因為那是「工具」；
+               星族大會拉成「帳號權限管理」，因為那是要對照名冊慢慢看的事。
+               混在同一頁的時候，一個巫醫點進「管理」只會看到半頁空白——
+               另一半是星族專屬，而畫面上沒有任何東西說明這件事。 */
+            ncue: [['evaluation','課程評價'], ['data','資料'], ['quiz','測驗'],
+                   ['news','消息與連結'], ['account-admin','帳號權限管理']]
         };
         const TABS = PRODUCT_TABS[PRODUCT];
         /* 產品切換靠 logo 選單，不是分頁列。目前所在的那一項要標出來，
@@ -2925,6 +3025,29 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-14',
+                title: '設定集中到一個地方，分頁重新排過',
+                items: [
+                    ['右上角多了一顆 ⚙️', '以前設定散在三個地方：深色模式在帳號選單裡、上課提醒在課表右上角、上傳與匯入在「管理」分頁。散著的問題不是難看，是找不到——「我記得可以關掉提醒，但那個開關在哪」。現在全部集中在一頁：帳號、外觀、通知、內容管理。齒輪放在站名與分頁列的同一排，刻意不放進分頁列本身，因為它是工具不是內容，混進去會被算進置中排版裡，而三個站的分頁數量不一樣。'],
+                    ['★ 同一個開關不能有兩個入口', '搬的時候把原本的位置整個拿掉了，不是留一份在原地。留著的話同一個開關會有兩處，而兩處遲早會長得不一樣——一邊改了另一邊沒改，然後就變成「我明明關掉了怎麼還會響」。測試因此釘的是「只有一顆」而不是「有一顆」。'],
+                    ['「管理」分頁拆成兩件事', '那一頁原本上半是內容管理、下半是星族專屬，混在一起的結果是一個巫醫點進去只會看到半頁空白，而畫面上沒有任何東西說明另一半是別人的。現在內容管理進了設定頁，星族大會拉成獨立分頁並改名「帳號權限管理」——指派階位是要對照名冊慢慢看的事，塞在彈出視窗裡既窄又不好捲。守門的門檻也跟著從巫醫改成星族，沿用舊判斷的話巫醫會停在一頁他改不動的名冊上，按下去全被規則擋掉而畫面沒有說明。'],
+                    ['「寶藏庫」改叫「資料」，變成獨立分頁', '原本要先進課程評價、點某一門課、再往下捲才找得到——也就是要先知道資料掛在哪一門課。但使用者要的是「有什麼資料可以下載」，不是「這門課有什麼資料」。現在是彰師電子的一個大分頁，卡片上本來就寫著課名。它有自己的搜尋框，刻意不共用課程評價那一個：共用的話在別頁搜過的字會跟著跑過來，而這一頁上沒有任何東西提示「你正在搜尋中」，看起來就是資料不見了。順帶把課程評價那一頁多讀的兩份資料拿掉了。'],
+                    ['解題卡的算式改用數學排版', '分數、積分、Σ 這些以前是用一般文字硬拼的，現在交給排版引擎。★ 但這個站可以離線開，而排版引擎是從外部載入的——離線、被擋、或還沒載完就先按了執行，它都不會在。所以每一條算式都先把純文字寫進畫面，排版引擎只是「有的話就升級」。反過來做（先留空白等它填）的症狀是算式那一行整片空白，而且完全不會報錯。'],
+                    ['「關於」重寫成寫給使用者看的', '以前每加一個功能就往那裡追加一段，追到每一項都有三四行實作理由。現在一項一句話，只講「在哪裡、能做什麼」。順便修掉幾句已經不成立的話——提醒的位置、還在講「寶藏庫」的段落。功能搬了說明沒搬，是這個站踩過最多次的那一類。']
+                ]
+            },
+            {
+                date: '2026-08-13',
+                title: '計劃可以重複了（每天／每週／每月）',
+                items: [
+                    ['一條規則，畫面上自己長出很多次', '學生最常見的就是週期性的事：每週三的例會、每天的晨跑、每月五號的房租。現在新增計劃時可以選重複，也可以直接打「每週三 9點 例會」。存進資料庫的永遠只有一筆規則，畫面上看到的每一列都是當場算出來的——展開之後存起來的話，改一次時間要改幾十筆，而且「這些是同一件事」這個資訊會就此消失。'],
+                    ['★ 打勾只算那一天，不會讓整條規則消失', '重複計劃的打勾記在「哪一天做完了」，不是記在計劃上。記在計劃上的話，這週三打了勾，以後每一週的週三都會顯示成已完成——那件事在畫面上看起來就是「以後都不用做了」，而且沒有任何提示。同樣的道理，重複計劃不能拖曳：拖的是其中一次，但資料只有一條規則，搬了會把每一次都往後推。'],
+                    ['★ 每月 31 號差點跑到三月三日', '寫的時候直覺是「月份加一」，但二月沒有 31 號，日期會安靜地往後滾成 3/3。所以每月是先把日期歸一、換月、再夾到當月最後一天。同一類的還有：一年前建立的每日計劃要能快轉到今天（一天一天走是三百多圈），而快轉的方向必須只往前——寫成無條件套用的話，九月才開始的計劃會在八月就冒出來。'],
+                    ['★ 展開的窗口刻意只有兩週，推播只送最近三次', '不設上限的話，一筆「每天」會把「未來」區塞進幾百列，看起來像真的存了幾百筆資料。推播那邊更嚴重：提醒的清單一次只吃一百筆而且跟倒數共用，一筆每日計劃整條展開就把別的提醒全部擠掉——而且不會報錯，只是那些提醒安靜地不再響。'],
+                    ['★ 自動清除要跳過重複計劃', '過期兩天以上的計劃會自動清掉，但重複計劃的日期是「第一次」，通常早就過了。不特別跳過的話，一筆建立兩天的每週例會會在第三天整條消失，而使用者只會覺得計劃自己不見了。']
+                ]
+            },
             {
                 date: '2026-08-12',
                 title: '計劃可以打一行字新增了',
@@ -3340,8 +3463,8 @@
         const NAV_ACTIVE = ['is-active'];
         function buildStaticUI() {
             $('mainNav').innerHTML = TABS.map(([tab, label], i) => `
-                <button data-tab="${tab}" ${tab ==='management' ?'id="navManagementTab"' :''}
-                    class="tab-btn ${tab ==='management' ?'hidden' :''} whitespace-nowrap shrink-0 px-4 py-2 rounded-xl text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}">${label}</button>
+                <button data-tab="${tab}" ${tab ==='account-admin' ?'id="navAccountAdminTab"' :''}
+                    class="tab-btn ${tab ==='account-admin' ?'hidden' :''} whitespace-nowrap shrink-0 md:flex-1 md:shrink md:max-w-[11rem] text-center px-3 md:px-4 py-2 rounded-xl text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}">${label}</button>
             `).join('');
             buildLogoMenu();
             /* ★ 頁首名稱、標題、logo 的替代文字都要跟著產品走。
@@ -3404,6 +3527,11 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
+            /* ★ ⚙️ 不在 mainNav 裡，所以上面那一行清不到它。
+               不自己清的話，去過一次設定之後那顆齒輪就永遠亮著——
+               不會報錯，只是使用者以為自己還在設定頁。 */
+            const gear = $('settingsBtn');
+            if (gear) gear.classList.toggle('is-active', tab ==='settings');
 
             document.querySelectorAll('.page-section').forEach(p => p.classList.add('hidden'));
             /* 大分頁與 page-section 多半同名，英文分頁是例外（見 TAB_PAGE）。
@@ -3419,6 +3547,11 @@
 
             // 進到分頁時才載入該頁需要的資料（延遲訂閱，降低啟動負擔與 Firestore 讀取量）
             ensureLoaded(...(TAB_DATA[tab] || []));
+            /* ★ 設定頁的「內容管理」要一份課程清單（上傳時要選關聯課程），
+               但那一塊只有巫醫以上看得到。寫進 TAB_DATA 的話，每個
+               只是想關掉通知的人都會多讀五十幾筆——這是整站讀取量最大的一份
+               （見 `使用量評估.md`）。所以在這裡按權限補訂。 */
+            if (tab ==='settings' && currentUserLevel >= 4) ensureLoaded('courses');
 
             if (searchQuery !=="") {
                 searchQuery ="";
@@ -3431,6 +3564,20 @@
                而畫面上根本沒人在看那個數字。 */
             if (tab ==='home') highlightCurrentClass();
             updatePlanTicker();
+            /* ★ 進「帳號權限管理」先把搜尋清掉。留著上次的關鍵字的話，
+               下次進來會看到一份被過濾過的名冊，而畫面上沒有任何東西
+               提示「你正在搜尋中」——看起來就像有人不見了。
+               （這件事原本綁在「開啟彈窗」那顆按鈕上，彈窗改成分頁之後
+               沒有人接手，症狀一模一樣。） */
+            if (tab ==='account-admin') {
+                setVals({ starclanSearch:'' });
+                renderStarclanPanel();
+            }
+            /* 資料頁同理：離開再回來時不該還留著上次的關鍵字。 */
+            if (tab ==='data') {
+                setVals({ dataSearch:'' });
+                renderMaterials();
+            }
             if (tab ==='evaluation') {
                 closeModalView('course-detail-view','course-list-view');
                 $('evaluationHero').classList.remove('hidden');
@@ -3769,6 +3916,120 @@
         /* 已完成不佔區塊，收在最下面單獨一區——它不是「待安排」的東西。 */
         const PLAN_DONE_LABEL = '已完成';
 
+        /* ==========================================================
+         * 重複計劃
+         *
+         * ★ **存規則，不存展開。** 一筆「每週三 9:00 例會」在 Firestore 裡
+         * 永遠只有一筆，畫面上看到的每一列都是當場算出來的。
+         * 展開之後存起來的話：改一次時間要改幾十筆、推播那張表一下就爆、
+         * 而且「這一筆是規則」這件事會消失，之後誰也看不出它們是同一件事。
+         *
+         * 打勾記在 `doneOn`（那一天的 YYYY-MM-DD），不能改 `done`——
+         * 改 done 的話整條規則的每一次都會變成已完成。
+         * ========================================================== */
+        const PLAN_REP_META = {
+'daily':   { label:'每天' },
+'weekly':  { label:'每週' },
+'monthly': { label:'每月' }
+        };
+        /* ★ 展開的窗口刻意只有兩週。不設上限的話，一筆「每天」的計劃
+           會把「未來」區塞進幾百列，而且看起來像是真的存了幾百筆資料。
+           兩週之後的那幾次，等時間到了自然會出現。 */
+        const PLAN_REP_WINDOW_DAYS = 14;
+        const PLAN_REP_CAP = 14;            // 單一條規則在畫面上最多幾列
+        /* 推播只送最近幾次。★ events 那張表一次只吃 100 筆，而且跟倒數共用：
+           一筆每日計劃整條展開就把別人的提醒全部擠掉，而且不會報錯，
+           只是那些提醒安靜地不再響。 */
+        const PLAN_PUSH_PER_SERIES = 3;
+        const PLAN_PUSH_AHEAD_MS = 30 * 86400000;
+        const PLAN_DONE_KEEP = 60;          // doneOn 只留最近幾筆，否則文件會一直長大
+
+        const isRepeating = (p) => !!(p && PLAN_REP_META[p.rep]);
+
+        /* 往下一次。★ 每月不能直接 setMonth(+1)：1/31 加一個月會變成 3/3
+           （二月沒有 31 號，Date 會安靜地往後滾），於是「每月 31 號」的計劃
+           會冒出在三月三日，看起來像時間隨機跑掉。
+           所以先把日期歸 1、換月、再夾到當月的最後一天。 */
+        function repStep(d, rep, anchorDay) {
+            if (rep === 'daily')  { d.setDate(d.getDate() + 1); return; }
+            if (rep === 'weekly') { d.setDate(d.getDate() + 7); return; }
+            d.setDate(1);
+            d.setMonth(d.getMonth() + 1);
+            const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            d.setDate(Math.min(anchorDay, last));
+        }
+
+        /* 把一筆計劃變成畫面上的一列（重複計劃的某一次）。
+           done 從 doneOn 查，不是從 done 欄位讀。 */
+        function planOccurrence(plan, ts, span) {
+            const occ = todayStr(new Date(ts));
+            const rep = isRepeating(plan);
+            const s = isFinite(span) ? span : (planEnd(plan) - Number(plan.at));
+            return { ...plan, at: ts, end: ts + (isFinite(s) ? s : 0), occ, repeat: rep,
+                     done: rep ? (Array.isArray(plan.doneOn) && plan.doneOn.indexOf(occ) >= 0)
+                               : !!plan.done };
+        }
+
+        /* 展開某一段時間裡的每一次。不重複的計劃就是它自己（落在窗口內才算）。 */
+        function planOccurrences(plan, fromTs, toTs, cap) {
+            const out = [];
+            const at = Number(plan && plan.at);
+            if (!isFinite(at)) return out;
+            if (!isRepeating(plan)) {
+                if (at >= fromTs && at <= toTs) out.push(planOccurrence(plan, at));
+                return out;
+            }
+            const span = planEnd(plan) - at;
+            const until = Number(plan.repUntil);
+            const stop = isFinite(until) ? Math.min(toTs, until) : toTs;
+            const anchorDay = new Date(at).getDate();
+            const d = new Date(at);
+            /* 快轉。一筆一年前建立的「每天」，一天一天走過來是三百多圈；
+               雖然不會錯，但每次重畫都跑一次就沒必要了。 */
+            if (plan.rep === 'daily') {
+                const days = Math.floor((fromTs - at) / 86400000);
+                if (days > 0) d.setDate(d.getDate() + days);
+            } else if (plan.rep === 'weekly') {
+                const weeks = Math.floor((fromTs - at) / (7 * 86400000));
+                if (weeks > 0) d.setDate(d.getDate() + weeks * 7);
+            } else {
+                const f = new Date(fromTs);
+                const months = (f.getFullYear() - d.getFullYear()) * 12 + (f.getMonth() - d.getMonth());
+                if (months > 0) {
+                    d.setDate(1); d.setMonth(d.getMonth() + months);
+                    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+                    d.setDate(Math.min(anchorDay, last));
+                }
+            }
+            /* guard 是防無窮迴圈用的。★ 沒有它的話，rep 寫錯一個字
+               （repStep 什麼都沒做）就會讓整頁當掉，而且是白畫面。 */
+            let guard = 0;
+            while (d.getTime() < fromTs && guard++ < 800) repStep(d, plan.rep, anchorDay);
+            /* ★ 這裡沒有再檢查一次「不能早於 at」，是因為快轉的三段都寫成
+               「只往前、不往後」（`if (days > 0)`、`if (weeks > 0)`、`if (months > 0)`）。
+               補一個檢查看起來比較保險，但那條 if 永遠成立，等於一段永遠測不到的
+               程式——把「不會展到開始日之前」這件事交給 tests/repeat.mjs 去釘，
+               哪天有人把快轉改成無條件套用，那一條才會真的紅。 */
+            while (d.getTime() <= stop && out.length < (cap || PLAN_REP_CAP) && guard++ < 1600) {
+                out.push(planOccurrence(plan, d.getTime(), span));
+                repStep(d, plan.rep, anchorDay);
+            }
+            return out;
+        }
+
+        /* 畫面上要顯示的所有列。★ 不重複的計劃**不受窗口限制**——
+           三個月後的期末考本來就該待在「未來」區，被窗口濾掉的話它會直接消失。 */
+        function planBoardItems(plans, now) {
+            const from = new Date(now); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 2);
+            const to = new Date(now); to.setHours(23, 59, 59, 999); to.setDate(to.getDate() + PLAN_REP_WINDOW_DAYS);
+            const out = [];
+            for (const p of (plans || [])) {
+                if (!isRepeating(p)) { out.push(planOccurrence(p, Number(p.at))); continue; }
+                for (const o of planOccurrences(p, from.getTime(), to.getTime(), PLAN_REP_CAP)) out.push(o);
+            }
+            return out;
+        }
+
         /* ★ 計劃是**一段時間**，不是一個時間點：`at` 是開始，`end` 是結束。
            舊資料沒有 end——那時候是時間點——所以一律用這支取值，
            缺欄位就當成「開始即結束」，行為跟以前一模一樣。
@@ -3823,6 +4084,10 @@
             const today = todayStr(new Date(now));
             return (plans || []).filter(p => {
                 if (p && p.done) return false;
+                /* ★ 重複計劃永遠不清。它的 `at` 是「第一次」，通常早就過了——
+                   照日期清的話，一筆建立兩天的每週例會會在第三天整條消失，
+                   而使用者只會覺得計劃自己不見了。要停就自己刪或設結束日。 */
+                if (isRepeating(p)) return false;
                 const d = countdownDays(todayStr(new Date(Number(p && p.at))), today);
                 return d !== null && d <= -2;
             });
@@ -3855,7 +4120,7 @@
          *   1. 解析器要能單獨餵字串進去跑 —— tests/quickadd.mjs 就是這樣測的
          *   2. 存檔前一定要把「我聽成什麼」顯示出來讓人確認
          * ========================================================== */
-        const QUICK_PLAN_HELP = '例：明天下午三點 交報告　／　週五 09:00-11:00 電路實驗　／　8/20 兩小時 讀書';
+        const QUICK_PLAN_HELP = '例：明天下午三點 交報告　／　週五 09:00-11:00 電路實驗　／　每週三 9點 例會';
 
         const CN_DIGIT = { '零':0,'〇':0,'一':1,'二':2,'兩':2,'三':3,'四':4,'五':5,'六':6,'七':7,'八':8,'九':9 };
         /* 中文數字轉阿拉伯。只需要到 59（分鐘），所以支援到兩位數就夠。 */
@@ -3872,6 +4137,28 @@
 
         const QP_NUM  = '(?:\\d{1,2}|[零〇一二兩三四五六七八九十]{1,3})';
         const QP_MERI = '(清晨|早上|上午|中午|下午|傍晚|晚上|夜裡|凌晨)?';
+        const QP_WD = { '一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':0,'天':0,
+                        '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':0 };
+        /* 下一個某星期幾（今天也算）。「每週三」與一次性的「週三」共用同一條規則，
+           不然同一個詞在兩個地方會算出不同的日子。 */
+        function qpNextWeekday(target, now) {
+            const d = new Date(now); d.setHours(0, 0, 0, 0);
+            d.setDate(d.getDate() + ((target - d.getDay() + 7) % 7));
+            return d.getTime();
+        }
+        /* 下一個某號（今天也算）。當月沒有那一天就往後找。 */
+        function qpNextMonthDay(day, now) {
+            const d = new Date(now); d.setHours(0, 0, 0, 0);
+            for (let i = 0; i < 14; i++) {
+                const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+                if (day <= last) {
+                    const cand = new Date(d.getFullYear(), d.getMonth(), day);
+                    if (cand.getTime() >= d.getTime()) return cand.getTime();
+                }
+                d.setDate(1); d.setMonth(d.getMonth() + 1);
+            }
+            return null;
+        }
         /* 一個「幾點幾分」＝五個捕捉組：早晚、24 小時制的時與分、中文的時與分。
            兩種寫法（15:00 與 三點半）合在同一段，是為了讓「區間」可以直接
            把它接兩次；分成兩個 regex 的話「3點到5點」與「15:00-17:00」
@@ -3911,7 +4198,7 @@
         }
 
         function parsePlanText(raw, now) {
-            const res = { ok:false, title:'', at:null, end:null,
+            const res = { ok:false, title:'', at:null, end:null, rep:null,
                           dateGiven:false, timeGiven:false, guessed:false, notes:[], reason:'' };
             /* 全形數字轉半形：手機中文輸入法很容易打出「８／２０」。 */
             const text = String(raw || '').replace(/[０-９]/g, c => String.fromCharCode(c.charCodeAt(0) - 0xFEE0)).trim();
@@ -3946,6 +4233,21 @@
                 }
             }
 
+            /* 1b. 重複規則。★ 一定要在「明確日期」與「星期幾」之前吃掉，
+                   不然「每週三」的「週三」會先被當成一次性的那個星期三，
+                   剩下一個孤零零的「每」字留在標題裡。 */
+            let rep = null, repWeekday = null, repDay = null;
+            m = find(/每\s*(?:天|日)/);
+            if (m) { rep = 'daily'; eat(m); }
+            if (!rep) {
+                m = find(/每\s*(?:週|周|星期|禮拜)\s*([一二三四五六日天1-7])?/);
+                if (m) { rep = 'weekly'; if (m[1]) repWeekday = QP_WD[m[1]]; eat(m); }
+            }
+            if (!rep) {
+                m = find(/每\s*(?:個)?\s*月\s*(?:(\d{1,2})\s*[號日])?/);
+                if (m) { rep = 'monthly'; if (m[1]) repDay = Number(m[1]); eat(m); }
+            }
+
             /* 2. 明確日期：2026/8/12、8/12、8月12日 */
             let mo = null, da = null, yr = null;
             m = find(/(?:(\d{4})\s*[\/\-年]\s*)?(\d{1,2})\s*[\/\-月]\s*(\d{1,2})\s*日?/);
@@ -3972,9 +4274,7 @@
             if (mo === null && dayOffset === null) {
                 m = find(/(這|本|下下|下個|下)?\s*(?:週|周|星期|禮拜)\s*([一二三四五六日天1-7])/);
                 if (m) {
-                    const WD = { '一':1,'二':2,'三':3,'四':4,'五':5,'六':6,'日':0,'天':0,
-                                 '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':0 };
-                    const target = WD[m[2]];
+                    const target = QP_WD[m[2]];
                     const base = new Date(now); base.setHours(0, 0, 0, 0);
                     const cur = base.getDay(), pre = m[1] || '';
                     if (!pre) {
@@ -3994,6 +4294,14 @@
                     }
                     wdTs = base.getTime(); eat(m);
                 }
+            }
+
+            /* 4b. 重複規則自己帶了日子（每週三、每月5號）就用它。
+                   ★ 沒有這一段的話「每週三 例會」會被排到今天，
+                   然後每一次都落在星期幾要看今天是星期幾——完全不可預期。 */
+            if (mo === null && dayOffset === null && wdTs === null) {
+                if (rep === 'weekly' && repWeekday !== null) wdTs = qpNextWeekday(repWeekday, now);
+                else if (rep === 'monthly' && repDay !== null) wdTs = qpNextMonthDay(repDay, now);
             }
 
             /* 5. 單一時間 */
@@ -4081,7 +4389,9 @@
             if (!dateGiven && !timeGiven) res.notes.push('沒寫時間，先排在今天的下一個整點');
             if (hm && hm.guessed) res.notes.push('時間是猜的，請確認');
 
+            if (rep) res.notes.push(PLAN_REP_META[rep].label + '重複');
             res.ok = true; res.title = title;
+            res.rep = rep;
             res.at = start.getTime(); res.end = endTs;
             res.dateGiven = dateGiven; res.timeGiven = timeGiven;
             res.guessed = !!(hm && hm.guessed);
@@ -4157,10 +4467,24 @@
                    漏掉這個 filter 的症狀是：明明做完了、畫面上劃著線，時間到還是響。
                    而那則通知看起來完全正常，沒有人會想到是「已完成沒有被移掉」。 */
                 const planEvents = userPlans
+                    .filter(p => !isRepeating(p))
                     .filter(p => !p.done)
                     .filter(p => Number(p.at) > now - 3600000)
                     .map(p => ({ id: p.id, at: Number(p.at), lead: Number(p.lead) || 0,
                                  title: p.title, note: p.note ||'' }));
+                /* ★ 重複計劃只推最近幾次，不能整條展開。events 那張表一次只吃
+                   100 筆而且跟倒數共用——一筆每日計劃展開一年就把別人的提醒
+                   全部擠掉，而且不會報錯，只是那些提醒安靜地不再響。
+                   每次存檔都會重推，所以「只推三次」不會漏掉後面的。 */
+                for (const p of userPlans) {
+                    if (!isRepeating(p)) continue;
+                    const next = planOccurrences(p, now - 3600000, now + PLAN_PUSH_AHEAD_MS, PLAN_PUSH_PER_SERIES);
+                    for (const o of next) {
+                        if (o.done) continue;
+                        planEvents.push({ id: `${p.id}@${o.occ}`, at: o.at,
+                                          lead: Number(p.lead) || 0, title: p.title, note: p.note ||'' });
+                    }
+                }
                 /* 倒數只有日期，所以「幾點響」由這裡決定（當天早上 COUNTDOWN_HOUR 點）。
                    ★ 用 new Date(年, 月, 日, 時) 而不是解析字串——
                    `new Date('2026-08-20')` 會被當成 UTC 午夜，在台北是前一天早上八點。 */
@@ -4191,14 +4515,14 @@
             const prefix = phase === 'during' ?'剩 ' :'';
             return `
             <div class="plan-row flex items-center justify-between gap-3 p-3 rounded-2xl border bg-white ${p.done ?'border-slate-200' : phase === 'during' ?'border-emerald-300' :'border-slate-200'}"
-                 draggable="true" data-id="${escapeHTML(p.id)}">
+                 draggable="${p.repeat ?'false' :'true'}" data-id="${escapeHTML(p.id)}" data-occ="${escapeHTML(p.occ ||'')}">
                 <div class="flex items-center gap-3 min-w-0">
-                    <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" title="${p.done ?'標成未完成' :'標成完成'}"
+                    <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" data-occ="${escapeHTML(p.occ ||'')}" title="${p.done ?'標成未完成' :'標成完成'}"
                             class="shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
                     ${p.done ?'<i data-lucide="check" class="w-4 h-4 pointer-events-none"></i>' :''}
                     </button>
                     <div class="min-w-0">
-                        <div class="font-bold truncate ${p.done ?'text-slate-400 line-through' :'text-slate-800'}">${escapeHTML(p.title)}</div>
+                        <div class="font-bold truncate ${p.done ?'text-slate-400 line-through' :'text-slate-800'}">${p.repeat ? `<span class="text-[10px] font-black align-middle px-1.5 py-0.5 rounded-md bg-indigo-50 text-indigo-500 mr-1">🔁 ${escapeHTML(PLAN_REP_META[p.rep].label)}</span>` :''}${escapeHTML(p.title)}</div>
                         <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
                     </div>
                 </div>
@@ -4220,7 +4544,7 @@
 
             const now = Date.now();
             const buckets = {};
-            for (const p of userPlans) (buckets[planGroup(p, now)] ||= []).push(p);
+            for (const p of planBoardItems(userPlans, now)) (buckets[planGroup(p, now)] ||= []).push(p);
 
             /* ★ 五個區塊一律都畫出來，即使是空的。
                空的就不畫的話，「今天沒事」跟「今天那一區不見了」長得一樣，
@@ -4284,6 +4608,10 @@
             const p = userPlans.find(x => x.id === id);
             if (!p) return;
             if (zone === 'yesterday') return showToast('昨日只收過期的計劃，不能自己放進去');
+            /* ★ 重複計劃拖不動：拖的是「其中一次」，但資料只有一條規則，
+               搬了等於把整條規則往後推——畫面上只有那一列動了，
+               其餘每一次也跟著跑掉，而且沒有任何提示。 */
+            if (isRepeating(p)) return showToast('重複計劃要改時間請用編輯（拖曳會動到每一次）');
             const now = Date.now();
             const at = zoneTargetAt(zone, p, now);
             if (at === null){
@@ -4349,14 +4677,30 @@
             });
         }
 
-        async function togglePlanDone(id) {
+        async function togglePlanDone(id, occ) {
             const p = userPlans.find(x => x.id === id);
             if (!p) return;
-            userPlans = userPlans.map(x => x.id === id ? { ...x, done: !x.done } : x);
+            const before = userPlans;
+            if (isRepeating(p)) {
+                /* ★ 重複計劃是一條規則展開出來的很多列，打勾只能記在**那一天**上。
+                   改 done 的話整條規則的每一次都會一起變成已完成，
+                   而且是安靜地——畫面上就是那件事「以後都不用做了」。 */
+                if (!occ) return;
+                const list = Array.isArray(p.doneOn) ? p.doneOn.slice() : [];
+                const i = list.indexOf(occ);
+                if (i >= 0) list.splice(i, 1); else list.push(occ);
+                /* 只留最近幾筆：這份清單會跟著計劃永遠存下去，
+                   一筆每日計劃兩個月就把整份文件撐大。 */
+                list.sort();
+                const keep = list.slice(-PLAN_DONE_KEEP);
+                userPlans = userPlans.map(x => x.id === id ? { ...x, doneOn: keep } : x);
+            } else {
+                userPlans = userPlans.map(x => x.id === id ? { ...x, done: !x.done } : x);
+            }
             try {
                 await savePlans();
                 renderPlans(); updatePlanTicker();
-            } catch (e) { showToast('存檔失敗，請稍後再試'); }
+            } catch (e) { userPlans = before; showToast('存檔失敗，請稍後再試'); }
         }
 
         /* 每秒只更新倒數那幾個字，不重畫整份清單——
@@ -4382,7 +4726,7 @@
             const box = $('home-sub-plan');
             /* 只數還沒完成的：全部打勾之後畫面上一個秒數都沒有，
                計時器再跑就純粹是浪費電。 */
-            const visible = userPlans.some(p => !p.done)
+            const visible = userPlans.some(p => isRepeating(p) || !p.done)
                 && !!$('page-home') && !$('page-home').classList.contains('hidden')
                 && !!box && !box.classList.contains('hidden');
             if (visible && !planTicker) planTicker = setInterval(tickPlanCountdowns, 1000);
@@ -4442,6 +4786,13 @@
                 hint.classList.toggle('hidden', !hint.textContent);
             }
             $('planLead').value = String(p ? p.lead : 10);
+            /* 重複規則。★ `repUntil` 存的是毫秒，date 欄位要的是 YYYY-MM-DD，
+               直接把毫秒塞進去的話欄位會是空的——看起來像「沒設過結束日」。 */
+            if ($('planRepeat')) $('planRepeat').value = (p && PLAN_REP_META[p.rep]) ? p.rep :'';
+            if ($('planRepUntil'))
+                $('planRepUntil').value = (p && isFinite(Number(p.repUntil)))
+                    ? todayStr(new Date(Number(p.repUntil))) :'';
+            updatePlanRepeatHint();
             openModal('planModal');
         }
 
@@ -4472,9 +4823,26 @@
             }
 
             const id = getVal('editPlanId');
+            const prev = id ? (userPlans.find(x => x.id === id) || {}) : {};
+            const rep = ($('planRepeat') && PLAN_REP_META[$('planRepeat').value]) ? $('planRepeat').value : null;
+            /* ★ 結束日存成**那一天的最後一刻**。存成午夜零點的話，
+               「重複到 8/20」會在 8/20 當天就不再出現——少一次，而且不報錯。 */
+            let repUntil = null;
+            if (rep) {
+                const u = getVal('planRepUntil');
+                if (u) {
+                    const [uy, um, ud] = u.split('-').map(Number);
+                    if (uy && um && ud) repUntil = new Date(uy, um - 1, ud, 23, 59, 59, 999).getTime();
+                    if (repUntil !== null && repUntil < at) return showToast('重複的結束日不能早於開始');
+                }
+            }
             const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
                           title, at, end, lead: Number($('planLead').value) || 0,
-                          note: getVal('planNote'), done: !!(id && (userPlans.find(x => x.id === id) || {}).done) };
+                          note: getVal('planNote'), done: !!(id && prev.done),
+                          rep, repUntil,
+                          /* 改規則不清打勾紀錄：把每週三改成每週四，先前打過的
+                             那幾天還是做過了。 */
+                          doneOn: Array.isArray(prev.doneOn) ? prev.doneOn : [] };
             /* ★ 跟快速新增同一個坑：先改清單再存檔，存檔失敗就得還原，
                否則畫面上是新的、重整之後又變回舊的，中間沒有任何訊息。 */
             const beforePlans = userPlans;
@@ -4498,6 +4866,23 @@
             } finally { btn.disabled = false; }
         }
 
+        /* 重複的那一行說明。★ 不寫的話「每週」到底是星期幾要自己去對開始日期，
+           而選錯的症狀是「它出現在我沒預期的那一天」，看不出哪裡設錯。 */
+        function updatePlanRepeatHint() {
+            const sel = $('planRepeat'), hint = $('planRepeatHint');
+            if (!sel || !hint) return;
+            const rep = sel.value;
+            const atStr = getVal('planAt');
+            const d = atStr ? new Date(atStr) : null;
+            const ok = d && isFinite(d.getTime());
+            if (!PLAN_REP_META[rep]) { hint.textContent =''; return; }
+            if (!ok) { hint.textContent ='重複的日子由「開始」那一格決定，先選開始時間'; return; }
+            const wd = d.toLocaleString('zh-TW', { weekday:'long' });
+            hint.textContent = rep === 'daily'   ? '每天同一個時間'
+                             : rep === 'weekly'  ? `每個${wd}`
+                             :                     `每個月 ${d.getDate()} 號（該月沒有這一天就算最後一天）`;
+        }
+
         function updateQuickPlanPreview() {
             const input = $('quickPlanInput'), out = $('quickPlanPreview');
             if (!input || !out) return;
@@ -4511,7 +4896,8 @@
             if (!r.ok) return showToast(r.reason || '看不懂這一行');
             if (userPlans.length >= PLAN_MAX) return showToast(`最多 ${PLAN_MAX} 個計劃`);
             const rec = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-                          title: r.title, at: r.at, end: r.end, lead: 10, note: '', done: false };
+                          title: r.title, at: r.at, end: r.end, lead: 10, note: '', done: false,
+                          rep: r.rep || null, repUntil: null, doneOn: [] };
             const btn = $('quickPlanBtn');
             if (btn) btn.disabled = true;
             /* ★ 存檔失敗要把清單還原。不還原的話畫面上多了一筆、
@@ -4941,24 +5327,40 @@
         }
 
         function renderMaterials() {
+            /* 資料頁的元素在彰師電子那一份才有。★ 直接讀 .value 的話，
+               小黑貓那一頁一進來就 null.value，整個模組掛掉、畫面全白。 */
+            const wBox = $('warriorMaterialsList'), lBox = $('leaderMaterialsList');
+            if (!wBox || !lBox) return;
+
+            /* ★ 這一頁用自己的搜尋框，不吃課程評價那一個，也不看
+               selectedFilterCourseId。資料已經是獨立分頁，跟著別頁的
+               篩選走的話，使用者會看到一份被過濾過的清單而畫面上
+               沒有任何東西說明——看起來就是「資料不見了」。 */
+            const q = (getVal('dataSearch') ||'').trim().toLowerCase();
+            const hit = (m) => !q || [m.courseName, m.title]
+                .some(v => String(v ||'').toLowerCase().includes(q));
+
             // 🔒 不再由前端過濾階級：階級不足的使用者根本不會訂閱該集合，
             //    state.matLeader 會是空陣列，就算改 currentUserLevel 也變不出資料。
-            const visible = (list) => list.filter(m =>
-                matchesSearch(m.courseName, m.title) &&
-                (selectedFilterCourseId ? m.courseId === selectedFilterCourseId : true));
-
             const lockedHTML = (roleName, color) =>
-                `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 ${color}"></i> 升級為【${roleName}】後解鎖${roleName ==='戰士' ?'戰士寶藏庫' :'族長專屬秘寶'}</div>`;
-            const emptyHTML = (zone) =>
-                `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}目前沒有${zone ==='戰士區' ?'寶藏' :'秘寶'}。</div>`;
+                `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 ${color}"></i> 升級為【${roleName}】後解鎖${roleName ==='戰士' ?'戰士資料' :'族長資料'}</div>`;
+            /* ★ 「搜不到」跟「這一區真的沒東西」要講不同的話。
+               講同一句的話，打錯字的人會以為資料整個消失了。 */
+            const emptyHTML = (zone) => q
+                ? `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}沒有符合「${escapeHTML(q)}」的資料。</div>`
+                : `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}目前沒有資料。</div>`;
 
-            const wItems = visible(state.matWarrior);
-            $('warriorMaterialsList').innerHTML = currentUserLevel < 2 ? lockedHTML('戰士','text-rose-300')
+            const wAll = state.matWarrior, lAll = state.matLeader;
+            const wItems = wAll.filter(hit), lItems = lAll.filter(hit);
+            wBox.innerHTML = currentUserLevel < 2 ? lockedHTML('戰士','text-rose-300')
                 : (wItems.length === 0 ? emptyHTML('戰士區') : wItems.map(m => materialCardHTML(m,'matWarrior')).join(''));
-
-            const lItems = visible(state.matLeader);
-            $('leaderMaterialsList').innerHTML = currentUserLevel < 3 ? lockedHTML('族長','text-amber-300')
+            lBox.innerHTML = currentUserLevel < 3 ? lockedHTML('族長','text-amber-300')
                 : (lItems.length === 0 ? emptyHTML('族長區') : lItems.map(m => materialCardHTML(m,'matLeader')).join(''));
+
+            /* 幾筆／共幾筆常駐顯示。★ 跟星族大會那個計數同一個理由：
+               搜不到的空白跟「真的沒有資料」長得一模一樣。 */
+            const cnt = $('dataCount');
+            if (cnt) cnt.textContent = `${wItems.length + lItems.length} 筆／共 ${wAll.length + lAll.length} 筆`;
             icons();
         }
 
@@ -6693,7 +7095,7 @@
            而「彰師電子的巫醫」卻看得到英文閱讀的匯入鈕——
            兩種都只是按鈕在不在，不會有任何錯誤訊息。 */
         const LEVEL4_ELEMENT_IDS = [          // 彰師電子：巫醫(4)以上
-'navManagementTab','adminUploadSection','importCoursesSection',
+'settingsContentBox','adminUploadSection','importCoursesSection',
 'addNewsBtn','addLinkBtn'
         ];
         const CAT_ADMIN_ELEMENT_IDS = [       // 小黑貓：管理員
@@ -6748,8 +7150,26 @@
                 if (el) el.classList.toggle('hidden', !isCatAdmin());
             });
 
-            // 星族 (Lv5) 專屬：名冊訂閱與星族大會
-            $('starclanSection').classList.toggle('hidden', !isAdmin);
+            /* 設定頁的帳號區。★ 這裡跟帳號選單是兩份 DOM，但填的是同一組值——
+               分開填會分岔，所以一起填。 */
+            const sIn = $('settingsSignedIn'), sOut = $('settingsSignedOut');
+            if (sIn) sIn.classList.toggle('hidden', !loggedIn);
+            if (sOut) sOut.classList.toggle('hidden', !!loggedIn);
+            if (loggedIn) {
+                const badge = currentBadge();
+                if ($('settingsName')) $('settingsName').textContent = userDisplayName ||'無名小貓';
+                if ($('settingsEmail')) $('settingsEmail').textContent = (user.email ||'');
+                if ($('settingsBadge')) {
+                    $('settingsBadge').textContent = badge.name;
+                    $('settingsBadge').className = `px-2 py-0.5 rounded text-[10px] font-black tracking-widest shadow-sm border ${badge.style}`;
+                }
+            }
+            /* ★ 提醒需要課表與計劃，兩者都要登入。未登入時按鈕留著但講清楚為什麼，
+               直接把整區藏起來的話，使用者會以為這個網站沒有通知功能。 */
+            if ($('settingsNotifyNeedLogin')) $('settingsNotifyNeedLogin').classList.toggle('hidden', !!loggedIn);
+
+            // 星族 (Lv5) 專屬：名冊訂閱與「帳號權限管理」那個大分頁
+            if ($('navAccountAdminTab')) $('navAccountAdminTab').classList.toggle('hidden', !isAdmin);
             if (isAdmin) {
                 if (!usersUnsubscribe) {
                     usersUnsubscribe = onSnapshot(collection(db, PATHS.users), (snapshot) => {
@@ -6766,7 +7186,11 @@
             /* 權限不足時離開管理頁。管理頁屬於彰師電子，所以看貓族階級。
                ★ 退到 'home'（主頁）而不是原本的首頁——拆分之後 'home' 是
                小黑貓底下的第一個子分頁，誰都進得去。 */
-            if (currentUserLevel < 4 && !$('page-management').classList.contains('hidden')) {
+            /* ★ 現在要守的是「帳號權限管理」那一頁，而且門檻是星族（不是巫醫）。
+               沿用舊的 Lv4 判斷會讓巫醫停在一頁他改不動的名冊上——
+               改階級的按鈕按下去全部被規則擋掉，而畫面上不會有任何說明。 */
+            const aa = $('page-account-admin');
+            if (!isAdmin && aa && !aa.classList.contains('hidden')) {
                 switchTab(TABS[0][0]);
             }
 
@@ -7554,7 +7978,7 @@
 'edit-plan':   (t) => openPlanModal(t.dataset.id),
 'add-plan-zone': (t) => openPlanModal(null, t.dataset.zone),
 'delete-plan': (t) => deletePlan(t.dataset.id),
-'toggle-plan': (t) => togglePlanDone(t.dataset.id),
+'toggle-plan': (t) => togglePlanDone(t.dataset.id, t.dataset.occ),
 'edit-countdown':   (t) => openCountdownModal(t.dataset.id),
 'delete-countdown': (t) => deleteCountdown(t.dataset.id),
 'set-study-sub': (t) => switchStudySub(t.dataset.sub),
@@ -7577,6 +8001,11 @@
 'reading-open': (t) => openReadingArticle(t.dataset.id),
 'reading-back': () => { $('reading-reader-view').classList.add('hidden'); $('reading-list-view').classList.remove('hidden'); },
 'cambridge-quick': () => openCambridge($('cambridgeQuickInput').value),
+            /* 設定頁的帳號動作。★ 全部沿用既有的視窗與流程，不另外寫一套——
+               寫第二套的話兩邊的驗證規則遲早會分岔，而分岔不會報錯。 */
+'settings-login':    () => openModal('adminModal'),
+'settings-rename':   () => { setVals({ editDisplayName: userDisplayName }); openModal('nameModal'); },
+'settings-password': () => { const b = $('forgotPasswordBtn'); openModal('adminModal'); if (b) b.click(); },
 'account-logout': async () => {
                 $('accountMenu').classList.add('hidden');
                 await signOut(auth);
@@ -7863,6 +8292,8 @@
                 updateQuickPlanPreview();          // 一開始就把用法寫在那一行
             }
             bind('confirmSavePlan', savePlanFromModal);
+            if ($('planRepeat')) $('planRepeat').addEventListener('change', updatePlanRepeatHint);
+            if ($('planAt')) $('planAt').addEventListener('change', updatePlanRepeatHint);
             bindPlanDragAndDrop();
             bind('addCountdownBtn', () => openCountdownModal(null));
             bind('confirmSaveCountdown', saveCountdownFromModal);
@@ -7906,16 +8337,10 @@
             bind('kahootNextBtn', kahootNext);
             bind('closeResultBtn', () => { $('kahootResultModal').classList.add('hidden'); $('kahootResultModal').classList.remove('flex'); });
 
-            /* 每次開啟先把搜尋清掉。留著上次的關鍵字的話，下次點開會看到
-               一份被過濾過的名冊，而畫面上沒有任何東西提示「你正在搜尋中」——
-               看起來就像有人不見了。 */
-            bind('openStarclanBtn', () => {
-                setVals({ starclanSearch:'' });
-                renderStarclanPanel();
-                openModal('starclanModal');
-            });
             // 邊打邊篩。input 事件才涵蓋得到「按 × 清空」與貼上
-            $('starclanSearch').addEventListener('input', renderStarclanPanel);
+            if ($('starclanSearch')) $('starclanSearch').addEventListener('input', renderStarclanPanel);
+            /* 資料頁有自己的搜尋框（刻意不共用課程評價那一個，見該頁的註解）。 */
+            if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
             bind('confirmDelete', executeDelete);
 
             $('searchInput').addEventListener('input', (e) => $('searchClear').classList.toggle('hidden', !e.target.value));
@@ -7993,7 +8418,14 @@
                不再訂閱 myKahoots——那是別的產品的東西，多訂一份沒有好處
                （讀取量、以及「這一頁到底屬於誰」都會變模糊）。 */
 'quiz':       ['kahoots','courses'],
-'evaluation': ['courses','reviews','matWarrior','matLeader'],
+            /* ★ 資料（原寶藏庫）搬出課程詳情之後，matWarrior/matLeader
+               就不該再掛在課程評價底下——留著的話每個看評價的人都白讀兩份。 */
+'evaluation': ['courses','reviews'],
+'data':       ['matWarrior','matLeader'],
+            /* 設定頁本身不需要任何集合；內容管理要的 courses 由 switchTab 按權限補訂。 */
+'settings':   [],
+            /* 名冊是 updateAdminUI 依星族身分自己訂閱的，不走 ensureLoaded。 */
+'account-admin': [],
             /* 學習＝自學課程＋自己出的測驗（管理表單會關聯「學校課程」，故需要 courses）。
                ★ myKahoots 就是拆過來的那一份。漏掉的話「我的測驗」會是永遠空的一頁，
                而空清單跟「你還沒建過測驗」長得一模一樣，不會有錯誤訊息。
@@ -8004,9 +8436,7 @@
                拆的時候要真的把資料集跟著搬，不然畫面切過去了、清單卻是空的，
                而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。 */
 'english':    ['articles','vocabBooks','vocabWords','myVocabBooks','myVocabWords'],
-'about':      [],
-            // 管理頁為 Lv4 以上專用，需能檢視/編輯所有資料，故一次載齊
-'management': ['news','links','courses','reviews','matWarrior','matLeader','kahoots','ssCourses','ssUnits','vocabBooks','vocabWords']
+'about':      []
         };
 
         // 延遲訂閱：只有真正需要某資料集時才開啟即時監聽，且同一資料集只開一次
