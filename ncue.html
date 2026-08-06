@@ -99,16 +99,16 @@
 
         /* 分頁切換：淡入 + 輕微上滑，每次切換重新播放 */
         @keyframes pageFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .page-enter { animation: pageFade 0.32s cubic-bezier(0.22, 1, 0.36, 1); }
+        .page-enter { animation: pageFade var(--dur-page) var(--ease); }
 
         /* 英文閱讀：可點查的單字 */
-        .lw { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background-color .12s; }
+        .lw { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background-color var(--dur-fast) var(--ease); }
         .lw:hover { background-color: var(--accent-soft); }
         html.dark .lw:hover { background-color: rgba(220, 145, 102, 0.22); }
 
         /* 課程卡 / 評價卡進場：純淡入、不位移，快速即時出現 */
         @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
-        .list-enter { animation: cardEnter 0.2s ease-out both; }
+        .list-enter { animation: cardEnter var(--dur-base) var(--ease) both; }
 
         /* 舊的「墨綠品牌中性色」整組已刪除。
            那組用的是 html:not(.dark) 開頭（特異性 0,2,0），會壓過下方
@@ -174,6 +174,16 @@
             --panel:        #fffefb;   /* 對話框／浮動小卡：一定不透明 */
             --radius:       14px;      /* 編輯感：收斂圓角 */
             --radius-lg:    18px;
+            /* ---- 動效 ----
+               ★ 抽成變數不是為了少打字，是為了讓「整站的動效感覺」
+               變成一個可以調的旋鈕。散在各處寫死的話，想把全站調快一點
+               就得一個一個找，而漏掉的那幾個會變成「有些地方比較慢」——
+               沒有人說得出哪裡怪，但就是不整齊。
+               三個時間刻度：按下（很快）、一般過場、換頁（最慢的那個）。 */
+            --ease:      cubic-bezier(0.22, 1, 0.36, 1);   /* 快出慢收，收尾不會硬停 */
+            --dur-fast:  .09s;    /* 按下的回饋 */
+            --dur-base:  .18s;    /* 一般的顏色／位移過場 */
+            --dur-page:  .32s;    /* 換分頁 */
         }
         html.dark {
             --paper:        #070b18;
@@ -240,7 +250,7 @@
         button:not([class*="transition"]),
         [data-action]:not([class*="transition"]),
         [data-tab]:not([class*="transition"]),
-        .logo-menu-item { transition: transform .09s ease; }
+        .logo-menu-item { transition: transform var(--dur-fast) var(--ease); }
         .plan-row[draggable="true"]:active { transform: none; }
         @media (prefers-reduced-motion: reduce) {
             button:active, [data-action]:active, [data-tab]:active, .logo-menu-item:active { transform: none; }
@@ -608,6 +618,48 @@
         .bg-slate-300  { background-color: #bbb3a7 !important; }                    /* 訪客 */
         .border-fuchsia-600, .border-amber-600, .border-rose-600,
         .border-slate-500, .border-slate-400 { border-color: transparent !important; }
+
+        /* ==========================================================
+           A2：`transition-all` 只過場「不會觸發重新排版」的屬性
+
+           ★ 原始碼裡有 70 處 `transition-all`。它的字面意思是
+           **對每一個會變的屬性做過場**，包含 `width`／`height`／`top`／`margin`
+           這些每一幀都會逼瀏覽器重算版面的屬性。在手機上這是掉幀最常見的
+           來源，而且**不會報錯**，只是「滑起來有點頓」。
+
+           ★ 為什麼不是一個一個改那 70 處：那要判斷七十次「這裡到底會變什麼」，
+           判斷錯不會報錯（動畫少一個屬性，看起來只是「怪怪的」），
+           而且下一個人寫 `transition-all` 又回到原點。
+           在這裡接管一次，跟 `.border-2 → 1px`、`.shadow-* → 極淡` 同一個作法。
+
+           這份清單就是 Tailwind 原生 `transition`（不帶 -all）的屬性清單：
+           只有顏色類、`opacity`、`box-shadow`、`transform`、`filter`——
+           全部都是**不會觸發排版**的。
+           ========================================================== */
+        .transition-all {
+            transition-property: color, background-color, border-color,
+                text-decoration-color, fill, stroke, opacity, box-shadow,
+                transform, filter, backdrop-filter !important;
+        }
+
+        /* ==========================================================
+           A5：全螢幕遮罩不做背景模糊
+
+           ★ 21 處 `backdrop-blur` 全部都在彈出視窗的全螢幕遮罩上，
+           而那些遮罩是 `bg-slate-900/90`——**九成不透明**。
+           也就是說模糊掉的是剩下那一成，幾乎看不見，
+           但 `backdrop-filter` 是手機 GPU 成本最高的效果之一，
+           而且是**整個畫面**那麼大一塊。付了全額，拿到接近零的視覺。
+
+           ★ 不動 HTML 的理由跟上面一樣：改 21 處會漏，而且下一個人
+           複製一個既有的彈窗又會帶回來。
+           小卡片（帳號選單、查字小卡）本來就不靠模糊——設計系統早就
+           把它們設成不透明的 `--panel` 了。
+           ========================================================== */
+        .backdrop-blur-sm, .backdrop-blur-md, .backdrop-blur {
+            -webkit-backdrop-filter: none !important;
+            backdrop-filter: none !important;
+        }
 
         /* ---- 陰影：紙張只要極淡的落影 ----
            ★ HTML 裡有五十幾處 shadow-xl／shadow-2xl，看起來像跟「一律細線」
@@ -1959,7 +2011,7 @@
                                 <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">本月支出</div><div id="expExpense" class="text-lg font-black text-rose-400">$0</div></div>
                                 <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">結餘</div><div id="expBalance" class="text-lg font-black text-white">$0</div></div>
                             </div>
-                            <button data-action="open-expense-modal" class="mt-4 px-5 py-2.5 bg-emerald-500 text-white rounded-2xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增一筆</button>
+                            <button id="openExpenseModalBtn" data-action="open-expense-modal" class="mt-4 px-5 py-2.5 bg-emerald-500 text-white rounded-2xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增一筆</button>
                         </div>
                     </div>
                     <div class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
@@ -1981,7 +2033,7 @@
                                 <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">損益</div><div id="invPnl" class="text-lg font-black text-white">$0</div></div>
                             </div>
                             <div class="mt-4 flex flex-wrap gap-2">
-                                <button data-action="open-holding-modal" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增持倉</button>
+                                <button id="openHoldingModalBtn" data-action="open-holding-modal" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增持倉</button>
                                 <button data-action="open-trade-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="repeat" class="w-4 h-4 pointer-events-none"></i> 記錄交易</button>
                                 <button data-action="open-watch-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i> 新增筆記</button>
                                 <button id="refreshPricesBtn" data-action="refresh-prices" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> 更新現價</button>
@@ -3012,6 +3064,37 @@
         const setVals = (pairs) => Object.entries(pairs).forEach(([id, v]) => { const el = $(id); if (el) el.value = v; });
         const bind = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
 
+        /* ==========================================================
+         * A6：空狀態
+         *
+         * ★ 只講「沒有」的空狀態，對第一次進來的人來說就是一面牆：
+         * 他看到「目前沒有課程喔」，但**不知道接下來能做什麼**，
+         * 也不知道是「還沒有人建」還是「我沒有權限看」。
+         * 而空清單正好是新使用者看到的**主要畫面**。
+         *
+         * 三段式：一句話說明 ＋（可選）一句為什麼 ＋（可選）一顆下一步。
+         *
+         * ★ 那顆按鈕**不另外寫一套流程**，它只是去按畫面上原本就有的那顆
+         * （`clickId`）。理由有兩個：
+         *   1. 寫第二套的話兩邊的驗證與權限判斷遲早分岔，而分岔不會報錯
+         *   2. 原本那顆按鈕本來就會依權限隱藏——所以只要「它不存在或被藏起來
+         *      就不畫這顆」，權限判斷自動跟著走，不必在這裡再抄一次。
+         *      少了這一層的話，一個見習生會看到「新增自學課程」，
+         *      按下去卻什麼都不會發生。
+         * ========================================================== */
+        function emptyState({ text, hint = '', clickId = '', label = '' }) {
+            const target = clickId ? $(clickId) : null;
+            const usable = !!(target && !target.classList.contains('hidden'));
+            const btn = (usable && label)
+                ? `<div class="mt-4"><button data-action="click-el" data-el="${escapeHTML(clickId)}"
+                       class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors border border-emerald-100">${escapeHTML(label)}</button></div>`
+                : '';
+            return `<div class="col-span-full text-center py-10 bg-white rounded-3xl border border-slate-100">
+                <div class="text-slate-400 font-medium">${escapeHTML(text)}</div>
+                ${hint ? `<div class="text-xs text-slate-300 font-medium mt-1.5">${escapeHTML(hint)}</div>` : ''}
+                ${btn}</div>`;
+        }
+
         function escapeHTML(str) {
             if (!str) return"";
             return String(str)
@@ -3122,6 +3205,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-16',
+                title: '空清單會告訴你下一步，動畫也不再拖累手機',
+                items: [
+                    ['空的清單不再只說「沒有」', '以前打開一個還沒有東西的頁面，看到的就是一句「目前沒有課程喔」——但那句話沒回答兩個真正的問題：接下來我能做什麼、還有這是還沒有人建立還是我沒有權限看。而空清單正好是第一次來的人看到的主要畫面。現在每一個空狀態都是三段：一句話說明、一句為什麼是空的、以及一顆「現在就做」的按鈕。★ 那顆按鈕不另外寫一套流程，它只是去按畫面上原本就有的那一顆——寫第二套的話兩邊的驗證與權限判斷遲早會分岔，而分岔不會報錯。順帶好處是權限判斷自動跟著走：原本那顆按鈕本來就會依階級隱藏，所以只要它藏起來，空狀態上這一顆也不會出現，不會有人看到一顆按了沒反應的按鈕。'],
+                    ['★ 過場動畫不再對「會改變版面的東西」動手', '原始碼裡有七十處寫著「所有屬性都做過場」。字面上就是所有屬性——包含寬度、高度、位置這些每一幀都會逼瀏覽器重算整個版面的。在手機上這是畫面卡頓最常見的來源，而且不會報錯，只是滑起來有點頓。這次沒有一處一處去改那七十個地方（要判斷七十次「這裡到底會變什麼」，判斷錯了不會報錯，而且下一個人照樣會寫回來），改成在樣式表裡一次接管，只留顏色、透明度、陰影、變形這些不會動到版面的。跟以前把邊框和陰影統一收斂是同一個作法。'],
+                    ['★ 彈出視窗的背景模糊全部關掉', '二十一處背景模糊全都在彈出視窗的全螢幕遮罩上，而那些遮罩本身就有九成不透明——也就是說被模糊掉的只有剩下那一成，幾乎看不見。但背景模糊是手機上最耗顯示晶片的效果之一，而且面積是整個畫面。付了全額，拿到接近零的視覺。關掉的寫法特地帶了 Safari 需要的前綴：只寫標準寫法的話 iPhone 上照樣模糊，而 iPhone 正是這個站主要的使用場景。'],
+                    ['動畫的時間與曲線變成三個可以調的旋鈕', '以前每一段動畫各自寫死秒數與曲線。抽成變數不是為了少打字，是為了讓「整站的動效感覺」變成一個能調的東西——散在各處的話，想把全站調快一點就得一個一個找，而漏掉的那幾個會變成「有些地方比較慢」，沒有人說得出哪裡怪但就是不整齊。現在是三個刻度：按下、一般過場、換分頁。'],
+                    ['★ 寫測試時抓到一個只有部分人會遇到的漏洞', '空狀態那個共用函式，如果哪天有人把其中一個呼叫打錯字，數量只少一個、還在測試的門檻之上，測試會照樣綠——而那一頁只會在「清單剛好是空的那一刻」才出錯，也就是只有部分使用者遇得到。所以另外加了一條「不能有拼錯的名字」。這一條是故意把程式弄壞之後發現「兩支測試都沒紅」才補的。']
+                ]
+            },
             {
                 date: '2026-08-15',
                 title: '介面細節：鍵盤看得到焦點、手機按得到回饋',
@@ -3745,14 +3839,18 @@
         function renderNews() {
             const filtered = state.news.filter(n => n.category === currentActiveNewsTab);
             $('newsList').innerHTML = filtered.length === 0
-                ? `<div class="text-center py-10 text-slate-400 font-medium bg-slate-50 rounded-2xl border border-slate-100">這個分類目前沒有最新消息！</div>`
+                ? emptyState({ text:'這個分類目前沒有最新消息。',
+                               hint:'消息由巫醫以上發布，可以切換上面的分類看看。',
+                               clickId:'addNewsBtn', label:'發一則消息' })
                 : filtered.map(n => renderListItem({ icon:'bell-ring', iconColor:'text-emerald-400', title: n.title, url: n.url, hoverColor:'text-emerald-600', deleteType:'news', id: n.id })).join('');
             icons();
         }
 
         function renderQuickLinks() {
             $('quickLinksList').innerHTML = state.links.length === 0
-                ? `<div class="text-center py-10 text-slate-400 font-medium bg-slate-50 rounded-2xl border border-slate-100">還沒有常用連結！</div>`
+                ? emptyState({ text:'還沒有常用連結。',
+                               hint:'這裡放系上常用的網頁，例如教務系統、課程網。',
+                               clickId:'addLinkBtn', label:'新增第一個連結' })
                 : state.links.map(l => renderListItem({ icon:'link', iconColor:'text-blue-400', title: l.title, url: l.url, hoverColor:'text-blue-600', deleteType:'quickLink', id: l.id })).join('');
             icons();
         }
@@ -5317,7 +5415,11 @@
         function renderCourseGrid() {
             const grid = $('courseGrid');
             if (state.courses.length === 0) {
-                grid.innerHTML ='<div class="col-span-full text-center py-10 text-slate-400 bg-white rounded-3xl border border-slate-100">小黑貓還在抓老鼠，目前沒有課程喔。</div>';
+                /* 課程是匯入或由巫醫以上新增的，一般人幫不上忙——
+                   所以這裡不給按鈕，改成講清楚「在等誰」。 */
+                grid.innerHTML = emptyState({
+                    text:'小黑貓還在抓老鼠，目前沒有課程喔。',
+                    hint:'課程由巫醫以上從教務系統匯入或手動新增。' });
                 return;
             }
             const filtered = state.courses.filter(c => {
@@ -5637,7 +5739,10 @@
         function renderSelfStudyCourses() {
             const grid = $('ssCourseGrid');
             if (state.ssCourses.length === 0) {
-                grid.innerHTML ='<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">目前還沒有自學課程。</div>';
+                grid.innerHTML = emptyState({
+                    text:'目前還沒有自學課程。',
+                    hint:'自學課程是整理好的單元教材，由管理員建立。',
+                    clickId:'addSelfStudyCourseBtn', label:'建立第一門自學課程' });
                 return;
             }
             grid.innerHTML = state.ssCourses.map(c => `
@@ -5661,7 +5766,10 @@
             if (!currentViewSSCourseId) return;
             const units = state.ssUnits.filter(u => u.courseId === currentViewSSCourseId);
             if (units.length === 0) {
-                $('ssUnitList').innerHTML ='<div class="text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個課程還沒有任何單元，等星族來補充</div>';
+                $('ssUnitList').innerHTML = emptyState({
+                    text:'這個課程還沒有任何單元。',
+                    hint:'單元裡可以放影片、雲端筆記、作業與解答的連結。',
+                    clickId:'addSelfStudyUnitBtn', label:'新增第一個單元' });
                 return;
             }
             const linkBtn = (url, icon, label, color) => url
@@ -5987,7 +6095,9 @@
                     </div>`).join('');
 
             $('expenseList').innerHTML = state.expenses.length === 0
-                ?'<div class="text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有任何紀錄，按上方「新增一筆」開始記帳</div>'
+                ? emptyState({ text:'還沒有任何紀錄。',
+                               hint:'記帳資料只有你自己看得到，管理員也讀不到。',
+                               clickId:'openExpenseModalBtn', label:'記第一筆' })
                 : state.expenses.slice(0, 100).map(e => `
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
                         <div class="min-w-0">
@@ -6025,7 +6135,9 @@
                     </div>`).join('');
 
             $('holdingList').innerHTML = hs.length === 0
-                ?'<div class="text-center py-8 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">還沒有持倉，按「新增持倉」開始追蹤</div>'
+                ? emptyState({ text:'還沒有持倉。',
+                               hint:'登錄之後按「更新現價」會帶入台股與美股的參考價。',
+                               clickId:'openHoldingModalBtn', label:'新增第一筆持倉' })
                 : hs.map(h => {
                     const c = (h.qty || 0) * (h.cost || 0), v = (h.qty || 0) * (h.price || h.cost || 0), p = v - c;
                     return `<div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
@@ -6041,7 +6153,8 @@
                     </div>`; }).join('');
 
             $('tradeList').innerHTML = state.trades.length === 0
-                ?'<div class="text-center py-8 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">還沒有交易紀錄</div>'
+                ? emptyState({ text:'還沒有交易紀錄。',
+                               hint:'買賣紀錄會用來算成本與損益。' })
                 : state.trades.slice(0, 100).map(t => `
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
                         <div class="min-w-0">
@@ -6052,7 +6165,8 @@
                     </div>`).join('');
 
             $('watchList').innerHTML = state.watchlist.length === 0
-                ?'<div class="text-center py-8 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">還沒有投資筆記</div>'
+                ? emptyState({ text:'還沒有投資筆記。',
+                               hint:'記下當時為什麼買、為什麼賣，之後回頭看很有用。' })
                 : state.watchlist.map(w => `
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
                         <div class="flex justify-between items-start gap-2">
@@ -7370,7 +7484,9 @@
                 : (q.trim() ? `${list.length} / ${all.length} 位` : `共 ${all.length} 位`);
 
             if (all.length === 0) {
-                container.innerHTML ='<div class="text-center py-10 text-slate-400">目前沒有其他貓咪...</div>';
+                container.innerHTML = emptyState({
+                    text:'名冊上目前只有你一位。',
+                    hint:'有人註冊之後就會出現在這裡，可以在這裡指派階位。' });
                 return;
             }
             if (list.length === 0) {
@@ -8101,6 +8217,9 @@
 'toggle-class-reminder': () => toggleClassReminder(),
 'edit-plan':   (t) => openPlanModal(t.dataset.id),
 'add-plan-zone': (t) => openPlanModal(null, t.dataset.zone),
+            /* 空狀態上那顆「下一步」。★ 它不做事，只是去按畫面上原本就有的
+               那顆按鈕——寫第二套流程的話兩邊遲早分岔，而分岔不會報錯。 */
+'click-el': (t) => { const el = $(t.dataset.el); if (el) el.click(); },
 'delete-plan': (t) => deletePlan(t.dataset.id),
 'toggle-plan': (t) => togglePlanDone(t.dataset.id, t.dataset.occ),
 'edit-countdown':   (t) => openCountdownModal(t.dataset.id),
