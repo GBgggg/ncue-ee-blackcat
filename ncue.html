@@ -43,35 +43,71 @@
              cat-icon 這個 class，是條永遠不會生效的死規則，已移除。） */
         .paw-print { opacity: 0.1; position: absolute; z-index: 0; }
 
-        /* Kahoot 選項按鈕 */
-        .kahoot-btn { transition: all 0.2s; }
-        .kahoot-btn:active { transform: scale(0.95); }
+        /* ==========================================================
+           測驗作答畫面：紙上的考卷，不是 Kahoot 的四色大按鈕
+           ★ 換掉的理由不是「比較好看」。原本四顆飽和色塊（bg-*-500、
+           border-b-8、整片墨底）是全站唯一一處這種語彙，跟紙墨設計系統
+           格格不入；更麻煩的是**顏色本身不帶資訊**——每題都是紅黃藍綠，
+           看久了會誤以為顏色代表某種分類。改成中性的字母圓圈之後，
+           顏色只在「作答之後」才出現，那一刻它才真的在說事情。
+           ★ 字母用 A～D 不用 1～4：選項本來就是 ABCD，用數字會跟
+           「第幾題」的編號在同一個畫面上互相干擾。
 
-        /* 作答後的回饋色。
-           這三個 class 之前只存在於 JS——CSS 從來沒寫過。而且 JS 在加上它們
-           之前，會先把按鈕原本的 bg-*-500 用正規表示式拿掉，所以答完題四個
-           選項會一起失去底色，只剩 text-white 的白字浮在淺色面板上，等於整排
-           選項瞬間看不見。這是這份檔案第三次踩到同一件事：「引用了一個不存在
-           的 CSS 名字，瀏覽器不會有任何抱怨」。
+           ★ 回饋色沿用上一版量過的兩色（正解金 #d1a03c、答錯暗紅 #7d2b26）。
+           全站不用綠色，正解若跟著主色走會變磚紅，跟答錯的暗紅分不出來。
+           實測 ΔE：金↔暗紅 49、金↔淡出 58、暗紅↔淡出 39，都遠高於 15。
+           ★ 但**暗紅只能當底色，不能直接當文字色**：壓在深色模式的
+           深藍紙上對比只有 2.3，等於看不見。深色模式下文字另外取亮一階
+           的同色系。上一版就是只在淺色模式下看過就收工，這裡不再重演。
+           ========================================================== */
+        .quiz-opt {
+            display: flex; align-items: center; gap: 14px;
+            width: 100%; padding: 10px; text-align: left;
+            background: transparent; border: 0; border-radius: var(--radius);
+            transition: background var(--dur-base) var(--ease),
+                        opacity var(--dur-base) var(--ease);
+        }
+        .quiz-opt-letter {
+            flex: 0 0 auto;
+            width: 46px; height: 46px; border-radius: 9999px;
+            border: 1.5px solid var(--accent); color: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-weight: 800; font-size: 1.05rem; line-height: 1;
+            transition: background var(--dur-base) var(--ease),
+                        border-color var(--dur-base) var(--ease),
+                        color var(--dur-base) var(--ease);
+        }
+        .quiz-opt-text {
+            flex: 1; min-width: 0;
+            color: var(--ink-2); font-size: 1rem; line-height: 1.45;
+            overflow-wrap: anywhere;
+        }
+        /* 手機沒有 hover，這條在那裡是死的；包起來免得觸控時黏著底色不退 */
+        @media (hover: hover) { .quiz-opt:hover { background: var(--accent-soft); } }
 
-           配色照原本註解的意圖：正解金、答錯暗紅。全站不用綠色，正解若跟著
-           主色走會變磚紅，跟答錯的暗紅分不出來。實測 ΔE：金↔暗紅 49、
-           金↔淡出 58、暗紅↔淡出 39，都遠高於 15 的可辨識門檻；金對站台主色
-           也有 32。金色底配深字對比 7.4，另外兩色配白字 9.4／9.5。 */
-        .kahoot-btn.kahoot-correct {
-            background-color: #d1a03c !important;
-            border-color: #8a6620 !important;
-            color: #1a1815 !important;
-        }
-        .kahoot-btn.kahoot-wrong {
-            background-color: #7d2b26 !important;
-            border-color: #4f1b17 !important;
-            color: #fff !important;
-        }
-        .kahoot-btn.kahoot-muted {
-            background-color: #4a453e !important;
-            border-color: #33302b !important;
-            color: rgba(255, 255, 255, .82) !important;
+        .quiz-opt.is-correct { background: rgba(209, 160, 60, .16); }
+        .quiz-opt.is-correct .quiz-opt-letter { background: #d1a03c; border-color: #8a6620; color: #1a1815; }
+        .quiz-opt.is-correct .quiz-opt-text  { color: var(--ink); font-weight: 800; }
+        .quiz-opt.is-wrong   { background: rgba(125, 43, 38, .12); }
+        .quiz-opt.is-wrong .quiz-opt-letter  { background: #7d2b26; border-color: #4f1b17; color: #fff; }
+        .quiz-opt.is-wrong .quiz-opt-text    { color: #7d2b26; text-decoration: line-through; }
+        html.dark .quiz-opt.is-wrong .quiz-opt-text { color: #e59892; }
+        .quiz-opt.is-muted { opacity: .38; }
+
+        /* 作答畫面是整頁接管，底色一定要不透明。
+           不能借 .bg-white——它在深色模式是半透明的 --paper-raised，
+           滿版鋪開會透出底下的頁面。 */
+        .quiz-screen { background: var(--paper); }
+
+        /* 進度條取代原本的「1 / 5」膠囊：還剩多少是用看的，不是用算的 */
+        .quiz-bar { height: 8px; border-radius: 9999px; background: var(--paper-sunk); overflow: hidden; }
+        .quiz-bar-fill { height: 100%; border-radius: 9999px; background: var(--accent-fill);
+            transition: width var(--dur-page) var(--ease); }
+        .quiz-qnum {
+            flex: 0 0 auto; width: 28px; height: 28px; margin-top: 3px;
+            border-radius: 9999px; background: var(--accent-fill); color: #fff;
+            display: flex; align-items: center; justify-content: center;
+            font-size: .8rem; font-weight: 800; line-height: 1;
         }
 
         /* 隱藏捲軸但保留滑動功能 */
@@ -2707,24 +2743,37 @@
     </div>
 
     <!-- 測驗遊玩畫面 -->
-    <div id="playKahootModal" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-start md:justify-center p-4 overflow-y-auto pt-20 md:pt-4">
-        <button id="quitKahootBtn" class="absolute top-4 left-4 md:top-6 md:left-6 w-10 h-10 md:w-12 md:h-12 bg-red-500 text-white rounded-full flex items-center justify-center transition-all shadow-lg hover:bg-red-600 z-50 border-2 border-red-700">
-            <i data-lucide="x" class="w-5 h-5 md:w-6 md:h-6 pointer-events-none"></i>
-        </button>
-        <div class="w-full max-w-4xl flex flex-col my-auto h-auto min-h-min pb-8">
-            <div class="flex justify-between items-center mb-4 md:mb-8 text-slate-300 font-bold px-2 md:px-4">
-                <span id="kahootProgress" class="text-sm md:text-lg bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full">1 / 5</span>
-                <span id="kahootScoreDisplay" class="text-sm md:text-lg bg-slate-800 px-3 py-1.5 md:px-4 md:py-2 rounded-full text-emerald-400">分數: 0</span>
+    <div id="playKahootModal" class="quiz-screen fixed inset-0 z-50 hidden flex-col items-center overflow-y-auto">
+        <div class="w-full max-w-2xl flex flex-col px-4 pt-5 pb-12">
+            <!-- 頂欄：離開、進度條、題號／分數。
+                 離開鍵從原本的紅色圓底改成純圖示——它是這個畫面唯一的
+                 破壞性操作，卻是唯一有顏色的東西，等於在請人按它。 -->
+            <div class="flex items-center gap-3 mb-7 shrink-0">
+                <button id="quitKahootBtn" class="shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-slate-500" aria-label="離開測驗">
+                    <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
+                </button>
+                <div class="quiz-bar flex-1">
+                    <div id="kahootProgressBar" class="quiz-bar-fill" style="width: 0%"></div>
+                </div>
+                <div class="shrink-0 text-right leading-tight">
+                    <div id="kahootProgress" class="text-sm font-black text-slate-900">1 / 5</div>
+                    <div id="kahootScoreDisplay" class="text-[11px] font-bold text-slate-400">分數 0</div>
+                </div>
             </div>
-            <div class="bg-white rounded-[2rem] p-6 sm:p-8 md:p-12 shadow-2xl mb-4 md:mb-8 min-h-[140px] md:min-h-[200px] flex items-center justify-center mx-2 md:mx-4 shrink-0">
-                <h2 id="kahootQuestionDisplay" class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black text-slate-900 leading-tight text-center break-words w-full">載入中...</h2>
+
+            <!-- 題目左對齊、前面掛編號。置中的大字在長題目上會排成
+                 一團梯形，眼睛每一行都要重新找起點。 -->
+            <div class="flex items-start gap-3 mb-6 shrink-0">
+                <span id="kahootQNum" class="quiz-qnum">1</span>
+                <h2 id="kahootQuestionDisplay" class="flex-1 min-w-0 text-xl md:text-2xl font-black text-slate-900 leading-snug break-words">載入中...</h2>
             </div>
-            <div id="kahootOptionsGrid" class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mx-2 md:mx-4">
-                <!-- JS 依每題實際選項數動態生成按鈕 -->
+
+            <div id="kahootOptionsGrid" class="flex flex-col gap-1">
+                <!-- JS 依每題實際選項數動態生成 A～D -->
             </div>
             <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
-            <div id="kahootNextWrap" class="hidden mx-2 md:mx-4 mt-4 md:mt-6">
-                <button id="kahootNextBtn" class="w-full py-4 md:py-5 bg-white text-slate-900 rounded-2xl font-black text-lg md:text-xl shadow-2xl hover:bg-slate-100 transition-all flex items-center justify-center gap-2">
+            <div id="kahootNextWrap" class="hidden mt-7">
+                <button id="kahootNextBtn" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
                     <span id="kahootNextLabel">下一題</span>
                     <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
                 </button>
@@ -2965,12 +3014,9 @@
         ];
 
         const MAX_KAHOOT_QUESTIONS = 50;
-        // 選項預設一律中性灰，靠左邊的 1～4 編號區分。
-        // 這樣答題時顏色不帶暗示，作答後才用綠（正解）／紅（你選錯的）給回饋，
-        // 對比才清楚——先前第 4 個選項預設就是綠色，答錯時畫面會出現兩顆綠。
-        const KAHOOT_OPTS = [
-            { color:'slate' }, { color:'slate' }, { color:'slate' }, { color:'slate' }
-        ];
+        // 選項的字母。原本這裡是一張顏色表（KAHOOT_OPTS），四個選項各配一個
+        // Tailwind 色階；現在選項本身不帶顏色，只用字母區分，顏色留給回饋。
+        const KAHOOT_LETTERS = ['A','B','C','D'];
 
         const timeSlots = [
             { id: 1, label:'1', timeStr:'08:10-<br>09:00', start: 8 * 60 + 10, end: 9 * 60 },
@@ -3288,6 +3334,18 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-20',
+                title: '測驗改成考卷的樣子，不再是四色大按鈕',
+                items: [
+                    ['選項變成 A、B、C、D', '原本四個選項是四塊飽和色的大方塊。問題不在好不好看，在於那四個顏色**不帶任何資訊**——每一題都是同樣的紅黃藍綠，看久了會誤以為顏色代表某種分類。現在選項是一排字母圓圈，答題時整個畫面沒有顏色，顏色只在你按下去之後才出現，那一刻它才真的在說事情。'],
+                    ['題目改成左對齊，前面掛編號', '置中的大字在題目長一點的時候會排成一團梯形，每讀一行眼睛都要重新找起點。改成左對齊之後行首是對齊的，長題目也照樣好讀。'],
+                    ['上面多了一條進度條', '以前是「3 / 10」一個膠囊，還剩多少要自己算。現在還剩多少是用看的。進度條量的是「答完幾題」，所以第一題在最左邊——填成 1/10 的話等於還沒作答就先送一格。'],
+                    ['鍵盤可以直接按 A 到 D', '畫面上寫 A～D，鍵盤就該能按 A～D。原本的 1～4 也留著，那是上一版的習慣，拿掉會讓人以為壞了。'],
+                    ['★ 順手拆掉一顆定時炸彈', '舊版給答題回饋的方式，是先用正規表示式把按鈕上的 bg-*-500 從 class 字串裡拔掉，再補上回饋色。只要哪天按鈕的寫法換一種，那條正規表示式就會靜靜失效或誤刪別的東西，而畫面不會有任何錯誤訊息——這份檔案已經在「引用了不存在的樣式名字」上摔過三次。現在三個狀態各自是一個真的存在的樣式類別，不再改寫字串。'],
+                    ['★ 回饋色在深色模式下重新確認過', '答錯的暗紅拿來當底色沒問題，但**直接當文字色**壓在深色模式的深藍紙上，對比只有 2.3，等於看不見。深色模式下文字另外取亮一階的同色系。上一版就是只在淺色模式下看過就收工。']
+                ]
+            },
             {
                 date: '2026-08-19',
                 title: '空清單上面那隻浮動的貓拿掉了',
@@ -5727,7 +5785,7 @@
                 const q = reviewQuestions[reviewWizardStep - 1];
 
                 const scoreBtn = (i, extraClass ='') => `
-                    <button data-action="set-review-score" data-score="${i + 1}" class="kahoot-btn py-5 ${reviewBtnColors[i]} text-white rounded-2xl font-black shadow-md border-b-[6px] flex flex-col items-center justify-center gap-2 leading-tight ${extraClass}">
+                    <button data-action="set-review-score" data-score="${i + 1}" class="transition-all py-5 ${reviewBtnColors[i]} text-white rounded-2xl font-black shadow-md border-b-[6px] flex flex-col items-center justify-center gap-2 leading-tight ${extraClass}">
                         <div class="flex items-center gap-2 pointer-events-none">${reviewShapes[i]} <span class="text-2xl">${i + 1}</span></div>
                         <span class="text-sm pointer-events-none opacity-90">${reviewLabels[q.id][i]}</span>
                     </button>`;
@@ -7281,23 +7339,24 @@
         // 依題目實際選項數生成按鈕（2～4 個都支援）
         function renderPlayOptions(qData) {
             const grid = $('kahootOptionsGrid');
-            grid.innerHTML = (qData.options || []).map((opt, i) => {
-                const o = KAHOOT_OPTS[i] || KAHOOT_OPTS[0];
-                return `
-                <button data-action="submit-kahoot" data-index="${i}" id="playOpt${i}"
-                    class="kahoot-btn p-4 md:py-10 bg-${o.color}-500 text-white rounded-2xl font-black text-lg md:text-2xl lg:text-3xl shadow-lg border-b-4 md:border-b-8 border-${o.color}-700 hover:bg-${o.color}-400 flex items-center gap-3 md:gap-4 transition-all min-h-[70px] md:min-h-[120px]">
-                    <span class="shrink-0 w-7 h-7 md:w-9 md:h-9 rounded-lg bg-white/25 text-base md:text-xl flex items-center justify-center pointer-events-none">${i + 1}</span>
-                    <span class="pointer-events-none text-left flex-1 break-words leading-tight">${escapeHTML(opt)}</span>
-                </button>`;
-            }).join('');
+            grid.innerHTML = (qData.options || []).map((opt, i) => `
+                <button data-action="submit-kahoot" data-index="${i}" id="playOpt${i}" class="quiz-opt">
+                    <span class="quiz-opt-letter pointer-events-none">${KAHOOT_LETTERS[i] || (i + 1)}</span>
+                    <span class="quiz-opt-text pointer-events-none">${escapeHTML(opt)}</span>
+                </button>`).join('');
         }
 
         function renderPlayQuestion() {
             $('kahootNextWrap').classList.add('hidden');
             if (!activeKahoot || currentQIndex >= playQuestions.length) return showKahootResult();
             const qData = playQuestions[currentQIndex];
-            $('kahootProgress').textContent = `${currentQIndex + 1} / ${playQuestions.length}`;
-            $('kahootScoreDisplay').textContent = `分數: ${currentScore}`;
+            const total = playQuestions.length;
+            $('kahootProgress').textContent = `${currentQIndex + 1} / ${total}`;
+            // 進度條量的是「答完幾題」，所以第一題在 0%——填到 1/N 的話
+            // 還沒作答就先給了一格，最後一題又會滿格，兩端都在說謊。
+            $('kahootProgressBar').style.width = `${total ? currentQIndex / total * 100 : 0}%`;
+            $('kahootScoreDisplay').textContent = `分數 ${currentScore}`;
+            $('kahootQNum').textContent = currentQIndex + 1;
             $('kahootQuestionDisplay').textContent = qData.q;
             renderPlayOptions(qData);
         }
@@ -7312,25 +7371,23 @@
             if (correct) currentScore++;
             playAnswers.push({ ...qData, selectedIdx, correct });
 
-            // 直接在選項上給回饋。改用專屬 class，不再靠替換 Tailwind 色階：
-            // 全站不用綠色之後，「正解」若跟著主色走就會變成磚紅，跟「答錯」的暗紅
-            // 幾乎分不出來。所以正解固定用金色、答錯用暗紅，兩者色相差夠遠。
-            document.querySelectorAll('#kahootOptionsGrid .kahoot-btn').forEach((btn, i) => {
+            // 直接在選項上給回饋。三個狀態各自是一個 class，不再去改寫
+            // className 字串——上一版為了蓋掉底色會先用正規表示式把
+            // bg-*-500 拔掉，只要哪天按鈕的 class 換個寫法，那條正規表示式
+            // 就會靜靜地失效（或誤刪別的），而畫面不會報錯。
+            document.querySelectorAll('#kahootOptionsGrid .quiz-opt').forEach((btn, i) => {
                 btn.classList.add('pointer-events-none');
-                // 先清掉原本的底色，免得殘留的 bg-*-500 蓋過回饋色
-                btn.className = btn.className.replace(/bg-\w+-500/,'').replace(/border-\w+-700/,'');
-                if (i === qData.correctIdx) {
-                    btn.classList.add('kahoot-correct','ring-4','ring-white','scale-[1.02]');
-                } else if (i === selectedIdx) {
-                    btn.classList.add('kahoot-wrong','opacity-90');
-                } else {
-                    btn.classList.add('kahoot-muted','opacity-40');
-                }
+                btn.classList.add(
+                    i === qData.correctIdx ?'is-correct' :
+                    i === selectedIdx      ?'is-wrong' :'is-muted');
             });
-            $('kahootScoreDisplay').textContent = `分數: ${currentScore}`;
+            $('kahootScoreDisplay').textContent = `分數 ${currentScore}`;
             showToast(correct ?"答對了" : `答錯了，正解是「${qData.options[qData.correctIdx]}」`);
 
             currentQIndex++;
+            // 進度條當下就推進。答錯時畫面會停住等人按「下一題」，
+            // 若等到重繪才動，那段停留看起來會像「這題不算數」。
+            $('kahootProgressBar').style.width = `${currentQIndex / playQuestions.length * 100}%`;
 
             if (correct) {
                 // 答對就快快帶過，不打斷節奏
@@ -8576,13 +8633,17 @@
                 if (waitingNext) {
                     if (e.key ==='Enter' || e.key ==='') { e.preventDefault(); kahootNext(); }
                     else if (e.key ==='Escape') quitKahoot();
-                    return;   // 停在正解畫面時不接受 1～4，避免誤觸直接跳過
+                    return;   // 停在正解畫面時不接受選項鍵，避免誤觸直接跳過
                 }
 
-                // 作答中用 1～4 直接選答案（桌機用滑鼠點大按鈕太慢）
-                if (/^[1-4]$/.test(e.key) && !isKahootTransitioning) {
-                    const idx = Number(e.key) - 1;
-                    if ($(`playOpt${idx}`)) { e.preventDefault(); submitKahootAnswer(idx); }
+                // 作答中直接按鍵選答案（桌機用滑鼠點太慢）。
+                // 畫面上寫的是 A～D，所以 A～D 一定要能按；1～4 留著是因為
+                // 這個習慣從上一版帶過來，拿掉會讓老使用者以為壞了。
+                if (!isKahootTransitioning) {
+                    const idx = /^[1-4]$/.test(e.key) ? Number(e.key) - 1
+                              : /^[a-dA-D]$/.test(e.key) ? e.key.toUpperCase().charCodeAt(0) - 65
+                              : -1;
+                    if (idx >= 0 && $(`playOpt${idx}`)) { e.preventDefault(); submitKahootAnswer(idx); }
                 }
                 if (e.key ==='Escape') quitKahoot();
             });
