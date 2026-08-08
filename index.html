@@ -638,35 +638,21 @@
         }
 
         /* ==========================================================
-           M4：空狀態的小黑貓
+           M4：空狀態的小黑貓 —— **已移除（2026-08-08）**
 
-           ★ 沒有引入任何新素材。開站畫面那隻貓已經是手刻的十格 2D 動畫，
-           這裡用 <use> 參照它的**第一格**——多出來的位元組是一個
-           `<use href="#catFrame1">`，大約六十個字元。
-           （`#splash` 收起來用的是 visibility:hidden，元素還在 DOM 裡，
-             所以參照得到。改成把它 remove() 的話這裡會變成空白，
-             而且不會報錯——那是這一段唯一的地雷。）
+           曾經在這裡：空狀態上方放一隻 84×40 的貓（`<use>` 參照開站那隻的
+           第一格），做 2.6 秒的上下浮動。撤掉的理由是使用者看了實際畫面
+           之後不要它——空狀態真正要傳達的是「你接下來可以做什麼」，
+           那句話與那顆按鈕才是主角，一隻會動的貓在旁邊是在搶注意力。
 
-           ★ 不播十格奔跑，只做一個很慢的上下浮動：空狀態要的是
-           「有人情味但不吵」，一隻在空頁面上全速狂奔的貓會把注意力
-           從那句「你可以做什麼」上面搶走。
-           transform 走合成器，不會逼版面重算。
+           ★ 留下的東西：開站那隻貓**完全沒有被動到**（`#splash` 那一段），
+           `catFrame1` 這個 id 也留著。留 id 是因為它本來就是那條 path 的
+           識別，拿掉只是製造一次無謂的 diff；而且日後若要在別處參照，
+           不必再回頭改開站畫面那段 SVG。
+
+           ★ 這一段紀錄不刪：下一個想「在空狀態放個插圖」的人（包括我自己）
+           應該先知道這件事被做過、也被撤回過，以及撤回的理由不是技術問題。
            ========================================================== */
-        /* ★ 尺寸與 viewBox 都照**貓自己的外框**，不是那個 326×326 的舞台。
-           舞台那個尺寸是給「繞著 logo 轉圈」用的，貓在裡面只佔 75×29
-           （量出來的），整個沿用的話貓會被縮成大約 15px 寬、黏在上緣，
-           看起來像一個灰色小污點——實際開瀏覽器才看見。
-           寬高比也照貓的（約 2:1），不然上下會留一大片空白。 */
-        .empty-cat {
-            width: 84px; height: 40px; display: block; margin: 0 auto 10px;
-            color: var(--ink-3); opacity: .55;
-            animation: catBob 2.6s var(--ease) infinite;
-        }
-        .empty-cat use { fill: currentColor; }
-        @keyframes catBob {
-            0%, 100% { transform: translateY(0) }
-            50%      { transform: translateY(-7%) }
-        }
 
         /* ==========================================================
            M5：打勾的動畫
@@ -693,7 +679,6 @@
             to   { clip-path: inset(0 0 0 0) }
         }
         @media (prefers-reduced-motion: reduce) {
-            .empty-cat { animation: none !important; }
             .plan-check-pop, .plan-check-pop svg { animation: none !important; }
         }
 
@@ -3176,19 +3161,18 @@
          *      少了這一層的話，一個見習生會看到「新增自學課程」，
          *      按下去卻什麼都不會發生。
          * ========================================================== */
-        function emptyState({ text, hint = '', clickId = '', label = '', cat = true }) {
+        /* ★ 沒有插圖。曾經在文字上方放過一隻浮動的貓（M4），撤掉了——
+           理由記在樣式表那一段「M4：空狀態的小黑貓 —— 已移除」。
+           這裡不留 `cat` 參數：留一個永遠是 false 的開關，
+           下一個人會以為它還能開，然後花時間找那隻不存在的貓。 */
+        function emptyState({ text, hint = '', clickId = '', label = '' }) {
             const target = clickId ? $(clickId) : null;
             const usable = !!(target && !target.classList.contains('hidden'));
             const btn = (usable && label)
                 ? `<div class="mt-4"><button data-action="click-el" data-el="${escapeHTML(clickId)}"
                        class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors border border-emerald-100">${escapeHTML(label)}</button></div>`
                 : '';
-            /* ★ 貓是 <use> 參照開站畫面那一格，不是另一份素材（見 .empty-cat）。 */
-            const art = cat
-                ? `<svg class="empty-cat" viewBox="118 3 87 41" aria-hidden="true"><use href="#catFrame1"></use></svg>`
-                : '';
             return `<div class="col-span-full text-center py-10 bg-white rounded-3xl border border-slate-100">
-                ${art}
                 <div class="text-slate-400 font-medium">${escapeHTML(text)}</div>
                 ${hint ? `<div class="text-xs text-slate-300 font-medium mt-1.5">${escapeHTML(hint)}</div>` : ''}
                 ${btn}</div>`;
@@ -3304,6 +3288,15 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-19',
+                title: '空清單上面那隻浮動的貓拿掉了',
+                items: [
+                    ['為什麼拿掉', '前一版在每一個空清單上方放了一隻會慢慢上下浮的小黑貓，想讓空畫面不要那麼冷。實際用起來的結論是它在搶戲：空清單真正要講的是「你接下來可以做什麼」——那句說明和那顆按鈕才是主角，旁邊多一個一直在動的東西反而讓人先看它。所以整隻拿掉，空清單回到說明加按鈕。'],
+                    ['開站畫面那隻完全沒動', '繞著頭像轉圈的那隻還在，十格動畫、轉圈、以及系統「減少動態」時自動停下來的處理都一樣。這一版只動空清單。'],
+                    ['★ 拿掉一個東西也要驗', '拿掉功能最常見的失敗不是拿不掉，是拿了一半——畫面上沒有了，但樣式還留著（下一個人看到會以為還有），或者手滑把開站那隻一起刪掉。兩種都不會跳出錯誤。所以測試反過來釘：空清單裡真的沒有、樣式也沒有殘留、而開站那隻的每一格都還在。十種弄壞的方式全部驗過會變紅。']
+                ]
+            },
             {
                 date: '2026-08-18',
                 title: '重新發布一次（上一次卡在 GitHub 的部署佇列）',
