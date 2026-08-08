@@ -462,6 +462,65 @@
         .bg-sw-6 { background-color: #7a5a3c !important; }
         .bg-sw-7 { background-color: #4f4a3c !important; }  /* 原本的石板藍灰跟第 5 色只差 ΔE 15，換成橄欖墨拉開到 19 */
 
+        /* ==========================================================
+           計劃的五個區塊
+           ★ 原本是 `border-2 border-dashed border-slate-200`，看起來很合理，
+           但上面那批接管規則會把它吃掉：`.border-2` 被壓成 1px、
+           `.border-slate-200` 被壓成 `var(--rule)`（那是**分隔線**的顏色，
+           刻意很淡）。結果五個區塊在畫面上黏成一長條，
+           「昨日」與「今天」之間看不出界線——而這不會報錯，
+           只是分類這件事在畫面上消失了。
+
+           所以區塊不再借用 Tailwind 的顏色類別（`bg-emerald-50`、
+           `text-sky-600` 那些也一樣，會被壓成同一個磚紅或維持原廠螢光色），
+           自己一組色票，深淺色各一份，做法跟上面的 `.bg-data-*` 相同。
+
+           每一區只認一個變數 `--zone`：邊、標題、＋新增、拖曳高亮全部從它推導，
+           要換色只改一行，不會出現「邊是紫的、標題還是藍的」。
+           ========================================================== */
+        .plan-zone {
+            --zone: var(--ink-3);
+            /* 自己的顏色淡淡鋪一層。純 `--paper-sunk` 的話五區塊底色一樣，
+               只靠左邊那條槓分辨，掃過去仍然像一整塊。 */
+            background: color-mix(in srgb, var(--zone) 7%, var(--paper-sunk));
+            border: 1px solid var(--rule);
+            border-left: 4px solid var(--zone);   /* 這條槓是「這裡換一區了」最省版面的講法 */
+            border-radius: var(--radius);
+            transition: background-color var(--dur-base) var(--ease),
+                        box-shadow var(--dur-base) var(--ease);
+        }
+        /* ★ 淺色這五個比「資訊用色」那組再暗一階（今天 #b0522f → #9c4626、
+           明天 #96702f → #7f5d27）。原本那兩個直接拿來用的話，
+           壓在自己那 7% 的底色上對比只有 3.9 與 3.5——標題是 14px 粗體，
+           門檻是 4.5，等於這兩區的標題比別區難讀，而且沒有人會回報。 */
+        .plan-zone[data-zone="yesterday"] { --zone: #9c4a48; }
+        .plan-zone[data-zone="today"]     { --zone: #9c4626; }
+        .plan-zone[data-zone="tomorrow"]  { --zone: #7f5d27; }
+        .plan-zone[data-zone="week"]      { --zone: #4c5578; }
+        .plan-zone[data-zone="later"]     { --zone: #6d4a66; }
+        /* 深色模式要換一組亮的。★ 直接沿用淺色那組的話，這些暗色壓在
+           `#070b18` 的紙上對比不到 2，等於整個分類在深色模式下不存在。 */
+        html.dark .plan-zone[data-zone="yesterday"] { --zone: #d68b88; }
+        html.dark .plan-zone[data-zone="today"]     { --zone: #dc9166; }
+        html.dark .plan-zone[data-zone="tomorrow"]  { --zone: #c79a4e; }
+        html.dark .plan-zone[data-zone="week"]      { --zone: #8a94c4; }
+        html.dark .plan-zone[data-zone="later"]     { --zone: #b596c4; }
+        /* 標題與「＋新增」跟著區塊的顏色走 */
+        .plan-zone-label { color: var(--zone); }
+        .plan-zone-add {
+            background: color-mix(in srgb, var(--zone) 14%, transparent);
+            color: var(--zone);
+        }
+        .plan-zone-add:hover { background: color-mix(in srgb, var(--zone) 26%, transparent); }
+        /* ★ 拖曳高亮原本是加 `bg-slate-100`，而上面那條接管規則把
+           `.bg-slate-100` 換成 `var(--paper-sunk)`——也就是區塊原本的底色。
+           換句話說「拖到這一區」的視覺回饋是把底色換成它自己，什麼也沒發生。
+           自己一個 class，回饋做成「更濃的同色 ＋ 一圈實心內框」。 */
+        .plan-zone.is-over {
+            background: color-mix(in srgb, var(--zone) 22%, var(--paper-sunk));
+            box-shadow: inset 0 0 0 2px var(--zone);
+        }
+
         /* 金額的正負：依台股慣例，紅漲綠跌。
            這是全站唯一還留著綠色的地方——不是裝飾，是台灣使用者
            一眼就會讀的約定，換成別的顏色反而要多想一秒。
@@ -2643,6 +2702,17 @@
                          寫出來免得使用者以為「準時」是秒級的。 -->
                     <p class="text-xs text-slate-400 font-medium mt-1">通知精度約 5 分鐘（畫面上的倒數是即時的）</p>
                 </div>
+                <!-- ★ 子任務。重複計劃不能加：打勾會寫回那條規則，
+                     於是以後每一次都顯示成做完了（跟 doneOn 同一個坑）。
+                     所以下面那顆按鈕會在選了重複時關掉，存檔那一關也再擋一次。 -->
+                <div>
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <label class="text-xs font-bold text-slate-400">子任務（選填）</label>
+                        <button type="button" id="addPlanSub" data-action="add-plan-sub" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-black bg-amber-50 text-amber-600 hover:bg-amber-100 transition disabled:opacity-40">＋ 加一項</button>
+                    </div>
+                    <div id="planSubList" class="space-y-2"></div>
+                    <p id="planSubHint" class="text-xs text-slate-400 font-medium mt-1"></p>
+                </div>
                 <textarea id="planNote" maxlength="120" placeholder="備註（選填）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-medium resize-none min-h-[80px]"></textarea>
             </div>
             <div class="flex gap-3 mt-6">
@@ -3146,6 +3216,11 @@
         let subFailToastAt = 0;
         let draggingPlanId = null;
         let pendingZoneMove = null;
+        /* 編輯視窗裡「還沒按儲存」的子任務。★ 存這一份而不是每次去讀輸入框，
+           是因為新增／刪除一項都要重畫整個編輯器，重畫就會蓋掉使用者剛打的字——
+           所以任何一次重畫之前都先把輸入框的值收回這個陣列（syncPlanSubsFromInputs）。
+           一樣宣告在狀態區：openPlanModal 會碰到它。 */
+        let planModalSubs = [];
 
         /* 倒數（只記日期）。跟計劃是兩件事，刻意分開存也分開顯示：
              計劃 — 某個時間點要做某件事，會通知，倒數到秒
@@ -3334,6 +3409,19 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-21',
+                title: '計劃表：五個區塊看得出來是五區，計劃底下可以掛子任務',
+                items: [
+                    ['五個區塊終於分得開了', '「昨日／今天／明天／本周／未來」原本用一圈很淡的虛線框住，實際看起來是黏成一長條的，得靠讀標題才知道換區了。現在每一區有自己的顏色：左邊一條槓、標題與「＋新增」都跟著那個顏色走，底色也淡淡鋪一層同色。深色模式另外一組亮色，不是把淺色那組拿去用。'],
+                    ['★ 是被自己的配色系統吃掉的', '原本那個框寫的是「兩像素、虛線、淺灰」，看起來很合理。但這個網站為了一次換掉整站外觀，上面有一批規則會把這些通用類別重新定義——「兩像素」被改成一像素、「淺灰」被改成分隔線的顏色（那是刻意做得很淡的）。於是框線細到幾乎看不見，而且不會有任何錯誤訊息，畫面上東西都在，只是「分成五區」這件事消失了。同一個原因，五區原本各自指定的顏色也全被壓成同一個磚紅。現在這五區完全不借用那些通用類別。'],
+                    ['★ 拖曳到某一區的高亮其實一直沒有作用', '把計劃拖到某一區時會「換底色」表示可以放這裡，用的是淺灰底——而那個淺灰正好被改寫成區塊本來的底色。也就是說這個回饋從寫下去的那天起就等於什麼都沒發生，而且看起來完全正常。現在改成同色加深再加一圈內框。'],
+                    ['計劃底下可以列子任務', '例如「期末專題」底下掛「找題目、跑模擬、寫報告」。子任務直接列在計劃下面，不用點開，右上角有「2/3」的進度。'],
+                    ['★ 重複的計劃不能加子任務，而且是擋下來不是默默清掉', '重複計劃在畫面上是一條規則長出來的很多列，資料只有一筆。子任務的打勾寫回那一筆的話，這週三勾掉的「帶講義」以後每個週三都會顯示成做完了——沒有錯誤訊息，那件事只是安靜地不再提醒你。所以選了重複時「＋加一項」會直接關掉並寫明原因，存檔那關再擋一次。刻意不做成「幫你清掉」：安靜地丟掉剛打好的東西，比擋下來難發現得多。'],
+                    ['★ 兩個一定會出事的小地方', '一是子任務用自己的編號認人，不用位置——用位置的話，刪掉第一項之後每一項往前挪一格，接著點的那一下會勾到隔壁那一項，而畫面看起來完全正常。二是按「＋加一項」會把整塊重畫，所以重畫前一定要先把輸入框裡打到一半的字收回來，否則它就這樣消失了。'],
+                    ['顏色不是挑好看就算數', '五個顏色每一個都拿去算了對比：壓在自己那層淡底色上要有 4.5:1，深色淺色各算一次，五個顏色彼此還要拉得開。原本想直接沿用網站既有的色票，算出來有兩個只有 3.5 與 3.9——標題會比別區難讀，而這種事沒有人會回報。']
+                ]
+            },
             {
                 date: '2026-08-20',
                 title: '測驗改成考卷的樣子，不再是四色大按鈕',
@@ -4218,16 +4306,72 @@
            ★「昨日」在最上面是刻意的：那是「昨天沒做完」的東西，
            擺在最下面等於鼓勵大家忽略它，而它才是最需要處理的一批。 */
         const PLAN_ZONES = ['yesterday','today','tomorrow','week','later'];
+        /* ★ 這裡原本每一區還帶一個 `tone`（rose／emerald／amber／sky／violet），
+           用來組 `text-${tone}-600` 這類 Tailwind 類別。已經拿掉：
+           那些類別會被 <style> 的接管規則壓平，emerald 與 sky 都變成同一個磚紅，
+           sky／violet 則是原廠螢光色，跟紙墨配色格格不入。
+           現在顏色由 CSS 的 `.plan-zone[data-zone=…]` 決定，
+           留著 `tone` 只會讓下一個人以為改它有用。 */
         const PLAN_ZONE_META = {
 'yesterday': { label:'昨日', hint:'過了今天還沒打勾的。拖到其他區塊就能重新安排，放著的話明天會自動清掉',
-               addable:false, tone:'rose' },
-'today':     { label:'今天', hint:'', addable:true,  tone:'emerald' },
-'tomorrow':  { label:'明天', hint:'', addable:true,  tone:'amber' },
-'week':      { label:'本周', hint:'七天內',   addable:true, tone:'sky',    pickDate:true },
-'later':     { label:'未來', hint:'七天以後', addable:true, tone:'violet', pickDate:true }
+               addable:false },
+'today':     { label:'今天', hint:'', addable:true },
+'tomorrow':  { label:'明天', hint:'', addable:true },
+'week':      { label:'本周', hint:'七天內',   addable:true, pickDate:true },
+'later':     { label:'未來', hint:'七天以後', addable:true, pickDate:true }
         };
         /* 已完成不佔區塊，收在最下面單獨一區——它不是「待安排」的東西。 */
         const PLAN_DONE_LABEL = '已完成';
+
+        /* ==========================================================
+         * 子任務
+         *
+         * 一筆計劃底下可以掛幾個小項目（「期中考」→ 讀完第三章、寫考古題…）。
+         * 存成 `subs: [{ id, t, done }]`，跟計劃在同一份文件裡。
+         *
+         * ★ **重複計劃不能有子任務。** 這跟 `doneOn` 是同一個坑：
+         * 重複計劃在畫面上是一條規則展開出來的很多列，但資料只有一筆——
+         * 子任務的打勾寫回那一筆的話，這週三勾掉的「帶講義」，
+         * 以後每一個週三都會顯示成已經做完了，而且完全不會報錯。
+         * 要做對就得像 `doneOn` 那樣按日期存（`{'2026-08-08': ['s1','s3']}`），
+         * 那份紀錄會跟著計劃永遠長大，而且每一個讀子任務的地方都要多帶一個
+         * 「哪一天」的參數。目前講好的是不做，所以**擋在存檔那一關**，
+         * 不是預設幫使用者丟掉——安靜丟掉資料是這個專案最不能接受的那一類。
+         *
+         * ★ 每一項有自己的 `id`，不用陣列索引當識別。
+         * 用索引的話，刪掉第一項之後每一項的編號都往前挪一格，
+         * 使用者接著點的那一下會勾到隔壁那一項——而畫面上看起來完全正常。
+         * ========================================================== */
+        const PLAN_SUB_MAX = 12;        // 一筆最多幾項。再多就不是「子任務」，是另一份清單了
+        const PLAN_SUB_LEN = 40;        // 單項字數上限，跟輸入框的 maxlength 一致
+
+        /* 舊資料沒有 subs 欄位，一律用這支取值。★ 直接讀 p.subs 的地方會拿到
+           undefined，而 undefined.map 是會整頁掛掉的那種錯。 */
+        const planSubs = (plan) => Array.isArray(plan && plan.subs) ? plan.subs : [];
+
+        /* 進度。回傳數字不回傳字串，是為了測試能直接比對，
+           也讓「2/3」這種排版留在畫面那一層。 */
+        function planSubStat(plan) {
+            const list = planSubs(plan);
+            let done = 0;
+            for (const s of list) if (s && s.done) done++;
+            return { total: list.length, done };
+        }
+
+        /* 從編輯視窗收回來的東西要洗過：空白的整項丟掉（使用者按了「＋加一項」
+           又沒填，留著會變成一個永遠打不完的空勾勾）、超長切掉、超量截斷、
+           缺 id 的補一個。 */
+        function normalizePlanSubs(raw) {
+            const out = [];
+            for (const s of (Array.isArray(raw) ? raw : [])) {
+                const t = String((s && s.t) ||'').trim().slice(0, PLAN_SUB_LEN);
+                if (!t) continue;
+                out.push({ id: (s && s.id) ||('s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
+                           t, done: !!(s && s.done) });
+                if (out.length >= PLAN_SUB_MAX) break;
+            }
+            return out;
+        }
 
         /* ==========================================================
          * 重複計劃
@@ -4826,9 +4970,23 @@
             const c = planCountdown(target, now);
             const when = planWhenText(p);
             const prefix = phase === 'during' ?'剩 ' :'';
+            /* 子任務一律展開，不做「點進度才打開」。
+               ★ 它要回答的問題就是「還有什麼沒做」，收起來等於多按一次才看得到，
+               那顆按鈕本身就是這個功能最大的成本。 */
+            const st = planSubStat(p);
+            const subsHTML = st.total ? `
+                <div class="mt-2 pl-9 space-y-1">
+                    ${planSubs(p).map(s => `
+                    <button data-action="toggle-plan-sub" data-id="${escapeHTML(p.id)}" data-sub="${escapeHTML(s.id)}"
+                            class="flex items-center gap-2 w-full text-left">
+                        <span class="shrink-0 w-4 h-4 rounded-md border-2 flex items-center justify-center ${s.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300'}">${s.done ?'<i data-lucide="check" class="w-3 h-3 pointer-events-none"></i>' :''}</span>
+                        <span class="text-xs font-medium truncate ${s.done ?'text-slate-400 line-through' :'text-slate-600'}">${escapeHTML(s.t)}</span>
+                    </button>`).join('')}
+                </div>` :'';
             return `
-            <div class="plan-row flex items-center justify-between gap-3 p-3 rounded-2xl border bg-white ${p.done ?'border-slate-200' : phase === 'during' ?'border-emerald-300' :'border-slate-200'}"
+            <div class="plan-row p-3 rounded-2xl border bg-white ${p.done ?'border-slate-200' : phase === 'during' ?'border-emerald-300' :'border-slate-200'}"
                  draggable="${p.repeat ?'false' :'true'}" data-id="${escapeHTML(p.id)}" data-occ="${escapeHTML(p.occ ||'')}">
+                <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
                     <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" data-occ="${escapeHTML(p.occ ||'')}" title="${p.done ?'標成未完成' :'標成完成'}"
                             class="shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
@@ -4840,10 +4998,13 @@
                     </div>
                 </div>
                 <div class="flex items-center gap-1 shrink-0">
+                    ${st.total ? `<span class="text-[10px] font-black text-slate-400 mr-1">${st.done}/${st.total}</span>` :''}
                     ${p.done ?'' : `<span class="plan-countdown text-xs font-black mr-1 ${c.past ?'text-slate-400' : phase === 'during' ?'text-emerald-600' :'text-amber-600'}" data-at="${target}" data-prefix="${prefix}">${escapeHTML(prefix + c.text)}</span>`}
                     <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
                     <button data-action="delete-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                 </div>
+                </div>
+                ${subsHTML}
             </div>`;
         }
 
@@ -4868,16 +5029,20 @@
                 const rows = list.length
                     ? list.map(p => planRowHTML(p, now)).join('')
                     : `<div class="text-center py-4 text-xs text-slate-300 font-medium">${meta.addable ?'把計劃拖進來，或按右上角新增' :'目前沒有'}</div>`;
+                /* ★ 這裡刻意**不掛** Tailwind 的顏色與框線類別。
+                   掛了會被 <style> 裡的接管規則壓平：`border-2` 變 1px、
+                   `border-slate-200` 變分隔線色、`text-sky-600` 變磚紅——
+                   五個區塊會長得一模一樣。顏色全部走 `.plan-zone` 的 `--zone`。 */
                 return `
-            <section class="plan-zone rounded-2xl border-2 border-dashed border-slate-200 p-3" data-zone="${z}">
+            <section class="plan-zone p-3" data-zone="${z}">
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <div class="min-w-0">
-                        <span class="text-sm font-black text-${meta.tone}-600">${meta.label}</span>
+                        <span class="plan-zone-label text-sm font-black">${meta.label}</span>
                         <span class="text-xs font-bold text-slate-400 ml-1">${list.length}</span>
                         ${meta.hint ? `<div class="text-[11px] text-slate-400 font-medium truncate">${meta.hint}</div>` :''}
                     </div>
                     ${meta.addable
-                        ? `<button data-action="add-plan-zone" data-zone="${z}" class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-black bg-${meta.tone}-50 text-${meta.tone}-600 hover:bg-${meta.tone}-100 transition">＋ 新增</button>`
+                        ? `<button data-action="add-plan-zone" data-zone="${z}" class="plan-zone-add shrink-0 px-3 py-1.5 rounded-xl text-xs font-black transition">＋ 新增</button>`
                         : ''}
                 </div>
                 <div class="space-y-2">${rows}</div>
@@ -4965,7 +5130,10 @@
             box.addEventListener('dragend', (e) => {
                 const row = e.target.closest && e.target.closest('.plan-row');
                 if (row) row.classList.remove('opacity-40');
-                box.querySelectorAll('.plan-zone').forEach(z => z.classList.remove('bg-slate-100'));
+                /* ★ 高亮用自己的 `.is-over`，不要用 `bg-slate-100`。
+                   `.bg-slate-100` 被設計系統換成 `var(--paper-sunk)`，
+                   而那正是區塊自己的底色——拖進去等於什麼都沒變。 */
+                box.querySelectorAll('.plan-zone').forEach(z => z.classList.remove('is-over'));
                 draggingPlanId = null;
             });
             box.addEventListener('dragover', (e) => {
@@ -4973,17 +5141,17 @@
                 if (!zone) return;
                 e.preventDefault();                     // 不擋掉就不會觸發 drop
                 e.dataTransfer.dropEffect = 'move';
-                zone.classList.add('bg-slate-100');
+                zone.classList.add('is-over');
             });
             box.addEventListener('dragleave', (e) => {
                 const zone = e.target.closest && e.target.closest('.plan-zone');
-                if (zone) zone.classList.remove('bg-slate-100');
+                if (zone) zone.classList.remove('is-over');
             });
             box.addEventListener('drop', (e) => {
                 const zone = e.target.closest && e.target.closest('.plan-zone');
                 if (!zone) return;
                 e.preventDefault();
-                zone.classList.remove('bg-slate-100');
+                zone.classList.remove('is-over');
                 const id = draggingPlanId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
                 draggingPlanId = null;
                 if (id) movePlanToZone(id, zone.dataset.zone);
@@ -5140,7 +5308,84 @@
                 $('planRepUntil').value = (p && isFinite(Number(p.repUntil)))
                     ? todayStr(new Date(Number(p.repUntil))) :'';
             updatePlanRepeatHint();
+            /* ★ 一定要複製一份（`.map` 出新物件），不能直接指向 `p.subs`。
+               直接指的話使用者在視窗裡打的每一個字都立刻改到 `userPlans`，
+               按「取消」也收不回來——而畫面上看起來就是取消沒有用。 */
+            planModalSubs = p ? planSubs(p).map(s => ({ ...s })) : [];
+            renderPlanSubEditor();
+            updatePlanSubUI();
             openModal('planModal');
+        }
+
+        /* ---- 編輯視窗裡的子任務 ---- */
+
+        /* ★ 重畫之前一定要先叫這支。編輯器每次新增／刪除都整塊重畫，
+           不先把輸入框的值收回陣列的話，使用者剛打到一半的字會直接消失——
+           而畫面上只是「我打的東西不見了」，沒有任何錯誤訊息。 */
+        function syncPlanSubsFromInputs() {
+            const box = $('planSubList');
+            if (!box) return;
+            box.querySelectorAll('input[data-sub-i]').forEach(el => {
+                const i = Number(el.dataset.subI);
+                if (planModalSubs[i]) planModalSubs[i].t = el.value;
+            });
+        }
+
+        function renderPlanSubEditor() {
+            const box = $('planSubList');
+            if (!box) return;
+            box.innerHTML = planModalSubs.map((s, i) => `
+                <div class="flex items-center gap-2">
+                    <input type="text" data-sub-i="${i}" maxlength="${PLAN_SUB_LEN}" value="${escapeHTML(s.t ||'')}"
+                           placeholder="第 ${i + 1} 項" class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-amber-500 font-medium text-sm">
+                    <button type="button" data-action="del-plan-sub" data-i="${i}" title="刪掉這一項"
+                            class="shrink-0 p-2 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+                </div>`).join('');
+            icons();
+        }
+
+        /* 說明那一行與「＋加一項」的開關。★ 選了重複就要當場說清楚，
+           不能等按了儲存才擋——使用者已經打完三項了才被退回是最差的順序。 */
+        function updatePlanSubUI() {
+            const rep = $('planRepeat') && PLAN_REP_META[$('planRepeat').value] ? $('planRepeat').value : null;
+            const btn = $('addPlanSub'), hint = $('planSubHint');
+            if (btn) btn.disabled = !!rep || planModalSubs.length >= PLAN_SUB_MAX;
+            if (hint) hint.textContent = rep
+                ?'重複的計劃不能加子任務（打勾會記在規則上，以後每一次都會變成做完了）'
+                : planModalSubs.length >= PLAN_SUB_MAX ? `最多 ${PLAN_SUB_MAX} 項` :'';
+        }
+
+        function addPlanSub() {
+            syncPlanSubsFromInputs();
+            if (planModalSubs.length >= PLAN_SUB_MAX) return updatePlanSubUI();
+            planModalSubs.push({ id:'s' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                                 t:'', done:false });
+            renderPlanSubEditor(); updatePlanSubUI();
+            const box = $('planSubList');
+            const last = box && box.querySelector(`input[data-sub-i="${planModalSubs.length - 1}"]`);
+            if (last) last.focus();
+        }
+
+        function delPlanSub(i) {
+            syncPlanSubsFromInputs();
+            planModalSubs.splice(Number(i), 1);
+            renderPlanSubEditor(); updatePlanSubUI();
+        }
+
+        /* 清單上點某一項子任務。★ 用 id 找，不是用索引——
+           索引在刪過一項之後會整排挪位，點下去會勾到隔壁那一項。 */
+        async function togglePlanSub(id, subId) {
+            const p = userPlans.find(x => x.id === id);
+            if (!p || !subId) return;
+            const before = userPlans;
+            userPlans = userPlans.map(x => x.id === id
+                ? { ...x, subs: planSubs(x).map(s => s.id === subId ? { ...s, done: !s.done } : s) }
+                : x);
+            renderPlans();
+            /* ★ 跟這一區其他地方同一個規矩：先改畫面再存檔，失敗就要還原。
+               不還原的話畫面上勾著、重新整理又變回沒勾，中間沒有任何訊息。 */
+            try { await savePlans(); }
+            catch (e) { userPlans = before; renderPlans(); showToast('存檔失敗，請稍後再試'); }
         }
 
         async function savePlanFromModal() {
@@ -5183,10 +5428,17 @@
                     if (repUntil !== null && repUntil < at) return showToast('重複的結束日不能早於開始');
                 }
             }
+            /* 子任務。★ 選了重複又留著子任務要**擋下來**，不能默默丟掉：
+               打勾會寫回那條規則，於是以後每一次都顯示成做完了（同 doneOn 的坑）。
+               而「安靜地丟掉使用者剛打的東西」比擋下來難發現得多。 */
+            syncPlanSubsFromInputs();
+            const subs = normalizePlanSubs(planModalSubs);
+            if (rep && subs.length) return showToast('重複的計劃不能加子任務，請先清掉子任務或取消重複');
+
             const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
                           title, at, end, lead: Number($('planLead').value) || 0,
                           note: getVal('planNote'), done: !!(id && prev.done),
-                          rep, repUntil,
+                          rep, repUntil, subs,
                           /* 改規則不清打勾紀錄：把每週三改成每週四，先前打過的
                              那幾天還是做過了。 */
                           doneOn: Array.isArray(prev.doneOn) ? prev.doneOn : [] };
@@ -8350,6 +8602,9 @@
 'click-el': (t) => { const el = $(t.dataset.el); if (el) el.click(); },
 'delete-plan': (t) => deletePlan(t.dataset.id),
 'toggle-plan': (t) => togglePlanDone(t.dataset.id, t.dataset.occ),
+'toggle-plan-sub': (t) => togglePlanSub(t.dataset.id, t.dataset.sub),
+'add-plan-sub': () => addPlanSub(),
+'del-plan-sub': (t) => delPlanSub(t.dataset.i),
 'edit-countdown':   (t) => openCountdownModal(t.dataset.id),
 'delete-countdown': (t) => deleteCountdown(t.dataset.id),
 'set-study-sub': (t) => switchStudySub(t.dataset.sub),
@@ -8671,7 +8926,10 @@
                 updateQuickPlanPreview();          // 一開始就把用法寫在那一行
             }
             bind('confirmSavePlan', savePlanFromModal);
-            if ($('planRepeat')) $('planRepeat').addEventListener('change', updatePlanRepeatHint);
+            /* ★ 選了重複要同時更新子任務那一區（按鈕關掉、說明寫出來）。
+               漏掉這一行的症狀是：選了重複，＋加一項還按得下去，
+               打完才在存檔那關被退回。 */
+            if ($('planRepeat')) $('planRepeat').addEventListener('change', () => { updatePlanRepeatHint(); updatePlanSubUI(); });
             if ($('planAt')) $('planAt').addEventListener('change', updatePlanRepeatHint);
             bindPlanDragAndDrop();
             bind('addCountdownBtn', () => openCountdownModal(null));
