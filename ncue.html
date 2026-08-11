@@ -163,7 +163,7 @@
         /* 英文閱讀：可點查的單字 */
         .lw { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background-color var(--dur-fast) var(--ease); }
         .lw:hover { background-color: var(--accent-soft); }
-        html.dark .lw:hover { background-color: rgba(220, 145, 102, 0.22); }
+        html.dark .lw:hover { background-color: rgba(232, 196, 106, 0.22); }
 
         /* 課程卡 / 評價卡進場：純淡入、不位移，快速即時出現 */
         @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
@@ -213,24 +213,40 @@
            （擠不下時還是能捲，只是不再有淡出提示；分頁名稱限制在五個字以內，
            見 tests/settings.mjs，就是為了讓「需要捲」這件事不會發生。） */
         /* ==========================================================
-         * 「紙墨白日 · 靛藍星夜」設計系統
+         * 「雪山白日 · 靛藍星夜」設計系統
          *
          * 全站的標記都用 Tailwind 工具類別（bg-white / text-slate-900 …），
          * 所以在這裡重新定義那些類別，就能一次換掉整站外觀，
          * 不必去動四千多行 HTML。要調色只改下面的變數即可。
+         *
+         * ★ 2026-08-11 從「紙墨」改成「雪山」：底色由米白轉雪藍，
+         * 強調色由磚紅（#b0522f）換成月亮的金黃。理由是背景換成了
+         * 那四張梵谷風的雪山黑貓，而磚紅壓在藍調的畫上是撞色——
+         * 金黃取自畫裡的太陽與月亮，是同一張畫裡本來就有的顏色。
+         *
+         * ★ 這一批顏色**每一個都真的算過對比**，不是憑印象挑的。
+         * 換配色最容易安靜壞掉的地方是亮度整個往上跑：金黃比磚紅亮，
+         * 拿去當實心底色配白字很容易掉到 4.5 以下，而那不會報錯。
+         * 算過的結果：白字壓在 --accent-fill 上 5.06。
          * ========================================================== */
         :root {
-            --paper:        #f6f3ec;   /* 紙底 */
-            --paper-raised: #fffefb;   /* 卡片 */
-            --paper-sunk:   #eee9df;   /* 內凹區塊 */
-            --ink:          #1a1815;   /* 主文字 */
-            --ink-2:        #4a453e;
-            --ink-3:        #8a8277;
-            --rule:         #e2dcd2;   /* 細線 */
-            --accent:       #b0522f;   /* 磚紅：文字／線條用 */
-            --accent-fill:  #b0522f;   /* 實心底色用，上面一定放白字 */
-            --accent-soft:  #f2e5dd;
-            --panel:        #fffefb;   /* 對話框／浮動小卡：一定不透明 */
+            --paper:        #eef2f9;   /* 雪底：畫裡遠山的那層冷白 */
+            /* ★ 卡片是半透明的，背景那張畫會淡淡透上來——這是「內容浮在畫上」
+               的關鍵。但**不能再透**：0.80 以下時畫裡的黑貓與杉樹林會透進
+               卡片，小字直接讀不了。0.92 是量過的下限再留一點餘裕。 */
+            --paper-raised: rgba(255, 255, 255, 0.92);
+            --paper-sunk:   #e3eaf5;   /* 內凹區塊 */
+            --ink:          #131a2b;   /* 主文字 */
+            --ink-2:        #3f4b63;
+            /* ★ 舊的 --ink-3（#8a8277）壓在舊紙色上只有 3.42，本來就不合格，
+               只是沒有人回報——次要文字讀不清楚不會有人來說「這裡壞了」。
+               這次一起修掉：#5c6880 在三種底色上分別是 4.99／4.63／5.60。 */
+            --ink-3:        #5c6880;
+            --rule:         #d2dcea;   /* 細線 */
+            --accent:       #7f6210;   /* 金黃：文字／線條用（壓在內凹區塊上 4.5） */
+            --accent-fill:  #8a6a12;   /* 實心底色用，上面一定放白字（5.06） */
+            --accent-soft:  rgba(196, 154, 45, 0.16);
+            --panel:        #ffffff;   /* 對話框／浮動小卡：一定不透明 */
             --radius:       14px;      /* 編輯感：收斂圓角 */
             --radius-lg:    18px;
             /* ---- 動效 ----
@@ -246,21 +262,78 @@
         }
         html.dark {
             --paper:        #070b18;
-            --paper-raised: rgba(19, 27, 51, 0.78);
-            --paper-sunk:   rgba(11, 17, 35, 0.72);
-            --ink:          #e9e7f2;
-            --ink-2:        #aeabc4;
-            --ink-3:        #7d7a94;
-            --rule:         rgba(175, 190, 235, 0.16);
-            --accent:       #dc9166;
-            /* 深色模式的強調色偏亮，拿來當實心底色的話白字對比只有 2.6，
-               等於看不清楚。實心底另外用深一階的同色系。 */
-            --accent-fill:  #a85a30;
-            --accent-soft:  rgba(220, 145, 102, 0.14);
+            --paper-raised: rgba(19, 27, 51, 0.82);
+            --paper-sunk:   rgba(11, 17, 35, 0.76);
+            --ink:          #e9ecf7;
+            --ink-2:        #aeb6cc;
+            --ink-3:        #7d86a0;
+            --rule:         rgba(175, 190, 235, 0.18);
+            --accent:       #e8c46a;   /* 畫裡那輪月亮的金 */
+            /* 深色模式的強調色偏亮，拿來當實心底色的話白字對比只有 2.0，
+               等於看不清楚。實心底另外用深一階的同色系（白字 5.06）。 */
+            --accent-fill:  #8a6a12;
+            --accent-soft:  rgba(232, 196, 106, 0.14);
             --panel:        #131b33;   /* 同 --paper-raised 的色相，但滿版不透明 */
         }
 
-        body { background-color: var(--paper); color: var(--ink); }
+        /* ==========================================================
+           背景：那四張梵谷風的雪山黑貓
+           亮／夜 × 橫／直共四張，由主題與螢幕方向決定貼哪一張。
+
+           ★ 分辨的是**螢幕方向不是裝置**。四張圖差的是長寬比，
+           而筆電永遠是橫的、手機拿著多半是直的——用 orientation
+           比用 max-width 準，平板轉一下也會跟著換。
+
+           ★ 為什麼是 body::before 而不是 background-attachment: fixed：
+           iOS Safari 上 fixed 背景會在捲動時抖動甚至整片消失，
+           那是十年的老問題。固定的偽元素沒有這個毛病。
+
+           ★ 為什麼要 ::after 那層遮罩：畫本身很滿（旋渦、星、雪、杉樹林），
+           字直接壓上去在最暗／最亮的那幾塊會讀不了。遮罩濃度是量出來的
+           不是挑的——取每張圖最極端的百分位像素去算，
+           因為讀不到字的地方永遠是最極端的那一塊，平均亮度看不出來：
+             淺色 0.60 → 最差 6.0（畫裡的黑貓與杉樹林）
+             深色 0.70 → 最差 6.4（月亮與星星那幾點近白）
+           深色要壓得比淺色重，因為夜景那張的月亮幾乎是純白的。
+           ========================================================== */
+        :root {
+            --bg-art:  url('brightcomputer.jpg');
+            --bg-wash: rgba(244, 248, 253, 0.60);
+        }
+        html.dark {
+            --bg-art:  url('nightcomputer.jpg');
+            --bg-wash: rgba(7, 11, 24, 0.70);
+        }
+        @media (orientation: portrait) {
+            :root      { --bg-art: url('brightphone.jpg'); }
+            html.dark  { --bg-art: url('nightphone.jpg'); }
+        }
+
+        /* ★ 底色掛在 html 不是 body，而 body 必須是透明的。
+           兩件事都是必要的，少任何一件畫面上都不會報錯，只是背景不見了——
+           底色還在、字還在、卡片還在，看起來完全正常。
+
+           1. body 透明這件事**在上面那條接管規則裡解決**（`.bg-slate-50:not(body)`），
+              不是靠這裡的 `!important`。原因寫在那一段：兩邊都 !important 時
+              比的是特異性，(0,1,0) 贏 (0,0,1)，寫在這裡的擋不住。
+           2. 底色改掛 html 之後，body 的背景就不再「上傳」給根畫布，
+              而是變成一個普通的背景盒——那個盒子會蓋在 body::before 之上。
+              這正是上一版（#skyCanvas）能顯示的真正原因：它靠的是
+              「html 沒有背景 → body 的背景上傳到根畫布 → 畫在所有東西之下」。
+              那是對的，但很隱晦，任何人哪天給 html 加一行 background 就會壞。
+              現在改成明寫，不再依賴上傳這個機制。 */
+        html { background-color: var(--paper); }
+        body { background-color: transparent; color: var(--ink); }
+
+        body::before {
+            content: ''; position: fixed; inset: 0; z-index: -2;
+            background: var(--bg-art) center center / cover no-repeat;
+        }
+        body::after {
+            content: ''; position: fixed; inset: 0; z-index: -1;
+            background: var(--bg-wash);
+            pointer-events: none;
+        }
 
         /* ==========================================================
            鍵盤焦點
@@ -335,7 +408,16 @@
 
         /* ---- 底色 ---- */
         .bg-white                                   { background-color: var(--paper-raised) !important; }
-        .bg-slate-50, .bg-slate-50\/50, .bg-slate-50\/40 { background-color: var(--paper-sunk) !important; }
+        /* ★ `:not(body)` 是必要的，跟 `.bg-slate-900:not(#mainHeader)` 同一回事。
+           `<body class="bg-slate-50">`，但 body 不是「內凹區塊」，它是整站的底——
+           背景那張畫就墊在它下面。少了 :not(body) 的話 body 會被塗成不透明的
+           紙色，整張畫被蓋掉，而畫面上底色還在、字還在、卡片還在，看起來完全正常。
+
+           ★ 光在 `body {}` 那邊寫 `!important` **擋不住**：兩邊都 !important 時
+           比的是特異性，`.bg-slate-50` 是 (0,1,0)、`body` 是 (0,0,1)，
+           接管規則贏。第一版我就是這樣寫的，而測試只檢查「字串裡有沒有
+           !important」所以它綠著——又一次「規則存在但功能是壞的」。 */
+        .bg-slate-50:not(body), .bg-slate-50\/50, .bg-slate-50\/40 { background-color: var(--paper-sunk) !important; }
         .bg-slate-100                               { background-color: var(--paper-sunk) !important; }
         .bg-slate-200                               { background-color: var(--rule) !important; }
         /* 深色墨塊（Hero、播放畫面）在紙墨語彙裡就是「整片墨」 */
@@ -358,10 +440,10 @@
         .rounded-3xl, .rounded-2xl { border-radius: var(--radius) !important; }
         .rounded-xl, .rounded-lg  { border-radius: 10px !important; }
 
-        /* ---- 強調色：翠綠改為磚紅 ---- */
+        /* ---- 強調色：翠綠改為金黃 ---- */
         .bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500 { background-color: var(--accent-fill) !important; }
         .hover\:bg-emerald-400:hover, .hover\:bg-emerald-600:hover,
-        .hover\:bg-blue-400:hover, .hover\:bg-blue-600:hover, .hover\:bg-teal-500:hover { background-color: #96431f !important; }
+        .hover\:bg-blue-400:hover, .hover\:bg-blue-600:hover, .hover\:bg-teal-500:hover { background-color: #6d5210 !important; }
         .text-emerald-500, .text-emerald-600, .text-emerald-400,
         .text-blue-500, .text-blue-600, .text-blue-700, .text-fuchsia-500, .text-fuchsia-600 { color: var(--accent) !important; }
         .bg-emerald-50, .bg-blue-50, .bg-teal-50, .bg-fuchsia-50 { background-color: var(--accent-soft) !important; }
@@ -412,7 +494,7 @@
         .focus\:border-emerald-500:focus, .focus\:border-fuchsia-400:focus { border-color: var(--accent) !important; }
         .hover\:bg-emerald-500:hover, .hover\:bg-emerald-600:hover,
         .hover\:bg-teal-500:hover, .hover\:bg-blue-400:hover,
-        .hover\:bg-blue-600:hover, .hover\:bg-fuchsia-400:hover { background-color: #96431f !important; }
+        .hover\:bg-blue-600:hover, .hover\:bg-fuchsia-400:hover { background-color: #6d5210 !important; }
         .hover\:bg-emerald-50:hover, .hover\:bg-emerald-100:hover,
         .hover\:bg-teal-50:hover, .hover\:bg-teal-100:hover,
         .hover\:bg-blue-50:hover, .hover\:bg-blue-100:hover,
@@ -435,7 +517,7 @@
         .marker\:text-emerald-500 ::marker { color: var(--accent) !important; }
         /* 有顏色的陰影 */
         .shadow-emerald-200, .shadow-teal-200,
-        .shadow-blue-200, .shadow-fuchsia-200 { --tw-shadow-color: rgba(176, 82, 47, 0.25) !important; }
+        .shadow-blue-200, .shadow-fuchsia-200 { --tw-shadow-color: rgba(138, 106, 18, 0.25) !important; }
 
         /* ==========================================================
            資訊用色：這些地方的顏色是拿來「分辨」的，不是裝飾。
@@ -443,19 +525,22 @@
            區分的東西會全部變成同一個磚紅，等於資訊被吃掉。
            所以另外給一組彼此色相拉開、但仍屬紙墨調性的色票。
            ========================================================== */
-        /* 評價的四項指標 */
-        .bg-data-1 { background-color: #b0522f !important; } .text-data-1 { color: #b0522f !important; }
+        /* 評價的四項指標
+           ★ 換成金黃強調色之後，原本的第三色（#96702f 琥珀）跟強調色只差
+           ΔE 20，兩個並排會被讀成同一個顏色——「四項指標」在畫面上就變成
+           三項。改成畫裡湖面的青藍，跟其他三色都拉到 37 以上。 */
+        .bg-data-1 { background-color: #8a6a12 !important; } .text-data-1 { color: #8a6a12 !important; }
         .bg-data-2 { background-color: #9c4a48 !important; } .text-data-2 { color: #9c4a48 !important; }
-        .bg-data-3 { background-color: #96702f !important; } .text-data-3 { color: #96702f !important; }
+        .bg-data-3 { background-color: #2f6b7d !important; } .text-data-3 { color: #2f6b7d !important; }
         .bg-data-4 { background-color: #4c5578 !important; } .text-data-4 { color: #4c5578 !important; }
-        html.dark .bg-data-1 { background-color: #dc9166 !important; } html.dark .text-data-1 { color: #dc9166 !important; }
+        html.dark .bg-data-1 { background-color: #e8c46a !important; } html.dark .text-data-1 { color: #e8c46a !important; }
         html.dark .bg-data-2 { background-color: #d68b88 !important; } html.dark .text-data-2 { color: #d68b88 !important; }
-        html.dark .bg-data-3 { background-color: #c79a4e !important; } html.dark .text-data-3 { color: #c79a4e !important; }
+        html.dark .bg-data-3 { background-color: #63b6c4 !important; } html.dark .text-data-3 { color: #63b6c4 !important; }
         html.dark .bg-data-4 { background-color: #8a94c4 !important; } html.dark .text-data-4 { color: #8a94c4 !important; }
 
-        /* 單字冊封面色票：七本要能一眼分開 */
-        .bg-sw-1 { background-color: #b0522f !important; }
-        .bg-sw-2 { background-color: #96702f !important; }
+        /* 單字冊封面色票：七本要能一眼分開（最接近的一對差 37） */
+        .bg-sw-1 { background-color: #8a6a12 !important; }
+        .bg-sw-2 { background-color: #2f6b7d !important; }
         .bg-sw-3 { background-color: #9c4a48 !important; }
         .bg-sw-4 { background-color: #6d4a66 !important; }
         .bg-sw-5 { background-color: #4c5578 !important; }
@@ -489,20 +574,23 @@
             transition: background-color var(--dur-base) var(--ease),
                         box-shadow var(--dur-base) var(--ease);
         }
-        /* ★ 淺色這五個比「資訊用色」那組再暗一階（今天 #b0522f → #9c4626、
-           明天 #96702f → #7f5d27）。原本那兩個直接拿來用的話，
-           壓在自己那 7% 的底色上對比只有 3.9 與 3.5——標題是 14px 粗體，
-           門檻是 4.5，等於這兩區的標題比別區難讀，而且沒有人會回報。 */
+        /* ★ 這五個顏色**每次改配色都要重算**，不能只換色相：區塊底色是
+           `color-mix(--zone 7%, --paper-sunk)`，--paper-sunk 從米白
+           (#eee9df) 換成雪藍 (#e3eaf5) 之後，五個對比全部跟著變。
+           重算過的結果（門檻 4.5，標題是 14px 粗體構不上大字）：
+           4.54／4.70／4.51／5.48／5.58，最接近的一對差 37。
+           ★ 今天與明天兩區跟著強調色走：今天用金、明天用畫裡湖面的青藍。
+           明天原本是琥珀 (#7f5d27)，跟新的金只差 ΔE 22，會黏成同一塊。 */
         .plan-zone[data-zone="yesterday"] { --zone: #9c4a48; }
-        .plan-zone[data-zone="today"]     { --zone: #9c4626; }
-        .plan-zone[data-zone="tomorrow"]  { --zone: #7f5d27; }
+        .plan-zone[data-zone="today"]     { --zone: #7a5c0f; }
+        .plan-zone[data-zone="tomorrow"]  { --zone: #2f6b7d; }
         .plan-zone[data-zone="week"]      { --zone: #4c5578; }
         .plan-zone[data-zone="later"]     { --zone: #6d4a66; }
         /* 深色模式要換一組亮的。★ 直接沿用淺色那組的話，這些暗色壓在
            `#070b18` 的紙上對比不到 2，等於整個分類在深色模式下不存在。 */
         html.dark .plan-zone[data-zone="yesterday"] { --zone: #d68b88; }
-        html.dark .plan-zone[data-zone="today"]     { --zone: #dc9166; }
-        html.dark .plan-zone[data-zone="tomorrow"]  { --zone: #c79a4e; }
+        html.dark .plan-zone[data-zone="today"]     { --zone: #e8c46a; }
+        html.dark .plan-zone[data-zone="tomorrow"]  { --zone: #63b6c4; }
         html.dark .plan-zone[data-zone="week"]      { --zone: #8a94c4; }
         html.dark .plan-zone[data-zone="later"]     { --zone: #b596c4; }
         /* 標題與「＋新增」跟著區塊的顏色走 */
@@ -559,7 +647,7 @@
             min-width: 232px; border-radius: 16px; overflow: hidden;
             background: var(--paper-raised);
             border: 1px solid var(--rule);
-            box-shadow: 0 10px 28px rgba(26, 24, 21, .22);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, .22);
         }
         .logo-menu-item {
             display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
@@ -615,7 +703,7 @@
         .tab-btn.is-active:hover {
             background-color: var(--accent-fill) !important;
             color: #fff !important;
-            box-shadow: 0 2px 8px rgba(26, 24, 21, .22);
+            box-shadow: 0 2px 8px rgba(15, 23, 42, .22);
         }
 
         /* ---- 開站載入畫面 ----
@@ -643,7 +731,7 @@
             transform: translate(-50%, -50%);
             width: 79.75%; height: 79.75%;    /* 260 / 326 */
             border-radius: 50%; object-fit: cover;
-            box-shadow: 0 2px 18px rgba(26,24,21,.14);
+            box-shadow: 0 2px 18px rgba(15,23,42,.14);
             /* 原本這裡有個呼吸縮放，但貓現在是踩在 logo 邊緣上走的，
                logo 一脹一縮腳就會陷進去，接觸感就沒了。 */
         }
@@ -843,7 +931,7 @@
            「有 54 處重陰影」，差點又加一份重複的規則上去。這個專案的老教訓：
            先確認量測工具本身是對的。） */
         .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
-            box-shadow: 0 1px 2px rgba(26, 24, 21, 0.05), 0 1px 12px rgba(26, 24, 21, 0.04) !important;
+            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 12px rgba(15, 23, 42, 0.04) !important;
         }
         html.dark .shadow-sm, html.dark .shadow-md, html.dark .shadow-lg,
         html.dark .shadow-xl, html.dark .shadow-2xl {
@@ -874,7 +962,7 @@
             display: flex; align-items: center; justify-content: center;
             border: 1px solid var(--rule); border-radius: 50%;
             background: var(--panel);
-            box-shadow: 0 1px 12px rgba(26, 24, 21, .10);
+            box-shadow: 0 1px 12px rgba(15, 23, 42, .10);
             color: var(--accent);
             pointer-events: none;
             /* 起手停在畫面外。位移與透明度在拉的過程中由 JS 直接寫 style——
@@ -912,14 +1000,6 @@
         /* 小標籤：字距拉開的編輯體例 */
         .uppercase.tracking-widest { letter-spacing: 0.2em !important; }
 
-        /* ---- 天空畫布：白天畫藍天積雲，夜裡畫星野，墊在所有內容之後 ---- */
-        #skyCanvas {
-            position: fixed; inset: 0; width: 100%; height: 100%;
-            z-index: -1; display: block; pointer-events: none;
-        }
-        /* 兩種模式的 body 都要透明，否則紙色會蓋住天空 */
-        body { background-color: transparent; }
-        /* 天空是背景，卡片必須維持不透明，內容才讀得清楚 */
     </style>
     <script>
         // 開站前先套用上次使用者選的顯示模式，避免閃爍
@@ -946,562 +1026,23 @@
         </svg>
     </div>
 
-    <!-- 天空：白天是藍天積雲，夜裡是星野。兩者共用同一張畫布 -->
-    <canvas id="skyCanvas" aria-hidden="true"></canvas>
-    <script>
-    /* ==========================================================
-     * 天空背景
-     *
-     * 美術參考《你的名字》《天氣之子》《鈴芽之旅》：
-     *   - 天空本身就是主角，而不是內容後面的一片底色
-     *   - 天頂濃藍 → 地平線暖白，色相一路連續變化（不是單一色）
-     *   - 積雲有體積：頂端受光偏白、底部在自己的陰影裡偏藍灰
-     *   - 大氣透視：越靠近地平線的雲越小、越淡、越藍
-     *   - 夜景是黃昏與夜的交界，不是純黑；地平線留一道殘紅
-     *
-     * 效能原則（跟星野同一套）：每幀只做 drawImage，
-     * 所有漸層與雲朵都先烘成點陣圖。每幀重建漸層在手機上會掉幀。
-     * ========================================================== */
-    (function () {
-        const cv = document.getElementById('skyCanvas');
-        const ctx = cv.getContext('2d', { alpha: false });
-        let W = 0, H = 0, dpr = 1, raf = null, t0 = performance.now();
-        let night = null, day = null, comet = null, nextComet = 0;
+    <!-- 背景改成那四張梵谷風的雪山黑貓（見 <style> 裡的「背景」那一段）。
 
-        const isDark = () => document.documentElement.classList.contains('dark');
-        const rnd = (a, b) => a + Math.random() * (b - a);
-        const calm = matchMedia('(prefers-reduced-motion: reduce)');
+         ★ 這裡原本是 #skyCanvas：550 行的程式天空，白天用分形雜訊長出積雲
+         （有大氣透視，越近地平線越淡越藍），夜裡畫星野與流星，全部先烘成
+         點陣圖所以每幀只做 drawImage。美術參考《你的名字》《天氣之子》。
 
-        const mkCanvas = (w, h) => {
-            const c = document.createElement('canvas');
-            c.width = Math.max(1, Math.round(w)); c.height = Math.max(1, Math.round(h));
-            return c;
-        };
+         拿掉它不是因為它不好，是因為那四張畫**自帶天空**——白天那張有旋渦狀
+         的雲和太陽，夜裡那張有星、月亮和捲曲的星軌。兩套疊在一起，程式畫的
+         積雲會蓋在畫出來的旋渦雲上，兩種筆觸互相打架。而這不會報錯，
+         也不會有人回報，只會看起來很髒。
 
-        // 把一組色標烘成整面畫布大小的點陣圖，之後每幀只要貼上
-        function bakeVertical(stops) {
-            const c = mkCanvas(W, H), g = c.getContext('2d');
-            const grd = g.createLinearGradient(0, 0, 0, H);
-            for (const [p, col] of stops) grd.addColorStop(p, col);
-            g.fillStyle = grd; g.fillRect(0, 0, W, H);
-            return c;
-        }
+         副作用是好的：少了一個 requestAnimationFrame 的常駐動畫，
+         手機不再為了背景一直耗電，也省掉切到淺色模式時那一次 86ms 的烘焙。
+         代價是多下載一張 285–533 KB 的圖（走 sw.js 的快取優先，只下一次）。
 
-        /* ---------- 白天 ---------- */
+         舊的那一版在 git 裡查得回來（CHANGELOG blackcat-v64 那一筆）。 -->
 
-        /* ---------- 雲：用分形雜訊長出來 ----------
-         * 之前是拿幾個模糊橢圓疊出剪影，但橢圓再怎麼疊，邊緣都是平滑的曲線，
-         * 一眼就看得出是幾何圖形。真實的雲邊是碎的、有大小不一的凹凸，
-         * 所以改成用分形雜訊決定每個像素的密度，再從密度切出輪廓。
-         * 這樣邊緣的碎裂是算出來的，不是畫出來的。
-         *
-         * 成本是一次性的（只在切到淺色模式時建一次，量到約 86ms），
-         * 之後每幀一樣只有 drawImage。
-         */
-        function noiseMaker() {
-            const perm = new Uint8Array(512);
-            for (let i = 0; i < 256; i++) perm[i] = i;
-            for (let i = 255; i > 0; i--) {
-                const j = (Math.random() * (i + 1)) | 0, t = perm[i]; perm[i] = perm[j]; perm[j] = t;
-            }
-            for (let i = 0; i < 256; i++) perm[i + 256] = perm[i];
-            const at = (ix, iy) => perm[(perm[ix & 255] + (iy & 255)) & 255] / 255;
-            const sm = (t) => t * t * (3 - 2 * t);      // 平滑內插，不然格點會露出方塊
-            return (x, y) => {
-                const x0 = Math.floor(x), y0 = Math.floor(y);
-                const fx = sm(x - x0), fy = sm(y - y0);
-                const a = at(x0, y0), b = at(x0 + 1, y0), c = at(x0, y0 + 1), d = at(x0 + 1, y0 + 1);
-                return (a + (b - a) * fx) * (1 - fy) + (c + (d - c) * fx) * fy;
-            };
-        }
-
-        // 多層不同頻率的雜訊疊起來（fBm），才會同時有大團塊和細碎的邊
-        function fbmField(w, h, freq, oct) {
-            const n = noiseMaker(), out = new Float32Array(w * h), cell = w / freq;
-            for (let y = 0; y < h; y++) {
-                for (let x = 0; x < w; x++) {
-                    let v = 0, amp = 0.5, f = 1, norm = 0;
-                    for (let o = 0; o < oct; o++) {
-                        v += n(x / cell * f, y / cell * f) * amp;
-                        norm += amp; amp *= 0.5; f *= 2;
-                    }
-                    out[y * w + x] = v / norm;
-                }
-            }
-            return out;
-        }
-
-        const lerp = (a, b, t) => a + (b - a) * t;
-        const smoothstep = (e0, e1, x) => {
-            const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
-            return t * t * (3 - 2 * t);
-        };
-
-        // env(x01, y01) 回傳密度包絡：
-        //   0～1 → 邊緣地帶，密度＝雜訊×包絡，所以輪廓是碎的
-        //   1 以上 → 核心地帶，往實心插值
-        // 只用乘的不行：雜訊的平均值只有 0.5，就算包絡給到滿，
-        // 核心也會有一半的像素低於門檻，雲會被打成一堆洞。
-        // env 拆成兩半：col(x01) 每一欄只算一次（裡面有 Math.sin，很貴），
-        // at(c, y01) 才是每個像素都要跑的部分，只剩加減乘除。
-        // 合在一起寫的話，光是三角函數就會讓建構時間變成三倍。
-        function noiseCloud(w, h, freq, oct, env, pal) {
-            const f = fbmField(w, h, freq, oct);
-            const c = mkCanvas(w, h), g = c.getContext('2d');
-            const img = g.createImageData(w, h), D = img.data;
-            const [dp0, dp1, dp2] = pal.deep, [eg0, eg1, eg2] = pal.edge, [wm0, wm1, wm2] = pal.warm;
-            const cols = new Array(w);
-            for (let x = 0; x < w; x++) cols[x] = env.col(x / w);
-            for (let y = 0; y < h; y++) {
-                const y01 = y / h;
-                // 這兩個只跟 y 有關，不必每個像素重算
-                const warm = pal.warmth(y01);
-                const sh = pal.shade ? pal.shade(y01) : 1;
-                for (let x = 0; x < w; x++) {
-                    const i = y * w + x;
-                    const e = env.at(cols[x], y01);
-                    if (e <= 0) { D[i * 4 + 3] = 0; continue; }
-                    const d = e <= 1 ? f[i] * e : lerp(f[i], 1, Math.min(1, e - 1));
-                    const a = smoothstep(0.34, 0.52, d);
-                    if (a <= 0) { D[i * 4 + 3] = 0; continue; }
-                    // 逆光：薄的地方（靠近輪廓）透光最亮，厚的地方反而暗。
-                    // 這是黃昏的雲看起來會「發光」的原因。
-                    const edge = 1 - smoothstep(0.50, 0.72, d);
-                    // 這個迴圈會跑幾十萬次，所以刻意展開寫。
-                    // 原本用 [0,1,2].map() 每個像素都配一個新陣列，
-                    // 光是那個就佔掉一半以上的建構時間。
-                    const p = i * 4;
-                    D[p]     = lerp(lerp(dp0, eg0, edge), wm0, warm) * sh;
-                    D[p + 1] = lerp(lerp(dp1, eg1, edge), wm1, warm) * sh;
-                    D[p + 2] = lerp(lerp(dp2, eg2, edge), wm2, warm) * sh;
-                    D[p + 3] = a * 255;
-                }
-            }
-            g.putImageData(img, 0, 0);
-            return c;
-        }
-
-        // 雲海：整片一次烘好，不做左右拼接——拼接就得處理接縫，
-        // 而雲海幾乎不動，不值得為它冒這個險。
-        function bakeCloudSea() {
-            // 一樣用雜訊長，但在低解析度上算完再放大貼上：
-            // 雲海在很遠的地方，放大的柔邊剛好就是大氣的模糊感，
-            // 而全解析度算一次要一百多毫秒，划不來。
-            const sw = 700, sh = 140;
-            const pal = {
-                // 雲海整片都迎著地平線的光，所以底色本身就偏亮。
-                // 前一版把 deep 設成暗紫，結果實心的部分整片是紫的，
-                // 看起來像一座平滑的山丘而不是雲。
-                deep: [238, 216, 224],
-                edge: [255, 252, 244],
-                warm: [255, 238, 208],
-                warmth: (y01) => 0.9 * (1 - smoothstep(0.10, 0.95, y01)),
-                // 越靠近眼前越暗、越冷，雲海才有前後
-                shade: (y01) => lerp(1.0, 0.72, smoothstep(0.30, 1.0, y01)),
-            };
-            // 雲海的外形：一條橫貫的帶子，上緣起伏、下緣填滿到底
-            const env = {
-                // 三段不同頻率疊起來。只用一條低頻正弦的話，
-                // 天際線會是一條平滑的曲線，讀起來是山不是雲。
-                col: (x01) => 0.30
-                    + 0.10 * Math.sin(x01 * 6.1 + 0.6)
-                    + 0.07 * Math.sin(x01 * 15.7 + 2.1)
-                    + 0.05 * Math.sin(x01 * 31.3 + 4.4),
-                at: (skyline, y01) => {
-                    if (y01 < skyline) return 0;
-                    // 過渡帶要夠寬。太快變實心的話，上緣以下的雜訊細節
-                    // 會整片被抹平，只剩一個色塊。
-                    return Math.min(1.9, 0.45 + (y01 - skyline) / 0.42);
-                },
-            };
-            const small = noiseCloud(sw, sh, 16, 3, env, pal);
-
-            const c = mkCanvas(W, H), g = c.getContext('2d');
-            const top = H * 0.78;
-            g.imageSmoothingQuality = 'high';
-            g.drawImage(small, 0, top, W, H - top);
-            return c;
-        }
-
-        function buildDay() {
-            // 黃昏：天頂的藍往下推過紫、粉、橘，最後在地平線收成暖白。
-            // 這條漸層是整張畫面的骨架，其餘東西都只是放在上面。
-            // 整條漸層比前一版亮一階：天頂從深藍提到藍、中段的紫粉提亮、
-            // 地平線接近白。夜晚維持原樣，兩種模式才拉得開。
-            const bg = bakeVertical([
-                [0.00, '#3f6cab'], [0.10, '#5480b8'], [0.24, '#7b90c0'],
-                [0.36, '#a099c2'], [0.48, '#c4a3bd'], [0.58, '#dcb4b8'],
-                [0.68, '#f0c6b0'], [0.76, '#fbd9b2'], [0.83, '#ffecc9'],
-                [0.875, '#fff8e4'], [1.00, '#fef2dd'],
-            ]);
-            const b = bg.getContext('2d');
-
-            // 太陽落在地平線正中央，把周圍的天空烤亮。
-            // 這是天空本身的散射，不是鏡頭光斑，所以只有一團柔和的暈。
-            const sun = b.createRadialGradient(W * 0.5, H * 0.875, 0, W * 0.5, H * 0.875, W * 0.46);
-            sun.addColorStop(0, 'rgba(255,252,236,0.92)');
-            sun.addColorStop(0.35, 'rgba(255,236,200,0.38)');
-            sun.addColorStop(1, 'rgba(255,220,185,0)');
-            b.fillStyle = sun; b.fillRect(0, 0, W, H);
-
-            // 天亮了之後星星就剩上緣勉強看得到幾顆
-            for (let i = 0; i < 45; i++) {
-                const y = Math.random() * H * 0.30;
-                const fade = 1 - y / (H * 0.30);              // 越往下越看不見
-                b.fillStyle = `rgba(255,253,246,${(0.18 + Math.random() * 0.34) * fade})`;
-                const r = rnd(0.5, 1.2) * dpr;
-                b.beginPath(); b.arc(Math.random() * W, y, r, 0, 6.2832); b.fill();
-            }
-
-            // 遠山：原本這裡有一排剪影，已經拿掉——它跟雲海擠在同一條地平線上，
-            // 兩者糊在一起變成一條分不出是什麼的灰帶，反而比沒有更糟。
-
-            // 高空的小片雲。解析度刻意壓低（貼上去時再放大），
-            // 雲本來就是柔的，放大一點看不出來，但雜訊的成本差很多。
-            const wispPal = {
-                deep: [156, 146, 186],          // 厚的地方：背光，冷紫
-                edge: [255, 246, 228],          // 薄的地方：透光，幾乎白
-                warm: [255, 219, 178],          // 靠近地平線那一側偏暖
-                warmth: (y01) => 0.55 * smoothstep(0.25, 0.95, y01),
-            };
-            // 積雲的外形：底部平、中間隆起、兩端收掉
-            const wispEnv = {
-                col: (x01) => {
-                    const hx = Math.sin(Math.PI * Math.min(1, Math.max(0, (x01 - 0.04) / 0.92)));
-                    if (hx <= 0) return null;
-                    // 雲底不能是一條水平線。積雲的底部確實大致是平的，
-                    // 但「大致平」不等於「數學上的直線」——只要它是直線，
-                    // 就會橫跨整張圖寬，在雲的兩側各拖出一條很明顯的邊。
-                    // 加兩段低頻起伏，那條線就不存在了。
-                    const base = 0.76
-                        + 0.030 * Math.sin(x01 * 9.1 + 1.3)
-                        + 0.018 * Math.sin(x01 * 23.7 + 0.4);
-                    // hx 取次方，讓「實心」只發生在雲的正中央
-                    return { base, hump: 0.20 + 0.46 * hx, core: Math.pow(hx, 1.8) };
-                },
-                at: (c, y01) => {
-                    if (!c) return 0;
-                    if (y01 > c.base) return Math.max(0, 1 - (y01 - c.base) / 0.05) * c.core;
-                    const t = (c.base - y01) / c.hump;         // 0＝底 1＝頂
-                    if (t > 1) return 0;
-                    // 靠底部給到 1 以上（核心實心），往上遞減到 1 以下（邊緣碎裂）
-                    return (1.45 - 1.15 * t) * c.core;
-                },
-            };
-            const sprites = [
-                noiseCloud(320, 140, 5, 3, wispEnv, wispPal),
-                noiseCloud(320, 140, 6, 3, wispEnv, wispPal),
-                noiseCloud(320, 140, 4, 3, wispEnv, wispPal),
-            ];
-            const clouds = [];
-            const layers = [
-                { n: 3, y: [0.30, 0.44], sc: [0.55, 0.85], a: [0.55, 0.80], sp: [2.5, 4.5] },
-                { n: 4, y: [0.48, 0.62], sc: [0.35, 0.60], a: [0.45, 0.70], sp: [1.5, 3.0] },
-                { n: 5, y: [0.66, 0.80], sc: [0.20, 0.40], a: [0.35, 0.60], sp: [0.8, 1.8] },
-            ];
-            for (const L of layers) {
-                for (let i = 0; i < L.n; i++) {
-                    clouds.push({
-                        img: sprites[Math.floor(Math.random() * sprites.length)],
-                        y: rnd(L.y[0], L.y[1]), scale: rnd(L.sc[0], L.sc[1]),
-                        alpha: rnd(L.a[0], L.a[1]), speed: rnd(L.sp[0], L.sp[1]),
-                        base: Math.random(), flip: Math.random() < 0.5,
-                    });
-                }
-            }
-            clouds.sort((a, b2) => a.y - b2.y);   // 遠的先畫，近的疊在上面
-
-            const sea = bakeCloudSea();
-
-            // 很輕的暗角，只是把視線收回中間
-            const vig = mkCanvas(W, H);
-            const vgx = vig.getContext('2d');
-            const vg = vgx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.5,
-                                                W / 2, H * 0.55, Math.max(W, H) * 0.85);
-            vg.addColorStop(0, 'rgba(48,40,72,0)');
-            vg.addColorStop(1, 'rgba(48,40,72,0.20)');
-            vgx.fillStyle = vg; vgx.fillRect(0, 0, W, H);
-
-            day = { bg, clouds, sea, vig };
-        }
-
-        function drawDay(now) {
-            const t = (now - t0) / 1000;
-            ctx.drawImage(day.bg, 0, 0);
-            // 雜訊版的雲圖只有 320px 寬（舊的橢圓版是 560），
-            // 縮放係數要跟著補回來，不然雲會小一半。
-            const K = 2.2;
-            for (const c of day.clouds) {
-                const w = c.img.width * c.scale * (W / 1400) * (dpr / 1.2) * K;
-                const h = c.img.height * c.scale * (W / 1400) * (dpr / 1.2) * K;
-                const period = W + w * 2;
-                // 用取餘數算位置，不累加位移，久放也不會飄掉
-                const x = (((c.base * period - c.speed * t * dpr) % period) + period) % period - w;
-                ctx.globalAlpha = c.alpha;
-                if (c.flip) {
-                    ctx.save(); ctx.translate(x + w, c.y * H); ctx.scale(-1, 1);
-                    ctx.drawImage(c.img, 0, 0, w, h); ctx.restore();
-                } else {
-                    ctx.drawImage(c.img, x, c.y * H, w, h);
-                }
-            }
-            ctx.globalAlpha = 1;
-            ctx.drawImage(day.sea, 0, 0);
-            ctx.drawImage(day.vig, 0, 0);
-        }
-
-        /* ---------- 夜晚 ---------- */
-
-        const tint = () => {
-            const k = Math.random();
-            if (k < 0.62) return [255, 252, 245];   // 多數偏白
-            if (k < 0.85) return [206, 224, 255];   // 少數偏藍
-            return [255, 226, 196];                 // 少數偏暖
-        };
-
-        // 光暈預先畫成小圖，之後用 drawImage 貼；比每幀重建徑向漸層快非常多
-        function makeHalo(radius, rgb) {
-            const s = Math.ceil(radius * 2), c = mkCanvas(s, s);
-            const g = c.getContext('2d');
-            const grd = g.createRadialGradient(radius, radius, 0, radius, radius, radius);
-            grd.addColorStop(0, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.5)`);
-            grd.addColorStop(0.4, `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.16)`);
-            grd.addColorStop(1,'rgba(0,0,0,0)');
-            g.fillStyle = grd; g.fillRect(0, 0, s, s);
-            return c;
-        }
-
-        function buildNight() {
-            /* 邊長用對角線。原本的理由是「要涵蓋旋轉後的四角」，現在不轉了，
-               留著純粹是為了不改動星星的分布——縮到 W×H 會換一組亂數，
-               天空看起來就是另一片了。代價是這張畫布約是可視範圍的 2.2 倍像素，
-               哪天真的要省記憶體，這裡是最大的一塊。 */
-            const D = Math.ceil(Math.hypot(W, H));
-            const statics = mkCanvas(D, D);
-            const s = statics.getContext('2d');
-            const area = (innerWidth * innerHeight) / 1000;
-            const scale = D / Math.max(W, H);
-
-            // --- 銀河帶：瀰漫光 + 暗塵帶 + 帶內密集星塵 ---
-            // 帶子的長度要拉到 2D。原本只畫 ±D/2，但畫布半對角線是 0.707D，
-            // 帶子比畫布短，旋轉時兩端被切斷的直邊就露出來，
-            // 看起來像天空裂了一條縫。
-            const L = D * 2;
-            s.save();
-            s.translate(D / 2, D / 2);
-            s.rotate(-0.62);
-            const bg = s.createLinearGradient(0, -D * 0.16, 0, D * 0.16);
-            bg.addColorStop(0,'rgba(120,140,200,0)');
-            bg.addColorStop(0.5,'rgba(152,168,218,0.11)');
-            bg.addColorStop(1,'rgba(120,140,200,0)');
-            s.fillStyle = bg;
-            s.fillRect(-L / 2, -D * 0.16, L, D * 0.32);
-            // 暗塵帶已經移除。它的透明度是 0.40，而它要切開的銀河輝光只有
-            // 0.11——比背景還強四倍，在深色天空上就不會被讀成「瀰漫的塵埃」，
-            // 只會被讀成有人在天上畫了一條線。真實的暗塵帶之所以看得出來，
-            // 是因為周圍夠亮；這裡沒有那個條件，所以整條拿掉。
-            s.fillStyle ='#dfe6ff';
-            for (let i = 0; i < area * 1.1 * scale; i++) {
-                const v = (Math.random() + Math.random() + Math.random() - 1.5) * 0.13;
-                s.globalAlpha = rnd(0.05, 0.3);
-                s.fillRect(rnd(-L / 2, L / 2), v * D, rnd(0.2, 0.62) * dpr, rnd(0.2, 0.62) * dpr);
-            }
-            s.globalAlpha = 1;
-            s.restore();
-
-            // --- 星塵與小星：數量多但太小看不出閃爍，畫進靜態層 ---
-            for (const t of [{ n: area * 1.6, r: [0.25, 0.5], a: [0.18, 0.42] },
-                             { n: area * 0.5, r: [0.5, 0.9], a: [0.40, 0.75] }]) {
-                for (let i = 0; i < t.n * scale; i++) {
-                    const c = tint();
-                    s.fillStyle = `rgba(${c[0]},${c[1]},${c[2]},${rnd(t.a[0], t.a[1])})`;
-                    const r = rnd(t.r[0], t.r[1]) * dpr;
-                    s.fillRect(Math.random() * D, Math.random() * D, r, r);
-                }
-            }
-
-            // --- 中星與亮星：數量少，留到每幀即時畫，才有閃爍與光暈 ---
-            const live = [];
-            const halos = { m: makeHalo(3 * dpr, [255, 250, 242]), b: makeHalo(7 * dpr, [255, 250, 242]) };
-            for (const t of [{ n: area * 0.14, r: [0.9, 1.4], a: [0.65, 0.95], h:'m' },
-                             { n: area * 0.03, r: [1.4, 2.1], a: [0.85, 1.0], h:'b' }]) {
-                for (let i = 0; i < t.n; i++) {
-                    live.push({
-                        x: Math.random() * D, y: Math.random() * D,
-                        r: rnd(t.r[0], t.r[1]) * dpr, a: rnd(t.a[0], t.a[1]),
-                        h: t.h, c: tint(), tw: rnd(0.6, 2.4), ph: Math.random() * 6.283,
-                    });
-                }
-            }
-
-            // 夜空的底色：黃昏與夜的交界。純黑會失去《鈴芽之旅》那種
-            // 紫粉往深藍推、地平線留一道殘紅的層次。
-            const bgImg = bakeVertical([
-                [0.00, '#050813'], [0.30, '#0c142e'], [0.52, '#1b1d45'],
-                [0.70, '#2f2450'], [0.84, '#4a2f4f'], [0.93, '#6a3f48'], [1.00, '#7d4a42'],
-            ]);
-
-            // 地平線輝光 + 暗角，一起烘成一張疊圖
-            const fg = mkCanvas(W, H);
-            const f = fg.getContext('2d');
-            const lp = f.createRadialGradient(W * 0.5, H * 1.04, 0, W * 0.5, H * 1.04, H * 0.6);
-            lp.addColorStop(0,'rgba(214,140,96,0.30)');
-            lp.addColorStop(0.45,'rgba(150,100,120,0.12)');
-            lp.addColorStop(1,'rgba(0,0,0,0)');
-            f.fillStyle = lp; f.fillRect(0, 0, W, H);
-            const vg = f.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.max(W, H) * 0.78);
-            vg.addColorStop(0,'rgba(0,0,0,0)');
-            vg.addColorStop(1,'rgba(0,0,0,0.45)');
-            f.fillStyle = vg; f.fillRect(0, 0, W, H);
-
-            night = { statics, D, live, halos, bg: bgImg, fg };
-        }
-
-        // 兩顆特別亮的星（座標定義在靜態層座標系，跟著一起轉）。
-        // 原本旁邊有標星名，但那是背景，寫字反而變成要讀的東西，已拿掉。
-        const NAMED = [{ x: 0.30, y: 0.34 }, { x: 0.70, y: 0.26 }];
-
-        // 彗星：取代原本的流星。流星是一閃而過的小事件，
-        // 《你的名字》的彗星是慢慢橫越整片天、拖著長尾的東西，走完要十幾秒。
-        // 原本刻意做得很稀有（平均兩分鐘一次），但實際上大部分人根本沒看到過，
-        // 那等於白做——現在調密一些，讓它變成「偶爾會遇到」而不是「聽說有」。
-        /* 兩顆彗星之間的間隔（毫秒）。彗星本身要走 13～18 秒，
-           而程式一次只允許一顆，所以間隔壓太短就等於天上永遠有彗星。
-           取 20～50 秒：平均一分鐘會遇到一顆多，抬頭就看得到，又不會變常態。 */
-        const COMET_GAP = [20000, 50000];
-
-        function drawComet(now) {
-            /* ★ 原本是每一幀擲一次骰子（Math.random() < 0.00012），
-               那會讓出現頻率跟著螢幕更新率跑：120Hz 的機器彗星多一倍，
-               分頁被節流時又幾乎不出現。背景的節奏不該由硬體決定，
-               所以改成記下「下一顆的時間」。 */
-            if (!comet) {
-                if (!nextComet) { nextComet = now + rnd(COMET_GAP[0], COMET_GAP[1]); return; }
-                if (now < nextComet) return;
-                const dir = Math.random() < 0.5 ? 1 : -1;
-                comet = {
-                    t: now, dur: rnd(13000, 18000),
-                    x0: dir > 0 ? -W * 0.15 : W * 1.15, y0: rnd(0.05, 0.30) * H,
-                    x1: dir > 0 ? W * 1.15 : -W * 0.15, y1: rnd(0.34, 0.58) * H,
-                };
-                nextComet = 0;
-            }
-            const p = (now - comet.t) / comet.dur;
-            if (p >= 1) { comet = null; nextComet = now + rnd(COMET_GAP[0], COMET_GAP[1]); return; }
-
-            // 進出場各花兩成時間淡入淡出，中間維持全亮
-            const fade = p < 0.2 ? p / 0.2 : p > 0.8 ? (1 - p) / 0.2 : 1;
-            const x = comet.x0 + (comet.x1 - comet.x0) * p;
-            const y = comet.y0 + (comet.y1 - comet.y0) * p;
-            const dx = comet.x1 - comet.x0, dy = comet.y1 - comet.y0;
-            const len = Math.hypot(dx, dy);
-            const ux = -dx / len, uy = -dy / len;          // 尾巴指向來時的方向
-            const tail = W * 0.26;
-            const tx = x + ux * tail, ty = y + uy * tail;
-            const px = -uy, py = ux;                        // 垂直方向，用來讓尾巴張開
-            const half = H * 0.022;
-
-            // 尾巴：從彗核往後張開的三角形，用漸層讓它散掉
-            const grd = ctx.createLinearGradient(x, y, tx, ty);
-            grd.addColorStop(0, `rgba(255,247,232,${0.55 * fade})`);
-            grd.addColorStop(0.35, `rgba(214,206,255,${0.20 * fade})`);
-            grd.addColorStop(1, 'rgba(180,190,255,0)');
-            ctx.fillStyle = grd;
-            ctx.beginPath();
-            ctx.moveTo(x, y);
-            ctx.lineTo(tx + px * half, ty + py * half);
-            ctx.lineTo(tx - px * half, ty - py * half);
-            ctx.closePath(); ctx.fill();
-
-            // 彗核：小而亮，外面一圈光暈
-            const hg = ctx.createRadialGradient(x, y, 0, x, y, H * 0.03);
-            hg.addColorStop(0, `rgba(255,252,244,${0.95 * fade})`);
-            hg.addColorStop(0.25, `rgba(255,238,214,${0.35 * fade})`);
-            hg.addColorStop(1, 'rgba(255,230,200,0)');
-            ctx.fillStyle = hg;
-            ctx.beginPath(); ctx.arc(x, y, H * 0.03, 0, 6.2832); ctx.fill();
-            ctx.fillStyle = `rgba(255,255,255,${fade})`;
-            ctx.beginPath(); ctx.arc(x, y, 1.8 * dpr, 0, 6.2832); ctx.fill();
-        }
-
-        function drawNight(now) {
-            /* 星空不再自轉。原本是 90 秒一圈，但這是網站背景不是天象儀——
-               背景會動，眼睛就會一直被拉過去；而且轉動只有在盯著看時才發現，
-               平常只感覺到「有東西在晃」。星星本身的閃爍留著，那個夠了。 */
-            const N = night, D = N.D;
-            ctx.drawImage(N.bg, 0, 0);
-
-            ctx.save();
-            ctx.translate(W / 2, H / 2);
-            ctx.drawImage(N.statics, -D / 2, -D / 2);          // 靜態星層：一次貼圖
-
-            // 中星／亮星即時閃爍
-            for (const st of N.live) {
-                const x = st.x - D / 2, y = st.y - D / 2;
-                const tw = 0.82 + 0.18 * Math.sin(now / 1000 * st.tw + st.ph);
-                const a = st.a * tw;
-                const h = N.halos[st.h];
-                ctx.globalAlpha = a * 0.9;
-                ctx.drawImage(h, x - h.width / 2, y - h.height / 2);
-                ctx.globalAlpha = a;
-                ctx.fillStyle = `rgb(${st.c[0]},${st.c[1]},${st.c[2]})`;
-                ctx.beginPath(); ctx.arc(x, y, st.r, 0, 6.2832); ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-
-            // 特別亮的兩顆
-            for (const s of NAMED) {
-                const x = s.x * D - D / 2, y = s.y * D - D / 2;
-                const p = 0.85 + 0.15 * Math.sin(now / 900 + s.x * 10);
-                const h = N.halos.b;
-                ctx.globalAlpha = p;
-                ctx.drawImage(h, x - h.width / 2, y - h.height / 2);
-                ctx.fillStyle ='#fffdf7';
-                ctx.beginPath(); ctx.arc(x, y, 2 * dpr, 0, 6.2832); ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-
-            ctx.drawImage(N.fg, 0, 0);   // 地平線輝光 + 暗角
-            drawComet(now);
-        }
-
-        /* ---------- 共用流程 ---------- */
-
-        function resize() {
-            dpr = Math.min(window.devicePixelRatio || 1, 2);
-            W = cv.width = Math.floor(innerWidth * dpr);
-            H = cv.height = Math.floor(innerHeight * dpr);
-            cv.style.width = innerWidth +'px';
-            cv.style.height = innerHeight +'px';
-            night = null; day = null;
-        }
-
-        function frame(now) {
-            if (isDark()) { if (!night) buildNight(); drawNight(now); }
-            else { if (!day) buildDay(); drawDay(now); }
-            raf = calm.matches ? null : requestAnimationFrame(frame);
-        }
-
-        function start() {
-            if (raf) return;
-            if (!W) resize();
-            // 系統設定「減少動態」時只畫一張靜止的天空
-            if (calm.matches) { frame(performance.now()); return; }
-            raf = requestAnimationFrame(frame);
-        }
-        function stop() { if (raf) { cancelAnimationFrame(raf); raf = null; } }
-
-        let rt = null;
-        addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(() => { stop(); resize(); start(); }, 200); });
-        // 切到背景就停，回來再繼續：天空是持續動畫，不停會一直耗電
-        document.addEventListener('visibilitychange', () => document.hidden ? stop() : start());
-        // 換日夜模式時重畫一張，不然會停在舊的那一面
-        new MutationObserver(() => { if (calm.matches) { stop(); frame(performance.now()); } })
-            .observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-        start();
-    })();
-    </script>
 
 
     <!-- 開站載入畫面：一隻喵繞著 logo 跑。首頁資料到齊後淡出 -->
@@ -3665,6 +3206,22 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-11',
+                title: '換了背景與配色：雪山上的黑貓，紙墨改成雪藍與金',
+                items: [
+                    ['背景是一張畫，不是程式畫的天空', '整站底層換成四張梵谷風格的雪山黑貓：白天一張、夜裡一張，橫式與直式各一份。捲動時它不動，內容浮在上面。'],
+                    ['★ 分辨的是螢幕方向，不是裝置', '四張圖差的是長寬比。用「手機／電腦」去分的話，平板轉個方向就會拿到裁切不對的那一張——筆電永遠是橫的、手機拿著多半是直的，所以直接看方向比較準。'],
+                    ['★ 原本那 550 行的程式天空整段拿掉了', '舊版的背景是即時算出來的：白天用分形雜訊長出積雲（越靠近地平線越淡越藍），夜裡畫星野與流星。拿掉不是因為它不好，是因為那四張畫自帶天空——白天有旋渦狀的雲和太陽，夜裡有星、月亮和捲曲的星軌。兩套疊在一起，程式畫的積雲會蓋在畫出來的旋渦雲上，兩種筆觸互相打架。而這不會報錯，也不會有人回報，只會看起來很髒。副作用是好的：少了一個一直在跑的動畫，手機不再為了背景耗電。'],
+                    ['★ 背景差一點就整張被蓋掉，而且看起來完全正常', 'body 上掛著一個把底色塗成不透明的樣式類別，畫就墊在它下面。第一版靠 !important 想壓過去，但兩邊都 !important 時比的是「選擇器有多具體」，類別比 body 具體，所以壓不過——底色還在、字還在、卡片還在，只有畫不見了。而當時的測試檢查的是「有沒有寫 !important」，所以它是綠的。改成把 body 從那條規則裡排除，測試也跟著改成釘真正在起作用的那件事。'],
+                    ['★ 遮罩的濃度是量出來的，不是挑的', '字直接壓在畫上，在最暗與最亮的那幾塊會讀不了。所以取每張圖最極端的百分位像素去算對比——不是平均，因為讀不到字的地方永遠是最極端的那一塊，而平均亮度完全看不出那裡已經破線。淺色遮 0.60、深色遮 0.70，最差的情況分別是 6.0 與 6.4。深色要壓得比淺色重，因為夜景那張的月亮幾乎是純白的。'],
+                    ['卡片半透明，但只到 0.92', '畫會淡淡透上卡片，這是「內容浮在畫上」的關鍵。再透就不行了：0.80 以下時畫裡的黑貓與杉樹林會透進卡片，小字直接讀不了。'],
+                    ['配色從紙墨改成雪山', '底色由米白轉雪藍，強調色由磚紅換成金黃。金黃取自畫裡的太陽與月亮——磚紅壓在藍調的畫上是撞色。'],
+                    ['★ 換配色時最容易安靜壞掉的是亮度', '金黃比磚紅亮，拿去當實心底色配白字很容易掉到 4.5 以下，而那不會報錯。這一批顏色每一個都真的算過：白字壓在強調色上 5.06。順手修掉一個一直不合格的舊值——次要文字的灰壓在紙色上只有 3.42，本來就讀不清楚，只是沒有人會為了這種事來回報。'],
+                    ['★ 有三處顏色因為換了強調色而必須跟著改', '評價的第三項指標、單字冊的第二個封面色、計劃的「明天」區塊，原本都是琥珀色——跟新的金只差一點點，並排會被讀成同一個顏色，於是「四項指標」在畫面上變成三項。三個都換成畫裡湖面的青藍。'],
+                    ['模擬器只跟著換顏色，沒有鋪背景', '它是滿版不捲動的工作區，畫布本身就佔掉整個畫面。鋪了圖也只會被蓋住，只剩工具列縫隙露出幾條——那不是背景，是雜訊。']
+                ]
+            },
             {
                 date: '2026-08-11',
                 title: '單字庫多了資料夾，還有一套 3,462 字的內建單字庫',

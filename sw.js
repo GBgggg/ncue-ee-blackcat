@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v63';
+const CACHE = 'blackcat-v64';
 /* ★ 每一個會發布出去的頁面都要在這裡。漏掉不會報錯——
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
@@ -19,7 +19,17 @@ const CACHE = 'blackcat-v63';
 const CORE = ['./', './index.html', './image.png', './manifest.json',
               './image2.jpg',           // 彰師電子的 logo（ncue.html 用）
               './ncue.html',            // 彰師電子（獨立頁）
-              './blackcatspice.html'];  // 電路模擬器（獨立頁）
+              './blackcatspice.html',   // 電路模擬器（獨立頁）
+              /* 背景畫：亮／夜 × 橫／直四張，共約 1.6 MB。
+                 ★ 這四張**必須**進 CORE，跟單字庫那 1.8MB 的取捨相反。
+                 理由是它們不是「翻到才需要」的內容，是每一頁的底：
+                 沒預快取的話，離線開站會是一片純色，而純色跟「圖還沒載完」
+                 長得一模一樣，沒有人會知道那是壞的。
+                 ★ 只會下載到其中一張嗎？不會——addAll 是全部抓。
+                 換主題或把手機轉個方向就會用到另一張，那時才下載就太遲了
+                 （切過去的瞬間背景會空一拍）。 */
+              './brightcomputer.jpg', './brightphone.jpg',
+              './nightcomputer.jpg',  './nightphone.jpg'];
 /* ★ 內建單字庫（./data/vocab/*.json，約 1.8MB）**故意不放進 CORE**：
    放進去等於每個人安裝時都先下載整套，而多數人只會翻其中幾個資料夾。
    它走下面「靜態資源快取優先」那條路——開過的資料夾自然會留在快取裡，
