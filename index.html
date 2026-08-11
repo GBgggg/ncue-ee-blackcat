@@ -859,6 +859,47 @@
         #mainHeader h1 { color: var(--ink) !important; }
         #mainHeader .text-emerald-500 { color: var(--ink-3) !important; letter-spacing: 0.18em; }
 
+        /* ---- 手機下拉刷新的指示器 ----
+           行為與「為什麼要自己做一個」寫在 JS 的「5.2 下拉刷新」那一段。
+
+           ★ `overscroll-behavior-y: contain` 是這一段最關鍵的一行。
+           少了它，Chrome Android 會在同一個手勢裡同時跑「瀏覽器自己的
+           下拉刷新」跟這一套，畫面上兩個轉圈的東西疊在一起，
+           而且完全沒有錯誤訊息——只會被當成「這網站怪怪的」。 */
+        html { overscroll-behavior-y: contain; }
+
+        #ptr {
+            position: fixed; top: 0; left: 50%; z-index: 45;
+            width: 38px; height: 38px; margin-left: -19px;
+            display: flex; align-items: center; justify-content: center;
+            border: 1px solid var(--rule); border-radius: 50%;
+            background: var(--panel);
+            box-shadow: 0 1px 12px rgba(26, 24, 21, .10);
+            color: var(--accent);
+            pointer-events: none;
+            /* 起手停在畫面外。位移與透明度在拉的過程中由 JS 直接寫 style——
+               這一段**不能**給 transition，不然指示器會慢手指半拍，
+               看起來像卡住而不是跟著拉。 */
+            transform: translateY(-60px);
+            opacity: 0;
+            /* visibility 而不是 display:none：display 改變會觸發重排，
+               而這是在手指按下的那一瞬間發生的。 */
+            visibility: hidden;
+        }
+        #ptr.ptr-on { visibility: visible; }
+        /* 只有「放手之後」才需要過場：回彈，或是定位到轉圈的位置。 */
+        #ptr.ptr-ease { transition: transform var(--dur-base) var(--ease), opacity var(--dur-base) var(--ease); }
+        #ptr svg { width: 20px; height: 20px; display: block; transition: transform var(--dur-base) var(--ease); }
+        /* 拉過門檻：箭頭翻過來指向上，這是「放手就會刷新」唯一的提示。 */
+        #ptr.ptr-armed svg { transform: rotate(180deg); }
+        /* 放手之後一直轉，直到整頁真的被換掉。 */
+        #ptr.ptr-run svg { animation: ptr-spin .8s linear infinite; transition: none; }
+        @keyframes ptr-spin { to { transform: rotate(360deg); } }
+        @media (prefers-reduced-motion: reduce) {
+            #ptr.ptr-run svg { animation: none; }
+            #ptr.ptr-ease { transition: none; }
+        }
+
         /* 小標籤：字距拉開的編輯體例 */
         .uppercase.tracking-widest { letter-spacing: 0.2em !important; }
 
@@ -877,6 +918,15 @@
     </script>
 </head>
 <body class="bg-slate-50 text-slate-800">
+
+    <!-- 手機下拉刷新的指示器。aria-hidden 是刻意的：它是手勢的視覺回饋，
+         讀螢幕的人用不到，而且它沒有任何文字內容。 -->
+    <div id="ptr" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 4v13"></path><path d="M6 11l6 6 6-6"></path>
+        </svg>
+    </div>
 
     <!-- 天空：白天是藍天積雲，夜裡是星野。兩者共用同一張畫布 -->
     <canvas id="skyCanvas" aria-hidden="true"></canvas>
@@ -3410,6 +3460,119 @@
         })();
 
         /* ==========================================================
+         * 5.2 下拉刷新（只在觸控裝置）
+         *
+         * 為什麼要自己做一個：這個站可以「加到主畫面」，裝起來之後是獨立
+         * 視窗——沒有網址列，也就沒有重新整理鍵。平常資料是 Firebase 即時
+         * 訂閱不必刷新，但只要離線過一次、或 Service Worker 換了新版本，
+         * 使用者手上就只剩「把 App 關掉重開」這一招。
+         *
+         * 動作是整頁 location.reload()。只重跑訂閱的版本比較快也不閃，
+         * 但那要逐個分頁確認有沒有漏刷的狀態——漏掉的那一個不會報錯，
+         * 只會安靜地停在舊資料上，而使用者剛剛才「刷新過」，
+         * 於是他會相信畫面上的舊數字。整頁重載換到的是這件事不可能發生。
+         * ========================================================== */
+        (() => {
+            /* 只給觸控裝置。桌面有 F5，而且滑鼠的慣性捲動會誤觸。 */
+            if (!matchMedia('(hover: none) and (pointer: coarse)').matches) return;
+            const el = $('ptr'); if (!el) return;
+
+            const TRIG = 70;        // 拉超過這段距離，放手才刷新
+            const MAX  = 108;       // 再拉幾乎不再前進，避免拉出一條橡皮筋
+            const SLOP = 8;         // 這段距離內還看不出方向，先不表態
+            let y0 = 0, x0 = 0, live = false, armed = false, decided = false, firing = false;
+
+            /* ★ 有東西蓋在上面就整組不做。兩個理由，兩個都踩得到：
+                 1. 彈窗是 `fixed inset-0 overflow-y-auto`——它自己捲自己，
+                    window.scrollY 從頭到尾都是 0。不擋的話在彈窗裡往下滑
+                    就會刷新，而使用者看到的是「App 自己跳掉了」。
+                 2. 重載會清掉填到一半的表單，還有作答中的測驗。 */
+            const covered = () => {
+                const sp = $('splash');
+                if (sp && !sp.classList.contains('done')) return true;
+                return [...document.querySelectorAll('.fixed.inset-0')]
+                    .some(m => m.getClientRects().length > 0);
+            };
+
+            /* 手指底下如果是「自己還沒捲到頂」的容器（單字卡、長列表、
+               程式碼框），那一下是它的捲動，不是下拉刷新。 */
+            const innerScrolled = (node) => {
+                for (let n = node; n && n !== document.body; n = n.parentElement)
+                    if (n.scrollTop > 0) return true;
+                return false;
+            };
+
+            const place = (d) => {
+                el.style.transform = `translateY(${d - 44}px)`;
+                el.style.opacity = String(Math.min(1, d / TRIG));
+            };
+            const reset = () => {
+                el.classList.add('ptr-ease');
+                el.classList.remove('ptr-armed');
+                el.style.transform = 'translateY(-60px)';
+                el.style.opacity = '0';
+                setTimeout(() => { if (!firing) el.classList.remove('ptr-on'); }, 260);
+            };
+
+            addEventListener('touchstart', (e) => {
+                live = false;
+                /* 兩指以上是縮放，不是下拉。 */
+                if (firing || e.touches.length !== 1) return;
+                if (window.scrollY > 0 || covered() || innerScrolled(e.target)) return;
+                y0 = e.touches[0].clientY; x0 = e.touches[0].clientX;
+                live = true; decided = false; armed = false;
+            }, { passive: true });
+
+            addEventListener('touchmove', (e) => {
+                if (!live) return;
+                if (e.touches.length !== 1) { live = false; reset(); return; }
+                const dy = e.touches[0].clientY - y0;
+                const dx = e.touches[0].clientX - x0;
+
+                if (!decided) {
+                    if (Math.abs(dy) < SLOP && Math.abs(dx) < SLOP) return;
+                    decided = true;
+                    /* 往上滑是正常捲動；橫向多於縱向是左右滑或拖曳計劃卡。
+                       兩種都要整個放掉，不然手指一斜就被這裡攔截，
+                       症狀是「頁面偶爾滑不動」——偶爾，所以很難重現。 */
+                    if (dy <= 0 || Math.abs(dx) > Math.abs(dy)) { live = false; return; }
+                    el.classList.remove('ptr-ease');
+                    el.classList.add('ptr-on');
+                }
+                if (dy <= 0) { live = false; reset(); return; }
+
+                /* ★ 監聽器要 passive:false，這一行才擋得住預設行為。
+                   不擋的話畫面會跟著 iOS 的橡皮筋一起晃，
+                   指示器與內容各動各的，看起來像兩層畫面沒對齊。 */
+                if (e.cancelable) e.preventDefault();
+
+                const d = dy < MAX ? dy : MAX + (dy - MAX) * 0.03;
+                armed = d >= TRIG;
+                el.classList.toggle('ptr-armed', armed);
+                place(d);
+            }, { passive: false });
+
+            addEventListener('touchend', () => {
+                if (!live) return;
+                live = false;
+                if (!armed) { reset(); return; }
+                firing = true;
+                el.classList.add('ptr-ease', 'ptr-run');
+                el.classList.remove('ptr-armed');
+                el.style.transform = 'translateY(20px)';
+                el.style.opacity = '1';
+                /* 留一點時間讓轉圈真的畫出來再重載。少了這段，
+                   使用者只看到畫面一閃，分不出剛剛那一下有沒有生效。 */
+                setTimeout(() => location.reload(), 320);
+            }, { passive: true });
+
+            addEventListener('touchcancel', () => {
+                if (!live) return;
+                live = false; reset();
+            }, { passive: true });
+        })();
+
+        /* ==========================================================
          * 5.5 更新紀錄（關於小黑貓頁）
          *
          * 發布前只要在 CHANGELOG 陣列「最前面」插入一筆就好：
@@ -3419,6 +3582,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-11',
+                title: '手機在最上面往下拉，就會重新整理',
+                items: [
+                    ['為什麼要有這個', '把網站「加到主畫面」之後是獨立視窗，沒有網址列，也就沒有重新整理鍵。平常資料是即時同步不必刷新，但只要離線過一次、或是站上換了新版本，手上就只剩「把 App 關掉重開」這一招。現在在頁面最上面往下拉就好，拉過一段距離箭頭會翻過來，放手就重新整理。'],
+                    ['★ 彈窗開著的時候不會觸發', '彈窗是自己捲自己的，整頁的捲動位置從頭到尾都停在最上面。不特別擋的話，在彈窗裡往下滑就會刷新——填到一半的表單、作答到一半的測驗會整個沒掉，而且看起來像「App 自己跳掉了」，完全不知道發生什麼事。開站動畫還在的時候也一樣不做。'],
+                    ['橫著滑、兩指縮放、往上滑都不算', '只有「一根手指、從最上面、往下」才算。少了這幾條，手指稍微斜一點就會被攔截，症狀是頁面偶爾滑不動——偶爾，所以很難說得清楚。'],
+                    ['做的是整頁重新整理，不是只重抓資料', '只重抓資料比較快也不閃，但那要每一個分頁都確認有沒有漏刷的狀態。漏掉的那一個不會報錯，只會停在舊資料上——而你剛剛才「刷新過」，所以你會相信畫面上的舊數字。'],
+                    ['電腦上沒有這個', '電腦有 F5，而且滑鼠滾輪的慣性會誤觸。']
+                ]
+            },
             {
                 date: '2026-08-11',
                 title: '剛登入就新增的計劃會不見——而且雲端那份被寫壞過一次',
