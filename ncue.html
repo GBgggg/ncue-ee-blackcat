@@ -372,6 +372,155 @@
         }
 
         /* ==========================================================
+           梵谷筆觸層：讓外殼跟背景那張畫是同一種材質
+
+           ★ 這一層動的是**質感不是顏色**。色票早就從畫裡取過了
+           （雪藍、群青、月金），再調色相只會離那張畫愈來愈遠。
+           一張畫看起來像梵谷靠的是三件事：畫布的織理、顏料的厚度
+           （每一筆都有高低差，所以有亮邊也有暗溝）、以及筆觸的方向。
+           所以這裡只做這三件，一個新色碼都不加。
+
+           ★★ 織紋只走**一個方向**，這不是偷懶，是量出來的。
+           交叉的網格會在每個交點疊出兩倍濃度，而那一格正好是可讀性
+           最壞的地方：線 0.03 的交點就讓次要文字掉到 4.38（門檻 4.5）。
+           單方向的峰值就等於線本身的濃度，0.035 → 4.63，過得去。
+           而且梵谷的筆觸本來就是**平行的**——交叉影線是版畫的語彙不是
+           油畫的。省下來的對比與更像的筆法剛好是同一個決定。
+
+           ★★ 深色模式的織紋一定要用**暗線**。
+           直覺會想「暗底上當然要用亮線才看得到」，但亮線把卡片底提亮，
+           次要文字（#7d86a0）在 0.02 就掉到 4.47、已經破線——而織紋是
+           全站鋪的，破的是每一張卡片裡的每一行小字，且不會報錯，
+           只會讓人覺得「深色模式好像有點糊」。暗線相反，它讓底更暗、
+           對比往上走（0.06 → 4.78）。
+
+           ★ 為什麼用 repeating-linear-gradient 而不是 SVG 雜訊：
+           雜訊的濃度**算不準**。feTurbulence 要真的算過像素才知道最壞的
+           那一格有多暗，而「看起來很淡所以應該沒事」正是這個專案一再
+           吃虧的地方（背景遮罩、次要文字的灰都是這樣來的）。
+           漸層的峰值寫死在停止點上，看程式碼就知道，測試也釘得住。
+           ========================================================== */
+        :root {
+            /* 畫布的織理：一道方向一致的軟稜線，峰值 0.035。
+               停止點用軟的不用硬的——硬邊會變成影線（版畫），
+               軟邊才是布紋透出顏料的樣子。 */
+            --vg-tooth: repeating-linear-gradient(108deg,
+                rgba(19, 26, 43, 0.035) 0px,
+                rgba(19, 26, 43, 0.012) 1.5px,
+                rgba(19, 26, 43, 0)     3px,
+                rgba(19, 26, 43, 0)     6px);
+            /* 內凹區塊換一個角度：同一張畫上不同的筆刷走向。
+               全站同一個角度會看起來像貼了一張塑膠膜，不像畫。 */
+            --vg-tooth-alt: repeating-linear-gradient(68deg,
+                rgba(19, 26, 43, 0.030) 0px,
+                rgba(19, 26, 43, 0.010) 1.5px,
+                rgba(19, 26, 43, 0)     3px,
+                rgba(19, 26, 43, 0)     7px);
+            /* 厚塗：實心色塊上的筆觸。亮的那一道會把底色提亮、
+               白字對比跟著掉，所以上限是量過的 0.035（→ 4.72）。
+               暗的那一道只會讓對比更好，可以放寬。 */
+            --vg-impasto: repeating-linear-gradient(102deg,
+                rgba(255, 255, 255, 0.035) 0px,
+                rgba(255, 255, 255, 0)     2.5px,
+                rgba(0, 0, 0, 0.055)       4px,
+                rgba(0, 0, 0, 0)           6.5px,
+                rgba(0, 0, 0, 0)           10px);
+            /* 一塊刷上去的顏料。這是全檔唯一的 SVG 形狀——
+               歪掉的邊緣沒辦法用漸層做出來，只能給路徑。
+               ★ preserveAspectRatio='none' 讓它跟著按鈕拉寬；
+               中央是實心的，歪的只有外緣，所以字永遠壓在飽滿的顏料上。
+               ★ 遮罩看的是 alpha 不是顏色，填什麼色都一樣，
+               填黑只是為了在編輯器裡打開能看見形狀。 */
+            --vg-swatch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60' preserveAspectRatio='none'%3E%3Cpath d='M10 14C33 6 62 11 97 8c33-3 66 1 93 5 5 11 4 30 0 40-28 5-60 0-94 3-33 3-62-3-86-6C4 39 4 24 10 14Z' fill='%23000'/%3E%3C/svg%3E");
+            /* 顏料的厚度：光從左上來，所以上緣有被刮起的亮邊、
+               下緣有暗溝，落影往右下偏。散影用畫裡的深藍不用中性灰——
+               中性灰的落影會讓卡片看起來像貼在畫上的貼紙。 */
+               ★ 散影的模糊半徑上限是 12px，那是設計系統既有的約束
+               （tests/design.mjs 釘著），不是我可以順手放寬的東西——
+               第一版寫 18px 就是在把「陰影收斂」這件事偷偷還原。 */
+            --vg-relief:
+                inset 0 1px 0 rgba(255, 255, 255, 0.55),
+                inset 0 -1px 0 rgba(19, 26, 43, 0.06),
+                1px 2px 0 rgba(40, 60, 80, 0.10),
+                3px 5px 12px rgba(40, 60, 80, 0.13);
+        }
+        html.dark {
+            --vg-tooth: repeating-linear-gradient(108deg,
+                rgba(0, 0, 0, 0.060) 0px,
+                rgba(0, 0, 0, 0.020) 1.5px,
+                rgba(0, 0, 0, 0)     3px,
+                rgba(0, 0, 0, 0)     6px);
+            --vg-tooth-alt: repeating-linear-gradient(68deg,
+                rgba(0, 0, 0, 0.055) 0px,
+                rgba(0, 0, 0, 0.018) 1.5px,
+                rgba(0, 0, 0, 0)     3px,
+                rgba(0, 0, 0, 0)     7px);
+            --vg-relief:
+                inset 0 1px 0 rgba(175, 190, 235, 0.10),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.45),
+                1px 2px 0 rgba(0, 0, 0, 0.45),
+                3px 5px 12px rgba(0, 0, 0, 0.42);
+        }
+
+        /* ---- 織理鋪在哪些面上 ----
+           ★ 只寫 background-image，絕對不要碰 background（簡寫）。
+           簡寫會把上面那批接管規則設好的 background-color 一起清掉，
+           而症狀是卡片變成透明——畫直接透出來，字疊在杉樹林上。
+           ★ 不加 !important：Tailwind 的 .bg-white 只設 background-color，
+           這裡沒有對手；反而是加了會蓋掉真正需要漸層的元素。 */
+        .bg-white,
+        #mainHeader,
+        .quiz-screen,
+        #splash,
+        #logoMenu,
+        .word-popup, #accountMenu,
+        [id$="Modal"] > .bg-white {
+            background-image: var(--vg-tooth);
+        }
+        .bg-slate-50:not(body), .bg-slate-50\/50, .bg-slate-50\/40,
+        .bg-slate-100,
+        .plan-zone,
+        .sched-head,
+        .quiz-bar {
+            background-image: var(--vg-tooth-alt);
+        }
+
+        /* ---- 實心色塊的筆觸 ----
+           這些選擇器就是上面「接管成 --accent-fill」與階級／資料色票的
+           那幾組。★ 漏掉任何一個的症狀是「有些色塊有筆觸、有些是平的」，
+           在同一個畫面上並排會特別明顯，所以這裡照著上面那幾段列滿。 */
+        .bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500,
+        .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600,
+        .bg-emerald-200, .bg-fuchsia-400,
+        .bg-fuchsia-500, .bg-fuchsia-600, .bg-amber-500, .bg-rose-500,
+        .bg-slate-400, .bg-slate-300, .bg-indigo-500, .bg-sky-600,
+        .bg-red-500, .bg-red-600, .bg-rose-600,
+        .bg-data-1, .bg-data-2, .bg-data-3, .bg-data-4,
+        .bg-sw-1, .bg-sw-2, .bg-sw-3, .bg-sw-4, .bg-sw-5, .bg-sw-6, .bg-sw-7,
+        .quiz-bar-fill, .quiz-qnum,
+        .quiz-opt.is-correct .quiz-opt-letter,
+        .quiz-opt.is-wrong .quiz-opt-letter {
+            background-image: var(--vg-impasto);
+        }
+
+        /* ---- 乾筆的分隔線 ----
+           一條均勻的 1px 細線是製圖的語彙。同樣的線用遮罩打斷成長短
+           不一的幾段，就變成「畫上去的」——濃度與顏色完全沒變，
+           所以對比不受影響，這是最便宜的一筆。
+           ★ 遮罩的段落刻意不等長也不整除，等長會被看成虛線。 */
+        .vg-drybrush,
+        #mainHeader::after {
+            -webkit-mask-image: repeating-linear-gradient(90deg,
+                #000 0 37px, rgba(0,0,0,.35) 37px 44px,
+                #000 44px 101px, rgba(0,0,0,.25) 101px 106px,
+                #000 106px 173px, rgba(0,0,0,.4) 173px 179px);
+            mask-image: repeating-linear-gradient(90deg,
+                #000 0 37px, rgba(0,0,0,.35) 37px 44px,
+                #000 44px 101px, rgba(0,0,0,.25) 101px 106px,
+                #000 106px 173px, rgba(0,0,0,.4) 173px 179px);
+        }
+
+        /* ==========================================================
            鍵盤焦點
            ★ 這一段以前完全不存在（全站 focus-visible 的數量是 0）。
            症狀不是「難看」，是**用鍵盤 Tab 過去時看不出焦點在哪**——
@@ -602,8 +751,12 @@
         .plan-zone {
             --zone: var(--ink-3);
             /* 自己的顏色淡淡鋪一層。純 `--paper-sunk` 的話五區塊底色一樣，
-               只靠左邊那條槓分辨，掃過去仍然像一整塊。 */
-            background: color-mix(in srgb, var(--zone) 7%, var(--paper-sunk));
+               只靠左邊那條槓分辨，掃過去仍然像一整塊。
+               ★ 一定要用 background-color 不能用 `background:` 簡寫：
+               簡寫會把上面梵谷筆觸層鋪的 background-image 一起清成 none，
+               而症狀只是「這五塊沒有畫布紋、別的地方有」——底色在、字在、
+               槓也在，完全不像壞掉。 */
+            background-color: color-mix(in srgb, var(--zone) 7%, var(--paper-sunk));
             border: 1px solid var(--rule);
             border-left: 4px solid var(--zone);   /* 這條槓是「這裡換一區了」最省版面的講法 */
             border-radius: var(--radius);
@@ -688,8 +841,9 @@
             /* ★ 用 --panel 不是 --paper-raised。浮在內容上的東西一定要不透明——
                卡片改成半透明（0.92，為了讓背景那張畫透上來）之後，
                沿用 --paper-raised 的話下拉選單會透出底下的文字，
-               兩層字疊在一起。--panel 就是為了這個而存在的。 */
-            background: var(--panel);
+               兩層字疊在一起。--panel 就是為了這個而存在的。
+               ★ background-color 不是 background：簡寫會清掉筆觸層的織理。 */
+            background-color: var(--panel);
             border: 1px solid var(--rule);
             box-shadow: 0 10px 28px rgba(15, 23, 42, .22);
         }
@@ -743,11 +897,37 @@
             color: var(--ink) !important;
             background-color: var(--accent-soft) !important;
         }
+        /* ★ 選中的那一顆改成「刷上去的一塊顏料」：形狀不是圓角矩形，
+           邊緣是歪的。這是全站梵谷感最集中的一處，因為它是唯一一個
+           每次切分頁都會重新看到的實心色塊。
+
+           ★★ 顏料塊畫在 ::before 上，**不能直接對按鈕做 mask**。
+           mask 會連同子元素一起遮，也就是會把分頁的字一起啃掉邊角——
+           而且只有字剛好長到邊緣的那幾個分頁會缺角，短的看起來完全正常，
+           很容易以為是字型問題。分成兩層之後字完全不受影響。
+
+           ★ 底色仍然是 --accent-fill 一個色碼都沒動，所以白字對比
+           還是量過的 5.13／5.04；上面那層筆觸最亮的一道是 0.035，
+           把底提到最亮時白字是 4.72，仍在門檻上。
+
+           ★ z-index: 0 是必要的：不寫的話按鈕不建立堆疊脈絡，
+           ::before 的 -1 會掉到頁首的底色後面，顏料塊直接消失。
+           症狀是「選中的分頁只剩白字」，在淺色模式下等於看不見。 */
+        .tab-btn { position: relative; z-index: 0; }
         .tab-btn.is-active,
         .tab-btn.is-active:hover {
-            background-color: var(--accent-fill) !important;
+            background-color: transparent !important;
             color: #fff !important;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, .22);
+            box-shadow: none;
+        }
+        .tab-btn.is-active::before {
+            content: ''; position: absolute; inset: -3px -4px;
+            z-index: -1;
+            background-color: var(--accent-fill);
+            background-image: var(--vg-impasto);
+            filter: drop-shadow(1px 2px 3px rgba(40, 60, 80, .28));
+            -webkit-mask: var(--vg-swatch) center / 100% 100% no-repeat;
+            mask: var(--vg-swatch) center / 100% 100% no-repeat;
         }
 
         /* ---- 開站載入畫面 ----
@@ -758,10 +938,12 @@
             position: fixed; inset: 0; z-index: 9999;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
             gap: 22px;
-            background: var(--paper);
+            /* ★ background-color 不是 background：簡寫會清掉筆觸層的織理，
+               而開站畫面是整站第一眼——沒紋理的那半秒特別明顯。 */
+            background-color: var(--paper);
             transition: opacity .45s ease, visibility .45s ease;
         }
-        html.dark #splash { background: #070b18; }
+        html.dark #splash { background-color: #070b18; }
         #splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
         /* 尺寸全部用百分比，只有舞台本身是絕對值——這樣手機上整個縮小時，
            貓和 logo 的「比例」不變，下面那個腿的夾角也就不會跑掉。
@@ -976,19 +1158,42 @@
            （做設計優化提案時我就是漏看這一段，數了 HTML 的 class 就下結論說
            「有 54 處重陰影」，差點又加一份重複的規則上去。這個專案的老教訓：
            先確認量測工具本身是對的。） */
+           ★ 2026-08-11 落影改成「顏料的厚度」（--vg-relief）：原本是四面
+           均勻的落影，那是紙；顏料有高低差，光從左上來就會在上緣留一道
+           被刮起的亮邊、下緣留一條暗溝，而落影往右下偏。
+           散影的顏色從中性灰換成畫裡的深藍（#283c50 那一族）——
+           中性灰的落影會讓卡片看起來像「貼在畫上的貼紙」，
+           同色系的落影才像「畫在同一塊布上」。
+           ★ 兩個模式各一組，不能共用：深色模式下亮邊要收到 0.10，
+           用淺色那組的 0.55 會在每張卡片上緣描出一條白框。 */
+           ★ 原本這裡有兩條規則（淺色一條、`html.dark .shadow-*` 一條）。
+           改走 token 之後**深色那條就是死的**：`--vg-relief` 已經在
+           `html.dark` 裡重新定義過，同一條規則在兩個模式自己會拿到不同的值。
+           留著它不會報錯，只會讓下一個人以為「深色模式要改這裡」，
+           然後改了半天沒有反應。所以整條移除，深色的值去上面的 token 區看。
+           （tests/design.mjs 跟著改成去解 token，不再找那條規則——
+           那支測試原本是數這條規則裡的 px 數字，走 token 之後它會數到零個
+           而**變成綠的**，又一次「量測工具本身失效」。） */
         .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 1px 12px rgba(15, 23, 42, 0.04) !important;
-        }
-        html.dark .shadow-sm, html.dark .shadow-md, html.dark .shadow-lg,
-        html.dark .shadow-xl, html.dark .shadow-2xl {
-            box-shadow: 0 1px 2px rgba(0,0,0,0.5), 0 2px 20px rgba(0,0,0,0.35) !important;
+            box-shadow: var(--vg-relief) !important;
         }
 
-        /* ---- 頁首：紙色 + 一條細線，取代原本的深色塊 ---- */
+        /* ---- 頁首：紙色 + 一條畫上去的線，取代原本的深色塊 ----
+           ★ 那條 border 改成透明、線本身交給 ::after 畫。理由是 border
+           畫不出「乾筆」——它一定是等寬等濃的一條，那是製圖不是繪畫。
+           顏色與濃度跟原本的 --rule 完全一樣，只是被遮罩打斷成長短不一
+           的幾段，所以對比一點都沒變。
+           ★ #mainHeader 是 sticky，本身就建立了定位脈絡，::after 不必
+           再補 position: relative——補了反而會蓋掉 sticky。 */
         #mainHeader {
             background-color: var(--paper-raised) !important;
-            border-bottom: 1px solid var(--rule) !important;
+            border-bottom: 1px solid transparent !important;
             box-shadow: none !important;
+        }
+        #mainHeader::after {
+            content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
+            height: 1px; background: var(--rule);
+            pointer-events: none;
         }
         #mainHeader h1 { color: var(--ink) !important; }
         #mainHeader .text-emerald-500 { color: var(--ink-3) !important; letter-spacing: 0.18em; }
@@ -3270,6 +3475,20 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-11',
+                title: '外殼也畫上去了：畫布織理、顏料的厚度、刷上去的分頁',
+                items: [
+                    ['動的是質感不是顏色', '上一輪已經把色票從那張畫裡取過了（雪藍、群青、月金），所以這次一個新色碼都沒加。一張畫看起來像梵谷靠的是三件事：畫布的織理、顏料的厚度、筆觸的方向——現在卡片、頁首、面板都鋪了一層極淡的布紋，落影從四面均勻改成「光從左上來」（上緣有被刮起的亮邊、下緣有暗溝、影子往右下偏），實心色塊上多了一道方向一致的筆觸。'],
+                    ['★ 織紋只走一個方向，這是量出來的不是美感', '本來想做交叉的網格，那才像布。但交叉會在每個交點疊出兩倍濃度，而那一格正好是可讀性最壞的地方——線只有 0.03 的交點就讓次要文字掉到 4.38，門檻是 4.5。單方向的峰值就等於線本身的濃度，0.035 是 4.63，過得去。後來發現這反而更對：梵谷的筆觸本來就是平行的，交叉影線是版畫的語彙不是油畫的。省下來的對比與更像的筆法剛好是同一個決定。'],
+                    ['★ 深色模式的織紋必須用暗線，直覺會選錯', '暗底上要用亮線才看得到——這是直覺，也是錯的。亮線會把卡片底提亮，次要文字在 0.02 就掉到 4.47、已經破線，而織紋是全站鋪的，破的是每一張卡片裡的每一行小字。這種事不會有人回報，只會覺得「深色模式好像有點糊」。改用暗線之後底更暗、對比反而往上走到 4.78。'],
+                    ['★ 三張面差點沒有紋理，而且看起來完全正常', '織理是用 background-image 加上去的，但只要後面有任何一條規則用 `background:` 簡寫設底色，就會把它清成 none。開站畫面、logo 下拉選單、計劃的五個區塊全中了——底色在、字在、版面正常，只是少了紋理。這種「有些面有、有些沒有」不會被當成壞掉，只會覺得整體不太整齊。修法是把那三處的簡寫改成 background-color，並且寫了一支掃描整份樣式的檢查釘住它，不是只釘那三個名字。'],
+                    ['選中的分頁改成刷上去的一塊顏料', '形狀不再是圓角矩形，邊緣是歪的。這是全站梵谷感最集中的一處，因為它是唯一一個每次切分頁都會重新看到的實心色塊。'],
+                    ['★ 顏料塊不能直接做在按鈕上', '遮罩會連同子元素一起遮，也就是會把分頁的字一起啃掉邊角——而且只有字剛好長到邊緣的那幾個分頁會缺角，短的看起來完全正常，很容易被當成字型問題。所以顏料塊另外畫一層在按鈕底下，字完全不受影響。另外那一層需要按鈕先建立堆疊脈絡，少了這一步顏料塊會沉到頁首的底色後面直接消失，選中的分頁只剩白字，在淺色模式下等於看不見。'],
+                    ['頁首底下那條線改成乾筆', '一條均勻的細線是製圖的語彙。同樣的顏色與濃度，用遮罩打斷成長短不一的幾段就變成「畫上去的」——對比一點都沒變，這是整輪最便宜的一筆。'],
+                    ['★ 陰影改走變數之後，原本的測試會變綠而什麼都沒在量', '落影從寫死的數值改成一個變數，而守著它的那支測試是「數這條規則裡的 px 數字」——走變數之後它會數到零個，然後 Math.max 對空陣列的結果讓判斷變成恆真。規則還在、測試全綠、而它已經完全沒在守。這是這個專案第 N 次同一個教訓：先確認量測工具本身還對著目標。測試改成把變數的值解出來再量，順手把已經失效的深色那條規則整條刪掉（值早就在變數區換掉了，留著只會讓下一個人改半天沒反應）。']
+                ]
+            },
             {
                 date: '2026-08-11',
                 title: '換了背景與配色：雪山上的黑貓，紙墨改成雪藍與金',
