@@ -2188,15 +2188,25 @@
                         <div class="flex-1">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">專屬單字庫 </h2>
                         </div>
+                        <button id="addVocabFolderBtn" data-action="add-vocab-folder" class="hidden px-6 py-3 font-bold bg-slate-700 text-white rounded-2xl hover:bg-slate-600 transition-colors shadow-lg flex items-center gap-2 shrink-0">
+                            <i data-lucide="folder-plus" class="w-5 h-5 pointer-events-none"></i> 新增資料夾
+                        </button>
                         <button id="addVocabBookBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 創建單字冊
                         </button>
                     </div>
                 </div>
-                <!-- 公有／我的 切換。「我的」只有本人看得到，連管理員都讀不到 -->
-                <div class="flex gap-2 mb-5">
-                    <button data-action="set-vocab-scope" data-scope="public" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
-                    <button data-action="set-vocab-scope" data-scope="mine" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
+                <!-- 內建／公有／我的 切換。「我的」只有本人看得到，連管理員都讀不到；
+                     「內建」是隨網站發布的靜態單字庫，唯讀。 -->
+                <div class="flex gap-2 mb-5 overflow-x-auto scrollbar-hide pb-1">
+                    <button data-action="set-vocab-scope" data-scope="builtin" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="library-big" class="w-4 h-4 pointer-events-none"></i> 內建</button>
+                    <button data-action="set-vocab-scope" data-scope="public" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
+                    <button data-action="set-vocab-scope" data-scope="mine" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
+                </div>
+                <!-- 資料夾麵包屑：在資料夾裡才顯示 -->
+                <div id="vocabFolderBar" class="hidden flex flex-wrap items-center gap-2 mb-5">
+                    <button data-action="back-to-vocab-folders" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 所有資料夾</button>
+                    <span id="vocabFolderCrumb" class="px-4 py-2 rounded-2xl text-xs font-black bg-blue-50 text-blue-600 flex items-center gap-2"></span>
                 </div>
                 <div id="vocabBookGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入中…</div>
@@ -2528,9 +2538,32 @@
                 <input type="hidden" id="editVocabBookId" value="">
                 <input type="text" id="vocabBookTitle" maxlength="80" placeholder="單字冊名稱 (如: 專業電子學字彙)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
                 <textarea id="vocabBookDescription" maxlength="200" placeholder="簡單描述這本單字冊..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[100px]"></textarea>
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">放在哪個資料夾</label>
+                    <select id="vocabBookFolder" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold"></select>
+                </div>
                 <div class="flex gap-4 pt-4">
                     <button data-close="vocabBookModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                     <button id="confirmSaveVocabBook" class="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-600 transition-colors">儲存單字冊</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 單字冊資料夾 -->
+    <!-- ★ 這個遮罩故意少了別的 modal 都有的那個背景模糊 class：
+         CSS 那邊本來就把 backdrop-filter 關成 none（手機上模糊很貴），
+         所以它是裝飾用的死字，照抄只會讓 tests/design.mjs 的數量上限往上爬。 -->
+    <div id="vocabFolderModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-slate-700">
+            <h3 id="vocabFolderModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增資料夾</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editVocabFolderId" value="">
+                <input type="text" id="vocabFolderTitle" maxlength="60" placeholder="資料夾名稱 (如: 學測衝刺)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-slate-500 font-bold text-lg">
+                <textarea id="vocabFolderDescription" maxlength="200" placeholder="這個資料夾裝什麼..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-slate-500 font-medium resize-none min-h-[80px]"></textarea>
+                <div class="flex gap-4 pt-4">
+                    <button data-close="vocabFolderModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveVocabFolder" class="flex-1 py-4 bg-slate-700 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-colors">儲存資料夾</button>
                 </div>
             </div>
         </div>
@@ -3062,6 +3095,7 @@
             kahoots: P('kahoots'),     users: P('users'),
             ssCourses: P('selfStudyCourses'), ssUnits: P('selfStudyUnits'),
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
+            vocabFolders: P('vocabFolders'),
             news: P('news'),           links: P('quickLinks'),
             articles: P('articles')
         };
@@ -3201,10 +3235,16 @@
          * ========================================================== */
         const state = {
             courses: [], reviews: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
-            ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [],
+            ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [], articles: [],
+            /* 內建單字庫（7000 單字）：唯讀的靜態 JSON，不是 Firestore。
+               為什麼不進資料庫：vocabWords 是整個集合全量訂閱，3,462 筆灌進去
+               等於每個打開英文分頁的人一次讀 3,462 筆，免費額度七次瀏覽就見底，
+               而且不會報錯，只會默默超額。folders/books 從 index.json 一次拿齊，
+               words 等使用者真的打開某個資料夾才抓那一份。 */
+            builtinVocabFolders: [], builtinVocabBooks: [], builtinVocabWords: [], builtinVocabSets: [],
             // 🔒 私人資料（只有本人讀得到，登出時清空）
-            myVocabBooks: [], myVocabWords: [], myKahoots: [],
+            myVocabBooks: [], myVocabWords: [], myVocabFolders: [], myKahoots: [],
             expenses: [], holdings: [], trades: [], watchlist: []   // 理財（個人私密）
         };
 
@@ -3318,6 +3358,10 @@
         let lastCourseFilterKey = null;
         let currentActiveNewsTab ='共同';
         let currentViewSSCourseId = null, currentViewVocabBookId = null;
+        /* 單字庫多了一層資料夾：null＝正在看資料夾清單，有值＝正在看某個資料夾裡的冊子。
+           宣告在狀態區的理由同上——renderVocabBooks() 會碰到它，而它是被
+           window.onload 之後的流程叫的，寫在函式旁邊就是暫時性死區（畫面全白）。 */
+        let currentVocabFolderId = null;
         let currentDeleteId = null, currentDeleteType = null;
         let usersUnsubscribe = null;
 
@@ -3600,6 +3644,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-11',
+                title: '單字庫多了資料夾，還有一套 3,462 字的內建單字庫',
+                items: [
+                    ['資料夾 → 單字冊 → 單字', '單字冊多到十幾本之後就找不到東西了。現在上面多一層資料夾，公有與自己的都能建；沒放進資料夾的冊子仍然留在最上層的「未分類」，不會因為多了這一層就消失。'],
+                    ['★ 內建單字庫是靜態檔，不是資料庫', '3,462 個高中 Level 3–6 單字，做成兩套分法：字母 A–Z，以及依字根族群（同字根的字排在一起）。一冊 30 字，兩套共 247 冊。它們不進 Firestore——公有單字是「整個集合全量訂閱」，灌 3,462 筆進去等於每個打開英文分頁的人一次讀 3,462 筆，免費額度七次瀏覽就見底，而且不會報錯，只會默默超額。改成隨網站發布的 JSON，開哪個資料夾抓哪一份，讀取成本是零。'],
+                    ['內建的不能改', '要改內容是改原始的 md 再重新產生、重新發布。線上唯讀，管理員也一樣——避免出現「線上改過但檔案沒改，下次發布又被蓋回去」這種對不起來的狀態。'],
+                    ['★ 刪資料夾不會連坐刪掉裡面的單字冊', '按下去想的是「收掉這個分類」，不是「把裡面幾百個單字一起丟掉」，而連坐刪除完全沒有提示。現在裡面的冊子會變回未分類，看得見也救得回。'],
+                    ['離線', '內建單字庫沒有放進安裝時的預先快取（整套 1.8MB，多數人只會翻幾個資料夾）。開過的資料夾會留在快取裡，之後離線照樣打得開。']
+                ]
+            },
             {
                 date: '2026-08-11',
                 title: '手機在最上面往下拉，就會重新整理',
@@ -6649,6 +6704,10 @@
             } else if (studySub ==='vocab') {
                 closeModalView('page-vocabulary-details','page-vocabulary-main');
                 currentViewVocabBookId = null;
+                currentVocabFolderId = null;
+                /* 內建單字庫不是 Firestore 訂閱，沒人幫它「等資料進來就重畫」，
+                   所以進這一頁就自己抓索引（抓完會再呼叫一次 renderVocabBooks）。 */
+                if (vocabScope ==='builtin') loadBuiltinVocabIndex();
                 renderVocabBooks();
             } else if (studySub ==='schedule') {
                 highlightCurrentClass();
@@ -7223,7 +7282,11 @@
             if (books.length === 0) {
                 return showToast("先到「單字庫 → 我的」建立一本單字冊");
             }
-            sel.innerHTML = books.map(b => `<option value="${b.id}">${escapeHTML(b.title)}</option>`).join('');
+            // 有資料夾之後同名冊子會變多，選項前面補上資料夾名才分得出來
+            sel.innerHTML = books.map(b => {
+                const f = state.myVocabFolders.find(x => x.id === b.folderId);
+                return `<option value="${b.id}">${escapeHTML(f ? `${f.title} / ${b.title}` : b.title)}</option>`;
+            }).join('');
 
             setVals({ addWordEnglish: word, addWordEngDef:'', addWordRootPrefix:'', addWordExample:'', addWordChinese:'' });
             const status = $('addWordStatus');
@@ -7344,22 +7407,78 @@
         }
 
         /* ==========================================================
-         * 單字庫：公有 / 我的
+         * 單字庫：內建 / 公有 / 我的
          *
          * 「我的」存在 users/{uid}/vocabBooks|vocabWords，規則只允許本人存取，
          * 管理員也讀不到。公有的放在 public/data，由巫醫以上維護。
+         * 「內建」是隨網站發布的靜態 JSON（public/data/vocab/），唯讀。
+         *
+         * ★ 三層導覽：資料夾 → 單字冊 → 單字。
+         *   沒有資料夾的冊子（舊資料）留在最上層跟資料夾並排，不會消失——
+         *   這條很重要：加了資料夾之後若只顯示資料夾內的東西，
+         *   既有的公有單字冊會整批「不見」，而且不會報錯。
          * ========================================================== */
-        let vocabScope ='public';                 //'public' |'mine'
-        let currentViewVocabScope ='public';      // 進入某本單字冊時記住它屬於哪一邊
+        let vocabScope ='builtin';                //'builtin' |'public' |'mine'
+        let currentViewVocabScope ='builtin';     // 進入某本單字冊時記住它屬於哪一邊
+
+        /* 內建單字庫的抓取狀態。分開記「索引」與「已抓過哪些資料夾」：
+           索引（index.json）進頁面就抓，只有 35KB，決定畫面上有哪些資料夾與冊子；
+           單字本體一個資料夾一份（最大的一份約 300KB），開哪個抓哪個。 */
+        let builtinVocabState ='idle';            //'idle' |'loading' |'ready' |'error'
+        const builtinVocabLoaded = new Set();     // 已抓過單字的資料夾 id
+        const VOCAB_BUILTIN_BASE ='data/vocab/';
 
         const isSignedInMember = () => !!(auth.currentUser && !auth.currentUser.isAnonymous);
-        const vocabBooksOf = (scope) => scope ==='mine' ? state.myVocabBooks : state.vocabBooks;
-        const vocabWordsOf = (scope) => scope ==='mine' ? state.myVocabWords : state.vocabWords;
-        const vocabBookPath = (scope) => scope ==='mine' ? PU('vocabBooks') : PATHS.vocabBooks;
-        const vocabWordPath = (scope) => scope ==='mine' ? PU('vocabWords') : PATHS.vocabWords;
-        // 自己的東西自己全權管理；公有的要巫醫以上
+        const pickScoped = (scope, mine, builtin, pub) => scope ==='mine' ? mine : scope ==='builtin' ? builtin : pub;
+        const vocabBooksOf   = (scope) => pickScoped(scope, state.myVocabBooks,   state.builtinVocabBooks,   state.vocabBooks);
+        const vocabWordsOf   = (scope) => pickScoped(scope, state.myVocabWords,   state.builtinVocabWords,   state.vocabWords);
+        const vocabFoldersOf = (scope) => pickScoped(scope, state.myVocabFolders, state.builtinVocabFolders, state.vocabFolders);
+        const vocabBookPath   = (scope) => pickScoped(scope, PU('vocabBooks'),   null, PATHS.vocabBooks);
+        const vocabWordPath   = (scope) => pickScoped(scope, PU('vocabWords'),   null, PATHS.vocabWords);
+        const vocabFolderPath = (scope) => pickScoped(scope, PU('vocabFolders'), null, PATHS.vocabFolders);
+        // 自己的東西自己全權管理；公有的要巫醫以上；內建的誰都不能改（要改是改檔案再發布）
         // 小黑貓：單字庫是通用功能。自己的冊子誰都能建，公有的要管理員
-        const canEditVocab = (scope) => scope ==='mine' ? isSignedInMember() : isCatAdmin();
+        const canEditVocab = (scope) => scope ==='builtin' ? false : scope ==='mine' ? isSignedInMember() : isCatAdmin();
+
+        /* ---- 內建單字庫：抓索引 ---- */
+        async function loadBuiltinVocabIndex() {
+            if (builtinVocabState ==='loading' || builtinVocabState ==='ready') return;
+            builtinVocabState ='loading';
+            try {
+                const res = await fetch(VOCAB_BUILTIN_BASE +'index.json');
+                if (!res.ok) throw new Error(res.status);
+                const idx = await res.json();
+                state.builtinVocabFolders = idx.folders.map(f => ({
+                    id: f.id, title: f.title, description: f.description,
+                    set: f.set, count: f.count, bookCount: f.books.length
+                }));
+                state.builtinVocabBooks = idx.folders.flatMap(f => f.books.map(b => ({
+                    id: b.id, folderId: f.id, title: b.title, description: b.description, count: b.count
+                })));
+                state.builtinVocabSets = idx.sets || [];
+                builtinVocabState ='ready';
+            } catch { builtinVocabState ='error'; }
+            if (vocabScope ==='builtin') renderVocabBooks();
+        }
+
+        /* ---- 內建單字庫：抓某個資料夾的單字 ---- */
+        /* 單字沒有真的 id（靜態檔沒有文件 id），這裡自己編一個穩定的：冊子 id + 序號。
+           編號要穩定是因為擂台與 render 都用 id 當 key。 */
+        async function loadBuiltinVocabFolder(folderId) {
+            if (builtinVocabLoaded.has(folderId)) return true;
+            try {
+                const res = await fetch(`${VOCAB_BUILTIN_BASE}${encodeURIComponent(folderId)}.json`);
+                if (!res.ok) throw new Error(res.status);
+                const data = await res.json();
+                const words = [];
+                (data.books || []).forEach(b => (b.words || []).forEach((w, i) => {
+                    words.push({ ...w, id: `${b.id}-${i + 1}`, bookId: b.id });
+                }));
+                state.builtinVocabWords = state.builtinVocabWords.concat(words);
+                builtinVocabLoaded.add(folderId);
+                return true;
+            } catch { return false; }
+        }
 
         function updateVocabScopeUI() {
             document.querySelectorAll('.vocab-scope-opt').forEach(btn => {
@@ -7370,15 +7489,79 @@
                 btn.classList.toggle('bg-slate-100', !on);
                 btn.classList.toggle('text-slate-500', !on);
             });
+            const editable = canEditVocab(vocabScope);
             const addBtn = $('addVocabBookBtn');
-            if (addBtn) addBtn.classList.toggle('hidden', !canEditVocab(vocabScope));
+            if (addBtn) addBtn.classList.toggle('hidden', !editable);
+            const folderBtn = $('addVocabFolderBtn');
+            // 資料夾只在最上層才能新增（在資料夾裡按會讓人以為是建子資料夾）
+            if (folderBtn) folderBtn.classList.toggle('hidden', !editable || currentVocabFolderId !== null);
         }
 
         function switchVocabScope(scope) {
-            vocabScope = (scope ==='mine') ?'mine' :'public';
+            vocabScope = ['builtin','mine','public'].includes(scope) ? scope :'builtin';
             closeModalView('page-vocabulary-details','page-vocabulary-main');
             currentViewVocabBookId = null;
+            currentVocabFolderId = null;
+            if (vocabScope ==='builtin') loadBuiltinVocabIndex();
             renderVocabBooks();
+        }
+
+        function backToVocabFolders() {
+            currentVocabFolderId = null;
+            renderVocabBooks();
+        }
+
+        async function openVocabFolder(id) {
+            const f = vocabFoldersOf(vocabScope).find(x => x.id === id);
+            if (!f) return;
+            if (vocabScope ==='builtin' && !builtinVocabLoaded.has(id)) {
+                const grid = $('vocabBookGrid');
+                if (grid) grid.innerHTML ='<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入單字中…</div>';
+                const ok = await loadBuiltinVocabFolder(id);
+                if (!ok) { showToast("單字載入失敗，請檢查連線"); renderVocabBooks(); return; }
+            }
+            currentVocabFolderId = id;
+            renderVocabBooks();
+            scrollTopSmooth();
+        }
+
+        const vocabEmptyCard = (msg) =>
+            `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${msg}</div>`;
+
+        function vocabFolderCard(f, editable) {
+            const n = f.bookCount != null ? f.bookCount : vocabBooksOf(vocabScope).filter(b => b.folderId === f.id).length;
+            return `
+                <div data-action="open-vocab-folder" data-id="${f.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-slate-400 transition-colors flex flex-col group relative">
+                    <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="folder" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 mb-2 truncate pr-16">${escapeHTML(f.title)}</h3>
+                    <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(f.description ||'無描述')}</p>
+                    <span class="text-[10px] font-black tracking-widest uppercase text-slate-400">${n} 冊${f.count ? ` · ${f.count} 字` :''}</span>
+                    ${editable ? `
+                    <div class="absolute top-4 right-4 flex gap-2">
+                        <button data-action="edit-vocab-folder" data-id="${f.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabFolder" data-id="${f.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>` :''}
+                </div>`;
+        }
+
+        function vocabBookCard(b, editable) {
+            const badge = vocabScope ==='mine' ?'🔒 只有你看得到' : vocabScope ==='builtin' ?'內建' :'公有';
+            return `
+                <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-all flex flex-col group relative">
+                    <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                        <i data-lucide="book-type" class="w-6 h-6"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900 mb-2 truncate pr-16">${escapeHTML(b.title)}</h3>
+                    <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(b.description ||'無描述')}</p>
+                    <span class="text-[10px] font-black tracking-widest uppercase ${vocabScope ==='mine' ?'text-blue-500' :'text-slate-400'}">${badge}${b.count ? ` · ${b.count} 字` :''}</span>
+                    ${editable ? `
+                    <div class="absolute top-4 right-4 flex gap-2">
+                        <button data-action="edit-vocab-book" data-id="${b.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabBook" data-id="${b.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>` :''}
+                </div>`;
         }
 
         function renderVocabBooks() {
@@ -7386,35 +7569,97 @@
             if (!grid) return;
             updateVocabScopeUI();
 
+            const folders = vocabFoldersOf(vocabScope);
+            const inFolder = currentVocabFolderId !== null
+                && folders.some(f => f.id === currentVocabFolderId);
+            if (currentVocabFolderId !== null && !inFolder) currentVocabFolderId = null;  // 資料夾被刪掉了
+
+            const bar = $('vocabFolderBar');
+            if (bar) {
+                bar.classList.toggle('hidden', !inFolder);
+                bar.classList.toggle('flex', inFolder);
+                if (inFolder) {
+                    const f = folders.find(x => x.id === currentVocabFolderId);
+                    $('vocabFolderCrumb').innerHTML = `<i data-lucide="folder-open" class="w-3.5 h-3.5"></i> ${escapeHTML(f.title)}`;
+                }
+            }
+
             if (vocabScope ==='mine' && !isSignedInMember()) {
-                grid.innerHTML ='<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">登入後就能建立自己的單字冊<br><span class="text-xs">只有你看得到，管理員也讀不到</span></div>';
+                grid.innerHTML = vocabEmptyCard('登入後就能建立自己的單字冊<br><span class="text-xs">只有你看得到，管理員也讀不到</span>');
                 icons();
                 return;
             }
-            const books = vocabBooksOf(vocabScope);
-            if (books.length === 0) {
-                grid.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${vocabScope ==='mine' ?'你還沒有自己的單字冊，按上方「創建單字冊」開始吧' :'目前還沒有公有單字冊。'}</div>`;
+            if (vocabScope ==='builtin' && builtinVocabState !=='ready') {
+                grid.innerHTML = vocabEmptyCard(builtinVocabState ==='error'
+                    ?'內建單字庫載入失敗，重新整理再試一次'
+                    :'載入內建單字庫…');
                 icons();
                 return;
             }
+
             const editable = canEditVocab(vocabScope);
-            const filtered = books.filter(b => matchesSearch(b.title, b.description));
-            grid.innerHTML = filtered.map(b => `
-                <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-all flex flex-col group relative">
-                    <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                        <i data-lucide="book-type" class="w-6 h-6"></i>
-                    </div>
-                    <h3 class="text-xl font-black text-slate-900 mb-2 truncate pr-16">${escapeHTML(b.title)}</h3>
-                    <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(b.description ||'無描述')}</p>
-                    <span class="text-[10px] font-black tracking-widest uppercase ${vocabScope ==='mine' ?'text-blue-500' :'text-slate-400'}">${vocabScope ==='mine' ?'🔒 只有你看得到' :'公有'}</span>
-                    ${editable ? `
-                    <div class="absolute top-4 right-4 flex gap-2">
-                        <button data-action="edit-vocab-book" data-id="${b.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete" data-type="vocabBook" data-id="${b.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
-                    </div>` :''}
-                </div>
-            `).join('');
+            const books = vocabBooksOf(vocabScope);
+            let html ='';
+
+            if (inFolder) {
+                const list = books.filter(b => b.folderId === currentVocabFolderId && matchesSearch(b.title, b.description));
+                html = list.length ? list.map(b => vocabBookCard(b, editable)).join('')
+                                   : vocabEmptyCard('這個資料夾還沒有單字冊');
+            } else {
+                /* 最上層：資料夾在前、沒分資料夾的冊子在後。
+                   內建那邊還多一層「字母序／字根族群」的分組標題。 */
+                const fs = folders.filter(f => matchesSearch(f.title, f.description));
+                const sets = (state.builtinVocabSets || []);
+                if (vocabScope ==='builtin' && sets.length) {
+                    html += sets.map(s => {
+                        const mine = fs.filter(f => f.set === s.id);
+                        if (!mine.length) return'';
+                        return `<div class="col-span-full pt-2"><h3 class="text-lg font-black text-slate-800">${escapeHTML(s.title)}</h3>`
+                            + `<p class="text-xs font-bold text-slate-400">${escapeHTML(s.description ||'')}</p></div>`
+                            + mine.map(f => vocabFolderCard(f, editable)).join('');
+                    }).join('');
+                } else {
+                    html += fs.map(f => vocabFolderCard(f, editable)).join('');
+                }
+                const loose = books.filter(b => !b.folderId && matchesSearch(b.title, b.description));
+                if (loose.length) {
+                    if (fs.length) html +='<div class="col-span-full pt-2"><h3 class="text-lg font-black text-slate-800">未分類</h3></div>';
+                    html += loose.map(b => vocabBookCard(b, editable)).join('');
+                }
+                if (!html) html = vocabEmptyCard(
+                    vocabScope ==='mine' ?'你還沒有自己的單字冊，按上方「創建單字冊」開始吧'
+                                         :'目前還沒有公有單字冊。');
+            }
+            grid.innerHTML = html;
             icons();
+        }
+
+        /* ---- 資料夾的新增／編輯／存檔 ---- */
+        function openVocabFolderModal(id = null) {
+            if (!canEditVocab(vocabScope)) {
+                return showToast(vocabScope ==='builtin' ?"內建單字庫是唯讀的"
+                    : vocabScope ==='mine' ?"登入後才能建立自己的資料夾" :"公有資料夾要巫醫以上才能建立");
+            }
+            const f = id ? vocabFoldersOf(vocabScope).find(x => x.id === id) : null;
+            $('vocabFolderModalTitle').textContent = f ?'編輯資料夾' :'新增資料夾';
+            setVals({ editVocabFolderId: f ? f.id :'', vocabFolderTitle: f ? f.title :'', vocabFolderDescription: f ? (f.description ||'') :'' });
+            openModal('vocabFolderModal');
+        }
+
+        async function saveVocabFolder() {
+            const id = getVal('editVocabFolderId');
+            const title = getVal('vocabFolderTitle');
+            const description = getVal('vocabFolderDescription');
+            if (!isValidText(title, 60)) return showToast("資料夾名稱請在 60 字以內！");
+            if (description && !isValidText(description, 200)) return showToast("描述請在 200 字以內！");
+            const p = vocabFolderPath(vocabScope);
+            if (!p) return showToast("請先登入");
+            try {
+                if (id) await updateDoc(doc(db, p, id), { title, description });
+                else await setDoc(doc(collection(db, p)), { title, description, createdAt: Date.now() });
+                showToast(id ?"資料夾更新成功" :"資料夾建立成功");
+                closeModal('vocabFolderModal');
+            } catch { showToast("儲存失敗…"); }
         }
 
         function renderVocabWords() {
@@ -7463,6 +7708,15 @@
             }
             const b = id ? vocabBooksOf(vocabScope).find(x => x.id === id) : null;
             $('vocabBookModalTitle').textContent = b ?'編輯單字冊' :'創建單字冊';
+            /* 資料夾下拉：預設帶目前所在的資料夾，這樣在資料夾裡按「創建單字冊」
+               建出來的東西就在眼前，不會掉到最上層讓人以為沒建成功。 */
+            const sel = $('vocabBookFolder');
+            if (sel) {
+                const folders = vocabFoldersOf(vocabScope);
+                sel.innerHTML = `<option value="">未分類</option>` +
+                    folders.map(f => `<option value="${f.id}">${escapeHTML(f.title)}</option>`).join('');
+                sel.value = b ? (b.folderId ||'') : (currentVocabFolderId ||'');
+            }
             setVals({ editVocabBookId: b ? b.id :'', vocabBookTitle: b ? b.title :'', vocabBookDescription: b ? (b.description ||'') :'' });
             openModal('vocabBookModal');
         }
@@ -7471,14 +7725,15 @@
             const id = getVal('editVocabBookId');
             const title = getVal('vocabBookTitle');
             const description = getVal('vocabBookDescription');
+            const folderId = $('vocabBookFolder') ? $('vocabBookFolder').value :'';
             if (!isValidText(title, 80)) return showToast("單字冊名稱請在 80 字以內！");
             if (description && !isValidText(description, 200)) return showToast("描述請在 200 字以內！");
 
             const p = vocabBookPath(vocabScope);
             if (!p) return showToast("請先登入");
             try {
-                if (id) await updateDoc(doc(db, p, id), { title, description });
-                else await setDoc(doc(collection(db, p)), { title, description, createdAt: Date.now() });
+                if (id) await updateDoc(doc(db, p, id), { title, description, folderId });
+                else await setDoc(doc(collection(db, p)), { title, description, folderId, createdAt: Date.now() });
                 showToast(id ?"單字冊更新成功" : (vocabScope ==='mine' ?"建立成功，只有你看得到 🔒" :"單字冊建立成功"));
                 closeModal('vocabBookModal');
                 if (id === currentViewVocabBookId) {
@@ -8193,6 +8448,16 @@
                         currentViewVocabBookId = null;
                         closeModalView('page-vocabulary-details','page-vocabulary-main');
                     }
+                } else if (currentDeleteType ==='vocabFolder') {
+                    /* ★ 刪資料夾不連坐刪冊子。使用者按下去想的是「收掉這個分類」，
+                       不是「把裡面幾百個單字一起丟掉」，而連坐刪掉不會有任何提示。
+                       裡面的冊子改成未分類，會回到最上層，看得見也救得回。 */
+                    const batch = writeBatch(db);
+                    vocabBooksOf(vocabScope).filter(b => b.folderId === id)
+                        .forEach(b => batch.update(doc(db, vocabBookPath(vocabScope), b.id), { folderId:'' }));
+                    batch.delete(doc(db, vocabFolderPath(vocabScope), id));
+                    await batch.commit();
+                    if (currentVocabFolderId === id) currentVocabFolderId = null;
                 } else if (currentDeleteType ==='vocabWord') {
                     await deleteDoc(doc(db, vocabWordPath(currentViewVocabScope), id));
                 } else if (currentDeleteType ==='kahoot') {
@@ -8764,6 +9029,10 @@
 'open-vocab-book': (t) => openVocabBookDetails(t.dataset.id),
 'edit-vocab-book': (t) => openVocabBookModal(t.dataset.id),
 'edit-vocab-word': (t) => openVocabWordModal(t.dataset.id),
+'open-vocab-folder': (t) => openVocabFolder(t.dataset.id),
+'edit-vocab-folder': (t) => openVocabFolderModal(t.dataset.id),
+'add-vocab-folder': () => openVocabFolderModal(),
+'back-to-vocab-folders': () => backToVocabFolders(),
 'edit-schedule':   (t) => openScheduleCellModal(t.dataset.cell),
 'pick-schedule-course': (t) => {
                 const c = state.courses.find(x => x.id === t.dataset.id);
@@ -9241,6 +9510,7 @@
             bind('backToVocabBooksBtn', () => { currentViewVocabBookId = null; closeModalView('page-vocabulary-details','page-vocabulary-main'); });
             bind('addVocabBookBtn', () => openVocabBookModal());
             bind('confirmSaveVocabBook', saveVocabBook);
+            bind('confirmSaveVocabFolder', saveVocabFolder);
             bind('addVocabWordBtn', () => openVocabWordModal());
             bind('confirmSaveVocabWord', saveVocabWord);
             bind('startVocabQuizBtn', startVocabQuiz);
@@ -9287,12 +9557,14 @@
             { key:'kahoots',    path: PATHS.kahoots,    sort: byNewest, minLevel: 2, render: () => renderKahoots() },
             { key:'ssCourses',  path: PATHS.ssCourses,  sort: byOldest, render: () => renderSelfStudyCourses() },
             { key:'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
+            { key:'vocabFolders', path: PATHS.vocabFolders, sort: byOldest, render: () => renderVocabBooks() },
             { key:'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
             { key:'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
             { key:'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (studySub ==='reading') renderReadingList(); } },
 
             // 🔒 私人資料：路徑要等登入後才算得出來，所以 path 用函式；
             //    未登入不訂閱，登出時 resyncScopedSubs() 會清空。只有本人讀得到。
+            { key:'myVocabFolders', path: () => PU('vocabFolders'), sort: byOldest, private: true, render: () => renderVocabBooks() },
             { key:'myVocabBooks', path: () => PU('vocabBooks'), sort: byOldest, private: true, render: () => renderVocabBooks() },
             { key:'myVocabWords', path: () => PU('vocabWords'), sort: byNewest, private: true, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
             { key:'myKahoots',    path: () => PU('kahoots'),    sort: byNewest, private: true, render: () => renderKahoots() }
@@ -9354,7 +9626,7 @@
             /* 英文分頁：英文閱讀與單字庫。★ 這一組是從 self-study 拆出來的——
                拆的時候要真的把資料集跟著搬，不然畫面切過去了、清單卻是空的，
                而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。 */
-'english':    ['articles','vocabBooks','vocabWords','myVocabBooks','myVocabWords'],
+'english':    ['articles','vocabFolders','vocabBooks','vocabWords','myVocabFolders','myVocabBooks','myVocabWords'],
 'about':      []
         };
 

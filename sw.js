@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v62';
+const CACHE = 'blackcat-v63';
 /* ★ 每一個會發布出去的頁面都要在這裡。漏掉不會報錯——
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
@@ -20,6 +20,10 @@ const CORE = ['./', './index.html', './image.png', './manifest.json',
               './image2.jpg',           // 彰師電子的 logo（ncue.html 用）
               './ncue.html',            // 彰師電子（獨立頁）
               './blackcatspice.html'];  // 電路模擬器（獨立頁）
+/* ★ 內建單字庫（./data/vocab/*.json，約 1.8MB）**故意不放進 CORE**：
+   放進去等於每個人安裝時都先下載整套，而多數人只會翻其中幾個資料夾。
+   它走下面「靜態資源快取優先」那條路——開過的資料夾自然會留在快取裡，
+   之後離線也打得開；沒開過的就沒有，這是想要的行為。 */
 const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
 
 self.addEventListener('install', (e) => {

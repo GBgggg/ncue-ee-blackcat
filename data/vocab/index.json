@@ -1,0 +1,1799 @@
+{
+ "version": 1,
+ "sets": [
+  {
+   "id": "az",
+   "title": "字母序",
+   "description": "A–Z 依字母排，找字最快"
+  },
+  {
+   "id": "root",
+   "title": "字根族群",
+   "description": "同字根的字排在一起，背一個字根帶一串"
+  }
+ ],
+ "folders": [
+  {
+   "id": "az-a",
+   "set": "az",
+   "title": "字母 A",
+   "description": "A 開頭，共 280 字",
+   "count": 280,
+   "file": "az-a.json",
+   "books": [
+    {
+     "id": "az-a-1",
+     "title": "A－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-2",
+     "title": "A－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-3",
+     "title": "A－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-4",
+     "title": "A－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-5",
+     "title": "A－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-6",
+     "title": "A－6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-7",
+     "title": "A－7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-8",
+     "title": "A－8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-9",
+     "title": "A－9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-a-10",
+     "title": "A－10",
+     "description": "",
+     "count": 10
+    }
+   ]
+  },
+  {
+   "id": "az-b",
+   "set": "az",
+   "title": "字母 B",
+   "description": "B 開頭，共 169 字",
+   "count": 169,
+   "file": "az-b.json",
+   "books": [
+    {
+     "id": "az-b-1",
+     "title": "B－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-b-2",
+     "title": "B－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-b-3",
+     "title": "B－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-b-4",
+     "title": "B－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-b-5",
+     "title": "B－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-b-6",
+     "title": "B－6",
+     "description": "",
+     "count": 19
+    }
+   ]
+  },
+  {
+   "id": "az-c",
+   "set": "az",
+   "title": "字母 C",
+   "description": "C 開頭，共 481 字",
+   "count": 481,
+   "file": "az-c.json",
+   "books": [
+    {
+     "id": "az-c-1",
+     "title": "C－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-2",
+     "title": "C－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-3",
+     "title": "C－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-4",
+     "title": "C－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-5",
+     "title": "C－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-6",
+     "title": "C－6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-7",
+     "title": "C－7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-8",
+     "title": "C－8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-9",
+     "title": "C－9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-10",
+     "title": "C－10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-11",
+     "title": "C－11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-12",
+     "title": "C－12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-13",
+     "title": "C－13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-14",
+     "title": "C－14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-15",
+     "title": "C－15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-16",
+     "title": "C－16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-c-17",
+     "title": "C－17",
+     "description": "",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "id": "az-d",
+   "set": "az",
+   "title": "字母 D",
+   "description": "D 開頭，共 245 字",
+   "count": 245,
+   "file": "az-d.json",
+   "books": [
+    {
+     "id": "az-d-1",
+     "title": "D－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-2",
+     "title": "D－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-3",
+     "title": "D－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-4",
+     "title": "D－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-5",
+     "title": "D－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-6",
+     "title": "D－6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-7",
+     "title": "D－7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-8",
+     "title": "D－8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-d-9",
+     "title": "D－9",
+     "description": "",
+     "count": 5
+    }
+   ]
+  },
+  {
+   "id": "az-e",
+   "set": "az",
+   "title": "字母 E",
+   "description": "E 開頭，共 170 字",
+   "count": 170,
+   "file": "az-e.json",
+   "books": [
+    {
+     "id": "az-e-1",
+     "title": "E－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-e-2",
+     "title": "E－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-e-3",
+     "title": "E－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-e-4",
+     "title": "E－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-e-5",
+     "title": "E－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-e-6",
+     "title": "E－6",
+     "description": "",
+     "count": 20
+    }
+   ]
+  },
+  {
+   "id": "az-f",
+   "set": "az",
+   "title": "字母 F",
+   "description": "F 開頭，共 150 字",
+   "count": 150,
+   "file": "az-f.json",
+   "books": [
+    {
+     "id": "az-f-1",
+     "title": "F－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-f-2",
+     "title": "F－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-f-3",
+     "title": "F－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-f-4",
+     "title": "F－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-f-5",
+     "title": "F－5",
+     "description": "",
+     "count": 30
+    }
+   ]
+  },
+  {
+   "id": "az-g",
+   "set": "az",
+   "title": "字母 G",
+   "description": "G 開頭，共 110 字",
+   "count": 110,
+   "file": "az-g.json",
+   "books": [
+    {
+     "id": "az-g-1",
+     "title": "G－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-g-2",
+     "title": "G－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-g-3",
+     "title": "G－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-g-4",
+     "title": "G－4",
+     "description": "",
+     "count": 20
+    }
+   ]
+  },
+  {
+   "id": "az-h",
+   "set": "az",
+   "title": "字母 H",
+   "description": "H 開頭，共 126 字",
+   "count": 126,
+   "file": "az-h.json",
+   "books": [
+    {
+     "id": "az-h-1",
+     "title": "H－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-h-2",
+     "title": "H－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-h-3",
+     "title": "H－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-h-4",
+     "title": "H－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-h-5",
+     "title": "H－5",
+     "description": "",
+     "count": 6
+    }
+   ]
+  },
+  {
+   "id": "az-i",
+   "set": "az",
+   "title": "字母 I",
+   "description": "I 開頭，共 104 字",
+   "count": 104,
+   "file": "az-i.json",
+   "books": [
+    {
+     "id": "az-i-1",
+     "title": "I－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-i-2",
+     "title": "I－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-i-3",
+     "title": "I－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-i-4",
+     "title": "I－4",
+     "description": "",
+     "count": 14
+    }
+   ]
+  },
+  {
+   "id": "az-j",
+   "set": "az",
+   "title": "字母 J",
+   "description": "J 開頭，共 32 字",
+   "count": 32,
+   "file": "az-j.json",
+   "books": [
+    {
+     "id": "az-j-1",
+     "title": "J－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-j-2",
+     "title": "J－2",
+     "description": "",
+     "count": 2
+    }
+   ]
+  },
+  {
+   "id": "az-k",
+   "set": "az",
+   "title": "字母 K",
+   "description": "K 開頭，共 18 字",
+   "count": 18,
+   "file": "az-k.json",
+   "books": [
+    {
+     "id": "az-k-1",
+     "title": "K－1",
+     "description": "",
+     "count": 18
+    }
+   ]
+  },
+  {
+   "id": "az-l",
+   "set": "az",
+   "title": "字母 L",
+   "description": "L 開頭，共 138 字",
+   "count": 138,
+   "file": "az-l.json",
+   "books": [
+    {
+     "id": "az-l-1",
+     "title": "L－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-l-2",
+     "title": "L－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-l-3",
+     "title": "L－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-l-4",
+     "title": "L－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-l-5",
+     "title": "L－5",
+     "description": "",
+     "count": 18
+    }
+   ]
+  },
+  {
+   "id": "az-m",
+   "set": "az",
+   "title": "字母 M",
+   "description": "M 開頭，共 174 字",
+   "count": 174,
+   "file": "az-m.json",
+   "books": [
+    {
+     "id": "az-m-1",
+     "title": "M－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-m-2",
+     "title": "M－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-m-3",
+     "title": "M－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-m-4",
+     "title": "M－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-m-5",
+     "title": "M－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-m-6",
+     "title": "M－6",
+     "description": "",
+     "count": 24
+    }
+   ]
+  },
+  {
+   "id": "az-n",
+   "set": "az",
+   "title": "字母 N",
+   "description": "N 開頭，共 57 字",
+   "count": 57,
+   "file": "az-n.json",
+   "books": [
+    {
+     "id": "az-n-1",
+     "title": "N－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-n-2",
+     "title": "N－2",
+     "description": "",
+     "count": 27
+    }
+   ]
+  },
+  {
+   "id": "az-o",
+   "set": "az",
+   "title": "字母 O",
+   "description": "O 開頭，共 123 字",
+   "count": 123,
+   "file": "az-o.json",
+   "books": [
+    {
+     "id": "az-o-1",
+     "title": "O－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-o-2",
+     "title": "O－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-o-3",
+     "title": "O－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-o-4",
+     "title": "O－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-o-5",
+     "title": "O－5",
+     "description": "",
+     "count": 3
+    }
+   ]
+  },
+  {
+   "id": "az-p",
+   "set": "az",
+   "title": "字母 P",
+   "description": "P 開頭，共 223 字",
+   "count": 223,
+   "file": "az-p.json",
+   "books": [
+    {
+     "id": "az-p-1",
+     "title": "P－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-2",
+     "title": "P－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-3",
+     "title": "P－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-4",
+     "title": "P－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-5",
+     "title": "P－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-6",
+     "title": "P－6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-7",
+     "title": "P－7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-p-8",
+     "title": "P－8",
+     "description": "",
+     "count": 13
+    }
+   ]
+  },
+  {
+   "id": "az-q",
+   "set": "az",
+   "title": "字母 Q",
+   "description": "Q 開頭，共 13 字",
+   "count": 13,
+   "file": "az-q.json",
+   "books": [
+    {
+     "id": "az-q-1",
+     "title": "Q－1",
+     "description": "",
+     "count": 13
+    }
+   ]
+  },
+  {
+   "id": "az-r",
+   "set": "az",
+   "title": "字母 R",
+   "description": "R 開頭，共 194 字",
+   "count": 194,
+   "file": "az-r.json",
+   "books": [
+    {
+     "id": "az-r-1",
+     "title": "R－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-r-2",
+     "title": "R－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-r-3",
+     "title": "R－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-r-4",
+     "title": "R－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-r-5",
+     "title": "R－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-r-6",
+     "title": "R－6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-r-7",
+     "title": "R－7",
+     "description": "",
+     "count": 14
+    }
+   ]
+  },
+  {
+   "id": "az-s",
+   "set": "az",
+   "title": "字母 S",
+   "description": "S 開頭，共 253 字",
+   "count": 253,
+   "file": "az-s.json",
+   "books": [
+    {
+     "id": "az-s-1",
+     "title": "S－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-2",
+     "title": "S－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-3",
+     "title": "S－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-4",
+     "title": "S－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-5",
+     "title": "S－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-6",
+     "title": "S－6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-7",
+     "title": "S－7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-8",
+     "title": "S－8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-s-9",
+     "title": "S－9",
+     "description": "",
+     "count": 13
+    }
+   ]
+  },
+  {
+   "id": "az-t",
+   "set": "az",
+   "title": "字母 T",
+   "description": "T 開頭，共 161 字",
+   "count": 161,
+   "file": "az-t.json",
+   "books": [
+    {
+     "id": "az-t-1",
+     "title": "T－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-t-2",
+     "title": "T－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-t-3",
+     "title": "T－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-t-4",
+     "title": "T－4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-t-5",
+     "title": "T－5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-t-6",
+     "title": "T－6",
+     "description": "",
+     "count": 11
+    }
+   ]
+  },
+  {
+   "id": "az-u",
+   "set": "az",
+   "title": "字母 U",
+   "description": "U 開頭，共 45 字",
+   "count": 45,
+   "file": "az-u.json",
+   "books": [
+    {
+     "id": "az-u-1",
+     "title": "U－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-u-2",
+     "title": "U－2",
+     "description": "",
+     "count": 15
+    }
+   ]
+  },
+  {
+   "id": "az-v",
+   "set": "az",
+   "title": "字母 V",
+   "description": "V 開頭，共 90 字",
+   "count": 90,
+   "file": "az-v.json",
+   "books": [
+    {
+     "id": "az-v-1",
+     "title": "V－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-v-2",
+     "title": "V－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-v-3",
+     "title": "V－3",
+     "description": "",
+     "count": 30
+    }
+   ]
+  },
+  {
+   "id": "az-w",
+   "set": "az",
+   "title": "字母 W",
+   "description": "W 開頭，共 92 字",
+   "count": 92,
+   "file": "az-w.json",
+   "books": [
+    {
+     "id": "az-w-1",
+     "title": "W－1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-w-2",
+     "title": "W－2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-w-3",
+     "title": "W－3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "az-w-4",
+     "title": "W－4",
+     "description": "",
+     "count": 2
+    }
+   ]
+  },
+  {
+   "id": "az-y",
+   "set": "az",
+   "title": "字母 Y",
+   "description": "Y 開頭，共 11 字",
+   "count": 11,
+   "file": "az-y.json",
+   "books": [
+    {
+     "id": "az-y-1",
+     "title": "Y－1",
+     "description": "",
+     "count": 11
+    }
+   ]
+  },
+  {
+   "id": "az-z",
+   "set": "az",
+   "title": "字母 Z",
+   "description": "Z 開頭，共 3 字",
+   "count": 3,
+   "file": "az-z.json",
+   "books": [
+    {
+     "id": "az-z-1",
+     "title": "Z－1",
+     "description": "",
+     "count": 3
+    }
+   ]
+  },
+  {
+   "id": "rt-high",
+   "set": "root",
+   "title": "高頻字根",
+   "description": "同一個字根有 6 個以上單字",
+   "count": 345,
+   "file": "rt-high.json",
+   "books": [
+    {
+     "id": "rt-high-1",
+     "title": "高頻字根 1",
+     "description": "out、over",
+     "count": 30
+    },
+    {
+     "id": "rt-high-2",
+     "title": "高頻字根 2",
+     "description": "over、capere、cap-",
+     "count": 30
+    },
+    {
+     "id": "rt-high-3",
+     "title": "高頻字根 3",
+     "description": "cap-、gen、pend、spec",
+     "count": 30
+    },
+    {
+     "id": "rt-high-4",
+     "title": "高頻字根 4",
+     "description": "spec、under、form、leg",
+     "count": 30
+    },
+    {
+     "id": "rt-high-5",
+     "title": "高頻字根 5",
+     "description": "leg、part、st、nom",
+     "count": 30
+    },
+    {
+     "id": "rt-high-6",
+     "title": "高頻字根 6",
+     "description": "nom、dict、fect、tend",
+     "count": 30
+    },
+    {
+     "id": "rt-high-7",
+     "title": "高頻字根 7",
+     "description": "tend、log、graph、cess、duc",
+     "count": 30
+    },
+    {
+     "id": "rt-high-8",
+     "title": "高頻字根 8",
+     "description": "duc、fer、mit、sign、tract",
+     "count": 30
+    },
+    {
+     "id": "rt-high-9",
+     "title": "高頻字根 9",
+     "description": "tract、act、vertere、modus、plic",
+     "count": 30
+    },
+    {
+     "id": "rt-high-10",
+     "title": "高頻字根 10",
+     "description": "plic、sta、cogn、fendere、ligare、pati",
+     "count": 30
+    },
+    {
+     "id": "rt-high-11",
+     "title": "高頻字根 11",
+     "description": "pati、port、pos、press、sent、stinguere",
+     "count": 30
+    },
+    {
+     "id": "rt-high-12",
+     "title": "高頻字根 12",
+     "description": "stinguere、up、vis",
+     "count": 15
+    }
+   ]
+  },
+  {
+   "id": "rt-mid",
+   "set": "root",
+   "title": "常見字根",
+   "description": "同一個字根有 3～5 個單字",
+   "count": 732,
+   "file": "rt-mid.json",
+   "books": [
+    {
+     "id": "rt-mid-1",
+     "title": "常見字根 1",
+     "description": "ly、cedere、clud、communis、compete、stare",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-2",
+     "title": "常見字根 2",
+     "description": "count、create、cred、tenere、fac、fid",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-3",
+     "title": "常見字根 3",
+     "description": "finis、flect、hand、sex、ject、land",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-4",
+     "title": "常見字根 4",
+     "description": "lect、lex/leg、life、light、liter、manus",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-5",
+     "title": "常見字根 5",
+     "description": "minister、mira、uni-、pass、plere、sec",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-6",
+     "title": "常見字根 6",
+     "description": "short、simul、stringere、sumere、super、terr-",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-7",
+     "title": "常見字根 7",
+     "description": "vary、ven、volu、agere、it、cap、apt",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-8",
+     "title": "常見字根 8",
+     "description": "apt、aud-、bindan、break、caedere、calc-、canna、circum、civ",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-9",
+     "title": "常見字根 9",
+     "description": "civ、clar、corpor、reg、diploma、dom、dur、valere",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-10",
+     "title": "常見字根 10",
+     "description": "valere、facere、fire、fract、habit、hospital、house、liber、migr",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-11",
+     "title": "常見字根 11",
+     "description": "migr、min-、monere、nutrix、plaudere、ple、pli、sal",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-12",
+     "title": "常見字根 12",
+     "description": "sal、secure、sequi、servare、syn、techn-、tribuere、unda、venire",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-13",
+     "title": "常見字根 13",
+     "description": "venire、vers-、via、vid、viol-、ward、work、aghe",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-14",
+     "title": "常見字根 14",
+     "description": "air、alter、vers、athlon、augere、back、band、logy、broad、bureau",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-15",
+     "title": "常見字根 15",
+     "description": "cern、cert、cid、close、compare、dicere、cord、crescere、critic、cumul",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-16",
+     "title": "常見字根 16",
+     "description": "cure、curr、custom、de-、dem-、dic、dit、diurnus、doc、don",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-17",
+     "title": "常見字根 17",
+     "description": "down、electr-、phan、prehendere、exter、eye、fare、fine、flu、fortis",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-18",
+     "title": "常見字根 18",
+     "description": "fortune、fund、geo、gest、grace、gram、grat、grav、haerere、hard",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-19",
+     "title": "常見字根 19",
+     "description": "head、home、krinein、integer、law、lay、line、lone、long、major",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-20",
+     "title": "常見字根 20",
+     "description": "master、medi-、memor-、merx、migr-、miss、mit/miss、mobile、mot-、narr-",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-21",
+     "title": "常見字根 21",
+     "description": "olescere、opt、organ、origin、pan、pellere、petere、soph、pon、posere",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-22",
+     "title": "常見字根 22",
+     "description": "potis、quaerere、quir、rat、real、refer、respect、rupt、salire、satis",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-23",
+     "title": "常見字根 23",
+     "description": "scand、scene、scrib、script、sed、sentire、shade、special、spir、spond",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-24",
+     "title": "常見字根 24",
+     "description": "stable、term、theos、vac-、view、vincere、vis-、voc-、ware、warrant",
+     "count": 30
+    },
+    {
+     "id": "rt-mid-25",
+     "title": "常見字根 25",
+     "description": "water、where、wide、worth",
+     "count": 12
+    }
+   ]
+  },
+  {
+   "id": "rt-pair",
+   "set": "root",
+   "title": "成對字根",
+   "description": "同一個字根剛好兩個單字",
+   "count": 552,
+   "file": "rt-pair.json",
+   "books": [
+    {
+     "id": "rt-pair-1",
+     "title": "成對字根 1",
+     "description": "able、aestimare、aevum、agger、cult、al、alius、altus、amplus、anim、anx-、arch、tect、arm、art",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-2",
+     "title": "成對字根 2",
+     "description": "aster、bank、love、bell、biddan、bio、body、book、box、brac、brute、by、camera、camp-、cant",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-3",
+     "title": "成對字根 3",
+     "description": "capt、care、carry、cause、caut、celebr、character、charity、chef、chole、chorus、cit、civ-、claim、class",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-4",
+     "title": "成對字根 4",
+     "description": "claud/claus、clin、clin-、col-、comment、common、communicate、compose、comprehend、conserve、consider、construct、consult、consume、continue",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-5",
+     "title": "成對字根 5",
+     "description": "contra-、cooperate、correspond、court、cover、crack、crudus、crux、currere、curvare、dare、different、dign、diverse、do",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-6",
+     "title": "成對字根 6",
+     "description": "doubt、doxa、drag、dress、drive、du/o、element、equ-、esse、ethos、fable、family、fascinate、flash、foedus",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-7",
+     "title": "成對字根 7",
+     "description": "fragrant、frame、freeze、frequent、frustrate、fug、fury、gage、gelus、globe、gnos、god、good、grad、grass",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-8",
+     "title": "成對字根 8",
+     "description": "grease、gress、guide、harm、haste、hate、heir、hero、hibit、history、hold、honest、honor、horror、hostis",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-9",
+     "title": "成對字根 9",
+     "description": "humidus、humor、i、imperare、in odio、in、industry、joy、jud、just、juven、lab、labor、large、trans-",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-10",
+     "title": "成對字根 10",
+     "description": "latus、learn、length、lev、licere、like、loc、lock、loqu、magn-、main、manere、mature、mens、merg",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-11",
+     "title": "成對字根 11",
+     "description": "metr、mid、million、miser、monstr、moral、mot、mother、mourn、munis、mutare、nation、nominate、norma、nov",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-12",
+     "title": "成對字根 12",
+     "description": "obey、observe、off、offend、onym、opt-、opus、order、ordinare、orient、oriri、pand、parere、pater、ped-",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-13",
+     "title": "成對字根 13",
+     "description": "pel、perform、peri、pessimus、phant-、phys-、physics、place、plant、plor、plumbum、prehend、present、president、pret",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-14",
+     "title": "成對字根 14",
+     "description": "prob、put、putare、quot、radere、regard、represent、reserve、reside、rig、rivus、rob、rot、rota、rough",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-15",
+     "title": "成對字根 15",
+     "description": "rust、sacr、sci、scire、scope、sculpere、sedere、sen、serere、serve、set、severus、shame、shave、shield",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-16",
+     "title": "成對字根 16",
+     "description": "sight、simpl、sistere、socius、solv、solvere、space、sper、stat、suadere、tangere、tempor-、tempt、tend/tens、thea",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-17",
+     "title": "成對字根 17",
+     "description": "there、tom、tour、tract-、trade、trahere、trope、trud、turb、urge、use、util-、van、vanus、vas",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-18",
+     "title": "成對字根 18",
+     "description": "vert、vibr-、vice、videre、vig-、villa、vit-、viv-、voc、vol-、vot、wake、wed、week、weigh",
+     "count": 30
+    },
+    {
+     "id": "rt-pair-19",
+     "title": "成對字根 19",
+     "description": "who、whole、wild、wind、wit、zelos",
+     "count": 12
+    }
+   ]
+  },
+  {
+   "id": "rt-solo",
+   "set": "root",
+   "title": "獨立字根",
+   "description": "字根只出現過一次的單字，依字母排",
+   "count": 1218,
+   "file": "rt-solo.json",
+   "books": [
+    {
+     "id": "rt-solo-1",
+     "title": "獨立字根 1",
+     "description": "A",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-2",
+     "title": "獨立字根 2",
+     "description": "A",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-3",
+     "title": "獨立字根 3",
+     "description": "A、B",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-4",
+     "title": "獨立字根 4",
+     "description": "B",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-5",
+     "title": "獨立字根 5",
+     "description": "B、C",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-6",
+     "title": "獨立字根 6",
+     "description": "C",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-7",
+     "title": "獨立字根 7",
+     "description": "C",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-8",
+     "title": "獨立字根 8",
+     "description": "C",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-9",
+     "title": "獨立字根 9",
+     "description": "C",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-10",
+     "title": "獨立字根 10",
+     "description": "C",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-11",
+     "title": "獨立字根 11",
+     "description": "C、D",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-12",
+     "title": "獨立字根 12",
+     "description": "D",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-13",
+     "title": "獨立字根 13",
+     "description": "D、E",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-14",
+     "title": "獨立字根 14",
+     "description": "E",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-15",
+     "title": "獨立字根 15",
+     "description": "E、F",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-16",
+     "title": "獨立字根 16",
+     "description": "F",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-17",
+     "title": "獨立字根 17",
+     "description": "F",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-18",
+     "title": "獨立字根 18",
+     "description": "F、G",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-19",
+     "title": "獨立字根 19",
+     "description": "G、H",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-20",
+     "title": "獨立字根 20",
+     "description": "H、I",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-21",
+     "title": "獨立字根 21",
+     "description": "I",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-22",
+     "title": "獨立字根 22",
+     "description": "J、K、L",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-23",
+     "title": "獨立字根 23",
+     "description": "L、M",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-24",
+     "title": "獨立字根 24",
+     "description": "M",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-25",
+     "title": "獨立字根 25",
+     "description": "M、N",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-26",
+     "title": "獨立字根 26",
+     "description": "N、O",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-27",
+     "title": "獨立字根 27",
+     "description": "O",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-28",
+     "title": "獨立字根 28",
+     "description": "O、P",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-29",
+     "title": "獨立字根 29",
+     "description": "P",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-30",
+     "title": "獨立字根 30",
+     "description": "P",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-31",
+     "title": "獨立字根 31",
+     "description": "P、Q、R",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-32",
+     "title": "獨立字根 32",
+     "description": "R",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-33",
+     "title": "獨立字根 33",
+     "description": "R",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-34",
+     "title": "獨立字根 34",
+     "description": "R、S",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-35",
+     "title": "獨立字根 35",
+     "description": "S",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-36",
+     "title": "獨立字根 36",
+     "description": "S",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-37",
+     "title": "獨立字根 37",
+     "description": "S、T",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-38",
+     "title": "獨立字根 38",
+     "description": "T",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-39",
+     "title": "獨立字根 39",
+     "description": "T、U、V",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-40",
+     "title": "獨立字根 40",
+     "description": "V、W",
+     "count": 30
+    },
+    {
+     "id": "rt-solo-41",
+     "title": "獨立字根 41",
+     "description": "W、Y、Z",
+     "count": 18
+    }
+   ]
+  },
+  {
+   "id": "rt-none",
+   "set": "root",
+   "title": "無特定字根",
+   "description": "拆不出規律字根的基本單字，依字母排",
+   "count": 615,
+   "file": "rt-none.json",
+   "books": [
+    {
+     "id": "rt-none-1",
+     "title": "無特定字根 1",
+     "description": "A、B",
+     "count": 30
+    },
+    {
+     "id": "rt-none-2",
+     "title": "無特定字根 2",
+     "description": "B",
+     "count": 30
+    },
+    {
+     "id": "rt-none-3",
+     "title": "無特定字根 3",
+     "description": "B",
+     "count": 30
+    },
+    {
+     "id": "rt-none-4",
+     "title": "無特定字根 4",
+     "description": "B、C",
+     "count": 30
+    },
+    {
+     "id": "rt-none-5",
+     "title": "無特定字根 5",
+     "description": "C",
+     "count": 30
+    },
+    {
+     "id": "rt-none-6",
+     "title": "無特定字根 6",
+     "description": "C、D",
+     "count": 30
+    },
+    {
+     "id": "rt-none-7",
+     "title": "無特定字根 7",
+     "description": "D、G",
+     "count": 30
+    },
+    {
+     "id": "rt-none-8",
+     "title": "無特定字根 8",
+     "description": "G、H",
+     "count": 30
+    },
+    {
+     "id": "rt-none-9",
+     "title": "無特定字根 9",
+     "description": "H",
+     "count": 30
+    },
+    {
+     "id": "rt-none-10",
+     "title": "無特定字根 10",
+     "description": "H、I、J、K",
+     "count": 30
+    },
+    {
+     "id": "rt-none-11",
+     "title": "無特定字根 11",
+     "description": "K、L",
+     "count": 30
+    },
+    {
+     "id": "rt-none-12",
+     "title": "無特定字根 12",
+     "description": "L、M",
+     "count": 30
+    },
+    {
+     "id": "rt-none-13",
+     "title": "無特定字根 13",
+     "description": "M、N",
+     "count": 30
+    },
+    {
+     "id": "rt-none-14",
+     "title": "無特定字根 14",
+     "description": "O、P",
+     "count": 30
+    },
+    {
+     "id": "rt-none-15",
+     "title": "無特定字根 15",
+     "description": "P、Q、R",
+     "count": 30
+    },
+    {
+     "id": "rt-none-16",
+     "title": "無特定字根 16",
+     "description": "R、S",
+     "count": 30
+    },
+    {
+     "id": "rt-none-17",
+     "title": "無特定字根 17",
+     "description": "S、T",
+     "count": 30
+    },
+    {
+     "id": "rt-none-18",
+     "title": "無特定字根 18",
+     "description": "T",
+     "count": 30
+    },
+    {
+     "id": "rt-none-19",
+     "title": "無特定字根 19",
+     "description": "T、U、V",
+     "count": 30
+    },
+    {
+     "id": "rt-none-20",
+     "title": "無特定字根 20",
+     "description": "V、W",
+     "count": 30
+    },
+    {
+     "id": "rt-none-21",
+     "title": "無特定字根 21",
+     "description": "W、Y、Z",
+     "count": 15
+    }
+   ]
+  }
+ ]
+}
