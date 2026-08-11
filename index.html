@@ -35,8 +35,23 @@
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Noto+Serif+TC:wght@700;900&display=swap');
         body { font-family:'Noto Sans TC', sans-serif; }
         .hidden { display: none !important; }
-        .toast-animate { animation: slideUp 0.3s ease-out; }
-        @keyframes slideUp { from { transform: translate(-50%, 10%); opacity: 0; } to { transform: translate(0, 0); opacity: 1; } }
+        /* ★★ 這個 keyframe 原本是壞的，而且是那種「看得到但不會被當成 bug」的壞。
+           提示框靠 `left-1/2 -translate-x-1/2` 置中，也就是它**靜止時的
+           transform 本來就是 translateX(-50%)**。舊的 `to` 寫 translate(0,0)，
+           等於在動畫的最後一格把置中拿掉——提示會滑到右邊半個身位，
+           動畫一結束又瞬間跳回中間。
+           每次只閃一下，而且 0.3 秒就結束，所以會被當成「動畫怪怪的」。
+           兩個 keyframe 都要保留 -50%，位移只用 Y。
+           ★ 換成彈性曲線：提示是「跳出來」的東西，用它才有分量。
+           時間拉到 0.34s——過衝需要一點時間走完，太短會看起來像抖一下。 */
+        .toast-animate { animation: slideUp .34s var(--ease-spring); }
+        @keyframes slideUp {
+            from { transform: translate(-50%, 14px); opacity: 0; }
+            to   { transform: translate(-50%, 0);    opacity: 1; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .toast-animate { animation: none; }
+        }
 
         /* 黑貓專屬裝飾樣式
            （原本這裡有 .cat-card:hover .cat-icon，但課程卡裡沒有任何元素掛
@@ -167,9 +182,35 @@
         .lw:hover { background-color: var(--accent-soft); }
         html.dark .lw:hover { background-color: rgba(232, 196, 106, 0.22); }
 
-        /* 課程卡 / 評價卡進場：純淡入、不位移，快速即時出現 */
-        @keyframes cardEnter { from { opacity: 0; } to { opacity: 1; } }
+        /* 課程卡 / 評價卡進場：淡入 ＋ 極短的上浮，並且**錯開**。
+           ★ 一整片同時出現，眼睛會看成「畫面刷新了」；錯開 30ms 之後
+           會看成「東西一個一個放上來」——同樣的時間，後者感覺快。
+           ★ 上限是第 8 個（240ms）。不設上限的話，一頁三十張卡的最後一張
+           要等快一秒，那不是精緻是慢；而且它**只在資料多的時候發生**，
+           開發時通常看不到。
+           ★ 位移只有 6px。再多就會變成「飛進來」，一整列同時飛很暈。 */
+        @keyframes cardEnter {
+            from { opacity: 0; transform: translateY(6px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
         .list-enter { animation: cardEnter var(--dur-base) var(--ease) both; }
+        .list-enter:nth-child(1) { animation-delay: 0ms; }
+        .list-enter:nth-child(2) { animation-delay: 30ms; }
+        .list-enter:nth-child(3) { animation-delay: 60ms; }
+        .list-enter:nth-child(4) { animation-delay: 90ms; }
+        .list-enter:nth-child(5) { animation-delay: 120ms; }
+        .list-enter:nth-child(6) { animation-delay: 150ms; }
+        .list-enter:nth-child(7) { animation-delay: 180ms; }
+        .list-enter:nth-child(n+8) { animation-delay: 210ms; }
+        /* ★ 這一條是必要的，不是禮貌。前面的 both 會讓元素在 delay 期間
+           停在 from（opacity 0）——關掉動畫但沒關掉 delay 的話，
+           清單會有一段時間是**空白的**。所以連 delay 一起歸零。 */
+        @media (prefers-reduced-motion: reduce) {
+            .list-enter, .list-enter:nth-child(n) {
+                animation: none !important;
+                animation-delay: 0ms !important;
+            }
+        }
 
         /* 舊的「墨綠品牌中性色」整組已刪除。
            那組用的是 html:not(.dark) 開頭（特異性 0,2,0），會壓過下方
@@ -272,7 +313,12 @@
                兩面夾擊：深色字壓在它上面 5.11（暗筆觸處最壞），
                色塊對近白的頁首 3.03（亮筆觸把底提亮時最壞）。 */
             --accent-tab:     #b68800;
-            --accent-tab-ink: #1a1408;   /* 暖黑，不用純黑也不用 --ink 的藍黑 */
+            /* ★ 從 #1a1408 再壓深到近黑。這不是美感，是**買餘裕**：
+               對比公式的分母是「字的亮度 +0.05」，#1a1408 的 Y 是 0.0113
+               → 分母 0.0613；近黑的 Y 是 0.004 → 分母 0.054。
+               光是換這個字色就白賺 12% 的空間，而那正是漸層需要的。
+               分頁那塊是全站唯一兩面夾擊的地方：往亮走破邊界、往深走破字。 */
+            --accent-tab-ink: #0d0a02;
             /* ★★ 淡底**完全不能再壓暗**，這是量出來才知道的。
                內凹區塊的 Y 是 0.8177，而 --accent 當文字要 4.5 需要底至少
                0.816——也就是內凹區塊本身就站在門檻線上，任何會讓底變暗的
@@ -294,6 +340,13 @@
                沒有人說得出哪裡怪，但就是不整齊。
                三個時間刻度：按下（很快）、一般過場、換頁（最慢的那個）。 */
             --ease:      cubic-bezier(0.22, 1, 0.36, 1);   /* 快出慢收，收尾不會硬停 */
+            /* ★ 第四條曲線：會**過衝再回來**的那種，給「東西出現」用。
+               --ease 是單調的（只會逼近終點），適合顏色與淡入；
+               但一個彈出來的面板用單調曲線會像被推出來，用這條才像彈出來。
+               ★ 只給 transform／opacity 用。拿去做顏色過場的話，
+               過衝的那一段會讓顏色**衝過目標再退回**——中間那幾幀是
+               設計裡不存在的顏色，深色模式下特別明顯。 */
+            --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
             --dur-fast:  .09s;    /* 按下的回饋 */
             --dur-base:  .18s;    /* 一般的顏色／位移過場 */
             --dur-page:  .32s;    /* 換分頁 */
@@ -322,6 +375,10 @@
                拉亮到淺色那個程度會變成一塊發光的招牌，跟星夜打架。 */
             --accent-tab:     #8a6a12;
             --accent-tab-ink: #ffffff;
+            /* 筆觸相關的 token（織紋、厚塗、漸層）全部集中在下面那個
+               html.dark 區塊，不放這裡。★ 第一版把深色的漸層寫在這裡、
+               淺色的寫在那裡，兩個模式的同一組變數散在兩個地方——
+               不會報錯，只會在下次調的時候改了一邊。 */
             --panel:        #131b33;   /* 同 --paper-raised 的色相，但滿版不透明 */
         }
 
@@ -474,6 +531,38 @@
                 rgba(0, 0, 0, 0.055)       4px,
                 rgba(0, 0, 0, 0)           6.5px,
                 rgba(0, 0, 0, 0)           10px);
+            /* 給「深色字壓在亮底」的那一種用：暗紋放輕到 0.02。
+               只有選中的分頁是這一種，但寫成變數而不是寫死在那條規則裡，
+               是因為下一個做「亮底深色字」的元件會需要同一個值——
+               而寫死的話它會被複製一份，然後兩份各自漂移。 */
+            --vg-impasto-soft: repeating-linear-gradient(102deg,
+                rgba(255, 255, 255, 0.035) 0px,
+                rgba(255, 255, 255, 0)     2.5px,
+                rgba(0, 0, 0, 0.02)        4px,
+                rgba(0, 0, 0, 0)           6.5px,
+                rgba(0, 0, 0, 0)           10px);
+            /* ---- 筆觸漸層：一筆從飽滿刷到收乾 ----
+               ★★ 方向跟直覺相反：**漸層只能往深處長**。
+               原本想做「赭 → 金 → 提亮」，中間的提亮才是梵谷最像的地方。
+               但三個金**每一個都已經站在自己的天花板上**（上一輪就是這樣調的）：
+                 fill   白字含亮筆觸 4.53（門檻 4.5）→ 再亮就破
+                 tab    色塊對頁首含亮筆觸 3.03（門檻 3.0）→ 再亮就破
+                 bright 對內凹區塊 3.03 → 再亮就破
+               所以亮端只能是現值，往下走。看起來仍然是一筆有厚薄的顏料，
+               只是「最厚的地方」剛好是它能給的最亮。
+
+               ★ 用四段 deep → cap → mid → deep，不是兩段。
+               兩段式會有**一整條邊停在最亮**，而色塊要跟頁首分得開靠的
+               正是邊緣；四段式讓左右端點都是深的，cap 只出現在中段，
+               上下邊也只在中間碰到它——而 cap 本來就過門檻。
+               邊界對比不但沒變差，還從 3.03 變成 3.70。
+
+               ★ 往深處走時在 OKLCH 裡只降 L、彩度略升。
+               直接把 RGB 乘一個係數會同時掉彩度，變成灰掉的金——
+               那看起來像照片壓暗，不像同一坨顏料塗薄。 */
+            --vg-grad-fill:   linear-gradient(102deg, #765200 0%, #906c05 38%, #846000 66%, #765200 100%);
+            --vg-grad-tab:    linear-gradient(102deg, #a47500 0%, #b68800 36%, #af8000 64%, #a47500 100%);
+            --vg-grad-bright: linear-gradient(102deg, #916700 0%, #a97f05 40%, #9f7400 68%, #916700 100%);
             /* 一塊刷上去的顏料。這是全檔唯一的 SVG 形狀——
                歪掉的邊緣沒辦法用漸層做出來，只能給路徑。
                ★ preserveAspectRatio='none' 讓它跟著按鈕拉寬；
@@ -509,6 +598,17 @@
                 inset 0 -1px 0 rgba(0, 0, 0, 0.45),
                 1px 2px 0 rgba(0, 0, 0, 0.45),
                 3px 5px 12px rgba(0, 0, 0, 0.42);
+            --vg-impasto-soft: repeating-linear-gradient(102deg,
+                rgba(255, 255, 255, 0.035) 0px,
+                rgba(255, 255, 255, 0)     2.5px,
+                rgba(0, 0, 0, 0.02)        4px,
+                rgba(0, 0, 0, 0)           6.5px,
+                rgba(0, 0, 0, 0)           10px);
+            /* 同一條規則：亮端＝現值，只往深處走。
+               深色的分頁是白字，所以它跟 fill 走同一組。 */
+            --vg-grad-fill:   linear-gradient(102deg, #705000 0%, #8a6a12 38%, #7f5e00 66%, #705000 100%);
+            --vg-grad-tab:    linear-gradient(102deg, #705000 0%, #8a6a12 38%, #7f5e00 66%, #705000 100%);
+            --vg-grad-bright: linear-gradient(102deg, #c5a143 0%, #e8c46a 40%, #d8b457 68%, #c5a143 100%);
         }
 
         /* ---- 織理鋪在哪些面上 ----
@@ -550,6 +650,75 @@
         .quiz-opt.is-correct .quiz-opt-letter,
         .quiz-opt.is-wrong .quiz-opt-letter {
             background-image: var(--vg-impasto);
+        }
+        /* ---- 沿筆畫變色 ----
+           ★ 兩層疊著用：紋理在上、漸層在下（background-image 的第一個在最上層）。
+           分開寫是因為它們解決的是不同的事——紋理給「顏料的粗糙」，
+           漸層給「一筆的厚薄」。合成一個的話，之後想單獨調其中一個
+           就得把整串重寫，而重寫時最容易漏掉的正是那些量過的停止點。
+           ★ 只加在**顏色就是強調色**的那些面。階級徽章、資料色票、
+           單字冊封面各有自己的色，套上金的漸層會把它們全部染成同一色。 */
+        .bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500,
+        .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600,
+        .bg-emerald-200, .bg-fuchsia-400,
+        .quiz-qnum {
+            background-image: var(--vg-impasto), var(--vg-grad-fill);
+        }
+        .quiz-bar-fill {
+            background-image: var(--vg-impasto), var(--vg-grad-bright);
+        }
+
+        /* ---- 快速命令列 ----
+           ★ 面板用 --panel（不透明）。它浮在整頁之上，用半透明的
+           --paper-raised 會透出底下的文字，兩層字疊在一起——
+           跟 logo 下拉選單同一條規則。 */
+        .cmdk-panel {
+            background-color: var(--panel);
+            background-image: var(--vg-tooth);
+            border: 1px solid var(--rule);
+        }
+        /* 只給螢幕閱讀器的文字。★ 不能用 display:none 或 visibility:hidden，
+           那兩個會讓它**連螢幕閱讀器也讀不到**——那正是「加了但沒作用」。 */
+        .sr-only {
+            position: absolute; width: 1px; height: 1px;
+            padding: 0; margin: -1px; overflow: hidden;
+            clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+        }
+        .cmdk-item {
+            display: flex; align-items: center; gap: 12px;
+            width: 100%; padding: 10px 16px; text-align: left;
+            background: transparent; border: 0;
+            color: var(--ink-2); font-weight: 700; font-size: .95rem;
+            transition: background-color var(--dur-fast) var(--ease),
+                        color var(--dur-fast) var(--ease);
+        }
+        /* ★ 選中態靠 aria-selected 而不是另一個 class：
+           這樣「畫面上highlight 的那一項」與「螢幕閱讀器認為選中的那一項」
+           保證是同一個，不會有一個更新了另一個沒更新。 */
+        .cmdk-item[aria-selected="true"] {
+            background-color: var(--accent-soft);
+            color: var(--ink);
+            box-shadow: inset 3px 0 0 var(--accent-bright);
+        }
+        .cmdk-item .cmdk-kind {
+            margin-left: auto; font-size: .72rem; font-weight: 800;
+            letter-spacing: .06em; color: var(--ink-3);
+        }
+        /* ★ 快捷鍵提示只在「有鍵盤」的裝置顯示。
+           判斷用 hover+fine pointer，不是螢幕寬度——平板接了鍵盤仍然是
+           觸控，而窄視窗的筆電還是有鍵盤。用寬度判斷兩種都會判錯。
+           手機上顯示「⌘K」是在教一個按不出來的東西。 */
+        .kbd-hint { display: none; }
+        @media (hover: hover) and (pointer: fine) {
+            .kbd-hint { display: inline-block; border: 1px solid currentColor; opacity: .55; }
+        }
+        #cmdk .cmdk-panel { animation: cmdkIn .2s var(--ease-spring); }
+        @keyframes cmdkIn {
+            from { opacity: 0; transform: translateY(-8px) scale(.98); }
+            to   { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            #cmdk .cmdk-panel { animation: none; }
         }
 
         /* ---- 乾筆的分隔線 ----
@@ -618,6 +787,59 @@
            ★ 排除拖曳中的計劃列——拖到一半又被縮放會看起來像壞掉。
            ★ 也排除 disabled：按不下去的東西不該有回饋。
            ========================================================== */
+        /* ★★ `<button>` 的預設游標是箭頭不是手指——這跟 `<a>` 不一樣，
+           而且**很多人以為它跟 a 一樣**。全站 160 個 button 只有 20 處寫了
+           cursor-pointer，也就是有一百多顆按鈕滑過去看起來像不能點。
+           這不會報錯，也沒有人會回報「游標不對」，但它是「這個網站有沒有
+           在動」最便宜的一個訊號。一條規則收掉，不去改一百多處 HTML。
+           ★ disabled 要排除：按不下去的東西給手指游標是在說謊。
+           ★ `[aria-disabled="true"]` 也要——有些地方是用它擋而不是 disabled。 */
+        button:not(:disabled):not([aria-disabled="true"]),
+        [data-action]:not(:disabled):not([aria-disabled="true"]),
+        [data-tab]:not(:disabled),
+        summary,
+        label[for],
+        .logo-menu-item {
+            cursor: pointer;
+        }
+        button:disabled, button[aria-disabled="true"],
+        [data-action]:disabled, [data-action][aria-disabled="true"] {
+            cursor: not-allowed;
+        }
+
+        /* ---- 觸控目標：把手指能按到的範圍撐開，但不動版面 ----
+           ★★ 先把數字講清楚，因為我一開始也搞錯了：
+           **WCAG 2.2 AA 的門檻是 24×24px，不是 44。**
+           44 是 AAA（2.5.5）與 Apple HIG 的舒適值。量過全站：
+             <24px（連 AA 都不到）  0 個
+             24–31px                7 個
+             32–43px               40 個
+           也就是**沒有一個是不合格的**，只是不夠好按。
+           （第一版的稽核用 class 名字猜，報了 27 個「嫌疑」——高估的。
+             跟這個專案其他地方一樣：先確認量測工具在量什麼。）
+
+           ★ 所以不做全站的粗暴放大。把整站按鈕都撐到 44px 會改變密度，
+           而且**看不見的擴大區會蓋到隔壁**——上下只隔 8px 的兩顆按鈕，
+           各自往外長 8px 就會互相偷走邊緣，變成「按到隔壁那顆」。
+           那種錯比按不到更難查，因為它只在邊緣幾個 px 發生。
+           只給真的很小、而且四周有空間的那幾個。
+
+           ★ 用 ::after 疊一層透明的擴大區，不改 width/height：
+           改尺寸會推開版面，改 padding 會讓圖示不置中。
+           只在觸控裝置上加——滑鼠不需要，而且桌機上多一層看不見的
+           覆蓋物只會擋到別的東西。 */
+        @media (pointer: coarse) {
+            .tap-44 { position: relative; }
+            .tap-44::after {
+                content: ''; position: absolute;
+                left: 50%; top: 50%;
+                width: 44px; height: 44px;
+                transform: translate(-50%, -50%);
+                /* 不畫任何東西，只負責接手指。★ 不能設 background，
+                   即使是透明的也會在某些瀏覽器蓋掉底下的 focus 外框。 */
+            }
+        }
+
         button:not(:disabled):active,
         [data-action]:not(:disabled):active,
         [data-tab]:not(:disabled):active,
@@ -988,7 +1210,13 @@
             content: ''; position: absolute; inset: -3px -4px;
             z-index: -1;
             background-color: var(--accent-tab);
-            background-image: var(--vg-impasto);
+            /* ★ 分頁用 --vg-impasto-soft 不是 --vg-impasto。
+               厚塗的暗紋是 -0.055，它會把底再壓一層——而分頁是全站唯一
+               「深色字壓在亮底上」的地方，暗紋在這裡是逆風：
+               它讓底更暗，深色字反而更難讀。量過：暗紋 0.055 時
+               漸層深端只有 4.39（破），放輕到 0.02 是 4.66。
+               其他地方都是白字壓在暗底，暗紋是順風，所以維持原值。 */
+            background-image: var(--vg-impasto-soft), var(--vg-grad-tab);
             filter: drop-shadow(1px 2px 3px rgba(40, 60, 80, .28));
             -webkit-mask: var(--vg-swatch) center / 100% 100% no-repeat;
             mask: var(--vg-swatch) center / 100% 100% no-repeat;
@@ -1140,7 +1368,9 @@
 
            勾勾用 clip-path 從左往右揭開（走合成器），外框用 scale 彈一下。
            ========================================================== */
-        .plan-check-pop { animation: checkPop var(--dur-base) var(--ease); }
+        /* 打勾用彈性曲線：這是全站最值得慶祝的一個動作，
+           而過衝正是「完成」的手感。其他地方仍用單調的 --ease。 */
+        .plan-check-pop { animation: checkPop .24s var(--ease-spring); }
         .plan-check-pop svg { animation: checkDraw var(--dur-base) var(--ease) both; }
         @keyframes checkPop {
             0%   { transform: scale(1) }
@@ -1499,8 +1729,22 @@
                      混進分頁列的話三個產品的分頁數各不相同，置中排列會被它拉歪，
                      而且手機橫捲時設定會被推到看不到的地方。
                      放在 nav **旁邊**（同一列、不捲動）就兩全。 -->
+                <!-- ★ 快速跳頁的入口。**沒有這顆按鈕的話 ⌘K 等於不存在**：
+                     沒有人會去猜一個沒有出現在畫面上的快捷鍵，
+                     而觸控裝置根本沒有鍵盤。功能寫好卻沒有人找得到，
+                     跟沒寫是一樣的，只是還要維護。
+                     ★ 快捷鍵的提示只在有鍵盤的裝置顯示（見 CSS 的 .kbd-hint）——
+                     手機上顯示「⌘K」是在教一個按不出來的東西。 -->
+                <button id="cmdkBtn" type="button" title="快速跳到（⌘K）" aria-label="快速跳到"
+                        class="tap-44 shrink-0 p-2 rounded-xl transition-colors duration-200 text-slate-400 hover:text-emerald-400 hover:bg-white/10 flex items-center gap-1.5">
+                    <svg class="w-5 h-5 pointer-events-none" viewBox="0 0 24 24" fill="none"
+                         stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+                    </svg>
+                    <kbd class="kbd-hint text-[10px] font-bold px-1 py-0.5 rounded pointer-events-none">⌘K</kbd>
+                </button>
                 <button id="settingsBtn" data-tab="settings" title="設定" aria-label="設定"
-                        class="shrink-0 p-2 rounded-xl transition-all text-slate-400 hover:text-emerald-400 hover:bg-white/10">
+                        class="tap-44 shrink-0 p-2 rounded-xl transition-all text-slate-400 hover:text-emerald-400 hover:bg-white/10">
                     <i data-lucide="settings" class="w-5 h-5 pointer-events-none"></i>
                 </button>
             </div>
@@ -1609,7 +1853,11 @@
                 </table>
                 </div>
                 <div class="mt-6 text-center text-sm font-bold text-slate-400 flex items-center justify-center gap-2">
-                    <img src="image.png" class="w-6 h-6 rounded-full opacity-50 border border-slate-200">
+                    <!-- 純裝飾：旁邊那行字已經把意思說完了。
+                         給它一個掰出來的 alt（「小黑貓標誌」之類）反而是雜訊——
+                         螢幕閱讀器會唸「圖片 小黑貓標誌 本學期自編課表」。
+                         空 alt ＋ aria-hidden 才是「跳過我」的正確講法。 -->
+                    <img src="image.png" alt="" aria-hidden="true" class="w-6 h-6 rounded-full opacity-50 border border-slate-200">
                     本學期自編課表
                 </div>
             </div>
@@ -1639,7 +1887,7 @@
                 <div class="mb-5">
                     <div class="flex gap-2">
                         <input type="text" id="quickPlanInput" maxlength="80" placeholder="一行新增：明天下午三點 交報告"
-                               class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
+                               class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold" aria-label="一行新增：明天下午三點 交報告">
                         <button id="quickPlanBtn" class="shrink-0 px-4 py-3 bg-slate-800 text-white rounded-2xl font-bold text-sm hover:bg-slate-900 transition">新增</button>
                     </div>
                     <p id="quickPlanPreview" class="text-xs font-bold text-slate-400 mt-2 min-h-[1.25rem] break-words"></p>
@@ -1710,7 +1958,7 @@
                 <div class="relative">
                     <i data-lucide="search" class="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500 w-5 h-5"></i>
                     <input type="text" id="searchInput" placeholder="搜尋課程、教授或是悄悄話..."
-                        class="w-full pl-12 pr-12 py-4 rounded-3xl bg-slate-800 text-white border-2 border-slate-700 focus:outline-none focus:border-emerald-500 shadow-inner text-lg transition-all placeholder:text-slate-500">
+                        class="w-full pl-12 pr-12 py-4 rounded-3xl bg-slate-800 text-white border-2 border-slate-700 focus:outline-none focus:border-emerald-500 shadow-inner text-lg transition-all placeholder:text-slate-500" aria-label="搜尋課程、教授或是悄悄話...">
                     <button id="searchClear" data-action="clear-search" class="hidden absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors">
                         <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i>
                     </button>
@@ -1814,7 +2062,7 @@
                 <div class="relative flex-1">
                     <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                     <input type="search" id="dataSearch" placeholder="搜尋檔名或課程"
-                           class="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border-2 border-slate-100 focus:ring-2 focus:ring-emerald-400 font-bold text-sm">
+                           class="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border-2 border-slate-100 focus:ring-2 focus:ring-emerald-400 font-bold text-sm" aria-label="搜尋檔名或課程">
                 </div>
                 <span id="dataCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
             </div>
@@ -1854,7 +2102,7 @@
                 <div class="relative flex-1">
                     <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none"></i>
                     <input type="search" id="starclanSearch" placeholder="搜尋信箱、暱稱或階級"
-                           class="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border-2 border-slate-100 focus:ring-2 focus:ring-fuchsia-400 font-bold text-sm">
+                           class="w-full pl-11 pr-4 py-3 bg-white rounded-2xl border-2 border-slate-100 focus:ring-2 focus:ring-fuchsia-400 font-bold text-sm" aria-label="搜尋信箱、暱稱或階級">
                 </div>
                 <!-- 顯示幾筆／共幾筆。★ 這不是裝飾：搜不到東西時的空白
                      跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
@@ -1926,15 +2174,15 @@
                         <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
                             <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><i data-lucide="upload" class="w-5 h-5"></i> 上傳資料</h3>
                             <div class="space-y-4">
-                                <select id="uploadCourseSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
+                                <select id="uploadCourseSelect" aria-label="選擇要上傳到哪一門課" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
                                     <option value="" disabled selected>選擇關聯課程...</option>
                                 </select>
-                                <select id="materialLevelSelect" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
+                                <select id="materialLevelSelect" aria-label="資料的公開範圍" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
                                     <option value="2" selected>🛡️ 戰士資料 (戰士以上可見)</option>
                                     <option value="3">👑 族長資料 (族長以上可見)</option>
                                 </select>
-                                <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm">
-                                <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium">
+                                <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="雲端硬碟共用連結">
+                                <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium" aria-label="檔案名稱 (如: 期中考考古)">
                                 <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">確認存檔</button>
                             </div>
                         </div>
@@ -2001,7 +2249,7 @@
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">英文閱讀 <span class="animate-bounce">📰</span></h2>
                             <p class="text-slate-400 text-sm mt-2">讀英文新聞、點任一個字直接查劍橋字典。文章來源：Global Voices（CC BY 3.0）。</p>
                             <div class="mt-4 flex gap-2 max-w-md">
-                                <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500">
+                                <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500" aria-label="快查任一單字…">
                                 <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
                             </div>
                             <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-all inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
@@ -2266,11 +2514,11 @@
                 <input type="hidden" id="editScheduleCellId">
                 <input type="hidden" id="editScheduleCourseId">
                 <div class="relative">
-                    <input type="text" id="editScheduleCourse" maxlength="20" placeholder="課程名稱（可搜尋課程庫）" autocomplete="off" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-lg text-center">
+                    <input type="text" id="editScheduleCourse" maxlength="20" placeholder="課程名稱（可搜尋課程庫）" autocomplete="off" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-lg text-center" aria-label="課程名稱（可搜尋課程庫）">
                     <div id="editScheduleCourseResults" class="hidden absolute z-10 left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-white rounded-2xl shadow-xl border-2 border-teal-100 text-left"></div>
                 </div>
-                <input type="text" id="editScheduleLocation" maxlength="20" placeholder="上課地點" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500">
-                <select id="editScheduleDuration" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-600 appearance-none outline-none">
+                <input type="text" id="editScheduleLocation" maxlength="20" placeholder="上課地點" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500" aria-label="上課地點">
+                <select id="editScheduleDuration" aria-label="這堂課連續幾節" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-600 appearance-none outline-none">
                     <option value="1">連上 1 節</option>
                 </select>
                 <div class="flex gap-4 pt-4">
@@ -2289,27 +2537,27 @@
             <p class="text-xs text-slate-400 font-medium mb-5">AI 會先幫你填好，存檔前可以自己改。內容僅供參考，可能有誤。</p>
             <div class="space-y-3">
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">加到哪一本</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="addWordBookSelect">加到哪一本</label>
                     <select id="addWordBookSelect" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-bold text-sm text-slate-700 outline-none"></select>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">英文單字</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="addWordEnglish">英文單字</label>
                     <input type="text" id="addWordEnglish" maxlength="100" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-black text-lg text-blue-700 outline-none">
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">英譯英</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="addWordEngDef">英譯英</label>
                     <textarea id="addWordEngDef" rows="2" maxlength="200" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-sm outline-none resize-none"></textarea>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">字根字首</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="addWordRootPrefix">字根字首</label>
                     <input type="text" id="addWordRootPrefix" maxlength="100" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-bold text-sm text-fuchsia-600 outline-none">
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">例句</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="addWordExample">例句</label>
                     <textarea id="addWordExample" rows="2" maxlength="300" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-sm italic outline-none resize-none"></textarea>
                 </div>
                 <div>
-                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">中文（選填）</label>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="addWordChinese">中文（選填）</label>
                     <input type="text" id="addWordChinese" maxlength="100" class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-sm outline-none">
                 </div>
             </div>
@@ -2360,7 +2608,7 @@
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl border-t-8 border-emerald-400 text-center">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">設定你的貓咪名稱</h3>
             <div class="space-y-4">
-                <input type="text" id="editDisplayName" maxlength="15" placeholder="例如：橘貓學長" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 font-bold text-lg text-center">
+                <input type="text" id="editDisplayName" maxlength="15" placeholder="例如：橘貓學長" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 font-bold text-lg text-center" aria-label="例如：橘貓學長">
                 <div class="flex gap-4 pt-4">
                     <button data-close="nameModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
                     <button id="confirmSaveName" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors">儲存名稱</button>
@@ -2374,13 +2622,13 @@
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">發布最新消息</h3>
             <div class="space-y-4">
-                <select id="newsCategory" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none font-bold text-lg outline-none focus:ring-2 focus:ring-emerald-500">
+                <select id="newsCategory" aria-label="公告分類" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none font-bold text-lg outline-none focus:ring-2 focus:ring-emerald-500">
                     <option value="共同">公告分類：共同</option>
                     <option value="新生">公告分類：新生</option>
                     <option value="舊生">公告分類：舊生</option>
                 </select>
-                <input type="text" id="newsTitle" maxlength="50" placeholder="公告標題" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
-                <input type="url" id="newsUrl" placeholder="相關連結 (選填)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm">
+                <input type="text" id="newsTitle" maxlength="50" placeholder="公告標題" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg" aria-label="公告標題">
+                <input type="url" id="newsUrl" placeholder="相關連結 (選填)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm" aria-label="相關連結 (選填)">
                 <div class="flex gap-4 pt-4">
                     <button data-close="newsModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                     <button id="confirmSaveNews" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200">發布公告</button>
@@ -2394,8 +2642,8 @@
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">新增常用連結</h3>
             <div class="space-y-4">
-                <input type="text" id="linkTitle" maxlength="30" placeholder="連結標題 (例如：校務行政系統)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
-                <input type="url" id="linkUrl" placeholder="網址 (https://...)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm">
+                <input type="text" id="linkTitle" maxlength="30" placeholder="連結標題 (例如：校務行政系統)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg" aria-label="連結標題 (例如：校務行政系統)">
+                <input type="url" id="linkUrl" placeholder="網址 (https://...)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm" aria-label="網址 (https://...)">
                 <div class="flex gap-4 pt-4">
                     <button data-close="linkModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                     <button id="confirmSaveLink" class="flex-1 py-4 bg-blue-500 text-white rounded-2xl font-bold shadow-lg shadow-blue-200">新增連結</button>
@@ -2410,10 +2658,10 @@
             <h3 id="vocabBookModalTitle" class="text-2xl font-bold mb-6 text-slate-900">創建單字冊</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editVocabBookId" value="">
-                <input type="text" id="vocabBookTitle" maxlength="80" placeholder="單字冊名稱 (如: 專業電子學字彙)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
-                <textarea id="vocabBookDescription" maxlength="200" placeholder="簡單描述這本單字冊..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[100px]"></textarea>
+                <input type="text" id="vocabBookTitle" maxlength="80" placeholder="單字冊名稱 (如: 專業電子學字彙)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg" aria-label="單字冊名稱 (如: 專業電子學字彙)">
+                <textarea id="vocabBookDescription" maxlength="200" placeholder="簡單描述這本單字冊..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[100px]" aria-label="簡單描述這本單字冊..."></textarea>
                 <div>
-                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">放在哪個資料夾</label>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabBookFolder">放在哪個資料夾</label>
                     <select id="vocabBookFolder" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold"></select>
                 </div>
                 <div class="flex gap-4 pt-4">
@@ -2433,8 +2681,8 @@
             <h3 id="vocabFolderModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增資料夾</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editVocabFolderId" value="">
-                <input type="text" id="vocabFolderTitle" maxlength="60" placeholder="資料夾名稱 (如: 學測衝刺)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-slate-500 font-bold text-lg">
-                <textarea id="vocabFolderDescription" maxlength="200" placeholder="這個資料夾裝什麼..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-slate-500 font-medium resize-none min-h-[80px]"></textarea>
+                <input type="text" id="vocabFolderTitle" maxlength="60" placeholder="資料夾名稱 (如: 學測衝刺)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-slate-500 font-bold text-lg" aria-label="資料夾名稱 (如: 學測衝刺)">
+                <textarea id="vocabFolderDescription" maxlength="200" placeholder="這個資料夾裝什麼..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-slate-500 font-medium resize-none min-h-[80px]" aria-label="這個資料夾裝什麼..."></textarea>
                 <div class="flex gap-4 pt-4">
                     <button data-close="vocabFolderModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                     <button id="confirmSaveVocabFolder" class="flex-1 py-4 bg-slate-700 text-white rounded-2xl font-bold shadow-lg shadow-slate-200 hover:bg-slate-800 transition-colors">儲存資料夾</button>
@@ -2452,26 +2700,26 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英文單字 <span class="text-red-400">*</span></label>
-                        <input type="text" id="vocabWordEnglish" maxlength="100" placeholder="例如: Impedance" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg text-blue-700">
+                        <input type="text" id="vocabWordEnglish" maxlength="100" placeholder="例如: Impedance" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg text-blue-700" aria-label="例如: Impedance">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英譯英 (定義) <span class="text-red-400">*</span></label>
-                        <input type="text" id="vocabWordEngDef" maxlength="200" placeholder="The effective resistance of an electric circuit..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
+                        <input type="text" id="vocabWordEngDef" maxlength="200" placeholder="The effective resistance of an electric circuit..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium" aria-label="The effective resistance of an electric circuit...">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">中文解釋 (選填)</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordChinese">中文解釋 (選填)</label>
                         <input type="text" id="vocabWordChinese" maxlength="100" placeholder="例如: 阻抗" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">字根 / 字首 / 字尾 (選填)</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordRootPrefix">字根 / 字首 / 字尾 (選填)</label>
                         <input type="text" id="vocabWordRootPrefix" maxlength="100" placeholder="例如: im- (in) + ped (foot)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-fuchsia-600">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">級數 (選填)</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordLevel">級數 (選填)</label>
                         <select id="vocabWordLevel" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold">
                             <option value="">不標示</option>
                             <option value="3">Level 3</option>
@@ -2481,12 +2729,12 @@
                         </select>
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">詞性 (選填)</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordPos">詞性 (選填)</label>
                         <input type="text" id="vocabWordPos" maxlength="20" placeholder="例如: n. / v. / adj." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">例句 (選填)</label>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordExample">例句 (選填)</label>
                     <textarea id="vocabWordExample" maxlength="300" placeholder="寫個句子幫助記憶..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[80px]"></textarea>
                 </div>
                 <div class="flex gap-4 pt-4">
@@ -2502,10 +2750,10 @@
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
             <h3 class="text-2xl font-bold mb-6 text-slate-900">幫小黑貓紀錄新課程</h3>
             <div class="space-y-4">
-                <input type="text" id="newCourseName" maxlength="50" placeholder="課程名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
-                <input type="text" id="newInstructor" maxlength="30" placeholder="教授姓名" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
+                <input type="text" id="newCourseName" maxlength="50" placeholder="課程名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg" aria-label="課程名稱">
+                <input type="text" id="newInstructor" maxlength="30" placeholder="教授姓名" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg" aria-label="教授姓名">
                 <div class="grid grid-cols-2 gap-4">
-                    <select id="newCourseYear" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg appearance-none text-slate-700">
+                    <select id="newCourseYear" aria-label="開課學年" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg appearance-none text-slate-700">
                         <option value="" disabled selected>選擇分類 / 年級</option>
                         <option value="1">一年級</option>
                         <option value="2">二年級</option>
@@ -2518,24 +2766,24 @@
                         <option value="校定必修">校定必修</option>
                         <option value="other">其他</option>
                     </select>
-                    <select id="newCourseSemester" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg appearance-none text-slate-700">
+                    <select id="newCourseSemester" aria-label="開課學期" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg appearance-none text-slate-700">
                         <option value="" disabled selected>選擇學期 (選填)</option>
                         <option value="1">上學期</option>
                         <option value="2">下學期</option>
                     </select>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                    <select id="newCourseRemote" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                    <select id="newCourseRemote" aria-label="是否為遠距課程" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
                         <option value="" disabled selected>是否遠距？</option>
                         <option value="是">遠距：是</option>
                         <option value="否">遠距：否</option>
                     </select>
-                    <select id="newCourseRollCall" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                    <select id="newCourseRollCall" aria-label="點名方式" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
                         <option value="" disabled selected>是否點名？</option>
                         <option value="是">點名：是</option>
                         <option value="否">點名：否</option>
                     </select>
-                    <select id="newCourseGroup" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                    <select id="newCourseGroup" aria-label="是否需要分組" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
                         <option value="" disabled selected>分組活動？</option>
                         <option value="老師分組">老師分組</option>
                         <option value="自由分組">自由分組</option>
@@ -2556,8 +2804,8 @@
             <h3 id="ssCourseModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學課程</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editSSCourseId" value="">
-                <input type="text" id="ssCourseTitle" maxlength="80" placeholder="自學課程名稱 (如: Python 與人工智慧)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg">
-                <select id="ssCourseSelect" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg appearance-none text-slate-700">
+                <input type="text" id="ssCourseTitle" maxlength="80" placeholder="自學課程名稱 (如: Python 與人工智慧)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg" aria-label="自學課程名稱 (如: Python 與人工智慧)">
+                <select id="ssCourseSelect" aria-label="選擇課程" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg appearance-none text-slate-700">
                     <option value="" disabled selected>選擇關聯的學校課程...</option>
                 </select>
                 <div class="flex gap-4 pt-4">
@@ -2574,27 +2822,27 @@
             <h3 id="ssUnitModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學單元</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editSSUnitId" value="">
-                <label class="block text-sm font-bold text-slate-500 ml-2">單元名稱</label>
+                <label class="block text-sm font-bold text-slate-500 ml-2" for="ssUnitTitle">單元名稱</label>
                 <input type="text" id="ssUnitTitle" maxlength="80" placeholder="如: 第一週 - 變數與資料型態" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">YouTube 連結</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="ssUnitYtUrl">YouTube 連結</label>
                         <input type="url" id="ssUnitYtUrl" placeholder="https://youtube.com/..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">雲端筆記連結</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="ssUnitDriveUrl">雲端筆記連結</label>
                         <input type="url" id="ssUnitDriveUrl" placeholder="https://drive.google.com/..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">作業連結 (HW)</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="ssUnitHwUrl">作業連結 (HW)</label>
                         <input type="url" id="ssUnitHwUrl" placeholder="https://drive.google.com/..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                     </div>
                     <div>
-                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">解答連結 (Ans)</label>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="ssUnitAnsUrl">解答連結 (Ans)</label>
                         <input type="url" id="ssUnitAnsUrl" placeholder="https://drive.google.com/..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                     </div>
                 </div>
-                <label class="block text-sm font-bold text-slate-500 ml-2 pt-2">單元介紹</label>
+                <label class="block text-sm font-bold text-slate-500 ml-2 pt-2" for="ssUnitDescription">單元介紹</label>
                 <textarea id="ssUnitDescription" maxlength="1000" placeholder="簡短介紹這個單元會學到什麼..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium min-h-[120px] resize-none"></textarea>
                 <div class="flex gap-4 pt-4">
                     <button data-close="ssUnitModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
@@ -2610,8 +2858,8 @@
              <img src="image.png" alt="登入認證" class="w-16 h-16 rounded-full object-cover shadow-md mx-auto mb-4 border-2 border-emerald-500/20">
             <h3 id="modalTitle" class="text-2xl font-bold mb-2">身分認證</h3>
             <p class="text-slate-400 text-xs mb-6">歡迎來到黑貓的領地</p>
-            <input type="email" id="adminEmail" placeholder="電子信箱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-3">
-            <input type="password" id="adminPassword" placeholder="密碼" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-6">
+            <input type="email" id="adminEmail" placeholder="電子信箱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-3" aria-label="電子信箱">
+            <input type="password" id="adminPassword" placeholder="密碼" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-6" aria-label="密碼">
             <button id="confirmAdminLogin" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">登入</button>
 
             <!-- Google 登入。第二段（串接舊帳號）平常是收起來的，
@@ -2628,7 +2876,7 @@
             <div id="googleLinkBox" class="hidden mt-5 p-4 bg-amber-50 border-2 border-amber-200 rounded-2xl text-left">
                 <p class="text-sm font-bold text-amber-900 mb-1">這個信箱已經用密碼註冊過了</p>
                 <p id="googleLinkHint" class="text-xs text-amber-800 font-medium mb-3 leading-relaxed"></p>
-                <input type="password" id="googleLinkPassword" placeholder="原本的密碼" class="w-full px-4 py-3 bg-white rounded-xl border-none focus:ring-2 focus:ring-amber-500 font-bold mb-3">
+                <input type="password" id="googleLinkPassword" placeholder="原本的密碼" class="w-full px-4 py-3 bg-white rounded-xl border-none focus:ring-2 focus:ring-amber-500 font-bold mb-3" aria-label="原本的密碼">
                 <button id="googleLinkBtn" class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold shadow hover:bg-amber-600 transition-all">綁定並登入</button>
             </div>
 
@@ -2645,18 +2893,18 @@
             <p id="planZoneHint" class="hidden text-xs font-bold text-slate-400 mb-4"></p>
             <input type="hidden" id="editPlanId" value="">
             <div class="space-y-4">
-                <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：電路學期中考）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg">
+                <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：電路學期中考）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg" aria-label="要做什麼（如：電路學期中考）">
                 <!-- ★ datetime-local 是絕對時間點，跟課表的「星期幾＋第幾節」是兩種東西。
                      這正是後端要另開一張表的原因。 -->
                 <!-- ★ 計劃是一段時間，不是一個時間點。兩個欄位擺在一起，
                      形狀本身就說明了這件事，不必靠說明文字。 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="text-xs font-bold text-slate-400 mb-1 block">開始</label>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block" for="planAt">開始</label>
                         <input type="datetime-local" id="planAt" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-slate-400 mb-1 block">結束</label>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block" for="planEnd">結束</label>
                         <input type="datetime-local" id="planEnd" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
                     </div>
                 </div>
@@ -2664,7 +2912,7 @@
                      改一次時間要改幾十筆，而且「它們是同一件事」會消失。 -->
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                        <label class="text-xs font-bold text-slate-400 mb-1 block">重複</label>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block" for="planRepeat">重複</label>
                         <select id="planRepeat" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
                             <option value="">不重複</option>
                             <option value="daily">每天</option>
@@ -2673,13 +2921,13 @@
                         </select>
                     </div>
                     <div>
-                        <label class="text-xs font-bold text-slate-400 mb-1 block">重複到（選填）</label>
+                        <label class="text-xs font-bold text-slate-400 mb-1 block" for="planRepUntil">重複到（選填）</label>
                         <input type="date" id="planRepUntil" class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
                     </div>
                 </div>
                 <p id="planRepeatHint" class="text-xs text-slate-400 font-medium -mt-2"></p>
                 <div>
-                    <label class="text-xs font-bold text-slate-400 mb-1 block">提前多久通知</label>
+                    <label class="text-xs font-bold text-slate-400 mb-1 block" for="planLead">提前多久通知</label>
                     <select id="planLead" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold">
                         <option value="0">準時</option>
                         <option value="5">5 分鐘前</option>
@@ -2704,7 +2952,7 @@
                     <div id="planSubList" class="space-y-2"></div>
                     <p id="planSubHint" class="text-xs text-slate-400 font-medium mt-1"></p>
                 </div>
-                <textarea id="planNote" maxlength="120" placeholder="備註（選填）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-medium resize-none min-h-[80px]"></textarea>
+                <textarea id="planNote" maxlength="120" placeholder="備註（選填）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-medium resize-none min-h-[80px]" aria-label="備註（選填）"></textarea>
             </div>
             <div class="flex gap-3 mt-6">
                 <button data-close="planModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl">取消</button>
@@ -2719,11 +2967,11 @@
             <h3 id="countdownModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增倒數</h3>
             <input type="hidden" id="editCountdownId" value="">
             <div class="space-y-4">
-                <input type="text" id="countdownTitle" maxlength="40" placeholder="倒數什麼（如：開學、期末考、生日）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-bold text-lg">
+                <input type="text" id="countdownTitle" maxlength="40" placeholder="倒數什麼（如：開學、期末考、生日）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-bold text-lg" aria-label="倒數什麼（如：開學、期末考、生日）">
                 <!-- ★ 只有 date，沒有時間。這就是倒數跟計劃的差別，
                      欄位本身就把兩者分開了，不必靠說明文字。 -->
                 <div>
-                    <label class="text-xs font-bold text-slate-400 mb-1 block">日期</label>
+                    <label class="text-xs font-bold text-slate-400 mb-1 block" for="countdownDate">日期</label>
                     <input type="date" id="countdownDate" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-bold">
                 </div>
                 <label class="flex items-start gap-3 px-1 cursor-pointer">
@@ -2770,12 +3018,12 @@
             <input type="hidden" id="editKahootId" value="">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
-                    <label class="text-xs font-black text-slate-400 uppercase mb-1 block">測驗主題</label>
+                    <label class="text-xs font-black text-slate-400 uppercase mb-1 block" for="kahootTitle">測驗主題</label>
                     <input type="text" id="kahootTitle" maxlength="50" placeholder="例如：微積分期中考大挑戰" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
                 </div>
                 <div>
                     <label class="text-xs font-black text-slate-400 uppercase mb-1 block">關聯課程 <span class="text-slate-300 normal-case">（選填）</span></label>
-                    <select id="kahootCourseSelect" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
+                    <select id="kahootCourseSelect" aria-label="測驗要出哪一門課" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                         <option value="">不指定課程</option>
                     </select>
                 </div>
@@ -2790,12 +3038,12 @@
                     <button id="cancelEditQBtn" data-action="cancel-edit-q" class="hidden text-xs font-black text-slate-400 hover:text-slate-700 px-3 py-1.5 rounded-lg hover:bg-white transition">取消編輯</button>
                 </div>
                 <p class="text-[11px] text-emerald-700/70 font-bold mb-3">選項填 2～4 個即可，留空的會自動略過（可以做是非題或三選一）。點左邊圓圈選出正解。</p>
-                <input type="text" id="qText" maxlength="200" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm">
+                <input type="text" id="qText" maxlength="200" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm" aria-label="輸入題目內容...">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 2（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt2" maxlength="100" placeholder="選項 3（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" maxlength="100" placeholder="選項 4（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 1（必填）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 2（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 2（必填）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt2" maxlength="100" placeholder="選項 3（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 3（可留空）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" maxlength="100" placeholder="選項 4（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 4（可留空）"></label>
                 </div>
                 <button id="addDraftQuestionBtn" class="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm">將此題加入測驗</button>
             </div>
@@ -2873,10 +3121,10 @@
                     <button data-action="set-expense-type" data-type="expense" class="exp-type-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">支出</button>
                     <button data-action="set-expense-type" data-type="income" class="exp-type-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">收入</button>
                 </div>
-                <input type="number" id="expenseAmount" placeholder="金額" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg text-center">
-                <select id="expenseCategory" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700"></select>
-                <input type="text" id="expenseNote" maxlength="50" placeholder="備註（選填）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm">
-                <input type="date" id="expenseDate" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm text-slate-600">
+                <input type="number" id="expenseAmount" placeholder="金額" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg text-center" aria-label="金額">
+                <select id="expenseCategory" aria-label="支出分類" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700"></select>
+                <input type="text" id="expenseNote" maxlength="50" placeholder="備註（選填）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm" aria-label="備註（選填）">
+                <input type="date" id="expenseDate" aria-label="支出日期" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm text-slate-600">
                 <div class="flex gap-4 pt-2">
                     <button data-close="expenseModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
                     <button data-action="save-expense" class="flex-1 py-3 bg-emerald-500 text-white rounded-xl font-bold shadow-lg shadow-emerald-200 hover:bg-emerald-400 transition-colors">儲存</button>
@@ -2891,16 +3139,16 @@
             <h3 id="holdingModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增持倉</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editHoldingId">
-                <input type="text" id="holdingName" maxlength="30" placeholder="標的名稱（如 台積電）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg">
-                <input type="text" id="holdingSymbol" maxlength="20" placeholder="代號（選填，自動更新用：2330 / AAPL / bitcoin）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm">
-                <select id="holdingType" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                <input type="text" id="holdingName" maxlength="30" placeholder="標的名稱（如 台積電）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg" aria-label="標的名稱（如 台積電）">
+                <input type="text" id="holdingSymbol" maxlength="20" placeholder="代號（選填，自動更新用：2330 / AAPL / bitcoin）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium text-sm" aria-label="代號（選填，自動更新用：2330 / AAPL / bitcoin）">
+                <select id="holdingType" aria-label="持股類型" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
                     <option value="股票">股票</option><option value="ETF">ETF</option><option value="基金">基金</option>
                     <option value="加密貨幣">加密貨幣</option><option value="定存/現金">定存/現金</option><option value="其他">其他</option>
                 </select>
                 <div class="grid grid-cols-3 gap-3">
-                    <input type="number" id="holdingQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center">
-                    <input type="number" id="holdingCost" placeholder="成本價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center">
-                    <input type="number" id="holdingPrice" placeholder="現價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center">
+                    <input type="number" id="holdingQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="數量">
+                    <input type="number" id="holdingCost" placeholder="成本價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="成本價">
+                    <input type="number" id="holdingPrice" placeholder="現價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="現價">
                 </div>
                 <div class="flex gap-4 pt-2">
                     <button data-close="holdingModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
@@ -2919,12 +3167,12 @@
                     <button data-action="set-trade-side" data-side="buy" class="trade-side-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">買入</button>
                     <button data-action="set-trade-side" data-side="sell" class="trade-side-opt flex-1 py-3 rounded-2xl font-black text-sm transition-all">賣出</button>
                 </div>
-                <input type="text" id="tradeName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg">
+                <input type="text" id="tradeName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg" aria-label="標的名稱">
                 <div class="grid grid-cols-2 gap-3">
-                    <input type="number" id="tradeQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center">
-                    <input type="number" id="tradePrice" placeholder="價格" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center">
+                    <input type="number" id="tradeQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center" aria-label="數量">
+                    <input type="number" id="tradePrice" placeholder="價格" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center" aria-label="價格">
                 </div>
-                <input type="date" id="tradeDate" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm text-slate-600">
+                <input type="date" id="tradeDate" aria-label="交易日期" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm text-slate-600">
                 <div class="flex gap-4 pt-2">
                     <button data-close="tradeModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
                     <button data-action="save-trade" class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-400 transition-colors">儲存</button>
@@ -2939,9 +3187,9 @@
             <h3 id="watchModalTitle" class="text-2xl font-bold mb-6 text-slate-900">投資筆記</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editWatchId">
-                <input type="text" id="watchName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg">
-                <input type="number" id="watchTarget" placeholder="目標價（選填）" step="any" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-sm">
-                <textarea id="watchNote" maxlength="500" placeholder="你的想法、觀察重點…" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-medium text-sm min-h-[120px] resize-none"></textarea>
+                <input type="text" id="watchName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg" aria-label="標的名稱">
+                <input type="number" id="watchTarget" placeholder="目標價（選填）" step="any" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-sm" aria-label="目標價（選填）">
+                <textarea id="watchNote" maxlength="500" placeholder="你的想法、觀察重點…" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-medium text-sm min-h-[120px] resize-none" aria-label="你的想法、觀察重點…"></textarea>
                 <div class="flex gap-4 pt-2">
                     <button data-close="watchModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
                     <button data-action="save-watch" class="flex-1 py-3 bg-fuchsia-500 text-white rounded-xl font-bold shadow-lg shadow-fuchsia-200 hover:bg-fuchsia-400 transition-colors">儲存</button>
@@ -2950,7 +3198,44 @@
         </div>
     </div>
 
-    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-10 py-4 rounded-full shadow-2xl font-bold text-sm hidden"></div>
+    <!-- ==========================================================
+         快速命令列（⌘K／Ctrl+K）
+         ★ 分頁名稱**不寫在這裡**，由 TABS 產生。寫死的話從另一個產品
+         登入會看到不屬於它的分頁名——跟站名、頁首英文那兩次同一個坑。
+         ★ role="dialog" + aria-modal：不加的話螢幕閱讀器還會唸到底下
+         整頁的內容，而視覺上它明明被蓋住了。
+         ========================================================== -->
+    <div id="cmdk" class="hidden fixed inset-0 z-[60] flex items-start justify-center pt-[12vh] px-4">
+        <div id="cmdkBackdrop" class="absolute inset-0 bg-slate-900/50"></div>
+        <div role="dialog" aria-modal="true" aria-labelledby="cmdkLabel"
+             class="cmdk-panel relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl">
+            <h2 id="cmdkLabel" class="sr-only">快速跳到</h2>
+            <div class="flex items-center gap-3 px-4 py-3 border-b" style="border-color:var(--rule)">
+                <svg class="w-5 h-5 shrink-0" style="color:var(--ink-3)" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+                </svg>
+                <input id="cmdkInput" type="text" autocomplete="off" aria-label="搜尋要跳到哪裡"
+                       aria-controls="cmdkList" aria-expanded="true" role="combobox"
+                       placeholder="跳到…" class="flex-1 min-w-0 bg-transparent outline-none font-bold text-base"
+                       style="color:var(--ink)">
+                <kbd class="hidden sm:block text-[11px] font-bold px-1.5 py-0.5 rounded"
+                     style="color:var(--ink-3);border:1px solid var(--rule)">esc</kbd>
+            </div>
+            <ul id="cmdkList" role="listbox" aria-label="搜尋結果" class="max-h-[52vh] overflow-y-auto py-2"></ul>
+        </div>
+    </div>
+
+    <!-- ★ role="status" ＋ aria-live="polite"：提示是全站唯一會說
+         「存好了／失敗了／已複製」的地方，而它只用看的。看不見畫面的人
+         按下存檔之後**完全沒有任何回應**——不會報錯，功能也是好的，
+         只是對他們來說什麼都沒發生。
+         polite 不是 assertive：這些訊息不緊急，插斷正在唸的內容更煩。
+         ★ 這個容器一直留在 DOM 裡（靠 .hidden 切換內容顯示），
+         不能等要用的時候才插進來——動態插入的 live region 有些
+         螢幕閱讀器不會註冊，那正是「加了但沒有作用」的典型。 -->
+    <div id="toast" role="status" aria-live="polite" aria-atomic="true"
+         class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-10 py-4 rounded-full shadow-2xl font-bold text-sm hidden"></div>
 
     <!-- 回到頂端浮動鈕 -->
     <button id="backToTopBtn" class="hidden fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl hover:bg-emerald-500 transition-all flex items-center justify-center" aria-label="回到頂端">
@@ -3254,6 +3539,16 @@
         let currentVocabFolderId = null;
         let currentDeleteId = null, currentDeleteType = null;
         let usersUnsubscribe = null;
+        /* 提示的收起計時器。宣告在狀態區的理由跟其他狀態一樣：
+           showToast() 會碰到它，而它在載入流程裡就可能被叫到
+           （例如一開始就抓不到資料的錯誤提示），寫在函式旁邊就是
+           暫時性死區——畫面全白，而 node --check 看不出來。 */
+        let toastTimer = null;
+        /* 快速命令列（⌘K）。三個都宣告在狀態區——renderCmdk() 會碰到它們，
+           而開站時就會綁鍵盤事件，寫在函式旁邊就是暫時性死區（已踩六次）。
+           cmdkPrevFocus：開啟前焦點在哪。關掉要還回去，不然用鍵盤的人
+           會被丟回頁面最上面重新 Tab 一次——這件事看得見卻很少人想到。 */
+        let cmdkItems = [], cmdkIndex = 0, cmdkPrevFocus = null;
 
         let reviewWizardStep = 0;
         let reviewWizardData = { courseId:'', courseDiff: 0, examDiff: 0, hwAmount: 0, learned: 0, comment:'' };
@@ -3349,10 +3644,20 @@
 
         function showToast(msg) {
             const toast = $('toast');
-            toast.textContent = msg;
+            /* ★★ 順序是「先顯示、再寫字」，不是反過來。
+               `.hidden` 是 display:none，而**藏起來的 live region 改內容
+               螢幕閱讀器不會播報**——先寫字再顯示的話，字是在隱藏狀態下
+               變的，等於這個 role="status" 白加了。
+               這是「加了無障礙屬性但它沒有作用」最常見的一種，
+               而且用眼睛看完全正常，測不出來也看不出來。 */
             toast.classList.remove('hidden');
+            toast.textContent = msg;
             toast.classList.add('toast-animate');
-            setTimeout(() => toast.classList.add('hidden'), 3000);
+            /* ★ 舊的計時器一定要清掉。原本每次都 setTimeout 3 秒後隱藏，
+               連續兩個提示的話，第一個的計時器會把**第二個**提早關掉——
+               看起來像「有時候提示一閃就不見」，很難重現也不會報錯。 */
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => toast.classList.add('hidden'), 3000);
         }
 
         const matchesSearch = (...fields) =>
@@ -3543,6 +3848,16 @@
                 date: '2026-08-11',
                 title: '外殼也畫上去了：畫布織理、顏料的厚度、刷上去的分頁',
                 items: [
+                    ['⌘K 快速跳頁', '按 ⌘K（Windows 是 Ctrl+K）或點頁首那顆放大鏡，打幾個字就能跳到任何一頁。中間可以跳字——打「課評」就會找到「課程評價」。'],
+                    ['★ 沒有那顆按鈕的話這個功能等於不存在', '沒有人會去猜一個沒有出現在畫面上的快捷鍵，而且觸控裝置根本沒有鍵盤。功能寫好卻沒有人找得到，跟沒寫是一樣的，只是還要維護。所以入口是一顆看得見的按鈕，快捷鍵的提示則只在真的有鍵盤的裝置上顯示——用「有沒有精準指標」判斷而不是螢幕寬度，因為平板接了鍵盤仍然是觸控，而窄視窗的筆電還是有鍵盤，用寬度兩種都會判錯。'],
+                    ['筆觸有了漸層', '選中的分頁、進度條、按鈕不再是平塗的一塊色，而是沿著筆畫方向由厚轉薄。'],
+                    ['★ 漸層只能往深處長，這跟直覺相反', '本來想做「赭 → 金 → 提亮」，中間那個提亮才是梵谷最像的地方。但三個金每一個都已經站在自己的天花板上（上一輪就是這樣調出來的），再亮就破線。所以亮端只能是現在的值，往下走——像一筆從飽滿刷到收乾。另外漸層用四段而不是兩段：兩段會有一整條邊停在最亮，而色塊要跟頁首分得開靠的正是邊緣；四段讓左右端點都是深的，邊界對比反而從 3.03 變好到 3.70。'],
+                    ['★ 一百多顆按鈕的滑鼠游標本來是錯的', 'button 的預設游標是箭頭不是手指——這跟連結不一樣，而很多人以為它一樣。全站 160 顆按鈕只有 20 處寫對。這不會報錯，也沒有人會回報「游標不對」，但它是「這個網站有沒有在動」最便宜的一個訊號。'],
+                    ['表單欄位補上了名稱', '97 個輸入框、下拉選單沒有可及名稱，用螢幕閱讀器聽的話只會唸「編輯方塊」。旁邊本來就有標題的補上關聯（順便讓點標題也能聚焦到欄位），只有提示文字的補上名稱——提示文字不能當標籤，因為一開始打字它就消失了，而那正是最需要知道「這格是什麼」的時候。'],
+                    ['★ 提示訊息以前對看不見畫面的人是完全靜音的', '存好了、失敗了、已複製——全站只有這一個地方會說這些，而它只用看的。補上播報之後還發現兩件事：一是要「先顯示再寫字」，藏起來的時候改內容螢幕閱讀器不會播報，順序反了等於白加；二是提示的動畫本來就是壞的——它靠置中定位，而動畫的最後一格把置中拿掉了，所以每次都會滑到右邊半個身位再瞬間跳回來。每次只閃 0.3 秒，所以一直被當成「動畫怪怪的」。'],
+                    ['★ 連續兩個提示，第一個會把第二個提早關掉', '每次都設一個三秒後隱藏的計時器，但沒有清掉上一個。症狀是「有時候提示一閃就不見」，很難重現，也不會報錯。'],
+                    ['清單一個一個放上來', '課程卡、評價卡改成錯開 30 毫秒進場。一整片同時出現眼睛會看成「畫面刷新了」，錯開之後會看成「東西一個一個放上來」——同樣的時間，後者感覺比較快。第八個之後不再累加，不然一頁三十張卡的最後一張要等快一秒，那不是精緻是慢。'],
+                    ['★ 觸控目標我一開始報錯了', '第一版的稽核用樣式名稱猜，說有 27 個按鈕可能太小。真的把尺寸算出來之後：低於無障礙標準（24px）的是 0 個。44px 是舒適值不是門檻。所以沒有做全站放大——那會改變密度，而且看不見的擴大區會蓋到隔壁，上下只隔 8px 的兩顆按鈕各自往外長就會互相偷走邊緣，變成「按到隔壁那顆」，那種錯比按不到更難查。只給了每天要按幾十次的打勾和「＋新增」。'],
                     ['淺色的金亮了', '選中的分頁、進度條、外框、圈選、核取方塊都變成明顯更亮的金。文字用的金只亮了 7%——那是硬天花板，不是沒盡力。'],
                     ['★ 為什麼「金色亮一點」不能只調一個地方', '先試了不掉對比、只加彩度那條路，量完發現走不通：原本的金在它自己的亮度上已經是螢幕能顯示的最飽和，只剩 5% 空間，肉眼看不出來。所以只能加亮度，而亮度直接換對比——於是能亮多少完全取決於「上面壓的是什麼」。文字要 4.5 所以只能亮 7%；純裝飾（進度條、外框、圈選）非文字只要 3.0，可以亮 52%。合成一個變數的話只能取最嚴的那個，等於整站的金都被小字的可讀性鎖在最暗的一端。所以金分成四階。'],
                     ['★ 選中的分頁改成深色字，金才亮得起來', '它是全站最大也最常看到的一塊金，而壓在上面的白字把它鎖死在最暗的一端（白字要 4.5，底就不能亮）。那個白字是我們自己的樣式給的，不是寫在頁面裡的，所以能換。換成深色字之後限制方向整個反過來——改由「色塊要跟頁首分得開」封頂，金亮了 73%。這塊是兩面夾擊：暗筆觸讓底更暗、對深色字不利，亮筆觸讓底更亮、對色塊邊界不利，只顧一邊挑出來的值一定破另一邊。'],
@@ -4119,6 +4434,80 @@
             typeof document !== 'undefined' &&
             typeof document.startViewTransition === 'function' &&
             !(typeof calm !== 'undefined' && calm.matches);
+
+        /* ==========================================================
+           快速命令列（⌘K／Ctrl+K）
+
+           ★ 目標清單**從 TABS 產生**，不寫死。寫死的話從另一個產品
+           登入會跳出不屬於它的分頁——站名、頁首英文都已經踩過這個坑，
+           而它不會報錯，只是顯示了另一個產品的東西。
+
+           ★ 為什麼值得做：這個站有五到六個大分頁再加子分頁，
+           而最常見的動作是「我要去那一頁」。用點的要先找到分頁列
+           （手機上還可能要捲），用打的兩個鍵就到。
+
+           ★ 比對用「子序列」不是 includes：打「英」要中，打「ㄈㄨ」不用中，
+           但打「課評」也要能中「課程評價」——中間可以跳字。
+           這比模糊比對簡單得多，而且**不會出現莫名其妙的結果**，
+           那是比對演算法在小清單上最重要的事。
+           ========================================================== */
+        const cmdkTargets = () => [
+            ...TABS.map(([id, label]) => ({ label, kind:'分頁', run: () => switchTab(id) })),
+            { label:'設定', kind:'分頁', run: () => switchTab('settings') },
+        ];
+        /* 子序列比對：query 的每個字都要照順序在 text 裡找得到 */
+        function cmdkMatch(text, q) {
+            if (!q) return true;
+            let i = 0;
+            for (const ch of text.toLowerCase())
+                if (ch === q[i]) if (++i === q.length) return true;
+            return false;
+        }
+        function renderCmdk() {
+            const q = $('cmdkInput').value.trim().toLowerCase();
+            cmdkItems = cmdkTargets().filter(t => cmdkMatch(t.label, q));
+            if (cmdkIndex >= cmdkItems.length) cmdkIndex = 0;
+            const list = $('cmdkList');
+            if (!cmdkItems.length) {
+                /* ★ 空狀態要說「沒有相符的」，不是留白。留白會被讀成
+                   「還在載入」——而這裡永遠不會再有東西進來。 */
+                list.innerHTML = `<li class="px-4 py-6 text-center text-sm font-bold" style="color:var(--ink-3)">沒有相符的頁面</li>`;
+                return;
+            }
+            list.innerHTML = cmdkItems.map((t, i) => `
+                <li role="option" id="cmdk-opt-${i}" aria-selected="${i === cmdkIndex}"
+                    data-cmdk-index="${i}" class="cmdk-item">
+                    <span>${escapeHTML(t.label)}</span>
+                    <span class="cmdk-kind">${t.kind}</span>
+                </li>`).join('');
+            /* ★ aria-activedescendant 讓焦點留在輸入框、但螢幕閱讀器
+               仍會唸出目前highlight 的那一項。把焦點真的移到清單上的話
+               就不能繼續打字了——那是這種元件最常見的做壞方式。 */
+            $('cmdkInput').setAttribute('aria-activedescendant', `cmdk-opt-${cmdkIndex}`);
+            const cur = list.querySelector('[aria-selected="true"]');
+            if (cur) cur.scrollIntoView({ block:'nearest' });
+        }
+        function openCmdk() {
+            cmdkPrevFocus = document.activeElement;
+            cmdkIndex = 0;
+            $('cmdkInput').value = '';
+            $('cmdk').classList.remove('hidden');
+            renderCmdk();
+            $('cmdkInput').focus();
+        }
+        function closeCmdk() {
+            $('cmdk').classList.add('hidden');
+            /* 焦點還回去。★ 那個元素可能已經被重畫掉了（跳頁之後尤其），
+               所以要確認它還在文件裡再 focus，不然會靜靜地失敗。 */
+            if (cmdkPrevFocus && document.contains(cmdkPrevFocus)) cmdkPrevFocus.focus();
+            cmdkPrevFocus = null;
+        }
+        function runCmdk(i) {
+            const t = cmdkItems[i];
+            if (!t) return;
+            closeCmdk();
+            t.run();
+        }
 
         function switchTab(tab) {
             /* ★ 先驗證，而且是在轉場**外面**驗證（見上面第 3 點）。 */
@@ -5218,7 +5607,7 @@
                 <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-3 min-w-0">
                     <button data-action="toggle-plan" data-id="${escapeHTML(p.id)}" data-occ="${escapeHTML(p.occ ||'')}" title="${p.done ?'標成未完成' :'標成完成'}"
-                            class="shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
+                            class="tap-44 shrink-0 w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${p.done ?'bg-emerald-500 border-emerald-500 text-white' :'border-slate-300 hover:border-emerald-400'}">
                     ${p.done ?'<i data-lucide="check" class="w-4 h-4 pointer-events-none"></i>' :''}
                     </button>
                     <div class="min-w-0">
@@ -5271,7 +5660,7 @@
                         ${meta.hint ? `<div class="text-[11px] text-slate-400 font-medium truncate">${meta.hint}</div>` :''}
                     </div>
                     ${meta.addable
-                        ? `<button data-action="add-plan-zone" data-zone="${z}" class="plan-zone-add shrink-0 px-3 py-1.5 rounded-xl text-xs font-black transition">＋ 新增</button>`
+                        ? `<button data-action="add-plan-zone" data-zone="${z}" class="tap-44 plan-zone-add shrink-0 px-3 py-1.5 rounded-xl text-xs font-black transition">＋ 新增</button>`
                         : ''}
                 </div>
                 <div class="space-y-2">${rows}</div>
@@ -5595,7 +5984,7 @@
             box.innerHTML = planModalSubs.map((s, i) => `
                 <div class="flex items-center gap-2">
                     <input type="text" data-sub-i="${i}" maxlength="${PLAN_SUB_LEN}" value="${escapeHTML(s.t ||'')}"
-                           placeholder="第 ${i + 1} 項" class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-amber-500 font-medium text-sm">
+                           placeholder="第 ${i + 1} 項" class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-amber-500 font-medium text-sm" aria-label="第 ${i + 1} 項">
                     <button type="button" data-action="del-plan-sub" data-i="${i}" title="刪掉這一項"
                             class="shrink-0 p-2 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
                 </div>`).join('');
@@ -6038,7 +6427,7 @@
                     </div>`;
             }
             const sel = (field, current, options) => `
-                <select data-action="update-course-feature" data-id="${course.id}" data-field="${field}"
+                <select data-action="update-course-feature" data-id="${course.id}" data-field="${field}" aria-label="${course.name} 的${field}設定"
                     class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
                     ${options.map(([v, l]) => `<option value="${v}" ${current === v ?'selected' :''}>${l}</option>`).join('')}
                 </select>`;
@@ -6282,7 +6671,7 @@
                             </div>
                             <p class="text-sm font-bold text-slate-500">你想為哪門課留下足跡？</p>
                         </div>
-                        <select id="wizardCourseSelect" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 font-bold text-slate-700 appearance-none transition-all outline-none">
+                        <select id="wizardCourseSelect" aria-label="選擇課程" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 font-bold text-slate-700 appearance-none transition-all outline-none">
                             <option value="" disabled selected>請選擇課程...</option>
                             ${state.courses.map(c => `<option value="${c.id}" ${reviewWizardData.courseId === c.id ?'selected' :''}>${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('')}
                         </select>
@@ -6318,7 +6707,7 @@
                     <div class="flex flex-col h-full list-enter">
                         <h4 class="text-xl font-black text-slate-900 mb-2">最後一步：修課心得</h4>
                         <p class="text-xs font-medium text-slate-400 mb-4">分享一下這門課的有趣（或是痛苦）之處吧...</p>
-                        <textarea id="wizardComment" maxlength="500" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none flex-1 min-h-[160px] resize-none transition-all font-medium mb-5 text-slate-700 placeholder:text-slate-400" placeholder="這門課有什麼特別的嗎？..."></textarea>
+                        <textarea id="wizardComment" maxlength="500" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none flex-1 min-h-[160px] resize-none transition-all font-medium mb-5 text-slate-700 placeholder:text-slate-400" placeholder="這門課有什麼特別的嗎？..." aria-label="這門課有什麼特別的嗎？..."></textarea>
                         <div class="flex gap-3">
                             <button data-action="prev-review-step" class="px-5 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center">
                                 <i data-lucide="arrow-left" class="w-5 h-5 pointer-events-none"></i>
@@ -8356,7 +8745,7 @@
                         <span class="font-bold text-slate-800 text-sm truncate">${escapeHTML(u.email)}</span>
                         <span class="text-xs text-slate-400 truncate">${escapeHTML(u.displayName ||'無名小貓')}・${new Date(u.createdAt).toLocaleDateString()} 加入</span>
                     </div>
-                    <select data-action="change-role" data-uid="${u.uid}"
+                    <select data-action="change-role" data-uid="${u.uid}" aria-label="${u.displayName || u.email} 的階級"
                             class="shrink-0 ml-3 px-3 py-1.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-fuchsia-400 transition-colors">
                         ${ROLES.map(r => `<option value="${r}" ${u.role === r ?'selected' :''}>${r}</option>`).join('')}
                     </select>
@@ -9393,6 +9782,49 @@
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') setLogoMenu(false);
             });
+
+            /* ---- 快速命令列的鍵盤 ----
+               ★ 開啟的判斷放在**最前面、而且不看焦點在哪**：
+               ⌘K 在輸入框裡也要能開，這是這個手勢的慣例。
+               但 preventDefault 一定要有——Chrome 的 Ctrl+K 是「跳到網址列
+               搜尋」，不擋的話畫面會被瀏覽器搶走。 */
+            document.addEventListener('keydown', (e) => {
+                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+                    e.preventDefault();
+                    $('cmdk').classList.contains('hidden') ? openCmdk() : closeCmdk();
+                    return;
+                }
+                if ($('cmdk').classList.contains('hidden')) return;
+                /* 開著的時候，這幾個鍵歸命令列管，不要傳下去給別人
+                   （底下還有 Escape 關單字小卡、Enter 送出測驗答案）。 */
+                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeCmdk(); return; }
+                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    if (!cmdkItems.length) return;
+                    /* 取模是為了頭尾相接：在最後一項按下去回到第一項。
+                       ＋length 是因為 -1 % n 在 JS 裡是 -1 不是 n-1。 */
+                    const d = e.key === 'ArrowDown' ? 1 : -1;
+                    cmdkIndex = (cmdkIndex + d + cmdkItems.length) % cmdkItems.length;
+                    renderCmdk();
+                    return;
+                }
+                if (e.key === 'Enter') { e.preventDefault(); runCmdk(cmdkIndex); }
+            }, true);   /* ★ 捕獲階段：要比底下那些 Escape 處理器先拿到 */
+            $('cmdkInput').addEventListener('input', () => { cmdkIndex = 0; renderCmdk(); });
+            /* 滑鼠：移過去就跟著換選中項（跟鍵盤共用同一個狀態，
+               不會出現「鍵盤選 A、滑鼠 hover B、按 Enter 跑了 A」）。 */
+            $('cmdkList').addEventListener('mousemove', (e) => {
+                const li = e.target.closest('[data-cmdk-index]');
+                if (!li) return;
+                const i = +li.dataset.cmdkIndex;
+                if (i !== cmdkIndex) { cmdkIndex = i; renderCmdk(); }
+            });
+            $('cmdkList').addEventListener('click', (e) => {
+                const li = e.target.closest('[data-cmdk-index]');
+                if (li) runCmdk(+li.dataset.cmdkIndex);
+            });
+            $('cmdkBackdrop').addEventListener('click', closeCmdk);
+            bind('cmdkBtn', openCmdk);
 
             bind('backToTopBtn', scrollTopSmooth);
             bind('importArticlesBtn', importArticles);
