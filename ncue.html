@@ -889,14 +889,23 @@
         #ptr.ptr-on { visibility: visible; }
         /* 只有「放手之後」才需要過場：回彈，或是定位到轉圈的位置。 */
         #ptr.ptr-ease { transition: transform var(--dur-base) var(--ease), opacity var(--dur-base) var(--ease); }
-        #ptr svg { width: 20px; height: 20px; display: block; transition: transform var(--dur-base) var(--ease); }
+        #ptr svg { width: 20px; height: 20px; display: block; }
         /* 拉過門檻：箭頭翻過來指向上，這是「放手就會刷新」唯一的提示。 */
-        #ptr.ptr-armed svg { transform: rotate(180deg); }
-        /* 放手之後一直轉，直到整頁真的被換掉。 */
-        #ptr.ptr-run svg { animation: ptr-spin .8s linear infinite; transition: none; }
+        #ptr .ptr-arrow { transition: transform var(--dur-base) var(--ease); }
+        #ptr.ptr-armed .ptr-arrow { transform: rotate(180deg); }
+        /* ★ 放手之後換成圈圈，不是把直箭頭拿去轉。
+           直箭頭繞著中心轉，看起來是「一根棒子在甩」——那個動作沒有
+           「還在等」的意思，第一版就是這樣，看起來像壞掉。
+           圈圈轉起來只有缺口在跑，形狀不變，才讀得成載入中。 */
+        #ptr .ptr-ring { display: none; }
+        #ptr.ptr-run .ptr-arrow { display: none; }
+        #ptr.ptr-run .ptr-ring { display: block; animation: ptr-spin .8s linear infinite; }
         @keyframes ptr-spin { to { transform: rotate(360deg); } }
         @media (prefers-reduced-motion: reduce) {
-            #ptr.ptr-run svg { animation: none; }
+            /* 不轉的話，一段 3/4 圓弧看起來像畫壞了。改成顯示完整的一圈。 */
+            #ptr.ptr-run .ptr-ring { animation: none; }
+            #ptr.ptr-run .ptr-track { stroke-opacity: 1; }
+            #ptr.ptr-run .ptr-arc { display: none; }
             #ptr.ptr-ease { transition: none; }
         }
 
@@ -922,9 +931,18 @@
     <!-- 手機下拉刷新的指示器。aria-hidden 是刻意的：它是手勢的視覺回饋，
          讀螢幕的人用不到，而且它沒有任何文字內容。 -->
     <div id="ptr" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        <!-- 拉的過程：一支直箭頭，過門檻時翻過來指向上。 -->
+        <svg class="ptr-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
              stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 4v13"></path><path d="M6 11l6 6 6-6"></path>
+        </svg>
+        <!-- 放手之後：換成一圈。★ 不要拿上面那支直箭頭去轉——
+             直的東西繞中心轉是「一根棒子在甩」，不是「載入中」。
+             圈圈自己就是圓的，轉起來只有缺口在跑，那才讀得成等待。 -->
+        <svg class="ptr-ring" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round">
+            <circle class="ptr-track" cx="12" cy="12" r="9" stroke-opacity=".22"></circle>
+            <path class="ptr-arc" d="M21 12a9 9 0 0 0-9-9"></path>
         </svg>
     </div>
 
@@ -3590,6 +3608,7 @@
                     ['★ 彈窗開著的時候不會觸發', '彈窗是自己捲自己的，整頁的捲動位置從頭到尾都停在最上面。不特別擋的話，在彈窗裡往下滑就會刷新——填到一半的表單、作答到一半的測驗會整個沒掉，而且看起來像「App 自己跳掉了」，完全不知道發生什麼事。開站動畫還在的時候也一樣不做。'],
                     ['橫著滑、兩指縮放、往上滑都不算', '只有「一根手指、從最上面、往下」才算。少了這幾條，手指稍微斜一點就會被攔截，症狀是頁面偶爾滑不動——偶爾，所以很難說得清楚。'],
                     ['做的是整頁重新整理，不是只重抓資料', '只重抓資料比較快也不閃，但那要每一個分頁都確認有沒有漏刷的狀態。漏掉的那一個不會報錯，只會停在舊資料上——而你剛剛才「刷新過」，所以你會相信畫面上的舊數字。'],
+                    ['轉圈的是一個圈，不是箭頭在甩', '第一版偷懶，放手之後直接把拉的時候那支直箭頭拿去繞著中心轉。那個動作看起來是「一根棒子在甩」，讀不出「還在等」的意思，反而像壞掉。改成放手就換成一圈——圈圈轉起來形狀不變，只有缺口在跑，那才是載入中。'],
                     ['電腦上沒有這個', '電腦有 F5，而且滑鼠滾輪的慣性會誤觸。']
                 ]
             },
