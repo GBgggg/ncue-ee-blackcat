@@ -70,7 +70,7 @@
         .quiz-opt-letter {
             flex: 0 0 auto;
             width: 46px; height: 46px; border-radius: 9999px;
-            border: 1.5px solid var(--accent); color: var(--accent);
+            border: 1.5px solid var(--accent-bright); color: var(--accent);   /* 框是裝飾走 3.0，字母走 4.5 */
             display: flex; align-items: center; justify-content: center;
             font-weight: 800; font-size: 1.05rem; line-height: 1;
             transition: background var(--dur-base) var(--ease),
@@ -100,8 +100,10 @@
         .quiz-screen { background: var(--paper); }
 
         /* 進度條取代原本的「1 / 5」膠囊：還剩多少是用看的，不是用算的 */
-        .quiz-bar { height: 8px; border-radius: 9999px; background: var(--paper-sunk); overflow: hidden; }
-        .quiz-bar-fill { height: 100%; border-radius: 9999px; background: var(--accent-fill);
+        .quiz-bar { height: 8px; border-radius: 9999px; background-color: var(--paper-sunk); overflow: hidden; }
+        /* 進度條上面不放字，是純裝飾，所以走 --accent-bright 那階（門檻 3.0）。
+           ★ background-color 不是 background：簡寫會清掉厚塗筆觸的 background-image。 */
+        .quiz-bar-fill { height: 100%; border-radius: 9999px; background-color: var(--accent-bright);
             transition: width var(--dur-page) var(--ease); }
         .quiz-qnum {
             flex: 0 0 auto; width: 28px; height: 28px; margin-top: 3px;
@@ -129,8 +131,8 @@
         /* 標記「今天」：只在該欄點一筆強調色，其餘維持安靜 */
         .schedule-day-head.is-today {
             background-color: var(--accent-soft) !important;
-            color: var(--accent) !important;
-            box-shadow: inset 0 -2px 0 var(--accent) !important;
+            color: var(--accent) !important;                        /* 字，走 4.5 那階 */
+            box-shadow: inset 0 -2px 0 var(--accent-bright) !important;  /* 底線是裝飾，走 3.0 那階 */
         }
 
         /* ==========================================================
@@ -243,9 +245,45 @@
                這次一起修掉：#5c6880 在三種底色上分別是 4.99／4.63／5.60。 */
             --ink-3:        #5c6880;
             --rule:         #d2dcea;   /* 細線 */
-            --accent:       #7f6210;   /* 金黃：文字／線條用（壓在內凹區塊上 4.5） */
-            --accent-fill:  #8a6a12;   /* 實心底色用，上面一定放白字（5.06） */
-            --accent-soft:  rgba(196, 154, 45, 0.16);
+            /* ---- 金：四個階，因為它們的門檻根本不一樣 ----
+               ★★ 「金色亮一點」這件事量過之後才發現**沒有一個旋鈕能一起調**。
+               彩度先排除：#7f6210 在它自己的亮度上已經是 sRGB 能給的最飽和，
+               只剩 5% 空間，肉眼看不出來。所以「更亮」只能加亮度，
+               而亮度直接換對比——於是能亮多少完全取決於「上面壓的是什麼」：
+
+                 文字／線     壓在內凹區塊上要 4.5      → 只能亮 7%（硬天花板）
+                 實心＋白字   白字要 4.5（含厚塗筆觸）   → 只能亮 6%
+                 純裝飾       非文字元素只要 3.0        → 可以亮 52%
+                 選中的分頁   改成深色字之後反過來由
+                              「色塊對頁首 3.0」封頂     → 可以亮 73%
+
+               分成四個不是為了好看，是因為合成一個的話只能取最嚴的那個，
+               等於整站的金都被「小字的可讀性」鎖在最暗的一端。 */
+            --accent:       #866405;   /* 文字／線：paper 4.87、內凹區塊 4.52 */
+            --accent-fill:  #906c05;   /* 實心底＋白字：4.85，含厚塗亮筆觸 4.53 */
+            /* ★ 只給**非文字**用（進度條、外框、圈選、核取方塊、清單圓點、
+               焦點外框）。拿去當文字色的話對比只有 3.0，小字會讀不了——
+               門檻不同才是它存在的理由，不是「比較亮的那個金」。 */
+            --accent-bright: #a97f05;  /* 非文字：內凹區塊 3.03、paper 3.27、卡片 3.60 */
+            /* ★ 選中的分頁自己一個。它是全站最大也最常看到的一塊金，
+               而白字把它鎖死在最暗的一端——那個白字是我們自己的 CSS 給的
+               （NAV_ACTIVE 只有 is-active，HTML 沒有 text-white），所以能換。
+               換成深色字之後限制方向整個反過來，金可以一路亮到這裡。
+               兩面夾擊：深色字壓在它上面 5.11（暗筆觸處最壞），
+               色塊對近白的頁首 3.03（亮筆觸把底提亮時最壞）。 */
+            --accent-tab:     #b68800;
+            --accent-tab-ink: #1a1408;   /* 暖黑，不用純黑也不用 --ink 的藍黑 */
+            /* ★★ 淡底**完全不能再壓暗**，這是量出來才知道的。
+               內凹區塊的 Y 是 0.8177，而 --accent 當文字要 4.5 需要底至少
+               0.816——也就是內凹區塊本身就站在門檻線上，任何會讓底變暗的
+               淡底都會破線。舊的 rgba(196,154,45,.16) 就是這樣，accent 壓在
+               它上面只有 4.22，**早就破了**，只是淡底上的字讀起來只是
+               「有點糊」，不會有人來回報。
+               所以「更金」只能靠等亮度換色相：挑一個亮度不低於底色、
+               但彩度很高的淺金去疊。亮度不變 → 對比一條都不動；
+               色相變了 → 眼睛看到的是金色。濃度反而可以從 .16 拉到 .6，
+               因為它不再是「把底染暗」而是「把底換色」。 */
+            --accent-soft:  rgba(255, 234, 184, 0.6);
             --panel:        #ffffff;   /* 對話框／浮動小卡：一定不透明 */
             --radius:       14px;      /* 編輯感：收斂圓角 */
             --radius-lg:    18px;
@@ -273,6 +311,17 @@
                等於看不清楚。實心底另外用深一階的同色系（白字 5.06）。 */
             --accent-fill:  #8a6a12;
             --accent-soft:  rgba(232, 196, 106, 0.14);
+            /* ★ 深色模式這一輪**沒有動**（使用者要的是「淺色的金亮一點」）。
+               但四個階都得定義，不然會回落到 :root 的淺色值——那些值是
+               為了壓在雪白紙上算的，放到深藍紙上會變成一塊暗掉的髒金，
+               而且不會報錯。
+               深色的金本來就已經很亮（#e8c46a 是畫裡那輪月亮），
+               所以「純裝飾」直接沿用它就好，不必再另外亮一階。 */
+            --accent-bright: #e8c46a;
+            /* 分頁維持深色模式原本的樣子：實心底＋白字。深色紙上把色塊
+               拉亮到淺色那個程度會變成一塊發光的招牌，跟星夜打架。 */
+            --accent-tab:     #8a6a12;
+            --accent-tab-ink: #ffffff;
             --panel:        #131b33;   /* 同 --paper-raised 的色相，但滿版不透明 */
         }
 
@@ -530,6 +579,12 @@
            所以現有的觀感一點都不會變，只有鍵盤操作時才出現。
            顏色走 token，不寫死色碼——不然深色模式下會看不見。
            ========================================================== */
+        /* ★ 焦點外框**刻意留在 --accent 不換成 --accent-bright**。
+           外框是非文字元素，門檻只要 3.0，照理可以用亮的那階——
+           但 --accent-bright 壓在內凹區塊上剛好是 3.03，只多 0.03。
+           焦點指示器是「看不見就等於這個功能不存在」的東西，
+           它是全站唯一一個我願意用亮度換保險的地方（--accent 是 4.52）。
+           這不是漏改，是取捨。 */
         :focus-visible {
             outline: 2px solid var(--accent) !important;
             outline-offset: 2px;
@@ -639,9 +694,11 @@
         /* 帶透明度修飾的類別要另外寫，.bg-teal-400 選不到 .bg-teal-400\/90 */
         .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600 { background-color: var(--accent-fill) !important; }
         .bg-teal-100, .bg-blue-100, .bg-emerald-100 { background-color: var(--accent-soft) !important; }
-        /* ring 是獨立的顏色變數，border-color 蓋不到它 */
+        /* ring 是獨立的顏色變數，border-color 蓋不到它。
+           ★ 用 --accent-bright：圈選是**非文字元素**，門檻 3.0 不是 4.5，
+           所以它可以比文字用的金亮一大截，而這正是「金色亮一點」看得到的地方。 */
         .ring-emerald-400, .ring-emerald-500, .ring-teal-400,
-        .ring-blue-400, .ring-teal-200\/50 { --tw-ring-color: var(--accent) !important; }
+        .ring-blue-400, .ring-teal-200\/50 { --tw-ring-color: var(--accent-bright) !important; }
         .ring-4 { --tw-ring-offset-width: 0px; }
 
         /* ---- 掃尾：其餘深淺階與帶透明度的品牌色 ----
@@ -675,8 +732,8 @@
         .focus\:ring-teal-400:focus, .focus\:ring-blue-500:focus,
         .focus\:ring-fuchsia-500:focus,
         .focus-within\:ring-emerald-200:focus-within,
-        .ring-emerald-200, .ring-emerald-500 { --tw-ring-color: var(--accent) !important; }
-        .focus\:border-emerald-500:focus, .focus\:border-fuchsia-400:focus { border-color: var(--accent) !important; }
+        .ring-emerald-200, .ring-emerald-500 { --tw-ring-color: var(--accent-bright) !important; }
+        .focus\:border-emerald-500:focus, .focus\:border-fuchsia-400:focus { border-color: var(--accent-bright) !important; }
         .hover\:bg-emerald-500:hover, .hover\:bg-emerald-600:hover,
         .hover\:bg-teal-500:hover, .hover\:bg-blue-400:hover,
         .hover\:bg-blue-600:hover, .hover\:bg-fuchsia-400:hover { background-color: #6d5210 !important; }
@@ -690,19 +747,22 @@
         .group:hover .group-hover\:text-teal-400 { color: var(--accent) !important; }
         .hover\:border-emerald-200:hover, .hover\:border-emerald-300:hover,
         .hover\:border-teal-200:hover, .hover\:border-blue-300:hover,
-        .hover\:border-fuchsia-300:hover { border-color: var(--accent) !important; }
+        .hover\:border-fuchsia-300:hover { border-color: var(--accent-bright) !important; }
         .border-emerald-500 { border-color: var(--rule) !important; }
         .text-teal-400 { color: var(--accent) !important; }
-        /* 核取方塊／單選鈕的原生色 */
-        .accent-emerald-500 { accent-color: var(--accent) !important; }
+        /* 核取方塊／單選鈕的原生色。非文字元素，走亮的那階。
+           （瀏覽器會在上面畫白色的勾，白勾對 --accent-bright 是 3.63，
+             圖形元素門檻 3.0，過。） */
+        .accent-emerald-500 { accent-color: var(--accent-bright) !important; }
         /* 清單項目的小圓點。這個只有掃 CSSOM 才找得到——
            它落在 ::marker 偽元素上，不是元素本身的顏色，
            所以「更新紀錄」的每個項目符號一直是亮綠的。 */
         .marker\:text-emerald-500::marker,
-        .marker\:text-emerald-500 ::marker { color: var(--accent) !important; }
-        /* 有顏色的陰影 */
+        .marker\:text-emerald-500 ::marker { color: var(--accent-bright) !important; }
+        /* 有顏色的陰影。★ 這個 rgb 要跟著 --accent-fill 一起改，
+           不然會留下一圈舊金色的暈——而且只有在有陰影的元件上看得到。 */
         .shadow-emerald-200, .shadow-teal-200,
-        .shadow-blue-200, .shadow-fuchsia-200 { --tw-shadow-color: rgba(138, 106, 18, 0.25) !important; }
+        .shadow-blue-200, .shadow-fuchsia-200 { --tw-shadow-color: rgba(144, 108, 5, 0.25) !important; }
 
         /* ==========================================================
            資訊用色：這些地方的顏色是拿來「分辨」的，不是裝飾。
@@ -917,13 +977,17 @@
         .tab-btn.is-active,
         .tab-btn.is-active:hover {
             background-color: transparent !important;
-            color: #fff !important;
+            /* ★ 淺色模式是**深色字壓在亮金上**，不是白字。
+               白字會把這塊金鎖死在最暗的一端（白字要 4.5，底就不能亮），
+               而它是全站最大也最常看到的一塊金。換成深色字之後限制反過來，
+               金亮了 73%。深色模式仍是白字——見 token 區的說明。 */
+            color: var(--accent-tab-ink) !important;
             box-shadow: none;
         }
         .tab-btn.is-active::before {
             content: ''; position: absolute; inset: -3px -4px;
             z-index: -1;
-            background-color: var(--accent-fill);
+            background-color: var(--accent-tab);
             background-image: var(--vg-impasto);
             filter: drop-shadow(1px 2px 3px rgba(40, 60, 80, .28));
             -webkit-mask: var(--vg-swatch) center / 100% 100% no-repeat;
@@ -1214,7 +1278,7 @@
             border: 1px solid var(--rule); border-radius: 50%;
             background: var(--panel);
             box-shadow: 0 1px 12px rgba(15, 23, 42, .10);
-            color: var(--accent);
+            color: var(--accent-bright);   /* 轉圈的箭頭是圖形不是文字，門檻 3.0（壓在白面板上 3.55） */
             pointer-events: none;
             /* 起手停在畫面外。位移與透明度在拉的過程中由 JS 直接寫 style——
                這一段**不能**給 transition，不然指示器會慢手指半拍，
@@ -3479,6 +3543,11 @@
                 date: '2026-08-11',
                 title: '外殼也畫上去了：畫布織理、顏料的厚度、刷上去的分頁',
                 items: [
+                    ['淺色的金亮了', '選中的分頁、進度條、外框、圈選、核取方塊都變成明顯更亮的金。文字用的金只亮了 7%——那是硬天花板，不是沒盡力。'],
+                    ['★ 為什麼「金色亮一點」不能只調一個地方', '先試了不掉對比、只加彩度那條路，量完發現走不通：原本的金在它自己的亮度上已經是螢幕能顯示的最飽和，只剩 5% 空間，肉眼看不出來。所以只能加亮度，而亮度直接換對比——於是能亮多少完全取決於「上面壓的是什麼」。文字要 4.5 所以只能亮 7%；純裝飾（進度條、外框、圈選）非文字只要 3.0，可以亮 52%。合成一個變數的話只能取最嚴的那個，等於整站的金都被小字的可讀性鎖在最暗的一端。所以金分成四階。'],
+                    ['★ 選中的分頁改成深色字，金才亮得起來', '它是全站最大也最常看到的一塊金，而壓在上面的白字把它鎖死在最暗的一端（白字要 4.5，底就不能亮）。那個白字是我們自己的樣式給的，不是寫在頁面裡的，所以能換。換成深色字之後限制方向整個反過來——改由「色塊要跟頁首分得開」封頂，金亮了 73%。這塊是兩面夾擊：暗筆觸讓底更暗、對深色字不利，亮筆觸讓底更亮、對色塊邊界不利，只顧一邊挑出來的值一定破另一邊。'],
+                    ['★ 金色的淡底原本就已經破線了', 'hover、選中、標記用的那層淡金，量出來壓在上面的金色文字只有 4.22（門檻 4.5）。原因是內凹區塊本身的亮度就剛好站在門檻線上，任何會把底染暗的淡底都會破——也就是說這一層從一開始就沒有可用的濃度。而症狀只是「淡底上的字讀起來有點糊」，不會有人為了這種事來回報。改法是等亮度換色相：挑一個亮度不低於底色、但彩度很高的淺金去疊，亮度不變所以對比一條都不動，色相變了所以看起來是金色。濃度反而從 0.16 拉到 0.6，因為它不再是「把底染暗」而是「把底換色」。'],
+                    ['★ 模擬器的顏色跟主站是同一組，但之前沒有東西在擋分岔', '模擬器開頭就寫著「與主站共用同一組值，改配色要兩邊一起改」，而在這之前那句話只是註解。分岔不會報錯，症狀是「從兩個產品進去長得不一樣」。現在加了一條比對兩個檔案的檢查（刻意排除那個本來就該不同的：主站的卡片是半透明的好讓背景那張畫透上來，模擬器是滿版工作區沒有鋪圖）。'],
                     ['動的是質感不是顏色', '上一輪已經把色票從那張畫裡取過了（雪藍、群青、月金），所以這次一個新色碼都沒加。一張畫看起來像梵谷靠的是三件事：畫布的織理、顏料的厚度、筆觸的方向——現在卡片、頁首、面板都鋪了一層極淡的布紋，落影從四面均勻改成「光從左上來」（上緣有被刮起的亮邊、下緣有暗溝、影子往右下偏），實心色塊上多了一道方向一致的筆觸。'],
                     ['★ 織紋只走一個方向，這是量出來的不是美感', '本來想做交叉的網格，那才像布。但交叉會在每個交點疊出兩倍濃度，而那一格正好是可讀性最壞的地方——線只有 0.03 的交點就讓次要文字掉到 4.38，門檻是 4.5。單方向的峰值就等於線本身的濃度，0.035 是 4.63，過得去。後來發現這反而更對：梵谷的筆觸本來就是平行的，交叉影線是版畫的語彙不是油畫的。省下來的對比與更像的筆法剛好是同一個決定。'],
                     ['★ 深色模式的織紋必須用暗線，直覺會選錯', '暗底上要用亮線才看得到——這是直覺，也是錯的。亮線會把卡片底提亮，次要文字在 0.02 就掉到 4.47、已經破線，而織紋是全站鋪的，破的是每一張卡片裡的每一行小字。這種事不會有人回報，只會覺得「深色模式好像有點糊」。改用暗線之後底更暗、對比反而往上走到 4.78。'],
