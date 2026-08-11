@@ -3208,6 +3208,13 @@
            ★ 宣告在狀態區：renderPlans() 會被 window.onload 之後的流程碰到，
            放在函式旁邊就是暫時性死區，而症狀是整頁全白（已踩六次）。 */
         let userPlans = [];
+        /* ★ 「初次載入回來了沒」。存檔是**整包覆寫**（setDoc 一份 list），
+           所以在雲端那一份還沒讀回來以前寫下去，等於拿一份殘缺的清單
+           把使用者所有的計劃洗掉——而畫面上只會看到自己剛加的那一筆消失。
+           `plansReady` 讓存檔可以等那一次讀取，`plansLoaded` 讓已經好了的
+           情況不必多繞一圈 await。兩個都宣告在狀態區（暫時性死區已踩六次）。 */
+        let plansLoaded = false;
+        let plansReady = Promise.resolve();
         let planTicker = null;      // 計劃倒數用的計時器（只在看得到的時候跑）
         /* 拖曳中的那一筆，以及「拖到本周／未來、正在等使用者選日期」的那一筆。
            宣告在狀態區的理由跟其他狀態一樣（暫時性死區已踩過六次）。 */
@@ -3228,6 +3235,9 @@
            ★ 只有日期就不需要每秒重畫：一天只變一次。
            混在一起的話，畫面上會有一半的項目秒數在跳、一半不動，看起來像壞了。 */
         let userCountdowns = [];
+        /* 跟計劃同一個坑、同一份 settings 文件、同樣是整包覆寫。 */
+        let countdownsLoaded = false;
+        let countdownsReady = Promise.resolve();
         let searchQuery ='', activeSemesterFilter ='all', selectedFilterCourseId = null;
 
         // 課程頁分批顯示。改搜尋或篩選時要退回第一批，否則使用者搜完
@@ -3409,6 +3419,16 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-11',
+                title: '剛登入就新增的計劃會不見——而且雲端那份被寫壞過一次',
+                items: [
+                    ['★ 「我明明加了，重新整理就不見了」', '登入時計劃是背景讀取的（不卡住載入畫面），但計劃面板在讀取回來之前就已經顯示出來了。在那段空窗裡新增的計劃，會被讀取回來的那一行整包覆蓋掉，畫面上就是那筆消失，沒有任何訊息。'],
+                    ['★ 更嚴重的是那一次存檔', '存檔是把整份清單覆寫上去，不是只寫新增的那一筆。空窗期存檔時手上只有剛加的那一筆，於是雲端所有的計劃被一次刪光。接著讀取才帶著舊清單回來，畫面看起來「舊的都在，只有我剛加的不見了」——完全看不出雲端已經被寫壞過。現在存檔會先等雲端那份讀回來，讀回來之後用合併的，空窗期加的那幾筆會補存回去。'],
+                    ['★ 讀取失敗原本會偽裝成「一筆計劃都沒有」', '讀不到時原本直接當成空清單，畫面看起來就是全部不見了；而下一次存檔就把那份空清單寫上去，讀取失敗於是變成真的資料遺失。現在讀不到會明講「這次先不存檔」，並且擋住所有存檔，寧可存不了也不覆蓋。'],
+                    ['倒數也一起修了', '倒數跟計劃存在同一份文件、同樣是整包覆寫，所以三個問題一模一樣，處理方式也一樣。']
+                ]
+            },
             {
                 date: '2026-08-11',
                 title: '計劃拖到「今天」不會再變成過去的時間，提醒也跟著回來了',
@@ -4899,19 +4919,33 @@
             return { text:`${m} 分 ${s} 秒`, past:false };
         }
 
+        /* ★ 讀失敗**不能**回空陣列（原本是這樣寫的）。回空的話畫面看起來是
+           「一筆計劃都沒有」，而存檔是整包覆寫——下一次存檔就真的把雲端
+           清光了。讀取失敗於是變成資料遺失，中間沒有任何錯誤訊息。
+           現在讓它往外丟，由呼叫端決定「這次不要開放存檔」。 */
         async function loadPlans() {
             const p = plansPath();
             if (!p) return [];
-            try {
-                const snap = await getDoc(doc(db, p,'plans'));
-                const list = snap.exists() ? (snap.data().list || []) : [];
-                return Array.isArray(list) ? list : [];
-            } catch (e) { console.warn('讀取計劃失敗', e); return []; }
+            const snap = await getDoc(doc(db, p,'plans'));
+            const list = snap.exists() ? (snap.data().list || []) : [];
+            return Array.isArray(list) ? list : [];
         }
 
+        /* ★ 存檔是 setDoc 一份完整的 list ——**整包覆寫**，不是增量更新。
+           所以在「雲端那一份還沒讀回來」以前絕對不能寫：那時候的 userPlans
+           只有使用者剛剛新增的那一筆，寫下去等於把他所有的計劃刪掉。
+           症狀還會偽裝成別的樣子——覆寫之後 loadPlans 才帶著舊清單回來，
+           畫面上看到的是「舊的都在，我剛加的那筆不見了」，
+           完全看不出雲端已經被寫壞過一次。 */
         async function savePlans() {
             const p = plansPath();
             if (!p) throw new Error('not signed in');
+            if (!plansLoaded) {
+                await plansReady.catch(() => {});
+                /* 等完還是沒載好＝這次讀取失敗了。寧可存檔失敗（有吐司、
+                   呼叫端會把畫面還原），也不要拿殘缺的清單覆蓋雲端。 */
+                if (!plansLoaded) throw new Error('plans not loaded');
+            }
             await setDoc(doc(db, p,'plans'), { list: userPlans, updatedAt: Date.now() });
             syncPlanSubscription();        // 不 await：存檔成功就該關視窗，推播晚一點沒關係
         }
@@ -5594,19 +5628,22 @@
             return days > 0 ? `還有 ${days} 天` : `已過 ${-days} 天`;
         }
 
+        /* 讀失敗往外丟，理由跟 loadPlans 一模一樣（整包覆寫）。 */
         async function loadCountdowns() {
             const p = countdownsPath();
             if (!p) return [];
-            try {
-                const snap = await getDoc(doc(db, p,'countdowns'));
-                const list = snap.exists() ? (snap.data().list || []) : [];
-                return Array.isArray(list) ? list : [];
-            } catch (e) { console.warn('讀取倒數失敗', e); return []; }
+            const snap = await getDoc(doc(db, p,'countdowns'));
+            const list = snap.exists() ? (snap.data().list || []) : [];
+            return Array.isArray(list) ? list : [];
         }
 
         async function saveCountdowns() {
             const p = countdownsPath();
             if (!p) throw new Error('not signed in');
+            if (!countdownsLoaded) {
+                await countdownsReady.catch(() => {});
+                if (!countdownsLoaded) throw new Error('countdowns not loaded');
+            }
             await setDoc(doc(db, p,'countdowns'), { list: userCountdowns, updatedAt: Date.now() });
             syncPlanSubscription();   // 有勾提醒的倒數也要推上去，跟計劃走同一條
         }
@@ -8436,23 +8473,53 @@
                 /* 計劃跟課表一樣是私人資料，登入才讀得到。
                    ★ 不 await：這一段是登入流程，卡在網路來回上會讓
                    載入畫面停在那裡（那條路以前踩過，見載入動畫那一段）。 */
-                loadPlans().then(list => {
-                    userPlans = list;
+                /* ★ 這一段從「載入中」到「載好了」有一段空窗，而計劃的面板
+                   在上面幾行就已經顯示出來了——使用者在空窗裡加的那一筆，
+                   原本會被下面的 `userPlans = list` 整包蓋掉，畫面上就是
+                   「我明明加了，它不見了」，沒有任何訊息。所以改成**合併**：
+                   雲端那一份為底，把空窗期新增（id 不在雲端清單裡）的接回去，
+                   然後補存一次。 */
+                plansLoaded = false;
+                plansReady = loadPlans().then(list => {
+                    const remote = Array.isArray(list) ? list : [];
+                    const ids = new Set(remote.map(p => p.id));
+                    const localOnly = userPlans.filter(p => p && !ids.has(p.id));
+                    userPlans = [...remote, ...localOnly];
+                    plansLoaded = true;                    // ★ 要在 savePlans 之前
                     /* ★ 昨日區只活一天：載入時把「今天以前兩天含以上、而且沒打勾」的清掉。
-                       這是整個計劃表唯一會弄丟資料的地方，所以：
+                       這是整個計劃表唯一會**刻意**弄丟資料的地方，所以：
                          一、只在真的有東西要刪時才寫回去（不然每次開站都白寫一次）
                          二、刪掉要說一聲。安靜地消失跟「東西不見了」是同一件事，
                             而使用者會以為是程式把資料弄丟了。 */
                     const gone = plansToPurge(userPlans, Date.now());
                     if (gone.length){
-                        const ids = new Set(gone.map(g => g.id));
-                        userPlans = userPlans.filter(x => !ids.has(x.id));
-                        savePlans().catch(e => console.warn('清理過期計劃失敗', e));
+                        const gids = new Set(gone.map(g => g.id));
+                        userPlans = userPlans.filter(x => !gids.has(x.id));
                         showToast(`清掉 ${gone.length} 筆過期沒做的計劃`);
                     }
+                    if (gone.length || localOnly.length)
+                        savePlans().catch(e => console.warn('載入後補存失敗', e));
                     renderPlans(); updatePlanTicker();
+                }).catch(e => {
+                    /* ★ 讀不到就**不要開放存檔**（plansLoaded 維持 false）。
+                       原本讀失敗會回空陣列，畫面變成「一筆都沒有」，
+                       接著隨便一次存檔就把雲端整包清掉了。 */
+                    console.warn('讀取計劃失敗', e);
+                    showToast('讀不到雲端的計劃，這次先不存檔（避免蓋掉原本的）');
                 });
-                loadCountdowns().then(list => { userCountdowns = list; renderCountdowns(); });
+                countdownsLoaded = false;
+                countdownsReady = loadCountdowns().then(list => {
+                    const remote = Array.isArray(list) ? list : [];
+                    const ids = new Set(remote.map(c => c.id));
+                    const localOnly = userCountdowns.filter(c => c && !ids.has(c.id));
+                    userCountdowns = [...remote, ...localOnly];
+                    countdownsLoaded = true;
+                    if (localOnly.length) saveCountdowns().catch(e => console.warn('載入後補存失敗', e));
+                    renderCountdowns();
+                }).catch(e => {
+                    console.warn('讀取倒數失敗', e);
+                    showToast('讀不到雲端的倒數，這次先不存檔（避免蓋掉原本的）');
+                });
                 // 招呼語也走同一條階梯，不然頁首徽章寫「一般」、吐司卻喊你「星族」
                 showToast(`歡迎回來，${currentBadge().name} ${userDisplayName}`);
             } else {
@@ -8474,6 +8541,10 @@
                 $('home-user-countdowns').classList.add('hidden');
                 userPlans = [];
                 userCountdowns = [];
+                /* ★ 一起把「載好了」收掉。留著 true 的話，登出後（或下一個人
+                   登入的空窗裡）的任何一次存檔，都會拿這份空清單覆蓋雲端。 */
+                plansLoaded = false;    plansReady = Promise.resolve();
+                countdownsLoaded = false; countdownsReady = Promise.resolve();
                 renderPlans();
                 renderCountdowns();
                 updatePlanTicker();
