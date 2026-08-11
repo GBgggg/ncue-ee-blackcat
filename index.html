@@ -3410,7 +3410,18 @@
          * ========================================================== */
         const CHANGELOG = [
             {
-                date: '2026-08-21',
+                date: '2026-08-11',
+                title: '計劃拖到「今天」不會再變成過去的時間，提醒也跟著回來了',
+                items: [
+                    ['★ 拖過去之後倒數寫著「幾小時前」，提醒也不響', '搬區塊時會保留原本的時分——這本來是對的，一場排在 8:30 的會議不該被拖一下就跑到 9:00。但下午把一筆早上 8:30 的計劃從「昨日」拖到「今天」，算出來就是「今天 8:30」，那已經過去了。兩件事同時發生而且都不會報錯：倒數顯示「6 小時前」，看起來像沒搬成功；推播那邊會把一小時前以上的整筆濾掉，於是那個提醒永遠不會響。現在算出來的時間如果已經過去，就往後推到下一個整點，並在訊息裡寫明「8:30 已經過了，改排 15:00」。'],
+                    ['為什麼是整點不是「現在＋十分鐘」', '使用者要的是一個講得出口的時間（「下午三點」），不是 15:07 這種一看就知道是程式算的數字。'],
+                    ['推過午夜會跑錯區塊，所以退回 23:59', '晚上十一點多拖過去的話，下一個整點是明天零點——那就離開了剛剛拖進去的「今天」。這時改用當天的 23:59；真的連 23:59 都過了就跳出視窗讓你自己選時間，跟拖到「本周／未來」是同一條路。'],
+                    ['★ 準時提醒被偷偷改成提早十分鐘', '伺服器那邊取提醒提前量時，把「沒有填」跟「填 0」當成同一件事處理，於是「準時提醒」一律變成「提早 10 分鐘」。前端送的是 0、旁邊的註解也寫著「0 分鐘＝準時提醒」，但通知就是早響十分鐘，兩邊都沒有錯誤訊息。'],
+                    ['更新紀錄的日期整批往回校正', '先前每一輪順手把日期往後加一天，最新一筆已經排到今天之後了。真正的日期救不回來，能救的是「不再是未來」與「順序不變」，所以照順序重新攤回 7/30 到 8/10。']
+                ]
+            },
+            {
+                date: '2026-08-10',
                 title: '計劃表：五個區塊看得出來是五區，計劃底下可以掛子任務',
                 items: [
                     ['五個區塊終於分得開了', '「昨日／今天／明天／本周／未來」原本用一圈很淡的虛線框住，實際看起來是黏成一長條的，得靠讀標題才知道換區了。現在每一區有自己的顏色：左邊一條槓、標題與「＋新增」都跟著那個顏色走，底色也淡淡鋪一層同色。深色模式另外一組亮色，不是把淺色那組拿去用。'],
@@ -3423,7 +3434,7 @@
                 ]
             },
             {
-                date: '2026-08-20',
+                date: '2026-08-10',
                 title: '測驗改成考卷的樣子，不再是四色大按鈕',
                 items: [
                     ['選項變成 A、B、C、D', '原本四個選項是四塊飽和色的大方塊。問題不在好不好看，在於那四個顏色**不帶任何資訊**——每一題都是同樣的紅黃藍綠，看久了會誤以為顏色代表某種分類。現在選項是一排字母圓圈，答題時整個畫面沒有顏色，顏色只在你按下去之後才出現，那一刻它才真的在說事情。'],
@@ -3435,7 +3446,7 @@
                 ]
             },
             {
-                date: '2026-08-19',
+                date: '2026-08-09',
                 title: '空清單上面那隻浮動的貓拿掉了',
                 items: [
                     ['為什麼拿掉', '前一版在每一個空清單上方放了一隻會慢慢上下浮的小黑貓，想讓空畫面不要那麼冷。實際用起來的結論是它在搶戲：空清單真正要講的是「你接下來可以做什麼」——那句說明和那顆按鈕才是主角，旁邊多一個一直在動的東西反而讓人先看它。所以整隻拿掉，空清單回到說明加按鈕。'],
@@ -3445,7 +3456,7 @@
                 ]
             },
             {
-                date: '2026-08-18',
+                date: '2026-08-09',
                 title: '重新發布一次（上一次卡在 GitHub 的部署佇列）',
                 items: [
                     ['上一版沒有真的上線', '前一次發布的內容打包完全成功，但卡在 GitHub 把成品推上線的那一步——先是跑了十分鐘逾時，重試之後又在排隊裡卡了快十分鐘，連工作都沒被排到。這跟網站本身無關，檔案沒有任何問題，同樣的流程前面連續十一次都正常。這一版把版本號往前推，用一個全新的發布繞過那個卡住的部署紀錄。'],
@@ -3453,7 +3464,7 @@
                 ]
             },
             {
-                date: '2026-08-18',
+                date: '2026-08-08',
                 title: '真的開瀏覽器測，抓到兩個測試看不見的問題',
                 items: [
                     ['★ 淺色模式下，用鍵盤操作時頁首的框看不見', '上一輪補的鍵盤焦點外框，在頁首那一排刻意用白色——理由是「頁首是深色的，磚紅色壓上去看不清楚」。問題是那個前提早就不成立了：配色改版的時候頁首就已經變成紙色。於是白色外框壓在近白色的頁首上，等於完全看不見，而這正是那條規則本來想避免的事，只是方向剛好相反。**測試是綠的**，因為它只檢查「那條規則存在」，沒有檢查「那個顏色在那個背景上看得見」。現在頁首排除掉、改用原本的強調色，其餘真正還是深色的區塊維持白框。順手也刪掉一條多餘的深色模式規則——它的優先級比深色區塊那條高，會把白框蓋掉，深色模式看起來正常純屬巧合。'],
@@ -3462,7 +3473,7 @@
                 ]
             },
             {
-                date: '2026-08-17',
+                date: '2026-08-08',
                 title: '換分頁的轉場交給瀏覽器，空頁面上多了一隻貓',
                 items: [
                     ['換分頁的動畫改用瀏覽器原生的轉場', '以前是自己做的：把樣式移掉、強制重算、再加回去，讓它淡入加上滑。現在交給瀏覽器內建的頁面轉場——它會自己拍下前後兩個畫面再補間，跑在顯示晶片上，在比較舊的手機上明顯順很多，而且一個位元組都不用多載。★ 不支援這個功能的瀏覽器會直接換頁，不是卡住——跟數學排版那一輪同一個形狀：先讓沒有它的情況能動，再讓有它的情況更好。系統設定「減少動態」的人也完全不會有轉場，而且 JS 跟 CSS 各擋一道，就算哪天有人把其中一道拿掉，另一道還在。'],
@@ -3473,7 +3484,7 @@
                 ]
             },
             {
-                date: '2026-08-16',
+                date: '2026-08-07',
                 title: '空清單會告訴你下一步，動畫也不再拖累手機',
                 items: [
                     ['空的清單不再只說「沒有」', '以前打開一個還沒有東西的頁面，看到的就是一句「目前沒有課程喔」——但那句話沒回答兩個真正的問題：接下來我能做什麼、還有這是還沒有人建立還是我沒有權限看。而空清單正好是第一次來的人看到的主要畫面。現在每一個空狀態都是三段：一句話說明、一句為什麼是空的、以及一顆「現在就做」的按鈕。★ 那顆按鈕不另外寫一套流程，它只是去按畫面上原本就有的那一顆——寫第二套的話兩邊的驗證與權限判斷遲早會分岔，而分岔不會報錯。順帶好處是權限判斷自動跟著走：原本那顆按鈕本來就會依階級隱藏，所以只要它藏起來，空狀態上這一顆也不會出現，不會有人看到一顆按了沒反應的按鈕。'],
@@ -3484,7 +3495,7 @@
                 ]
             },
             {
-                date: '2026-08-15',
+                date: '2026-08-07',
                 title: '介面細節：鍵盤看得到焦點、手機按得到回饋',
                 items: [
                     ['★ 用鍵盤操作時，之前完全看不出「現在選到哪」', '這個站從頭到尾沒有任何一條自訂的焦點樣式，而 Tailwind 的一些設定又把瀏覽器預設的外框蓋掉了。結果是：用 Tab 鍵移動時，很多按鈕根本不會有任何變化，等於用鍵盤的人是在盲按。這不是「不夠漂亮」，是真的有人用不了，而且完全沒有錯誤訊息，用滑鼠的人永遠不會發現。現在補上了，而且只在鍵盤操作時出現——滑鼠點擊不會跳外框，所以看起來跟以前一模一樣。深色墨塊上的按鈕另外給淺色外框，磚紅壓在墨底上幾乎看不見。'],
@@ -3495,7 +3506,7 @@
                 ]
             },
                         {
-                date: '2026-08-14',
+                date: '2026-08-06',
                 title: '設定集中到一個地方，分頁重新排過',
                 items: [
                     ['右上角多了一顆 ⚙️', '外觀、通知、暱稱、密碼、內容管理全部集中在這裡。★ 同一個開關不能有兩個入口——兩邊遲早會不一致，而且不會報錯。'],
@@ -3506,7 +3517,7 @@
                 ]
             },
             {
-                date: '2026-08-13',
+                date: '2026-08-06',
                 title: '計劃可以重複了（每天／每週／每月）',
                 items: [
                     ['一條規則，畫面上自己長出很多次', '學生最常見的就是週期性的事：每週三的例會、每天的晨跑、每月五號的房租。現在新增計劃時可以選重複，也可以直接打「每週三 9點 例會」。存進資料庫的永遠只有一筆規則，畫面上看到的每一列都是當場算出來的——展開之後存起來的話，改一次時間要改幾十筆，而且「這些是同一件事」這個資訊會就此消失。'],
@@ -3517,7 +3528,7 @@
                 ]
             },
             {
-                date: '2026-08-12',
+                date: '2026-08-05',
                 title: '計劃可以打一行字新增了',
                 items: [
                     ['一行就建一筆：「明天下午三點 交報告」', '主流待辦軟體的評測裡，這個功能永遠排第一，而且對手機最有感——原本要開視窗、點日期、選時間、再打字，現在打完一行按 Enter 就好。看得懂相對日（今天／明天／後天／大後天／今晚）、星期幾（週五、下週三、這禮拜六）、日期（8/20、8月20日、2027/1/5）、時間（下午三點、七點半、15:00、十點十五分）、區間（3點到5點、09:00-11:00）與時長（兩小時、一個半小時、90分鐘）。'],
@@ -3528,7 +3539,7 @@
                 ]
             },
             {
-                date: '2026-08-11',
+                date: '2026-08-05',
                 title: '資料載入失敗現在看得見了',
                 items: [
                     ['★ 清單是空的，到底是「沒東西」還是「讀不到」', '做使用量評估的時候發現的：即時訂閱失敗時，程式只把錯誤寫進主控台，畫面上就只是一份空清單。而會走到那條路的有三種情況——離線、階級不足、以及資料庫的每日讀取額度用完。最後一種特別陰險：額度用完不會有任何錯誤畫面，全站的清單會同時變空，然後隔天午夜自己好，跟先前 AI 解題那次的快取問題是同一類。現在讀不到會跳一則訊息說清楚，而且刻意排除「階級不足」——分級教材本來就不是每個人都讀得到，對那種情況跳訊息只會變成雜訊。另外訊息有節流，因為十幾個集合可能同時失敗，十幾則提示會把畫面洗掉，反而更看不出發生什麼事。'],
@@ -3536,7 +3547,7 @@
                 ]
             },
             {
-                date: '2026-08-11',
+                date: '2026-08-04',
                 title: '修掉一個「拖了但沒搬成功」的問題',
                 items: [
                     ['★ 拖到「本周」或「未來」之後，直接按儲存等於沒搬', '在瀏覽器上實際點過一遍才發現的。拖到那兩個區塊時會跳出視窗讓你選日期，但日期欄位裡預先填著原本那一天，所以直接按儲存的話那筆計劃會留在原地——而畫面上沒有任何東西說它沒搬成功，你會以為搬好了。現在拖到那兩區時欄位是空的，逼你真的選一個。另外就算選了，也可能選到落在別區的日期（拖到本周卻選了明天），所以存檔時會再確認一次，不符的話直接說「這個日期會落在『明天』，不是『本周』」，而不是默默存進另一區。這一類「做了但沒發生」是這個專案最貴的錯，因為它沒有任何症狀——測試原本也抓不到，因為那不是算錯，是接線接錯。'],
@@ -3544,7 +3555,7 @@
                 ]
             },
                         {
-                date: '2026-08-10',
+                date: '2026-08-04',
                 title: '計劃表改成五個可拖曳的區塊',
                 items: [
                     ['五個區塊', '昨天／今天／明天／本週／未來，可以直接用拖的搬。拖到「本週」或「未來」會問你哪一天。'],
@@ -3555,7 +3566,7 @@
                 ]
             },
             {
-                date: '2026-08-09',
+                date: '2026-08-03',
                 title: '測驗對半拆',
                 items: [
                     ['自己出的測驗歸小黑貓，公有題庫歸彰師電子', '原本兩種測驗擠在同一頁，上面一排「公有／我的」讓你切。問題是它們根本是兩件不同的東西：公有題庫是校系共用的教材，由巫醫以上維護、戰士以上解鎖；「我的」是自己出給自己的練習題，誰都能建，而且只有本人讀得到，管理員也讀不到。放在同一排切換，會讓人以為那只是同一份東西的兩個檢視。現在小黑貓的「學習」底下多一個「測驗」，那裡只有你自己的；彰師電子的「測驗」只剩公有的。那排切換按鈕整個拿掉了——看哪一種由所在的產品決定，留著開關的話兩邊都看得到兩種，等於這件事沒做。資料庫的規則一行都沒改，本來就是分開存、分開授權的，改的只是介面歸屬。'],
@@ -3564,7 +3575,7 @@
                 ]
             },
             {
-                date: '2026-08-08',
+                date: '2026-08-02',
                 title: '彰師電子有自己的 logo 了',
                 items: [
                     ['彰師電子小黑貓換上電路板主題的黑貓', '原本三個產品共用同一張圖。現在彰師電子那一頁——載入動畫、頁首、課表角落、關於頁、登入視窗，連加到主畫面的圖示——全部換成新的那張。做法跟站名、英文名一樣放進產品資料表，唯一來源只有一處。但填的人不同：站名是載入後用程式填的，logo 改成由產生器在做出彰師電子那個檔案時就換掉。理由是圖片會被看見——載入動畫那隻貓在程式跑起來之前就顯示了，事後才換的話那一頁會先閃一下另一個產品的圖再跳成自己的。沒有錯誤，就只是難看。順帶一提資料表本身不能被換，它在兩份檔案裡必須一模一樣，換掉的話小黑貓的 logo 會跟著錯，所以取代的樣式釘死了圖片標籤的寫法。'],
@@ -3573,7 +3584,7 @@
                 ]
             },
             {
-                date: '2026-08-07',
+                date: '2026-08-01',
                 title: '可以用 Google 帳號登入了',
                 items: [
                     ['星族大會多了搜尋', '名冊十幾個人的時候還能用眼睛找，再多就不行了。現在上面有一個搜尋框，比對信箱、暱稱與階級三個欄位，大小寫不分。階級也放進去比對是因為這個面板真正的用途是指派階位，而指派之前通常想先看「同一階的有誰」。實作上有兩個地方是刻意的：搜尋框放在名冊清單的外面，因為名冊是即時訂閱的，任何人改階級都會把整份清單重畫一次，放在裡面的話打到一半的字會憑空消失，而且不會報錯；另外搜不到的時候不能跟「名冊真的沒人」講同一句話，不然打錯字的人會以為整份名冊不見了——現在會說「找不到符合某某的貓咪」並附上名冊實際有幾位，右上角也一直顯示「幾筆／共幾筆」。順帶把暱稱顯示出來了，因為搜尋會比對它；比對得到卻看不見的話，畫面上會是「搜了一個名字，跳出一個看起來完全不相干的信箱」。'],
@@ -3584,7 +3595,7 @@
                 ]
             },
             {
-                date: '2026-08-06',
+                date: '2026-07-31',
                 title: '英文獨立成一個分頁',
                 items: [
                     ['英文閱讀與單字庫從「學習」裡搬出來，變成「英文」分頁', '這兩個誰都用得上，跟自學課程擠在同一個分頁底下並不合理。現在導覽列多一個「英文」，底下是英文閱讀與單字庫；學習只剩自學課程。要說明的是做法：內容一行都沒有搬。英文閱讀原本住在學習那個區塊、單字庫住在測驗那個區塊，兩塊各好幾百行，搬動的風險遠高於收益，而且搬錯不會報錯，只會有某一頁打不開——這條在拆三大分頁那次就寫過了。所以位置維持原狀，只在路由上多一層對應：進英文分頁時先開哪一個區塊，剩下的交給原本就在的子分頁切換。代價是「使用者看到的分組」跟「原始碼裡的位置」從此不一樣，而對應表寫錯不會有任何症狀，所以新增了一支測試把那幾張表真的跑一遍。'],
@@ -3595,7 +3606,7 @@
                 ]
             },
             {
-                date: '2026-08-05',
+                date: '2026-07-30',
                 title: '名稱與階級跟著產品走',
                 items: [
                     ['小黑貓的英文名改成 Little Black Cat', '頁首中文名底下那一行小字，原本寫死在 HTML 裡是「NCUE EE Black Cat」。拆分成三個產品之後這行就不成立了：從小黑貓進來的人，中文寫著「小黑貓」，底下英文卻是另一個產品的名字。這種錯不會報錯、不會有紅字，畫面上就是有東西，只是那個東西屬於別人。跟上一批中文站名寫死的那次是同一件事，所以這次連做法一起改掉——英文名放進產品資料表，跟中文名、標題、階梯歸屬放在一起，開站時依產品填。順帶一提這裡有兩個容易混的名字：模擬器頁首那行 BLACKCAT SPICE 是模擬器的英文名，跟這一項無關。測試釘的是「跑完之後畫面上那一行真的有字」，不是「資料表裡有這個欄位」——只檢查欄位的話，忘了填一樣是綠的，而使用者看到的是一片空白。'],
@@ -5078,6 +5089,27 @@
             else if (zone === 'tomorrow') d.setDate(d.getDate() + 1);
             else return null;                     // 本周／未來要自己選日期
             d.setHours(h, mi, 0, 0);
+            /* ★ 算出來的時間**不能落在過去**。踩過的坑：下午把一筆早上 8:30 的
+               計劃從「昨日」拖到「今天」，時分照抄就變成「今天 8:30」——
+               已經過去了。兩個症狀一起出現，而且都沒有錯誤訊息：
+                 · 倒數變成「6 小時前」，看起來像沒搬成功
+                 · syncPlanSubscription 的 `at > now - 3600000` 把整筆濾掉，
+                   於是通知永遠不會響
+               所以已過去就推到現在之後的下一個整點。挑整點不挑「現在 ＋ N 分」
+               是因為使用者要的是一個講得出口的時間（「下午三點」），
+               而不是「15:07」這種看起來像程式算出來的東西。 */
+            if (d.getTime() <= now) {
+                const nx = new Date(now);
+                nx.setMinutes(0, 0, 0);
+                nx.setHours(nx.getHours() + 1);
+                /* 推過午夜就跨天了，那會離開使用者拖進去的那一區——
+                   只好退回當天的最後一分鐘（23:59），寧可時間醜也不要跑錯區塊。 */
+                if (nx.getDate() !== d.getDate() || nx.getMonth() !== d.getMonth()) {
+                    d.setHours(23, 59, 0, 0);
+                    return d.getTime() > now ? d.getTime() : null;
+                }
+                return nx.getTime();
+            }
             return d.getTime();
         }
 
@@ -5103,10 +5135,18 @@
             const span = planEnd(p) - Number(p.at);         // 維持原本的長度
             userPlans = userPlans.map(x => x.id === id
                 ? { ...x, at, end: at + (isFinite(span) && span > 0 ? span : 0) } : x);
+            /* ★ 時分被往後推的時候要說一聲。搬完不講的話，使用者以為
+               「今天 8:30」照舊，實際上是「今天 15:00」——而畫面上那一行
+               的確寫著 15:00，只是沒有人會去重讀一筆自己剛剛才拖過的計劃。 */
+            const src = new Date(Number(p.at)), dst = new Date(at);
+            const bumped = src.getHours() !== dst.getHours() || src.getMinutes() !== dst.getMinutes();
+            const hm = (d) => d.toLocaleString('zh-TW', { hour:'2-digit', minute:'2-digit' });
             try {
                 await savePlans();
                 renderPlans(); updatePlanTicker();
-                showToast(`已移到「${PLAN_ZONE_META[zone].label}」`);
+                showToast(bumped
+                    ? `已移到「${PLAN_ZONE_META[zone].label}」，${hm(src)} 已經過了，改排 ${hm(dst)}`
+                    : `已移到「${PLAN_ZONE_META[zone].label}」`);
             } catch (e) { showToast('存檔失敗，請稍後再試'); }
         }
 
@@ -6715,180 +6755,155 @@
         // 排程任務會更新此「匯入來源」陣列；管理員按「匯入文章」寫進 Firestore
         const ARTICLE_IMPORTS = [
             {
-"title":"How transnational movements can shield African civil spaces",
-"topic":"Digital Activism",
-"source":"Global Voices",
-"author":"Guest Contributor",
-"sourceUrl":"https://globalvoices.org/2026/07/26/how-transnational-movements-can-shield-african-civil-spaces/",
-"license":"CC BY 3.0",
-"date":"2026-07-26",
-"paragraphs": [
-"Defending human rights across Africa and the wider Global South must begin with active listening",
-"Brian Bright Tamuka Kagoro landed at Jomo Kenyatta International Airport late on a Monday night earlier this year without a weapon, contraband, or any plans to destabilize the state. He carried only his ideas, his convictions, and the weight of four decades spent fighting for justice.",
-"As a distinguished Pan-Africanist, constitutional lawyer, and human rights defender, Kagoro entered Kenya through official channels. His passport was stamped, and he cleared immigration. Yet, midway through his transit, state officials intercepted him, confiscated his phones, and blocked him from contacting lawyers, friends, or consular support. For 14 hours, Kenya’s National Intelligence Service (NIS) held him completely incommunicado.",
-"When they finally declared him persona non grata and deported him, they offered no explanation, no due process, and no public charges. While his “crime” was never spoken aloud, the underlying message was unmistakable: dissent, solidarity, and independent thought are dangerous.",
-"This is a reality that human rights defenders across Africa know intimately. The closing of civic space is no longer just an abstract problem for high-profile opposition leaders. It is a daily hazard for researchers, journalists, lawyers, feminists, and ordinary citizens who dare to ask questions or stand beside those under attack.",
-"We are witnessing a dangerous, accelerating trend across the continent where states are actively weaponizing their borders to track and silence activists. In the past, state repression was largely contained within a country’s own frontiers. Today, autocrats are cooperating across borders, using digital surveillance, shared intelligence, and coordinated expulsions to reach dissenters even after they flee into exile. Kenya’s treatment of Kagoro is a stark reminder that leaving home no longer guarantees safety.",
-"This cross-border intimidation follows a terrifyingly consistent blueprint. Farther west, we saw a similar architecture of control sweep up Mubarak Bala, a Nigerian humanist blogger who was sentenced to 24 years in prison on blasphemy charges simply for expressing his beliefs. While intense international mobilization ultimately helped secure his release two years later, his ordeal underscores the sheer scale of the threat facing free expression.",
-"The data backing up these individual stories is staggering. According to the latest findings from the CIVICUS Monitor, more than 80 percent of people in Sub-Saharan Africa now live in countries where civic space is officially classified as “repressed” or “closed.” Out of 50 countries and territories monitored in the region, 44 face severe obstructions or outright closures of fundamental liberties. Furthermore, the data reveals that detaining journalists has become the primary tactic used by African governments to silence independent reporting, with authorities in 33 countries locking up media workers over the past year alone.",
-"This onslaught comes at a time when the world’s attention is dangerously fragmented. Preoccupied by wars, economic crises, and shifting geopolitical alliances, many traditional international allies have quietly relegated human rights to a secondary priority. Governments that once positioned themselves as champions of democracy are increasingly prioritizing bilateral trade deals and security agreements over principled confrontations with repressive regimes. When human rights defenders are left to face this isolation alone, authoritarianism creeps into the gaps they leave behind.",
-"Yet, history shows that these borderless emergencies can be met with resilience. Localized activism is no longer enough to safeguard front-line activists against state-level overreach; civil society must develop a collaborative, cross-border mutualism. This is precisely why, to coincide with Nelson Mandela International Day, the global launch of the #StandAsMyWitness campaign offers a vital blueprint for citizen-led resistance through transnational solidarity.",
-"We have seen, both professionally and personally, how movements sustain people long after institutions fail them. Sometimes what protects a detained activist is not a court order or a government statement, but the knowledge that others are watching, documenting, speaking, organizing, and refusing to let their story disappear. Organizing beyond borders builds pressure through advocacy campaigns, democratic mobilization, diplomatic lobbying, and reputational cost. Transnational solidarity reminds governments that the world is paying attention. It helps ensure detainees are not forgotten, reducing the risk of torture, enforced disappearance, and indefinite imprisonment. International laws also strengthen these advocacy efforts. Under instruments like the International Covenant on Civil and Political Rights, arbitrary arrest is prohibited, giving global movements the legal leverage to force compliance."
+                title: "Can AI help build peace? African youth are showing a path forward",
+                topic: "Digital Activism",
+                source: "Global Voices",
+                author: "Peace News",
+                sourceUrl: "https://globalvoices.org/2026/08/09/can-ai-help-build-peace-african-youth-are-showing-a-path-forward/",
+                license: "CC BY 3.0",
+                date: "2026-08-09",
+                paragraphs: [
+                    "How are African youth using Artificial intelligence (AI) to build peace? What are some of the challenges that come with using AI for peace?",
+                    "Artificial intelligence often dominates headlines for its risks and misuses: Misinformation, surveillance, job losses, and deepfakes. Far less attention is paid to another story unfolding across Africa. Young people are using digital technologies to detect conflict early, counter hate speech, and strengthen community resilience.",
+                    "A recent policy brief by the Institute for Security Studies (ISS Africa) argues that African youth are not simply adapting to AI. They are helping shape how digital technologies are used for peacebuilding. At the same time, the report warns that outdated policies, weak digital infrastructure, and persistent inequality threaten to limit that potential.",
+                    "African governments, regional organizations, and civil society are beginning to develop AI governance frameworks that will influence how these technologies are used for years to come. One of the report’s central messages is that young people should not be consulted only after these frameworks are written. They should help design them from the beginning.",
+                    "The report’s greatest strength is its refusal to portray African youth as passive recipients of technology. Instead, it presents them as knowledge creators who generate information, build digital tools, and shape public conversations about conflict. This is an important shift. Discussions of youth, peace, and security often focus on participation or representation. Here, the emphasis is on expertise. Young peacebuilders are producing the data, local knowledge, and digital innovations that increasingly underpin conflict prevention efforts.",
+                    "The examples illustrate this well. Kenya’s Ushahidi platform demonstrated, following post-election violence from 2007 to 2008, how citizens could crowdsource reports during crises. More recent initiatives such as iVerify, piloted in Zambia in 2021, train young journalists to identify and counter false information before it spreads further. iVerify is now being used in Sierra Leone and Liberia as a Digital Public Good, where young journalists are being trained in fact-checking. Other youth-led projects combine machine learning, open-source intelligence, and community reporting to monitor elections, identify conflict risks, and challenge false narratives online.",
+                    "Perhaps most importantly, the report avoids treating technology as a substitute for human relationships. Many of its strongest examples combine digital platforms with face-to-face dialogue, community organizing, local radio, and peace education. Digital tools become effective because they strengthen existing social networks rather than replace them.",
+                    "The report is equally persuasive in highlighting barriers that continue to shape Africa’s digital future."
                 ]
             },
             {
-"title":"How much will it take to rebuild Venezuela after the earthquakes?",
-"topic":"Disaster",
-"source":"Global Voices",
-"author":"Mario Valdivia",
-"sourceUrl":"https://globalvoices.org/2026/07/25/how-much-will-it-take-to-rebuild-venezuela-after-the-earthquakes/",
-"license":"CC BY 3.0",
-"date":"2026-07-25",
-"paragraphs": [
-"Estimating the economic cost of a reconstruction shaped by massive financing needs and economic fragility",
-"Three weeks after the twin earthquakes struck Venezuela’s coastal region, the official death toll has risen to nearly 5,000, while close to 18,000 people remain displaced. As the immediate emergency response gives way to longer-term recovery efforts, attention is increasingly focused on the financial resources required to manage the humanitarian needs of the catastrophe, but also to rebuild the country’s homes, infrastructure, and economy.",
-"Initial assessments have largely concentrated on estimating the direct physical damage to buildings, infrastructure, and other tangible assets. These estimates, however, do not capture the indirect economic losses resulting from disruptions to production, trade, employment, and public services. As more comprehensive information becomes available, the estimated total economic impact of the disaster is therefore expected to increase substantially.",
-"The internationally recognized standard for estimating the economic impact of disasters is the Disaster Assessment Methodology developed by the Economic Commission for Latin America and the Caribbean (ECLAC), a pioneer in this field. The framework has since been adopted by major international institutions, including the World Bank (WB) and the Inter-American Development Bank (IDB).",
-"Its third edition, published in 2014 in collaboration with the Pan American Health Organization (PAHO), provides a comprehensive approach for estimating not only the direct effects of disasters but also their socioeconomic impacts at both the macroeconomic and household levels, as well as the financial resources required for recovery and reconstruction.",
-"Under this methodology, disaster impacts are classified into three categories: damage, losses, and additional costs. Damage refers to the destruction of physical assets such as buildings, facilities, machinery, equipment, infrastructure, and inventories. These are valued according to their estimated replacement cost at pre-disaster prices.",
-"Losses represent the value of goods and services that are no longer produced or delivered from the moment the disaster occurs until full recovery is achieved. Estimating these losses requires comparing the post-disaster trajectory of economic sectors with a hypothetical scenario in which the disaster had not occurred. As a result, these estimates depend on a range of assumptions and are inherently subject to uncertainty.",
-"Additional costs include extraordinary expenditures incurred by governments and the private sector in response to the disaster, such as emergency medical supplies, humanitarian assistance, and other essential goods and services.",
-"Finally, the methodology estimates recovery and reconstruction financing needs, which encompass the costs of the public policies and investments required to restore normal economic and social conditions. These include rebuilding basic infrastructure and services, as well as financing food assistance programs, cash transfers, and other forms of support for affected households.",
-"We still don’t know the full scale of the destruction. While the Venezuelan government claims that more than 2,000 pieces of infrastructure were severely damaged, satellite images from NASA show that the figure is closer to 30,000.",
-"Just two days after the twin earthquakes struck, the United Nations Development Programme (UNDP) released a preliminary assessment of the direct physical damage to housing and other assets, using satellite imagery and artificial intelligence-powered Geographic Information Systems (GIS) through its Rapid Digital Analysis (RAPIDA) methodology. The assessment estimated direct losses to be USD 6.7 billion, with a range of USD 4.7–8.7 billion, equivalent to approximately six percent of Venezuela’s GDP.",
-"Venezuelan economist Asdrúbal Oliveros argues that the damage could be more extensive, estimating direct losses at USD 7-9 billion. He further suggests that the total cost of reconstruction could reach USD 12-15 billion, reflecting not only the replacement of damaged assets but also the broader costs of economic recovery and rebuilding."
+                title: "Whose conservation, whose development? The Maasai struggle over land in northern Tanzania",
+                topic: "Development",
+                source: "Global Voices",
+                author: "Peace News",
+                sourceUrl: "https://globalvoices.org/2026/08/07/whose-conservation-whose-development-the-maasai-struggle-over-land-in-northern-tanzania/",
+                license: "CC BY 3.0",
+                date: "2026-08-07",
+                paragraphs: [
+                    "In northern Tanzania, the struggle over land conservation has become more than an environmental dispute. It is a question of peace, justice, identity, and survival. Our recent research article examined how the Indigenous Maasai communities of the Ngorongoro Conservation Area (NCA) and the Loliondo Game Controlled Area (LGCA) have been repeatedly displaced under the guise of conservation, environmental protection, and modernization.",
+                    "The government, through its coercive apparatuses such as the police, has repeatedly displaced Maasai communities of the NCA and LGCA, saying that the Maasai are overburdening the area and putting a strain on environmental resources. This displacement has led to violent confrontations between Maasai residents and security forces. The article’s central message is clear: For sustainable and peaceful development, conservation should be people-centered.",
+                    "The Maasai have lived in these areas for decades after being moved from what is now Serengeti National Park in 1959. At the time, they were resettled in Ngorongoro and Loliondo with the understanding that they could continue their pastoral way of life while coexisting with wildlife.",
+                    "Today, however, they face renewed pressure to leave. The International Union for Conservation of Nature (IUCN) argues that growing populations, livestock numbers, farming, and permanent settlements threaten fragile ecosystems. From this perspective, relocation is presented as necessary to protect biodiversity and tourism resources.",
+                    "Yet the Maasai and many human rights advocates see the situation differently. They argue that conservation has become a tool for “green grabbing”: The taking of community land in the name of environmental protection while opening space for tourism, hunting, and investment interests. In Loliondo, Tanzania, the government’s proposed demarcation of 1,500 square kilometers (579 square miles) from village land has become a major source of tension. In 2022, attempts to enforce the demarcation led to confrontations between Maasai residents and security forces, causing injuries, arrests, the death of a police officer, and a Maasai man going missing after being shot in his legs. In 2024, a government decree to delist several villages deepened fears that communities were being pushed out without genuine consent.",
+                    "For development to be peaceful, the most important issue is not whether conservation matters. It does. Tanzania’s wildlife and landscapes are globally significant, and protecting them is a legitimate concern at the national and international levels. The deeper question is how conservation is done. When communities are treated as threats rather than partners, conservation becomes militarized. When social services are reduced, villages are delisted, movement is restricted, or people are pressured into relocation, “voluntary resettlement” loses its meaning.",
+                    "Peace cannot be built where communities feel unheard, criminalized, or separated from ancestral land.",
+                    "The Maasai response challenges the idea that pastoralists are simply destroyers of nature. They present themselves as “guardians of the land” — people whose culture, livestock systems, medicinal knowledge, sacred sites, and seasonal movement have long been connected to the ecosystem. This does not mean every local practice is automatically sustainable, nor does it deny that population growth and land-use changes create real environmental pressures. But it does mean that solutions must be negotiated, evidence-based, and respectful of Indigenous traditions and knowledge."
                 ]
             },
             {
-"title":"Protecting Pangolins in India: When an armor is not enough",
-"topic":"Animal Rights",
-"source":"Global Voices",
-"author":"Madhumay Mallik",
-"sourceUrl":"https://globalvoices.org/2026/07/25/protecting-pangolins-in-india-when-an-armor-is-not-enough/",
-"license":"CC BY 3.0",
-"date":"2026-07-25",
-"paragraphs": [
-"Pangolins are the most trafficked wild mammals on this planet",
-"Every year, between 120 and 240 pangolins on average are seized from trafficking networks across India — and this is just from the trade that gets reported. According to a 2022 factsheet published by the TRAFFIC, an NGO tracking global wildlife trade, nearly 6,000 pangolins were poached from India alone between 2009 and 2017. Between 2019 and 2022, India’s Directorate of Revenue Intelligence reportedly seized close to 337 kilograms of pangolin scales.",
-"Globally, there are eight species of pangolins, spread across tropical, subtropical, and savannah regions of Asia and sub-Saharan Africa. India hosts the Indian pangolin (Manis crassicaudata) and the Chinese pangolin (Manis pentadactyla).",
-"India’s pangolins are, however, at a critical juncture. Understanding what India must do next also requires understanding how we got here.",
-"The earliest record of the use of pangolin scales as traditional medicine dates to the Ming Dynasty and was meticulously documented by Li Shizhen, a naturalist known for the Bencao Gangmu (Compendium of Materia Medica). There is yet to be any scientific backing to this claim.",
-"Pangolins today are the most trafficked wild mammals on this planet. Alive pangolins are picked up from the wild to be brutally skinned, and their scales are roasted and ground to “treat” carbuncles, skin infections, lactation deficiency, and even nervousness. The irony is that this trade persists despite modern (and cheaper) medicines that work better against the same ailments that pangolins were killed for by the Ming people. Pangolin scales are composed of keratin, the same protein as human fingernails, and small amounts of moisture (water) and lipids (fats) — none of which have any medicinal value.",
-"Still, several sources suggest that one pangolin is taken from the wild, dead or alive, by traffickers every five minutes. A December 2025 CITES Report identifies 2,222 seizures of specimens (across all eight pangolin species) globally, equivalent to 553,042 pangolins, poached from the wild. This data was just for the period between 2016 and 2024. That’s the scale of the ignorance — or should we say, the ego — in our ability to procure a pangolin.",
-"Although there’s no formal evidence, several anthropological and ethnographic records suggest the idea of pangolin scales as a medical cure traveled from China to India and Africa. In any case, pangolins in India and Africa have been and still are sought after for their alleged medical properties.",
-"“In remote tribal homes in Central India, you might still find a pangolin scale hanging by the front door. There are reports of people burying pangolin scales in the earth before constructing a new house. They believe that the scales bring good fortune. Scales are also turned into amulets by the remote indigenous communities of Central India to ward off evil spirits,” explains Monesh Singh Tomar, a member of the IUCN Pangolin Specialist Group and a project lead for the Wildlife Trust of India in an interview with Global Voices.",
-"In India, the two species of pangolins — the Indian pangolin and the Chinese pangolin have been hunted across their range. However, it was only by the 1980s that reports started indicating pangolin scales being exported to East and Southeast Asia. The real surge was in the 21st century, when India became a major supplier to countries like Vietnam and China through organized trafficking syndicates. By then, India had already enacted its Wildlife (Protection) Act, 1972, giving both species of pangolins a Schedule I status — a protection similar to the national animal, the Bengal tiger.",
-"According to an IUCN report, at least 74 countries are currently implicated in the global illegal pangolin trade, serviced by 178 unique international trade routes that keep on shifting to evade enforcement action.",
-"“Social media too has played a huge role, especially after the Covid-19 years. Cybercrime has been on the rise and conversations between sellers and buyers are encrypted. Intercepting these messages requires more than traditional enforcement tools. Basically, much of the illegal marketplace has shifted online and so have our tools for enforcement action,” adds Tomar."
+                title: "What does home mean for people with no single territory connecting them?",
+                topic: "Eastern & Central Europe",
+                source: "Global Voices",
+                author: "Daria Dergacheva",
+                sourceUrl: "https://globalvoices.org/2026/08/07/what-does-home-mean-for-people-with-no-single-territory-connecting-them/",
+                license: "CC BY 3.0",
+                date: "2026-08-07",
+                paragraphs: [
+                    "While trying to define nationhood, people often rely on simplistic descriptions and groupings — the lines drawn on a map, demarcations outlined by treaties and agreements, common identities and ideologies within a specific space — but for many people groups, the concept of nationhood can fall outside these traditional borders. This is the case for many in post-Soviet spaces, for example, Ukraine’s Roma community, whose members are now fighting Russia and dying for a country that, for generations, treated them as outsiders. It is also true for Tatars, whose homeland largely exists within a cultural space rather than a physical one.",
+                    "Since Russia’s full-scale invasion in February 2022, hundreds of Roma have joined the Armed Forces of Ukraine in the fight against Russia. Yet despite this service, Roma Ukrainian refugees continue facing discrimination within Ukraine and beyond in Europe.",
+                    "Further east, within Russia, Tatars, the country’s second-largest ethnic group, continue to grapple with a different question: What does homeland mean for a people scattered across continents, with no single territory uniting them? Tatarstan, a republic of the Russian Federation, remains a cultural anchor, but for many Tatars, belonging is carried through community and culture rather than a location on a map. That dispersion, together with a traumatic, fraught history, shapes how Tatars today navigate conversations about sovereignty, separatism, and self-determination.",
+                    "In this collaborative article, Global Voices contributors explore these two stories of statelessness and reveal how minority communities are redefining nationhood, loyalty, and identity across the region.",
+                    "Since the second Russian large-scale invasion of Ukraine began in February 2022, there have been few stories of Ukraine’s Roma population fighting for Ukraine, even as many took to the front lines.",
+                    "Already in 2022, Roma journalist Viktor Chovka reported that Roma soldiers were fighting within the Ukrainian Army because they were born in Ukraine and considered it their home.",
+                    "Myroslav Horvat, another Romani activist in Ukraine, told Swedish Radio Romano at that time that most Romani people were concerned about how they would make a living because they lost their jobs when the war began. On his Facebook profile, Horvat often shares photographs of Romani soldiers in the Ukrainian Army. His main photo also features the Ukrainian flag, highlighting the dual identities that many Ukrainian Roma carry.",
+                    "According to Horvat, approximately 250 Roma from Zakarpattia joined Ukraine’s defense forces in 2022. By August 2024, he estimated that more than 500 were serving. Ukrainian flags have become increasingly visible in Roma settlements, alongside greater use of the Ukrainian language and Ukrainian songs."
                 ]
             },
             {
-"title":"Japanese-Filipino children’s painful quests for filial recognition and citizenship",
-"topic":"East Asia",
-"source":"Global Voices",
-"author":"Jo Carter",
-"sourceUrl":"https://globalvoices.org/2026/07/24/japanese-filipino-childrens-painful-quests-for-filial-recognition-and-citizenship/",
-"license":"CC BY 3.0",
-"date":"2026-07-24",
-"paragraphs": [
-"Born out of wedlock without a Japanese father's recognition, some Japanese-Filipino children are left stateless.",
-"Japanese-Filipino Children (JFCs) have historically been in a difficult position in Japanese society, as many of them are born out of wedlock, with a Filipino mother and a Japanese father who fails to legally register their paternal relationship with the children, leaving them effectively stateless.",
-"Over 10,000 JFCs are considered stateless due to Japan’s importation of foreign “entertainers” and strict citizenship laws.",
-"Driven by the 1980s asset bubble and the expansion of nightlife and hostess clubs, the Japanese government introduced an Entertainer (Kōgyō) Visa to import tens of thousands of performers from low-income Asian countries, most notably the Philippines, as its economy relies heavily on remittances from overseas Filipino workers (OFWs).",
-"By the early 1990s, Japan had imported about 64,000 entertainers and about 36,000 Filipino women migrated to Japan as dancers, singers, and hostesses in bars and clubs. Against such a backdrop, most JFCs were born outside of traditional marriages.",
-"Although under the Philippines citizenship law, anyone born to at least one parent who is a Filipino citizen is automatically a natural-born citizen, yet quite often the JFCs’ mothers refuse to register their births at the Philippines Embassy, as Japan does not accept dual citizenship and, upon registration, both the mothers and the children would likely be deported back to the Philippines, where they would suffer from discrimination.",
-"By 2009, about 200,000 JFCs were thus classified legally as Filipino citizens or left stateless. Living under the stigma of illegitimate children without social and financial support, most of them grew up in severe poverty both in Japan and the Philippines.",
-"While the Japanese government amended its Nationality Act in December 2008 to remove the rule that required the parents to marry for the child to gain citizenship after birth, the law still requires the Japanese father to recognize biological paternity through proper registration.",
-"However, it is often very difficult for JFCs to locate their fathers given their lack of local knowledge and Japan’s very strict privacy laws. Despite a number of Japanese NGOs, such as the Citizens’ Network for Japanese-Filipino Children (JFC Network) in Tokyo and its Manila branch, sometimes the Japanese fathers and family members refuse to recognize the children; and those who insist the quests for their fathers have to suffer the pain of “endless waiting,” frustrations and anxieties, as highlighted by JFC Network’s campaign to protect human rights for JFCs:",
-"If you are abandoned by your father, if you are forsaken by your home country, you may lose your roots, which you should hold on to in this world, or you may lose self-belief, which is most precious in your heart, wondering, ‘Why do I live?’ ‘Who am I?’ We regret to say that a lot of Japanese-Filipino children are struggling with such anxiety today."
+                title: "Legal access in a shrinking space: Building ecosystems to end statelessness",
+                topic: "Governance",
+                source: "Global Voices",
+                author: "Global Movement Against Statelessness",
+                sourceUrl: "https://globalvoices.org/2026/08/06/legal-access-in-a-shrinking-space-building-ecosystems-to-end-statelessness/",
+                license: "CC BY 3.0",
+                date: "2026-08-06",
+                paragraphs: [
+                    "For many people, citizenship is treated as a fact of life. It sits quietly in the background, represented by a birth certificate, an identity document, a passport, a sense of belonging. But for people affected by statelessness, legal identity is not a background issue. It is the line between inclusion and exclusion, between being able to participate in society and being forced to live in its shadows.",
+                    "In South Africa, this reality is visible in the lives of many young people who were born and raised in the country, but remain unable to access citizenship or documentation despite legal entitlement. Section 4(3) of the South African Citizenship Act provides a pathway to citizenship for certain people born in South Africa to parents who were neither South African citizens nor permanent residents. On paper, it should offer a route to legal recognition. In practice, many applicants encounter unclear procedures, inconsistent implementation, inordinate delays, missing records and an administrative architecture that, whether by neglect or design, exhausts rather than resolves.",
+                    "This is where the language of “legal access” must be taken seriously. Access to justice is not only about whether a person can eventually find a lawyer. It is also about whether the law is understandable, whether procedures are accessible, whether officials apply the law consistently, and whether there are meaningful ways to hold the state accountable when rights are denied in practice.",
+                    "These questions become even more urgent in a shrinking civic space. Across many contexts, civil society organisations and public interest lawyers are operating with fewer resources, heavier administrative burdens, and a political climate increasingly hostile towards marginalised groups.",
+                    "In South Africa, the Cabinet-approved Revised White Paper on Citizenship, Immigration and Refugee Protection signals a potentially significant legal restructuring whose implications for statelessness protections remain actively contested, and that contest is occurring precisely when the communities and organisations equipped to monitor it have the least capacity to do so.",
+                    "A narrow legal response is, therefore, not enough. Statelessness and citizenship exclusion require a legal ecosystem.",
+                    "That ecosystem begins at community level. People affected by statelessness are often the first to understand how the system fails — which offices turn people away, which documents are demanded without legal basis, which barriers repeat across generations, and what sustainable responses look like. Building a legal ecosystem means creating structures where that knowledge leads, and affected communities are treated as co-strategists, not passive beneficiaries. This Is Home, a collective of young South Africans living with barriers to citizenship, models this approach: through storytelling, organising, and advocacy, the collective ensures that lived experience informs both legal reform and public understanding: not as a supplement to strategy, but as its foundation.",
+                    "Legal clinics and civil society organisations are often the first point of contact for people who have been turned away by government offices or who do not know whether the law protects them. They translate complex legal rules into practical advice, build trust in communities where formal systems have caused harm, and, critically, identify patterns across individual cases that reveal when a personal problem is also a systemic one. It is at that point that broader partnerships become essential."
                 ]
             },
             {
-"title":"Tickets to nowhere: Haitian refugees fall prey to travel scams",
-"topic":"Caribbean",
-"source":"Global Voices",
-"author":"Jude Pierre Louis",
-"sourceUrl":"https://globalvoices.org/2026/07/24/tickets-to-nowhere-haitian-refugees-fall-prey-to-travel-scams/",
-"license":"CC BY 3.0",
-"date":"2026-07-24",
-"paragraphs": [
-"Desperation continues pushing many Haitians to search for ways out",
-"The travel agency business in Haiti has slowly become what many people now describe as a scam industry. Legitimate travel agencies have existed in the country for years, but as Haiti’s social, economic and political crises have become more dire, citizens are seeking ways to leave the country.",
-"For young people especially, as armed gangs control entire areas, businesses close, and unemployment increases, the country no longer seems to offer any real future, and this has spurred the proliferation of under-the-table travel shops. Once they have made their profit, many of these establishments disappear as quickly as they appear, feeding off of Haitians’ growing sense of insecurity.",
-"A similar reality holds true in the neighbouring Dominican Republic (DR), where a large Haitian community lives, most of them in irregular situations. Because of the Dominican immigration system’s rigidity toward Haitians, many of them cannot work legally or regularize their status. They therefore rely on financial support sent by relatives who live abroad, primarily in the United States. As a result, the Dominican Republic often becomes a temporary stop while they search for opportunities to migrate elsewhere.",
-"Since they are undocumented, the vast majority of Haitians ripped off by fake travel agencies in the DR can’t even step into a police station or prosecutor’s office to file a complaint. They are terrified that seeking help will backfire and lead to them being arrested and deported.",
-"The situation has created an entire market around migration, with unscrupulous individuals taking advantage of desperate Haitians searching for a better life abroad. Fake travel agencies advertise heavily on Facebook, TikTok and other social media platforms; some even pay influencers or public personalities to promote their services online, in an attempt to make people trust them more easily.",
-"From an administrative standpoint, opening a travel agency in Haiti is not a complicated undertaking, as oversight remains weak. While authorised agencies are operating legally in the country, many others exist only to exploit already vulnerable people who are trying to escape gang violence, poverty and instability. Because this demographic usually does not meet the normal financial or administrative requirements needed for official migration programmes, they become easy targets for risky and unregulated travel offers.",
-"One of the most discussed recent cases involves Mackenson Dorilas, a well-known spiritual figure who people refer to as “Prophet Mackenson.” He reportedly signed an advertising agreement with a travel agency called Fidélité Tours, appearing in the company’s promotional videos encouraging people to travel to Canada, Mexico and Brazil.",
-"During an episode of the popular morning show “Se sa nou vle” (“That is what we want”) on the Team Rudy Officiel YouTube channel, host Rudy Thomas Sanon said he had received complaints from several alleged victims linked to Fidelité Tours.",
-"According to testimonies shared during the show, people said they trusted the agency because Prophet Mackenson publicly promoted it. Some victims explained that they went directly to the agency’s office in Pétion-Ville and each paid around USD 4,000 to organise trips out of Haiti."
+                title: "When Chinese parents outsource control over their adult children",
+                topic: "China",
+                source: "Global Voices",
+                author: "Lina Ma",
+                sourceUrl: "https://globalvoices.org/2026/08/06/when-chinese-parents-outsource-control-over-their-adult-children/",
+                license: "CC BY 3.0",
+                date: "2026-08-06",
+                paragraphs: [
+                    "On a Sunday morning in March, a 21-year-old music student arrived at an apartment complex in Beijing to teach a piano lesson — a side job she did to earn money to fund her studies. Her father, her aunt, and two employees of a private disciplinary institution were waiting for her.",
+                    "Her relatives claimed that the strangers were police officers investigating a family member. They forced her into a van, confiscated her phone, and drove her hundreds of miles away to a closed institution in Henan province, China, supposedly for “internet addiction rehabilitation.”",
+                    "Her internet use had little to do with her confinement. According to an investigation by Southern People Weekly, her parents disapproved of her boyfriend and believed their previously obedient daughter had stopped listening to them. They paid the institution to isolate her, control her daily life, and pressure her to end the relationship. Public reporting indicates that this institution charged 26,800 yuan (USD 3,970) for six months or CNY 36,800 (USD 5,451) for a year, including room and board.",
+                    "Staff told her that she could leave after she had forgotten her boyfriend. She was legally an adult and fully independent at the time.",
+                    "A July 2026 investigation by China Newsweek documented several adults placed in similar institutions by their families. A 21-year-old shop worker said employees restrained him and transported him hundreds of miles after his parents paid them to correct his sleeping habits. A 25-year-old woman living alone said three people entered her home, seized her phone, and took her from Jiangxi to a disciplinary school in Hubei.",
+                    "In another case, an institution advised a mother to lure her 26-year-old son to Chongqing by promising him a vacation. He spent 82 days inside the facility.",
+                    "Several former detainees later reported the institutions for unlawful detention or restriction of personal liberty. Their complaints did not result in criminal cases.",
+                    "For many readers outside China, “internet addiction” camps feel like a remnant of the early 2000s. These institutions became notorious for military drills, physical punishment, forced confinement, and electroshock treatment during this time. In 2009, China’s Ministry of Health ordered medical institutions to stop using electrical stimulation to treat internet addiction, citing insufficient evidence of its safety and effectiveness."
                 ]
             },
             {
-"title":"From Mexico to Venezuela: A diaspora’s race to save lives",
-"topic":"Disaster",
-"source":"Global Voices",
-"author":"Gabriela Mesones Rojo",
-"sourceUrl":"https://globalvoices.org/2026/07/23/from-mexico-to-venezuela-a-diasporas-race-to-save-lives/",
-"license":"CC BY 3.0",
-"date":"2026-07-23",
-"paragraphs": [
-"Thousands of miles away, Venezuelans built a lifeline for survivors",
-"When devastating earthquakes struck Venezuela, the response extended far beyond the country’s borders. Across Latin America and beyond, Venezuelans living abroad mobilized within hours, raising funds, organizing volunteers, and building trusted networks to deliver aid directly to survivors.",
-"In Mexico, where decades of earthquake preparedness have fostered a powerful culture of civic solidarity, Venezuelan migrant, producer and anti-racist investigator Mariana Álvarez Castillo helped spearhead a grassroots relief effort alongside the communities of La Pitahaya Vegana, Masala CCS and Levantemos la Casa. Through a rapidly assembled network of volunteers, donors, and trusted local partners, they delivered urgently needed aid directly to those affected.",
-"In this interview, Álvarez reflects on the huge efforts of the team, how the Venezuelan diaspora transformed grief into collective action, the challenges of coordinating humanitarian relief across borders, and what this remarkable mobilization reveals about the resilience, solidarity, and evolving identity of Venezuelans around the world.",
-"Gabriela Mesones Rojo (GMR): What motivated you to organize so quickly after the earthquakes?",
-"Mariana Álvarez Castillo (MÁC): Beyond the obvious shock and grief of knowing that so much irreversible damage had occurred in a matter of seconds, I think living in a seismic country like Mexico has taught us how critical the first hours after a disaster like this are. In the face of an event of this magnitude, the response has to be immediate.",
-"Here, the collective memory of the 1985 and 2017 earthquakes is still very much alive. These events are part of Mexico’s recent history, and they led to the development of protocols, early warning systems, drills, and emergency guidelines. Because of that, we quickly understood that the scale of the catastrophe in Venezuela would be devastating.",
-"We also know that our country, Venezuela, is not prepared to cope with earthquakes like these.",
-"Just a couple of hours after the quake, reports from La Guaira began to emerge, and by the following morning we were already making decisions about how to organize. That same day, we launched our initiative, and within seven hours we had delivered supplies, meals, and clean drinking water to four public hospitals thanks to the overwhelming response from donors. During that same week, we also established a collection center at La Pitahaya Vegana, made possible by an incredible network of volunteers.",
-"GMR: What does this mobilization say about the Venezuela that exists beyond its borders?",
-"MÁC: Venezuelan migrants are learning how to build community outside our country. Unlike countries such as Mexico, Puerto Rico, or China, whose migration histories span generations and have produced well-established communities abroad—like Mexicans in Chicago or California, or Puerto Ricans in New York—we don’t have a long-standing migrant tradition to draw upon. We’re creating that collective memory now.",
-"Migration on this scale is a recent phenomenon in Venezuela’s history, so it isn’t always easy to organize or know how best to respond. But in this case, different small groups quickly reached the same conclusion: we had to send money for whatever was most urgently needed — water, tools, medical supplies, medicines, and more recently, orthopedic fixation materials for survivors with severe injuries caused by collapsed buildings."
+                title: "Indigenous stories are global stories",
+                topic: "Ethnicity & Race",
+                source: "Global Voices",
+                author: "genner",
+                sourceUrl: "https://globalvoices.org/2026/08/05/indigenous-stories-are-global-stories/",
+                license: "CC BY 3.0",
+                date: "2026-08-05",
+                paragraphs: [
+                    "Wherever you live on this planet, there is a strong possibility that your city, town or village is built on Indigenous lands. The Canadian non-profit Native Land Digital created an interactive atlas that shows where Indigenous societies have existed for centuries in the Americas and Oceania, as well as in northern and western Africa, northern Europe, Siberia, and East Asia. This mapping exercise of historical and contemporary Indigenous territories is still, however, incomplete. It is not just that it does not show all Indigenous presence in Sub-Saharan Africa and Asia. The exercise would still be incomplete without integrating the fundamentally global importance of Indigenous histories and perspectives, which this GV thematic programming seeks to do this month.",
+                    "I am a Maya researcher from the Yucatan Peninsula in Mexico (which means that I am an Indigenous person), and I currently live, work, and learn in W8banakiak wdakiw8k, the traditional unceded territory of the Abenaki people, in what is today southern Quebec, Canada. This land acknowledgement aims to be more than a conventional gesture and, rather, to be a show of respect and gratitude to the people who have welcomed and shared their cultural and historical knowledge with me as an Indigenous guest in their home.",
+                    "We, Indigenous peoples, are persons and societies that descend from those who lived in a particular territory before its colonization and settlement by other peoples, or before the creation of modern nation states which incorporated said territory. Although the term “Indigenous” etymologically means “born from the place,” it has been exclusively applied in history to societies framed by Western powers and national governments as “natural,” “rustic,” “savage,” “primitive,” or “uncivilized.” This makes ours a particular type of stateless society within modern nation-states — type of racialized society often considered too “different,” “rudimentary,” and “unmanageable” to be accepted as a self-determined nation within current state structures.",
+                    "We have often been identified or called Indios or “Indians,” “Aboriginals,” “Natives,” “Bushmen,” “Berbers,” or “Tribals.” However, we have more recently demanded to be called by the names we choose, usually reclaiming our own historical names, for example, Original Peoples, First Nations, Adivasi, Maya, Inuit, Sami, Ainu, Māori, Khoisan, Amazigh, among others.",
+                    "Our Indigenous languages, identities, forms of knowledge and ways of life have been maintained and transformed for hundreds of years despite territorial dispossession, forced assimilation, political and economic exclusion and, in quite a few cases, cultural genocide. Even after the fall of empires and political decolonization, we, Indigenous peoples, continue to struggle for recognition and to protect and advance our fundamental rights in the world. These rights hinge on territorial access and political self-governance, and on maintaining our livelihoods and our relationship with the land, both within and across national borders.",
+                    "Contrary to conventional thought, rather than presenting Indigenous stories as past or marginal stories, I want to highlight their importance as global stories. Their significance stems from the fact that while Indigenous peoples represent approximately 6.2 percent of the global population, the territories we continue to occupy, maintain and steward amount to 25 percent of the planet’s landmass, and house a significant portion of earth's biodiversity. The importance of this biodiversity for the future survival of our species cannot be underestimated. A key fact in this story is that while the “primitivism” or “lack of technology” attributed to Indigenous peoples has often been argued as an explanation for this conservation of natural diversity, recent studies demonstrate that it is, in fact, the multifaceted and intricate Indigenous landscape management which has originated, cared for, and expanded such diversity. It has thus become crucial to heed the knowledge, cultural practices and experiences of these diverse peoples in whose hands this crucial resource has not only been preserved but keeps thriving. This commitment to the protection of the land and all the life that inhabits it (which we consider our other-than-human relatives: animals, plants, mountains, waters) frequently puts lives in danger, with reports showing that environmental activists kidnapped and murdered are disproportionately Indigenous earth defenders.",
+                    "Today we are around 476 million people in the world who identify or are identified as belonging to an Indigenous people, nation and/or community. Our societies have in many cases inhabited and thrived in the same lands for hundreds, if not thousands, of years. We have often found ourselves living outside of (and resisting the pressure to be fully assimilated by) mainstream national cultures, yet we have also contributed to global cultural and scientific advancement. Indigenous peoples have added maize, tea, potato, peanut, maple syrup, chilli, quinoa, avocado, cacao, stevia, aspirin, quinine, and other products, to the diets and the pharmacies of the world, as well as to the development of canoeing, kayaking, lacrosse, hockey, the Enlightenment, constitutional federalism, legal pluralism, multi-crop agriculture, land management, botany, among other fields of human endeavour.",
+                    "Indigenous worlds are as diverse as our languages, which represent the majority of the 7,000 still spoken in the world. They are, however, threatened by racial and political discrimination, and by economic marginalization. Through Rising Voices, a Global Voices program, we support communities of Indigenous activists in their efforts to reclaim, maintain and increase visibility for their languages."
                 ]
             },
             {
-"title":"How an AI research tool helped challenge support for police violence in Brazil",
-"topic":"Brazil",
-"source":"Global Voices",
-"author":"Guest Contributor",
-"sourceUrl":"https://globalvoices.org/2026/07/22/how-an-ai-research-tool-helped-challenge-support-for-police-violence-in-brazil/",
-"license":"CC BY 3.0",
-"date":"2026-07-22",
-"paragraphs": [
-"Two organizations used a chatbox interviewer to measure the public pulse on police raids and crime",
-"In 2025, as Instituto Fogo Cruzado, Brazil’s leading civil society monitor of armed violence, and UK-based research organisation Future Narratives Lab were finalising a study on messaging around police violence in favelas, we were shaken by a grim turn of events. In a single favela raid in Rio de Janeiro on October 28, 122 people were killed by Brazilian police, the deadliest policing operation in the country’s history. Polls conducted in the days after the raid showed continued broad public support for such action, despite longstanding evidence that the raids have no impact on reducing crime rates.",
-"In 2023, Brazil recorded 45,747 intentional violent deaths — among the highest rates in the world. Like many democracies, the country has long grappled with the issue of large-scale public support for state violence, which has contributed to a broader societal sense of fear, fatalism, and desensitisation. Changing this requires understanding what works to challenge certain misconceptions. The broad support for the October 28 raids, despite the casualties, highlighted the critical need for grassroots organisations to discover messaging that resonates with the public, especially in a polarised political environment like Brazil.",
-"Civil society organisations working on contentious issues face a problem: many audiences are supportive of policies and actions that run counter to their own interests, yet are difficult and expensive to reach for research, especially in politically uncertain or highly polarised contexts. Such organisations, particularly in the Global South, often lack the funding and resources to carry out the types of in-depth research that Global North-based civil society organisations use. Focus groups and qualitative interviews are the standard route to understanding why people hold the views they do, but they are slow and costly, often putting them out of reach for the smaller organisations doing the most urgent work.",
-"What if an artificial intelligence (AI) tool could lower these barriers and allow small, grassroots organisations to understand how their target audiences think? The large-scale adoption of AI tools for everyday use has created greater opportunities to learn research skills and process information. But, as with any technological innovation, there are ethical considerations around the use of such technology, including the implications of using tools created by Big Tech corporations and the environmental consequences of data centres.",
-"Clearly, it is not a technology that can be used lightly. As we developed the tool, we had many discussions about how to use AI in a way that was consistent with our overall beliefs and aims. Ultimately, we decided to maintain an approach we saw as capable of contributing to advancing a human rights movement, while taking specific steps to protect user privacy, prioritise open-source software-based solutions, and plan future actions to address further concerns.",
-"Before this project, Future Narratives Lab had developed an AI Interviewer tool specifically for civil society organisations looking to understand their audiences. After a successful trial of the tool in a project testing messages on the criminal justice system in the UK, Instituto Fogo Cruzado approached Future Narratives Lab for support using it in a new project on state-sponsored violence in Brazil, funded by the International Resource for Impact and Storytelling (IRIS), as part of their “New Tech, New Rules” programme.",
-"The main use of the tool in this project was for primary research, laying the foundations for the development of new message and counter-narrative approaches. Twenty-eight in-depth qualitative interviews were conducted via the chatbot-based AI interviewer, with each participant able to engage in the conversation using their own devices via a supplied URL and participant code.",
-"Participants were selected and recruited based on a demographic profile identified in prior desk research as being more likely to support an increase in police violence as a means to reduce crime: those who identified as Christian (Evangelical or Roman Catholic), had not completed higher education, and had a household income of less than 500 BRL (approximately USD 98).",
-"The AI interviewer carried out a customised, structured but adaptive conversation with each participant for up to 30 minutes, asking follow-up questions and probing for inconsistencies and reasoning. Each interview was based on an overall brief setting out what the research aimed to achieve and what happened, concurrently, but unique to each participant.",
-"The process of message development that followed uncovered a range of new insights and potential opportunities for persuasion."
+                title: "The anatomy of erasure: Indigenous Assyrian women and forgotten genocide",
+                topic: "Ethnicity & Race",
+                source: "Global Voices",
+                author: "Guest Contributor",
+                sourceUrl: "https://globalvoices.org/2026/08/05/the-anatomy-of-erasure-indigenous-assyrian-women-and-forgotten-genocide/",
+                license: "CC BY 3.0",
+                date: "2026-08-05",
+                paragraphs: [
+                    "I was 11 years old the first time I was told Assyrians don’t exist by a friend. I got home, slumped on a stool and snapped open a packet of prawn cocktail crisps.",
+                    "Assyrians are an Indigenous ethnic group from West Asia, tracing our ancestry to an ancient people. Parts of Syria, Turkey, Iran and Iraq make up our homeland. We speak the Neo-Aramaic Assyrian language. While predominantly Christian, we maintain ancient cultural traditions such as Akitu and Musarda.",
+                    "Intuition on full alert, it didn’t take my mother long to wheedle out what was troubling me that day. With dill splayed across a chopping board, she told me about the Simele massacre for the first time.",
+                    "The massacre took place in 1933. The Iraqi army, with the assistance of Kurdish tribes, executed an attack on the town of Simele and surrounding districts inhabited by Assyrians. It was a systematic campaign of ethnic cleansing, with extensive propaganda unleashed beforehand by the state to sour public opinion, describing us as “foreign” and “colonial agents.”",
+                    "In the massacre’s prelude, Assyrian men were forcibly disarmed while Arab families received evacuation notices. The British administration in Iraq, aware of the impending violence, remained inactive. Thousands of Assyrians were killed in the violence that followed, and afterwards public celebrations were held; according to some accounts, some even commemorated with watermelons carved to resemble skulls. The army commander who led the operations, Bakr Sidqi, became a national hero. The Iraqi state has never officially acknowledged the massacre.",
+                    "On August 7, we commemorate Assyrian Martyrs’ Day, founded for those who lost their lives at Simele but which now encompasses remembrance for all Assyrians who have been persecuted.",
+                    "Hearing about Simele was a gut punch. As I immersed myself in our contemporary history, its cyclical nature was apparent: genocides, displacement and the eternal lack of accountability. One aspect proved especially resonant: the plight of Assyrian women and girls.",
+                    "I saw the same pattern: girls taken from their homes, women disappearing without a trace, families left searching for answers that never came. Within our families, they live on anecdotally: a sister escaping, an aunt resisting. But how many were they? What were their names? What became of them afterwards?"
                 ]
             },
             {
-"title":"Sold as brides, lost at sea: The trafficking of stateless Rohingya girls",
-"topic":"Bangladesh",
-"source":"Global Voices",
-"author":"Zulker Naeen",
-"sourceUrl":"https://globalvoices.org/2026/07/21/sold-as-brides-lost-at-sea-the-trafficking-of-stateless-rohingya-girls/",
-"license":"CC BY 3.0",
-"date":"2026-07-21",
-"paragraphs": [
-"“They disappear from the camp one by one, usually at night.”",
-"Mahmudah, a 16-year-old Rohingya girl from Kutupalong camp in Bangladesh, hugged her parents goodbye in a refugee camp in Cox’s Bazar and climbed into a trafficker’s vehicle packed with other children. Her family was destitute and terrified of Myanmar’s military and had accepted payment of roughly 18,000 Malaysian Ringgit (USD 4,395) from a Rohingya laborer already living in Malaysia in exchange for marrying their daughter once she arrived.",
-"They called it a “bridal journey.” She left in the dark before dawn, her wedding photos still tucked into a plastic folder her mother kissed before handing it to the broker. The man promised that a boat across the Bay of Bengal would take her to Malaysia, where her husband — already working irregular jobs near Kuala Lumpur — was waiting in a rented room with a borrowed gold ring and plans for a new life.",
-"Somewhere between the Bay of Bengal and the Andaman Sea, crammed on an overloaded fishing vessel, she disappeared when the boat capsized.",
-"No official record bears her name; her family only has the memory of a farewell and the rumor that, like hundreds of others, she was swallowed by the water on a “marriage voyage” that became a trafficking route.",
-"Another girl, Fatema, born in the camps after her parents fled the 2017 violence in Rakhine, had a different hope. At 15, she was already married to a cousin who beat her for talking to neighbors and for refusing to hand over the ration card. With school cut, no work allowed, and community gossip turning against girls who “stayed unmarried too long,” she saw no way out.",
-"A local fixer told her that Thailand and Indonesia could offer “work and safety”, that she could escape her husband and send money home.",
-"Instead, she was moved from one coastal safe house to another, her documents taken, her phone confiscated, and, once ashore, she was sold into a sex network in southern Thailand.",
-"Her story, like many others, ends not with protection but with a new layer of abuse in a foreign country.",
-"These are not isolated tragedies. They are emblematic of a pattern in which stateless Rohingya girls in Bangladesh’s refugee camps are pushed from early marriage and gender-based violence into maritime journeys that are framed as family reunification or escape—but in reality, amount to human trafficking.",
-"In the camps of Cox’s Bazar, Rohingya girls stand at the intersection of every kind of vulnerability. More than 1.2 million stateless refugees remain fenced into some thirty-three overcrowded settlements, most of them women and children, almost none allowed to take formal work or move freely beyond the perimeter. Daily life is structured by checkpoints and ration cards rather than by school timetables or pay slips."
+                title: "Courts and unions fail to protect workers in Kazakhstan",
+                topic: "Central Asia & Caucasus",
+                source: "Global Voices",
+                author: "Vlast.kz",
+                sourceUrl: "https://globalvoices.org/2026/08/04/courts-and-unions-fail-to-protect-workers-in-kazakhstan/",
+                license: "CC BY 3.0",
+                date: "2026-08-04",
+                paragraphs: [
+                    "In the first half of June 2026, a wave of labor protests erupted across Kazakhstan, from a Kazakhmys mine in the country’s center to a phosphorus plant in the south, a stark reminder that labor rights issues are never far from the surface.",
+                    "The strikes were spontaneous, continuing a trend of labor rights actions that officials have termed “illegal,” and which experts say would have been virtually impossible to organize through legal channels.",
+                    "The government of President Kassym-Jomart Tokayev has introduced several amendments to the Labor Code over the past few years, ostensibly aiming to protect workers’ rights and improve collective bargaining power.",
+                    "But independent trade union activists, researchers, and human rights defenders argue that these changes have been merely cosmetic and labor legislation remains repressive, largely favoring employers’ interests.",
+                    "Experts surveyed by Vlast also think that the core issue in Kazakhstan remains the absence of an independent judiciary capable of guaranteeing a fair hearing for any labor dispute that may arise.",
+                    "On paper, trade unions serve as the primary institution by which workers’ rights are protected. For more than three decades in Kazakhstan, however, they have been under constant pressure.",
+                    "“The situation with pressure is very complicated,” said Kospan Kosshygulov, who heads the Fuel and Energy Sector Union, one of the last independent trade unions in Kazakhstan. “In [the western city of] Mangistau, some workers managed to set up a local branch at an oil company. They decided to join our union officially, and all five were immediately fired. Management simply claimed it was because they were doing a poor job.”",
+                    "According to Kosshygulov, the independent trade union had tried to address the issue of severe understaffing, where a single worker had been forced to do the job of three specialists. He said:"
                 ]
             }
         ];
