@@ -49,6 +49,23 @@
        只差 ΔE 25、深色那組更是跟 --t5 只差 8——兩條波形疊起來會變成同一條，
        而這不會報錯，只會在量測時讀錯是哪一條。 */
     --t1:#b0522f; --t2:#3d6b9e; --t3:#b8862b; --t4:#7a4f8a; --t5:#2f7d8c; --t6:#a8425f;
+
+    /* ---- 動效：與主站同一組值 ----
+       ★ 2026-08-12 補上。這一區以前**只有顏色跟主站共用**，動效全是硬寫的
+       `.09s ease`／`.15s ease`／`.18s ease`——三個不同的時間、一條沒有決定過的
+       曲線（`ease` 是瀏覽器預設，不是選出來的）。症狀就是 CLAUDE.md 第二條坑
+       的動效版：畫面上該有的東西都有，只是**點下去的手感屬於另一個產品**。
+       從主站切過來的人不會說得出哪裡怪，但兩邊確實不是同一隻手做的。
+       ★ 值改的話兩邊要一起改，跟顏色一樣。理由也一樣：使用者是同一個人，
+       在同一個下午、用同一組帳號，在這兩個產品之間來回切。
+       ★ 心跳 90ms，四階都是它的倍數。完整規格在 `動效.md`。 */
+    --ease:      cubic-bezier(0.22, 1, 0.36, 1);   /* 減速：進場與落定，九成的動作 */
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* 過衝：只給 transform／opacity */
+    --ease-exit: cubic-bezier(0.4, 0, 1, 1);       /* 加速：退場 */
+    --dur-fast:  .09s;    /* 1× 按下的回饋 */
+    --dur-base:  .18s;    /* 2× 一般的顏色／位移過場 */
+    --dur-pop:   .27s;    /* 3× 會過衝的東西 */
+    --dur-page:  .36s;    /* 4× 最大的過場 */
 }
 html.dark{
     --paper:#070b18; --paper-raised:#131b33;
@@ -101,7 +118,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .htitle{font-weight:900;font-size:16px;line-height:1.15;white-space:nowrap}
 .htitle small{display:block;font-weight:600;font-size:11.5px;color:var(--ink-3);letter-spacing:.16em}
 #logoChev{font-size:12.5px;line-height:1;opacity:.6;color:var(--ink-3);
-          transition:transform .18s ease}
+          transition:transform var(--dur-base) var(--ease)}
 #logoBtn[aria-expanded="true"] #logoChev{transform:rotate(180deg);opacity:1}
 #logoMenu{position:absolute;left:0;top:100%;margin-top:8px;z-index:80;
           min-width:232px;border-radius:14px;overflow:hidden;background:var(--paper-raised);
@@ -256,7 +273,7 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .ans-node.pinned{background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
 .ans-node.pinned td:first-child{color:var(--accent);font-weight:800}
 .ans-caret{display:inline-block;margin-left:6px;font-size:11.5px;color:var(--ink-3);
-           transition:transform .15s ease}
+           transition:transform var(--dur-base) var(--ease)}
 .ans-row.open .ans-caret{transform:rotate(90deg);color:var(--accent)}
 .ans-why-row[hidden]{display:none}
 .ans-split td{border-top:2px solid var(--ink-3)}
@@ -368,7 +385,13 @@ button,select,input{font:inherit;color:var(--ink)}
    沒有回饋的話很容易被連按兩次。只縮 3%、90ms。 */
 button:not(:disabled):active,.btn:not(:disabled):active,.pi:not(:disabled):active{
     transform:scale(.97)}
-button,.btn,.pi{transition:transform .09s ease, background-color .12s, color .12s, border-color .12s}
+/* ★ 原本是四個時間（.09／.12／.12／.12）配一條沒選過的 `ease`。
+   顏色跟位移用不同的時間沒有理由，只是分兩次寫的痕跡——而且 .12s
+   不在刻度上。全部收成 --dur-fast，按下去四件事同時到位。 */
+button,.btn,.pi{transition:transform var(--dur-fast) var(--ease),
+                           background-color var(--dur-fast) var(--ease),
+                           color var(--dur-fast) var(--ease),
+                           border-color var(--dur-fast) var(--ease)}
 @media (prefers-reduced-motion: reduce){
     button:active,.btn:active,.pi:active{transform:none}
 }
@@ -409,7 +432,13 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
     font:14.5px/1.5 ui-monospace,Menlo,monospace}
 .skel{height:7px;border-radius:99px;background:var(--rule);overflow:hidden;position:relative}
 .skel i{position:absolute;inset:0;width:34%;background:var(--accent);border-radius:99px;
-        animation:sweep 1.1s ease-in-out infinite}
+        /* ★ 2026-08-12 從 ease-in-out 改成 linear。無限迴圈的東西不能用
+           會減速的曲線：跑到 100% 慢下來、下一格瞬間跳回 -34% 再加速，
+           那個「停一下又彈出去」把接縫**指出來**給人看。等待中的骨架是
+           背景紋理，它的工作是讓人知道還在跑，不是讓人盯著它看。
+           等速掃過去接縫還在，但沒有東西去強調它。
+           1.1s → 1.08s 只是收進 90ms 的刻度，看不出差別。 */
+        animation:sweep 1.08s linear infinite}
 @keyframes sweep{0%{left:-34%}100%{left:100%}}
 @media(prefers-reduced-motion:reduce){ .skel i{animation:none;left:0;width:100%;opacity:.5} }
 /* 自動量測表：手機上橫向捲動，不要把整頁撐寬 */

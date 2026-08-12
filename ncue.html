@@ -43,8 +43,12 @@
            每次只閃一下，而且 0.3 秒就結束，所以會被當成「動畫怪怪的」。
            兩個 keyframe 都要保留 -50%，位移只用 Y。
            ★ 換成彈性曲線：提示是「跳出來」的東西，用它才有分量。
-           時間拉到 0.34s——過衝需要一點時間走完，太短會看起來像抖一下。 */
-        .toast-animate { animation: slideUp .34s var(--ease-spring); }
+           時間拉到 0.34s——過衝需要一點時間走完，太短會看起來像抖一下。
+           ★ 2026-08-12 收進刻度：.34s 不是 90ms 的倍數，改用 4× 的
+           --dur-page（.36s）而不是 3× 的 --dur-pop（.27s）。
+           往**長**的那邊靠是刻意的——這三個會過衝的東西裡，提示的位移
+           最大（14px），縮短才有變回「抖一下」的風險，拉長沒有。 */
+        .toast-animate { animation: slideUp var(--dur-page) var(--ease-spring); }
         @keyframes slideUp {
             from { transform: translate(-50%, 14px); opacity: 0; }
             to   { transform: translate(-50%, 0);    opacity: 1; }
@@ -183,25 +187,29 @@
         html.dark .lw:hover { background-color: rgba(232, 196, 106, 0.22); }
 
         /* 課程卡 / 評價卡進場：淡入 ＋ 極短的上浮，並且**錯開**。
-           ★ 一整片同時出現，眼睛會看成「畫面刷新了」；錯開 30ms 之後
+           ★ 一整片同時出現，眼睛會看成「畫面刷新了」；錯開之後
            會看成「東西一個一個放上來」——同樣的時間，後者感覺快。
-           ★ 上限是第 8 個（240ms）。不設上限的話，一頁三十張卡的最後一張
+           ★ 總長有上限。不設上限的話，一頁三十張卡的最後一張
            要等快一秒，那不是精緻是慢；而且它**只在資料多的時候發生**，
            開發時通常看不到。
-           ★ 位移只有 6px。再多就會變成「飛進來」，一整列同時飛很暈。 */
+           ★ 位移只有 6px。再多就會變成「飛進來」，一整列同時飛很暈。
+
+           ★★ 2026-08-12 從「30ms × 8 階」改成「60ms × 5 階」。
+           總長仍然是 240ms，一格都沒多——改的是把同樣的預算分給比較少、
+           但**看得見**的階。卡片本身跑 180ms，前一張才走了 30ms 下一張
+           就上來的話兩張重疊 83%，眼睛看到的仍然是「一整片一起亮」，
+           那個錯開等於白做。60ms 重疊 67%，才真的讀得出先後。
+           ★ 這是「階要夠大才存在」，不是「愈慢愈精緻」——所以總長不動。 */
         @keyframes cardEnter {
             from { opacity: 0; transform: translateY(6px); }
             to   { opacity: 1; transform: translateY(0); }
         }
         .list-enter { animation: cardEnter var(--dur-base) var(--ease) both; }
         .list-enter:nth-child(1) { animation-delay: 0ms; }
-        .list-enter:nth-child(2) { animation-delay: 30ms; }
-        .list-enter:nth-child(3) { animation-delay: 60ms; }
-        .list-enter:nth-child(4) { animation-delay: 90ms; }
-        .list-enter:nth-child(5) { animation-delay: 120ms; }
-        .list-enter:nth-child(6) { animation-delay: 150ms; }
-        .list-enter:nth-child(7) { animation-delay: 180ms; }
-        .list-enter:nth-child(n+8) { animation-delay: 210ms; }
+        .list-enter:nth-child(2) { animation-delay: 60ms; }
+        .list-enter:nth-child(3) { animation-delay: 120ms; }
+        .list-enter:nth-child(4) { animation-delay: 180ms; }
+        .list-enter:nth-child(n+5) { animation-delay: 240ms; }
         /* ★ 這一條是必要的，不是禮貌。前面的 both 會讓元素在 delay 期間
            停在 from（opacity 0）——關掉動畫但沒關掉 delay 的話，
            清單會有一段時間是**空白的**。所以連 delay 一起歸零。 */
@@ -352,7 +360,15 @@
                變成一個可以調的旋鈕。散在各處寫死的話，想把全站調快一點
                就得一個一個找，而漏掉的那幾個會變成「有些地方比較慢」——
                沒有人說得出哪裡怪，但就是不整齊。
-               三個時間刻度：按下（很快）、一般過場、換頁（最慢的那個）。 */
+               四個時間刻度：按下（很快）、一般過場、彈出、換頁（最慢的那個）。
+
+               ★ 2026-08-12 刻度改成「全部是 90ms 的倍數」。
+               原本是 .09／.18／.32——前兩階是乾淨的兩倍，第三階不是
+               （.32 ÷ .18 = 1.78）。這不會有人看得出來，但它讓
+               「把全站調快一成」變成三個要各自重算的數字，而不是一個。
+               現在 1×／2×／3×／4×，要整體調速只要改一次心跳。
+               ★ 落在刻度外的硬寫值同一輪一起收：開站畫面的 .45s、
+               提示的 .34s、命令面板的 .2s、打勾的 .24s。 */
             --ease:      cubic-bezier(0.22, 1, 0.36, 1);   /* 快出慢收，收尾不會硬停 */
             /* ★ 第四條曲線：會**過衝再回來**的那種，給「東西出現」用。
                --ease 是單調的（只會逼近終點），適合顏色與淡入；
@@ -361,9 +377,18 @@
                過衝的那一段會讓顏色**衝過目標再退回**——中間那幾幀是
                設計裡不存在的顏色，深色模式下特別明顯。 */
             --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
-            --dur-fast:  .09s;    /* 按下的回饋 */
-            --dur-base:  .18s;    /* 一般的顏色／位移過場 */
-            --dur-page:  .32s;    /* 換分頁 */
+            /* ★ 第三條：**加速離開**。前面兩條都是「進來」用的減速曲線
+               （--ease 單調逼近、--ease-spring 過衝回彈），退場卻也一直
+               借用它們——結果東西是「慢慢飄走」而不是「走掉」。
+               退場該愈走愈快：使用者已經決定不要它了，讓它拖著只是擋路。
+               ★ 判準是方向不是元件：同一個面板，進場用 --ease，退場用這條。
+               純粹的狀態變化（hover 變色、focus 外框）兩邊對稱，仍用 --ease。 */
+            --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+            /* 心跳 90ms，四階都是它的倍數 */
+            --dur-fast:  .09s;    /* 1× 按下的回饋 */
+            --dur-base:  .18s;    /* 2× 一般的顏色／位移過場 */
+            --dur-pop:   .27s;    /* 3× 會過衝的東西：過衝要時間走完，太短會像抖一下 */
+            --dur-page:  .36s;    /* 4× 換分頁、開站畫面淡出 */
         }
         html.dark {
             --paper:        #070b18;
@@ -964,7 +989,7 @@
         @media (hover: hover) and (pointer: fine) {
             .kbd-hint { display: inline-block; border: 1px solid currentColor; opacity: .55; }
         }
-        #cmdk .cmdk-panel { animation: cmdkIn .2s var(--ease-spring); }
+        #cmdk .cmdk-panel { animation: cmdkIn var(--dur-pop) var(--ease-spring); }
         @keyframes cmdkIn {
             from { opacity: 0; transform: translateY(-8px) scale(.98); }
             to   { opacity: 1; transform: translateY(0) scale(1); }
@@ -1422,7 +1447,7 @@
            寫死顏色會在某一個模式下消失。 */
         #logoChev {
             font-size: 12px; line-height: 1; opacity: .6;
-            transition: transform .18s ease;
+            transition: transform var(--dur-base) var(--ease);
             color: rgba(255, 255, 255, .8);
         }
         html:not(.dark) #logoChev { color: var(--ink-3); }
@@ -1551,7 +1576,12 @@
             /* ★ background-color 不是 background：簡寫會清掉筆觸層的織理，
                而開站畫面是整站第一眼——沒紋理的那半秒特別明顯。 */
             background-color: var(--paper);
-            transition: opacity .45s ease, visibility .45s ease;
+            /* ★ 2026-08-12 從 .45s ease 換成刻度上的 4× ＋ 退場曲線。
+               開站畫面淡出是全站最典型的「退場」：使用者要看的是後面那一頁，
+               而減速曲線會把最後那層灰留在畫面上最久——愈接近全透明走得愈慢，
+               看起來就是「開得有點久」。加速曲線讓它一開始就讓路。 */
+            transition: opacity var(--dur-page) var(--ease-exit),
+                        visibility var(--dur-page) var(--ease-exit);
         }
         html.dark #splash { background-color: #070b18; }
         #splash.done { opacity: 0; visibility: hidden; pointer-events: none; }
@@ -1688,7 +1718,7 @@
            ========================================================== */
         /* 打勾用彈性曲線：這是全站最值得慶祝的一個動作，
            而過衝正是「完成」的手感。其他地方仍用單調的 --ease。 */
-        .plan-check-pop { animation: checkPop .24s var(--ease-spring); }
+        .plan-check-pop { animation: checkPop var(--dur-pop) var(--ease-spring); }
         .plan-check-pop svg { animation: checkDraw var(--dur-base) var(--ease) both; }
         @keyframes checkPop {
             0%   { transform: scale(1) }
@@ -1801,6 +1831,14 @@
             background-color: var(--paper-raised) !important;
             border-bottom: 1px solid transparent !important;
             box-shadow: none !important;
+            /* ★ 2026-08-12 從 class 上的 `duration-300 ease-in-out` 搬下來。
+               那是整站最後一個沒走 token 的過場，而且藏在 Tailwind 的
+               工具類別裡——用 grep 找 `transition:` 找不到它。
+               300ms 不在刻度上，`ease-in-out` 也不是我們那三條之一。
+               ★ 收起來與掉下來是同一條 transition，沒辦法兩個方向給不同曲線，
+               所以走 --ease（減速）：頭要回來的那一次比較重要，
+               而回來的東西該是落定的，不是加速衝進來的。 */
+            transition: transform var(--dur-page) var(--ease);
         }
         #mainHeader::after {
             content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
@@ -2001,7 +2039,11 @@
         }, 8000);
     </script>
 
-    <header id="mainHeader" class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30 transition-transform duration-300 ease-in-out transform translate-y-0">
+    <!-- ★ 過場不寫在 class 上：`duration-300 ease-in-out` 走的是 Tailwind 自己的
+         時間與曲線，兩者都不在我們的動效 token 裡（見 `動效.md`）。
+         搬到 #mainHeader 的 CSS 規則去了。`transform translate-y-0` 留著——
+         那是初始狀態，不是動效。 -->
+    <header id="mainHeader" class="bg-slate-900 shadow-lg sticky top-0 z-40 border-b border-emerald-500/30 transform translate-y-0">
         <div class="max-w-6xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-4">
 
             <!-- ★ 手機上這一格不能是 w-full。獨佔一整列的話帳號就被擠到第二列，
@@ -4162,6 +4204,22 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-12',
+                title: '動效收成一套：心跳 90ms、三條曲線、模擬器終於跟上',
+                items: [
+                    ['★ 模擬器以前只跟主站共用顏色，動效是各做各的', '`blackcatspice.html` 的過場全是硬寫的：`.09s ease`、`.15s ease`、`.18s ease`——三個不同的時間，配一條沒有選過的曲線。`ease` 是瀏覽器預設，它不是一個決定，是沒有做決定留下的痕跡。症狀是那條踩過兩次的坑的動效版：畫面上該有的東西都有，只是**點下去的手感屬於另一個產品**。從主站切過去的人說不出哪裡怪，但兩邊確實不是同一隻手做的。現在兩個檔案是同一組 token，跟顏色一樣要一起改。'],
+                    ['時間刻度全部收成 90ms 的倍數', '原本是 .09／.18／.32。前兩階是乾淨的兩倍，第三階不是（.32 ÷ .18 = 1.78）。沒有人看得出那 0.02 秒——這正是它值得改的理由：它不會被抓到，只會讓「把全站調快一成」從改一個心跳變成三次各自的手工計算。現在 1×／2×／3×／4×。'],
+                    ['★ 多了第三條曲線：加速離開', '原本兩條曲線**都是進場用的**（一條單調減速、一條過衝回彈），退場一直在借用它們。借來的結果是東西「慢慢飄走」而不是「走掉」——減速曲線愈接近終點走得愈慢，於是最後那層灰在畫面上留最久。使用者已經決定不要它了，讓它拖著只是擋路。開站畫面的淡出是第一個接上去的。'],
+                    ['判準是方向，不是元件', '同一個面板，進場用減速、退場用加速。但 hover 變色、focus 外框那種**對稱的狀態變化**兩邊都用減速——那不是進場也不是退場，是同一個東西的兩個狀態。'],
+                    ['★ 卡片錯開從「30ms × 8 階」改成「60ms × 5 階」', '總長仍然是 240ms，一格都沒多。改的是把同樣的預算分給比較少、但**看得見**的階。卡片本身跑 180ms，前一張才走了 30ms 下一張就上來的話兩張重疊 83%，眼睛看到的還是「一整片一起亮」，那個錯開等於白做。60ms 重疊 67%，才真的讀得出先後。這是「階要夠大才存在」，不是「愈慢愈精緻」，所以總長不動。'],
+                    ['骨架掃光從 ease-in-out 改成等速', '無限迴圈的東西不能用會減速的曲線：跑到終點慢下來、下一格瞬間跳回起點再加速，那個「停一下又彈出去」把接縫**指出來**給人看。等待中的骨架是背景紋理，它的工作是讓人知道還在跑，不是讓人盯著它看。'],
+                    ['落在刻度外的硬寫值一起收回來', '開站畫面的 .45s、提示的 .34s、命令面板的 .2s、打勾的 .24s、logo 箭頭的 .18s。提示那個是往**長**的那邊靠（.36s 而不是 .27s）——這三個會過衝的東西裡它的位移最大，縮短才有變回「抖一下」的風險。'],
+                    ['★ 貓、繞圈、轉圈、掃光這四個不受刻度管', '它們的時間來自現實世界：貓是原片 24fps 換算的 41.7ms 一格，繞圈是腳的半徑 130px、圓周 817px 算出來的 4.26 秒。照抄互動刻度反而是錯的。規矩改成「週期性動畫走自己的物理量，但一律用等速」。'],
+                    ['新增 `動效.md`', '把調性、四階時距、三條曲線、錯開、階層、什麼不該動、無障礙擋板寫成一份規格，附一張加東西之前的檢查表。以前這些理由散在各個 CSS 註解裡，找得到但拼不起來。'],
+                    ['查過但沒改的兩件事', '打勾的過衝（1.22×）留著——那是全站唯一一個「慶祝」，而過衝正是完成的手感，而且它不在數字上。`prefers-reduced-motion` 也不必補：主站八處、模擬器兩處，每一個動畫都已經有擋板。'],
+                ],
+            },
             {
                 date: '2026-08-12',
                 title: '天空開始轉了：漩渦、群青、描兩次的輪廓',
