@@ -256,36 +256,50 @@
            （擠不下時還是能捲，只是不再有淡出提示；分頁名稱限制在五個字以內，
            見 tests/settings.mjs，就是為了讓「需要捲」這件事不會發生。） */
         /* ==========================================================
-         * 「雪山白日 · 靛藍星夜」設計系統
+         * 「向日葵白日 · 靛藍星夜」設計系統
          *
          * 全站的標記都用 Tailwind 工具類別（bg-white / text-slate-900 …），
          * 所以在這裡重新定義那些類別，就能一次換掉整站外觀，
          * 不必去動四千多行 HTML。要調色只改下面的變數即可。
          *
          * ★ 2026-08-11 從「紙墨」改成「雪山」：底色由米白轉雪藍，
-         * 強調色由磚紅（#b0522f）換成月亮的金黃。理由是背景換成了
-         * 那四張梵谷風的雪山黑貓，而磚紅壓在藍調的畫上是撞色——
-         * 金黃取自畫裡的太陽與月亮，是同一張畫裡本來就有的顏色。
+         * 強調色由磚紅（#b0522f）換成月亮的金黃。
+         *
+         * ★★ 2026-08-12 淺色再從「雪山」轉成「向日葵」：底色由雪藍
+         * （#eef2f9）換成暖奶黃。深色**完全沒動**——星夜本來就是對的。
+         * 這一次連 `--bg-wash` 一起轉暖並加了一層很輕的 sepia，
+         * 不然會變成「藍色的畫配奶黃色的殼」，那比原本更不整齊。
+         * 遮罩轉暖之後量過裸字最壞 6.64（門檻 4.5），比原本的 6.48 還好一點：
+         * 暖色的遮罩對畫裡最暗的黑貓與杉樹林壓得比冷色略重。
+         *
+         * ★★ 這一輪還修掉一個**從第一版就在、但沒有人算過**的洞：
+         * 顏色是「裸底色」算的，織紋是另外鋪上去的，兩件事從來沒有在同一條
+         * 式子裡碰過面。實際上織紋 0.030 壓在內凹區塊上會讓 --accent 從
+         * 4.78 掉到 4.45——早就破線了，只是淡底上的小字讀起來只是「有點糊」。
+         * 現在所有的門檻都是**含紋理**算的（見下面的紋理預算 0.05）。
          *
          * ★ 這一批顏色**每一個都真的算過對比**，不是憑印象挑的。
-         * 換配色最容易安靜壞掉的地方是亮度整個往上跑：金黃比磚紅亮，
-         * 拿去當實心底色配白字很容易掉到 4.5 以下，而那不會報錯。
-         * 算過的結果：白字壓在 --accent-fill 上 5.06。
+         * 換配色最容易安靜壞掉的地方是亮度整個往上跑：暖黃的底比雪藍亮，
+         * 壓在上面的金要跟著往深處走，而那不會報錯。
          * ========================================================== */
+        /* ★★ 紋理預算：淺底上「同一格」暗紋能疊到的最大值 = 0.05。
+           織紋 0.028 ＋ 點的暗溝 0.022，剛好用滿。
+           下面每一個顏色都是照這個數字算出來的，所以**調紋理就等於調配色**——
+           想把織紋加濃一點，得回頭把金再壓深，不是兩件事。 */
         :root {
-            --paper:        #eef2f9;   /* 雪底：畫裡遠山的那層冷白 */
+            --paper:        #f8f1de;   /* 向日葵的底：畫布上那層打過底的暖奶黃 */
             /* ★ 卡片是半透明的，背景那張畫會淡淡透上來——這是「內容浮在畫上」
                的關鍵。但**不能再透**：0.80 以下時畫裡的黑貓與杉樹林會透進
                卡片，小字直接讀不了。0.92 是量過的下限再留一點餘裕。 */
-            --paper-raised: rgba(255, 255, 255, 0.92);
-            --paper-sunk:   #e3eaf5;   /* 內凹區塊 */
-            --ink:          #131a2b;   /* 主文字 */
-            --ink-2:        #3f4b63;
+            --paper-raised: rgba(255, 252, 244, 0.92);
+            --paper-sunk:   #f2e8d0;   /* 內凹區塊 */
+            --ink:          #1e1708;   /* 主文字：暖褐的近黑，不是中性黑 */
+            --ink-2:        #4c412c;
             /* ★ 舊的 --ink-3（#8a8277）壓在舊紙色上只有 3.42，本來就不合格，
                只是沒有人回報——次要文字讀不清楚不會有人來說「這裡壞了」。
-               這次一起修掉：#5c6880 在三種底色上分別是 4.99／4.63／5.60。 */
-            --ink-3:        #5c6880;
-            --rule:         #d2dcea;   /* 細線 */
+               現在含紋理算：淡底疊內凹 6.39、淡底疊 paper 6.59、卡片 7.12。 */
+            --ink-3:        #5c4e33;
+            --rule:         #d8c79c;   /* 細線 */
             /* ---- 金：四個階，因為它們的門檻根本不一樣 ----
                ★★ 「金色亮一點」這件事量過之後才發現**沒有一個旋鈕能一起調**。
                彩度先排除：#7f6210 在它自己的亮度上已經是 sRGB 能給的最飽和，
@@ -300,12 +314,12 @@
 
                分成四個不是為了好看，是因為合成一個的話只能取最嚴的那個，
                等於整站的金都被「小字的可讀性」鎖在最暗的一端。 */
-            --accent:       #866405;   /* 文字／線：paper 4.87、內凹區塊 4.52 */
-            --accent-fill:  #906c05;   /* 實心底＋白字：4.85，含厚塗亮筆觸 4.53 */
+            --accent:       #7a5905;   /* 文字／線（含紋理）：paper 5.12、內凹區塊 4.74 */
+            --accent-fill:  #8a6605;   /* 實心底＋白字：含厚塗亮筆觸 4.91 */
             /* ★ 只給**非文字**用（進度條、外框、圈選、核取方塊、清單圓點、
                焦點外框）。拿去當文字色的話對比只有 3.0，小字會讀不了——
                門檻不同才是它存在的理由，不是「比較亮的那個金」。 */
-            --accent-bright: #a97f05;  /* 非文字：內凹區塊 3.03、paper 3.27、卡片 3.60 */
+            --accent-bright: #9e7405;  /* 非文字（含紋理）：內凹區塊 3.12、paper 3.37、卡片 3.73 */
             /* ★ 選中的分頁自己一個。它是全站最大也最常看到的一塊金，
                而白字把它鎖死在最暗的一端——那個白字是我們自己的 CSS 給的
                （NAV_ACTIVE 只有 is-active，HTML 沒有 text-white），所以能換。
@@ -329,8 +343,8 @@
                但彩度很高的淺金去疊。亮度不變 → 對比一條都不動；
                色相變了 → 眼睛看到的是金色。濃度反而可以從 .16 拉到 .6，
                因為它不再是「把底染暗」而是「把底換色」。 */
-            --accent-soft:  rgba(255, 234, 184, 0.6);
-            --panel:        #ffffff;   /* 對話框／浮動小卡：一定不透明 */
+            --accent-soft:  rgba(255, 232, 170, 0.6);
+            --panel:        #fffdf6;   /* 對話框／浮動小卡：一定不透明 */
             --radius:       14px;      /* 編輯感：收斂圓角 */
             --radius-lg:    18px;
             /* ---- 動效 ----
@@ -402,6 +416,12 @@
              深色 0.62 → 最差 4.7（月亮與星星那幾點近白）
            深色要壓得比淺色重，因為夜景那張的月亮幾乎是純白的。
 
+           ★★ 2026-08-12 淺色的遮罩**跟著色票一起轉暖**。這不是美感偏好，
+           是不轉不行：外殼變成暖奶黃之後，底下透出來的畫還是藍白的，
+           畫面會分成「藍色的畫」與「奶黃色的殼」兩層互不相干的東西。
+           轉暖之後量過裸字最壞 6.64（含 sepia），比原本冷色的 6.48 還好一點——
+           暖色的遮罩對畫裡最暗的黑貓與杉樹林壓得比冷色略重。
+
            ★★ 深色的 0.62 是**上限，不是隨手挑的**。使用者說「星空亮一點」，
            量過整條曲線：0.66 → 5.49、0.62 → 4.74、0.58 → 4.10（破線）。
            門檻 4.5 落在 0.62 和 0.58 之間，所以 0.62 已經是能給的最亮。
@@ -417,7 +437,7 @@
            ========================================================== */
         :root {
             --bg-art:  url('brightcomputer.jpg');
-            --bg-wash: rgba(244, 248, 253, 0.60);
+            --bg-wash: rgba(252, 242, 214, 0.62);
         }
         html.dark {
             --bg-art:  url('nightcomputer.jpg');
@@ -471,9 +491,25 @@
            白天那張已經很飽和，再加會變成廉價的濾鏡感。
            固定的圖層只算一次，不是每幀都算，所以效能上是免費的。 */
         html.dark body::before { filter: saturate(1.15); }
+        /* ★ 白天那張要一層很輕的 sepia，光靠遮罩轉暖不夠——遮罩是均勻疊上去的，
+           畫裡最飽和的那幾塊藍（天空的旋渦）會直接穿過去，變成暖底上的一片冷藍。
+           sepia 動的是**畫本身的色相**，所以連最濃的藍也會跟著往赭黃走。
+           0.22 是量過的：再多就變成舊照片，杉樹林的綠會整片消失。
+           對可讀性沒有影響——sepia 對近黑的像素幾乎不動（量過最壞 6.64）。
+           ★ 選擇器用 `html:not(.dark)` 不是 `:root`——`:root body::before` 的
+           特異性比 `html.dark body::before` 低一階，深色模式看起來會正常，
+           但那是靠特異性剛好贏，不是靠條件互斥。互斥寫清楚就不會有人踩到。 */
+        html:not(.dark) body::before { filter: sepia(0.22) saturate(1.05); }
+        /* ★ 遮罩這一層也鋪點。畫面上最大的一片就是它，只有卡片上有點、
+           背景是平的話，會變成「畫上貼了幾張有筆觸的紙」。
+           ★★ 這裡**不能用 `background:` 簡寫**（原本是）——加了
+           background-image 之後，簡寫會在同一條規則裡把兩個都設定，
+           看起來沒事，但下一個人只改其中一半的時候就會把另一半清成 initial。
+           拆成 color 與 image 兩行，跟全站鋪織理的那批規則同一個寫法。 */
         body::after {
             content: ''; position: fixed; inset: 0; z-index: -1;
-            background: var(--bg-wash);
+            background-color: var(--bg-wash);
+            background-image: var(--vg-dab);
             pointer-events: none;
         }
 
@@ -507,21 +543,57 @@
            漸層的峰值寫死在停止點上，看程式碼就知道，測試也釘得住。
            ========================================================== */
         :root {
-            /* 畫布的織理：一道方向一致的軟稜線，峰值 0.035。
+            /* 畫布的織理：一道方向一致的軟稜線。
                停止點用軟的不用硬的——硬邊會變成影線（版畫），
-               軟邊才是布紋透出顏料的樣子。 */
+               軟邊才是布紋透出顏料的樣子。
+               ★★ 峰值從 0.035 降到 0.028、alt 從 0.030 降到 0.026。
+               這**不是覺得太重**，是因為上面多了一層點的暗溝（0.022）：
+               同一格最壞會疊在一起，而 0.05 就是配色能吃下的全部
+               （accent 壓在內凹區塊 4.74，再多就破 4.5）。
+               織紋與點是**同一個預算裡的兩筆開銷**，加一個就得減另一個。 */
             --vg-tooth: repeating-linear-gradient(108deg,
-                rgba(19, 26, 43, 0.035) 0px,
-                rgba(19, 26, 43, 0.012) 1.5px,
-                rgba(19, 26, 43, 0)     3px,
-                rgba(19, 26, 43, 0)     6px);
+                rgba(30, 23, 8, 0.028) 0px,
+                rgba(30, 23, 8, 0.010) 1.5px,
+                rgba(30, 23, 8, 0)     3px,
+                rgba(30, 23, 8, 0)     6px);
             /* 內凹區塊換一個角度：同一張畫上不同的筆刷走向。
                全站同一個角度會看起來像貼了一張塑膠膜，不像畫。 */
             --vg-tooth-alt: repeating-linear-gradient(68deg,
-                rgba(19, 26, 43, 0.030) 0px,
-                rgba(19, 26, 43, 0.010) 1.5px,
-                rgba(19, 26, 43, 0)     3px,
-                rgba(19, 26, 43, 0)     7px);
+                rgba(30, 23, 8, 0.026) 0px,
+                rgba(30, 23, 8, 0.009) 1.5px,
+                rgba(30, 23, 8, 0)     3px,
+                rgba(30, 23, 8, 0)     7px);
+            /* ---- 一筆一筆點上去 ----
+               ★ 織理與厚塗都是**連續**的（漸層一路刷到底），所以整面看起來
+               是「有紋路的一張紙」。梵谷不是那樣畫的——他的畫面是由一筆一筆
+               彼此分開、看得出起筆收筆的短觸堆出來的。要做出那件事，
+               漸層做不到：漸層沒有「一筆結束了」這個概念。所以這一層是離散的。
+
+               ★★ 每一筆的方向永遠跟壓在它上面的字**相反**，這是整層唯一的規則：
+                 淺底深字 → 點是亮的（把底提亮＝對比往上，不用付錢）
+                 深底亮字 → 點是暗的（把底壓暗＝對比往上，不用付錢）
+                 實心色塊配白字 → 點是暗的
+               直覺會想「淺色就用深色的點才看得見」，但那等於在每一張卡片的
+               每一行小字上再扣一次對比，而且是全站鋪的、不會報錯。
+               反方向的點一樣看得見——卡片是半透明的，亮點蓋住的是底下那張畫。
+
+               ★ 亮脊底下墊一個位移 1px 的暗溝，那是唯一要付錢的部分（0.022），
+               但少了它每一筆會是平的貼紙，不是一坨有厚度的顏料。
+
+               ★ 為什麼是 SVG 而不是 radial-gradient：一筆要**斜的**。
+               radial-gradient 的橢圓只能軸對齊，轉不了角度，而筆向正是
+               這一層在做的事。SVG 的濃度一樣是寫死在 fill-opacity 上，
+               不像 feTurbulence 那種算不準的雜訊——峰值看程式碼就知道。
+
+               ★ 磚是 `tools/gendab.mjs` 產生的，不是手寫。產生的時候會真的
+               算「最近的兩筆還差多少才會疊到」（現在是 7.04px，含跨磚）——
+               疊到的那一格暗度剛好是兩倍，而那正是會安靜破線的地方。 */
+            --vg-dab:     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cellipse cx='16.3' cy='17.0' rx='8.9' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-11.6 15.4 15.7)'/%3E%3Cellipse cx='15.4' cy='15.7' rx='8.2' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-11.6 15.4 15.7)'/%3E%3Cellipse cx='16.4' cy='45.0' rx='10.2' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-26.7 15.5 43.7)'/%3E%3Cellipse cx='15.5' cy='43.7' rx='9.4' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-26.7 15.5 43.7)'/%3E%3Cellipse cx='14.9' cy='73.9' rx='8.1' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-20.9 14.0 72.6)'/%3E%3Cellipse cx='14.0' cy='72.6' rx='7.5' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-20.9 14.0 72.6)'/%3E%3Cellipse cx='46.4' cy='17.6' rx='10.5' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-19.9 45.5 16.3)'/%3E%3Cellipse cx='45.5' cy='16.3' rx='9.6' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-19.9 45.5 16.3)'/%3E%3Cellipse cx='43.8' cy='48.6' rx='10.3' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-10.6 42.9 47.3)'/%3E%3Cellipse cx='42.9' cy='47.3' rx='9.5' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-10.6 42.9 47.3)'/%3E%3Cellipse cx='46.6' cy='78.5' rx='10.8' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-14.5 45.7 77.2)'/%3E%3Cellipse cx='45.7' cy='77.2' rx='9.9' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-14.5 45.7 77.2)'/%3E%3Cellipse cx='78.0' cy='14.4' rx='7.9' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-25.3 77.1 13.1)'/%3E%3Cellipse cx='77.1' cy='13.1' rx='7.3' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-25.3 77.1 13.1)'/%3E%3Cellipse cx='73.6' cy='45.6' rx='10.6' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-12.1 72.7 44.3)'/%3E%3Cellipse cx='72.7' cy='44.3' rx='9.8' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-12.1 72.7 44.3)'/%3E%3Cellipse cx='75.2' cy='74.4' rx='9.3' ry='3.2' fill='%231e1708' fill-opacity='0.022' transform='rotate(-17.6 74.3 73.1)'/%3E%3Cellipse cx='74.3' cy='73.1' rx='8.5' ry='2.94' fill='white' fill-opacity='0.22' transform='rotate(-17.6 74.3 73.1)'/%3E%3C/svg%3E");
+            --vg-dab-alt: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cellipse cx='16.3' cy='17.0' rx='8.9' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(28.4 15.4 15.7)'/%3E%3Cellipse cx='15.4' cy='15.7' rx='8.2' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(28.4 15.4 15.7)'/%3E%3Cellipse cx='16.4' cy='45.0' rx='10.2' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(13.3 15.5 43.7)'/%3E%3Cellipse cx='15.5' cy='43.7' rx='9.4' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(13.3 15.5 43.7)'/%3E%3Cellipse cx='14.9' cy='73.9' rx='8.1' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(19.1 14.0 72.6)'/%3E%3Cellipse cx='14.0' cy='72.6' rx='7.5' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(19.1 14.0 72.6)'/%3E%3Cellipse cx='46.4' cy='17.6' rx='10.5' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(20.1 45.5 16.3)'/%3E%3Cellipse cx='45.5' cy='16.3' rx='9.6' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(20.1 45.5 16.3)'/%3E%3Cellipse cx='43.8' cy='48.6' rx='10.3' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(29.4 42.9 47.3)'/%3E%3Cellipse cx='42.9' cy='47.3' rx='9.5' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(29.4 42.9 47.3)'/%3E%3Cellipse cx='46.6' cy='78.5' rx='10.8' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(25.5 45.7 77.2)'/%3E%3Cellipse cx='45.7' cy='77.2' rx='9.9' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(25.5 45.7 77.2)'/%3E%3Cellipse cx='78.0' cy='14.4' rx='7.9' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(14.7 77.1 13.1)'/%3E%3Cellipse cx='77.1' cy='13.1' rx='7.3' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(14.7 77.1 13.1)'/%3E%3Cellipse cx='73.6' cy='45.6' rx='10.6' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(27.9 72.7 44.3)'/%3E%3Cellipse cx='72.7' cy='44.3' rx='9.8' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(27.9 72.7 44.3)'/%3E%3Cellipse cx='75.2' cy='74.4' rx='9.3' ry='3.2' fill='%231e1708' fill-opacity='0.02' transform='rotate(22.4 74.3 73.1)'/%3E%3Cellipse cx='74.3' cy='73.1' rx='8.5' ry='2.94' fill='white' fill-opacity='0.2' transform='rotate(22.4 74.3 73.1)'/%3E%3C/svg%3E");
+            /* 實心色塊上的點。★ 這一個**不分亮暗模式**：兩邊的 --accent-fill
+               上面壓的都是白字，方向一樣，所以定義一次就好。
+               寫成兩份的話它們會各自漂移，而畫面上看不出來。 */
+            --vg-dab-solid: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cellipse cx='16.3' cy='17.0' rx='8.9' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-11.6 15.4 15.7)'/%3E%3Cellipse cx='15.4' cy='15.7' rx='8.2' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-11.6 15.4 15.7)'/%3E%3Cellipse cx='16.4' cy='45.0' rx='10.2' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-26.7 15.5 43.7)'/%3E%3Cellipse cx='15.5' cy='43.7' rx='9.4' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-26.7 15.5 43.7)'/%3E%3Cellipse cx='14.9' cy='73.9' rx='8.1' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-20.9 14.0 72.6)'/%3E%3Cellipse cx='14.0' cy='72.6' rx='7.5' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-20.9 14.0 72.6)'/%3E%3Cellipse cx='46.4' cy='17.6' rx='10.5' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-19.9 45.5 16.3)'/%3E%3Cellipse cx='45.5' cy='16.3' rx='9.6' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-19.9 45.5 16.3)'/%3E%3Cellipse cx='43.8' cy='48.6' rx='10.3' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-10.6 42.9 47.3)'/%3E%3Cellipse cx='42.9' cy='47.3' rx='9.5' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-10.6 42.9 47.3)'/%3E%3Cellipse cx='46.6' cy='78.5' rx='10.8' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-14.5 45.7 77.2)'/%3E%3Cellipse cx='45.7' cy='77.2' rx='9.9' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-14.5 45.7 77.2)'/%3E%3Cellipse cx='78.0' cy='14.4' rx='7.9' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-25.3 77.1 13.1)'/%3E%3Cellipse cx='77.1' cy='13.1' rx='7.3' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-25.3 77.1 13.1)'/%3E%3Cellipse cx='73.6' cy='45.6' rx='10.6' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-12.1 72.7 44.3)'/%3E%3Cellipse cx='72.7' cy='44.3' rx='9.8' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-12.1 72.7 44.3)'/%3E%3Cellipse cx='75.2' cy='74.4' rx='9.3' ry='3.2' fill='%23000' fill-opacity='0.03' transform='rotate(-17.6 74.3 73.1)'/%3E%3Cellipse cx='74.3' cy='73.1' rx='8.5' ry='2.94' fill='%23000' fill-opacity='0.07' transform='rotate(-17.6 74.3 73.1)'/%3E%3C/svg%3E");
             /* 厚塗：實心色塊上的筆觸。亮的那一道會把底色提亮、
                白字對比跟著掉，所以上限是量過的 0.035（→ 4.72）。
                暗的那一道只會讓對比更好，可以放寬。 */
@@ -560,9 +632,9 @@
                ★ 往深處走時在 OKLCH 裡只降 L、彩度略升。
                直接把 RGB 乘一個係數會同時掉彩度，變成灰掉的金——
                那看起來像照片壓暗，不像同一坨顏料塗薄。 */
-            --vg-grad-fill:   linear-gradient(102deg, #765200 0%, #906c05 38%, #846000 66%, #765200 100%);
+            --vg-grad-fill:   linear-gradient(102deg, #6f4e00 0%, #8a6605 38%, #7d5a00 66%, #6f4e00 100%);
             --vg-grad-tab:    linear-gradient(102deg, #a47500 0%, #b68800 36%, #af8000 64%, #a47500 100%);
-            --vg-grad-bright: linear-gradient(102deg, #916700 0%, #a97f05 40%, #9f7400 68%, #916700 100%);
+            --vg-grad-bright: linear-gradient(102deg, #8a6100 0%, #9e7405 40%, #946b00 68%, #8a6100 100%);
             /* 一塊刷上去的顏料。這是全檔唯一的 SVG 形狀——
                歪掉的邊緣沒辦法用漸層做出來，只能給路徑。
                ★ preserveAspectRatio='none' 讓它跟著按鈕拉寬；
@@ -593,6 +665,13 @@
                 rgba(0, 0, 0, 0.018) 1.5px,
                 rgba(0, 0, 0, 0)     3px,
                 rgba(0, 0, 0, 0)     7px);
+            /* 深色的點整筆都往暗處走（脊 0.10、溝 0.05），一條對比都不用付——
+               上面壓的字是亮的，底愈暗愈好讀。所以這裡可以比淺色濃四倍多，
+               而畫面上「看得出一筆一筆」也正是在深色模式最明顯。
+               ★ 沒有亮脊。在暗底上加白色的脊會把卡片底提亮，
+               次要文字（#7d86a0）在 0.02 就掉到 4.47——跟織紋同一條理由。 */
+            --vg-dab:     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cellipse cx='16.3' cy='17.0' rx='8.9' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-11.6 15.4 15.7)'/%3E%3Cellipse cx='15.4' cy='15.7' rx='8.2' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-11.6 15.4 15.7)'/%3E%3Cellipse cx='16.4' cy='45.0' rx='10.2' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-26.7 15.5 43.7)'/%3E%3Cellipse cx='15.5' cy='43.7' rx='9.4' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-26.7 15.5 43.7)'/%3E%3Cellipse cx='14.9' cy='73.9' rx='8.1' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-20.9 14.0 72.6)'/%3E%3Cellipse cx='14.0' cy='72.6' rx='7.5' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-20.9 14.0 72.6)'/%3E%3Cellipse cx='46.4' cy='17.6' rx='10.5' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-19.9 45.5 16.3)'/%3E%3Cellipse cx='45.5' cy='16.3' rx='9.6' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-19.9 45.5 16.3)'/%3E%3Cellipse cx='43.8' cy='48.6' rx='10.3' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-10.6 42.9 47.3)'/%3E%3Cellipse cx='42.9' cy='47.3' rx='9.5' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-10.6 42.9 47.3)'/%3E%3Cellipse cx='46.6' cy='78.5' rx='10.8' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-14.5 45.7 77.2)'/%3E%3Cellipse cx='45.7' cy='77.2' rx='9.9' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-14.5 45.7 77.2)'/%3E%3Cellipse cx='78.0' cy='14.4' rx='7.9' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-25.3 77.1 13.1)'/%3E%3Cellipse cx='77.1' cy='13.1' rx='7.3' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-25.3 77.1 13.1)'/%3E%3Cellipse cx='73.6' cy='45.6' rx='10.6' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-12.1 72.7 44.3)'/%3E%3Cellipse cx='72.7' cy='44.3' rx='9.8' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-12.1 72.7 44.3)'/%3E%3Cellipse cx='75.2' cy='74.4' rx='9.3' ry='3.2' fill='%23000' fill-opacity='0.05' transform='rotate(-17.6 74.3 73.1)'/%3E%3Cellipse cx='74.3' cy='73.1' rx='8.5' ry='2.94' fill='%23000' fill-opacity='0.1' transform='rotate(-17.6 74.3 73.1)'/%3E%3C/svg%3E");
+            --vg-dab-alt: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 90 90'%3E%3Cellipse cx='16.3' cy='17.0' rx='8.9' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(28.4 15.4 15.7)'/%3E%3Cellipse cx='15.4' cy='15.7' rx='8.2' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(28.4 15.4 15.7)'/%3E%3Cellipse cx='16.4' cy='45.0' rx='10.2' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(13.3 15.5 43.7)'/%3E%3Cellipse cx='15.5' cy='43.7' rx='9.4' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(13.3 15.5 43.7)'/%3E%3Cellipse cx='14.9' cy='73.9' rx='8.1' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(19.1 14.0 72.6)'/%3E%3Cellipse cx='14.0' cy='72.6' rx='7.5' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(19.1 14.0 72.6)'/%3E%3Cellipse cx='46.4' cy='17.6' rx='10.5' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(20.1 45.5 16.3)'/%3E%3Cellipse cx='45.5' cy='16.3' rx='9.6' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(20.1 45.5 16.3)'/%3E%3Cellipse cx='43.8' cy='48.6' rx='10.3' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(29.4 42.9 47.3)'/%3E%3Cellipse cx='42.9' cy='47.3' rx='9.5' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(29.4 42.9 47.3)'/%3E%3Cellipse cx='46.6' cy='78.5' rx='10.8' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(25.5 45.7 77.2)'/%3E%3Cellipse cx='45.7' cy='77.2' rx='9.9' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(25.5 45.7 77.2)'/%3E%3Cellipse cx='78.0' cy='14.4' rx='7.9' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(14.7 77.1 13.1)'/%3E%3Cellipse cx='77.1' cy='13.1' rx='7.3' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(14.7 77.1 13.1)'/%3E%3Cellipse cx='73.6' cy='45.6' rx='10.6' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(27.9 72.7 44.3)'/%3E%3Cellipse cx='72.7' cy='44.3' rx='9.8' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(27.9 72.7 44.3)'/%3E%3Cellipse cx='75.2' cy='74.4' rx='9.3' ry='3.2' fill='%23000' fill-opacity='0.045' transform='rotate(22.4 74.3 73.1)'/%3E%3Cellipse cx='74.3' cy='73.1' rx='8.5' ry='2.94' fill='%23000' fill-opacity='0.09' transform='rotate(22.4 74.3 73.1)'/%3E%3C/svg%3E");
             --vg-relief:
                 inset 0 1px 0 rgba(175, 190, 235, 0.10),
                 inset 0 -1px 0 rgba(0, 0, 0, 0.45),
@@ -617,6 +696,9 @@
            而症狀是卡片變成透明——畫直接透出來，字疊在杉樹林上。
            ★ 不加 !important：Tailwind 的 .bg-white 只設 background-color，
            這裡沒有對手；反而是加了會蓋掉真正需要漸層的元素。 */
+        /* ★ 點在上、織理在下（background-image 的第一個在最上層）。
+           順序反了不會報錯，只是點會被織理蓋住一半，看起來像織理變濃了——
+           而「變濃」正是這一輪特地花預算避免的事。 */
         .bg-white,
         #mainHeader,
         .quiz-screen,
@@ -624,14 +706,14 @@
         #logoMenu,
         .word-popup, #accountMenu,
         [id$="Modal"] > .bg-white {
-            background-image: var(--vg-tooth);
+            background-image: var(--vg-dab), var(--vg-tooth);
         }
         .bg-slate-50:not(body), .bg-slate-50\/50, .bg-slate-50\/40,
         .bg-slate-100,
         .plan-zone,
         .sched-head,
         .quiz-bar {
-            background-image: var(--vg-tooth-alt);
+            background-image: var(--vg-dab-alt), var(--vg-tooth-alt);
         }
 
         /* ---- 實心色塊的筆觸 ----
@@ -649,7 +731,7 @@
         .quiz-bar-fill, .quiz-qnum,
         .quiz-opt.is-correct .quiz-opt-letter,
         .quiz-opt.is-wrong .quiz-opt-letter {
-            background-image: var(--vg-impasto);
+            background-image: var(--vg-dab-solid), var(--vg-impasto);
         }
         /* ---- 沿筆畫變色 ----
            ★ 兩層疊著用：紋理在上、漸層在下（background-image 的第一個在最上層）。
@@ -662,10 +744,10 @@
         .bg-teal-400\/90, .bg-teal-500, .bg-emerald-400, .bg-blue-400, .bg-blue-600,
         .bg-emerald-200, .bg-fuchsia-400,
         .quiz-qnum {
-            background-image: var(--vg-impasto), var(--vg-grad-fill);
+            background-image: var(--vg-dab-solid), var(--vg-impasto), var(--vg-grad-fill);
         }
         .quiz-bar-fill {
-            background-image: var(--vg-impasto), var(--vg-grad-bright);
+            background-image: var(--vg-dab-solid), var(--vg-impasto), var(--vg-grad-bright);
         }
 
         /* ---- 快速命令列 ----
@@ -674,7 +756,7 @@
            跟 logo 下拉選單同一條規則。 */
         .cmdk-panel {
             background-color: var(--panel);
-            background-image: var(--vg-tooth);
+            background-image: var(--vg-dab), var(--vg-tooth);
             border: 1px solid var(--rule);
         }
         /* 只給螢幕閱讀器的文字。★ 不能用 display:none 或 visibility:hidden，
@@ -744,6 +826,56 @@
                 #000 0 26px, rgba(0,0,0,.30) 40px, #000 54px,
                 #000 96px, rgba(0,0,0,.20) 106px, #000 118px,
                 #000 158px, rgba(0,0,0,.40) 170px, #000 181px);
+        }
+
+        /* ==========================================================
+           剩下那幾張還是平的面
+
+           ★ 「全面油畫化」真正的難處不是把筆觸做出來，是**找出漏掉的面**。
+           漏掉一張不會報錯，只會讓同一個畫面上有的地方有顏料、有的地方
+           像塑膠——而看的人說不出哪裡怪。這一段收的就是那些：
+           原生的輸入框、捲軸、選取反白。它們共同的特徵是「樣式來自瀏覽器
+           不是來自 HTML 的類別」，所以上面那批照著 Tailwind 類別走的
+           接管規則**一個都掃不到**。
+           ========================================================== */
+        /* ---- 輸入框 ----
+           站上多數輸入框掛的是 .bg-slate-50，已經被上面那條鋪到了。
+           這一條收的是沒掛類別的那些（原生 select、日期欄位…）。
+           ★ 排除 checkbox／radio／range／color：那幾種的背景是瀏覽器
+           拿來畫「勾」「圓點」「軌道」的，鋪上圖會把控制項本身蓋掉。
+           ★ 只設 background-image，不碰 background-color——輸入框的底色
+           有的來自類別、有的來自瀏覽器預設，動了會有一批變透明。 */
+        input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+        select,
+        textarea {
+            background-image: var(--vg-dab-alt), var(--vg-tooth-alt);
+        }
+        /* ---- 選取反白 ----
+           ★ 瀏覽器預設的反白是系統藍，在暖黃的畫面上是唯一一塊冷色，
+           而且它只在「有人真的去選字」時才出現，所以很容易一直沒被發現。
+           用淡底那個 token：它的亮度不低於底色（見 --accent-soft 的註解），
+           所以反白之後字的對比一條都不會掉。 */
+        ::selection { background-color: var(--accent-soft); color: var(--ink); }
+        /* ---- 捲軸 ----
+           ★ 只給有 hover 的裝置。手機的捲軸是浮動的、會自己淡出，
+           改了不但看不到，某些 WebKit 版本還會讓它變成常駐的一條。
+           ★ 捲軸是非文字元素，門檻 3.0，所以可以走亮的那一階。 */
+        @media (hover: hover) and (pointer: fine) {
+            .oil-scroll, body { scrollbar-width: thin; scrollbar-color: var(--accent-bright) transparent; }
+            ::-webkit-scrollbar { width: 10px; height: 10px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb {
+                background-color: var(--accent-fill);
+                background-image: var(--vg-dab-solid), var(--vg-impasto);
+                border-radius: 6px;
+                border: 2px solid transparent;
+                background-clip: padding-box;
+            }
+            ::-webkit-scrollbar-thumb:hover { background-color: var(--accent-bright); }
+            /* ★ .scrollbar-hide 那批（分頁列、橫向捲的區塊）必須維持隱藏。
+               上面那條 ::-webkit-scrollbar 沒有選擇器限制，會把它們一起
+               復活成一條 10px 的軸——而那正是當初把它們藏起來的原因。 */
+            .scrollbar-hide::-webkit-scrollbar { display: none; }
         }
 
         /* ==========================================================
@@ -1062,7 +1194,11 @@
            明天原本是琥珀 (#7f5d27)，跟新的金只差 ΔE 22，會黏成同一塊。 */
         .plan-zone[data-zone="yesterday"] { --zone: #9c4a48; }
         .plan-zone[data-zone="today"]     { --zone: #7a5c0f; }
-        .plan-zone[data-zone="tomorrow"]  { --zone: #2f6b7d; }
+        /* ★ 2026-08-12 從 #2f6b7d 壓深到 #2c6576。不是覺得太亮——
+           底色從雪藍換成暖奶黃之後 --paper-sunk 亮了一階，
+           這一區的字壓在自己的淡底上掉到 4.47（門檻 4.5）。
+           五個顏色只有這一個破，因為青藍是其中最亮的那一個。 */
+        .plan-zone[data-zone="tomorrow"]  { --zone: #2c6576; }
         .plan-zone[data-zone="week"]      { --zone: #4c5578; }
         .plan-zone[data-zone="later"]     { --zone: #6d4a66; }
         /* 深色模式要換一組亮的。★ 直接沿用淺色那組的話，這些暗色壓在
@@ -3852,6 +3988,20 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-12',
+                title: '一筆一筆點上去：向日葵的白日，以及顏料真正的厚度',
+                items: [
+                    ['白天的畫面換成向日葵的暖黃', '底色從雪藍轉成打過底的暖奶黃，背景那張雪山也跟著曬暖了。夜晚維持原本的靛藍星夜，一個像素都沒動。'],
+                    ['★ 只換外殼的顏色會變成「藍色的畫配奶黃色的殼」', '背景那張畫是藍白的雪山，殼轉暖之後兩層會變成互不相干的東西。所以遮罩跟著轉暖，還加了一層很輕的褐調——遮罩是均勻疊上去的，畫裡最濃的那幾塊天空藍會直接穿過去，只有動到畫本身的色相才拉得回來。量過之後意外的是：暖色的遮罩對畫裡最暗的黑貓與杉樹林反而壓得比冷色重一點，直接壓在背景上的字（首頁大標、「載入中…」那些）對比從 6.48 變成 6.64，比原本更好。'],
+                    ['筆觸從「一片紋路」變成「一筆一筆」', '卡片、頁首、輸入框、連整片背景，現在都是由一筆一筆彼此分開、看得出起筆收筆的短觸鋪出來的，每一筆下面還壓著一道位移一格的暗溝——那是顏料的厚度，光從左上來的時候留下的落影。'],
+                    ['★ 為什麼這件事漸層做不到', '原本的織理與厚塗都是連續的，一路刷到底，所以整面看起來是「有紋路的一張紙」。梵谷不是那樣畫的。要做出一筆一筆，關鍵是漸層沒有「這一筆結束了」這個概念，而且每一筆是斜的——瀏覽器的橢圓漸層只能正著放，轉不了角度，而筆的方向正是這一層在做的事。所以這一層改用向量圖形的磚去鋪，濃度一樣是寫死的、看得出來也擋得住，不像雜訊那種算不準的東西。'],
+                    ['★ 每一筆的方向永遠跟壓在它上面的字相反', '直覺會想「淺色的底當然要用深色的點才看得見」。但那等於在每一張卡片的每一行小字上再扣一次對比，全站鋪的，而且不會報錯，只會讓人覺得「好像有點糊」。所以淺色用亮的點、深色用暗的點——兩邊都是把底推離文字的方向，對比只會往上走。反方向的點一樣看得見，因為卡片是半透明的，亮點蓋住的是底下那張畫。'],
+                    ['★ 這一輪修掉一個從第一版就在、但從來沒有人算過的洞', '顏色的對比一直是拿「裸底色」算的，而織理是另外鋪上去的——兩件事從來沒有在同一條式子裡碰過面。實際上織理壓在內凹區塊上，會讓金色文字從 4.78 掉到 4.45，早就破線了。現在所有的門檻都是含紋理算的，而且織理與點共用同一筆預算：加濃一個就得減另一個，不然就得回頭把金再壓深。'],
+                    ['★ 選中的分頁刻意沒有鋪點', '它是全站唯一兩面夾擊的地方——深色字要底夠亮，色塊要跟頁首分得開所以底不能太亮。量過：任何亮點都會讓色塊跟頁首的邊界掉到 2.91（門檻 3.0）。所以這裡不是漏掉，是沒有方向可以走，而且特地加了一條檢查擋住下一個人「順手補上去」。'],
+                    ['選取反白、捲軸、原生輸入框也上色了', '這三個的樣式來自瀏覽器不是來自頁面，所以整站換膚的規則一個都掃不到——選字的時候會冒出一塊系統藍，是整個畫面唯一的冷色。'],
+                ],
+            },
             {
                 date: '2026-08-11',
                 title: '外殼也畫上去了：畫布織理、顏料的厚度、刷上去的分頁',
