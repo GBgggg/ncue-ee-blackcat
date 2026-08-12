@@ -1191,6 +1191,38 @@
         [data-action]:not([class*="transition"]),
         [data-tab]:not([class*="transition"]),
         .logo-menu-item { transition: transform var(--dur-fast) var(--ease); }
+
+        /* ==========================================================
+           Tailwind 的過場工具類別也收進 token（2026-08-12）
+
+           ★ 上面那段註解記著「不要整批覆寫」的教訓，這一段是**刻意反過來做**，
+           所以要交代為什麼可以：當時怕的是「把全站按鈕的過場都改成 90ms，
+           而那是我沒打算做的改動」。這一輪先把它盤過一遍才動手——
+           全站 121 個 Tailwind 過場裡 118 個用預設的 150ms，
+           而它們動的幾乎全是**顏色**（bg 74、border 13、text 9、shadow 6，
+           transform 只有 5）。也就是說那個「沒打算做的改動」，
+           實際內容是一百多個 hover 換色從 150ms 變 90ms。
+           換色沒有位移，不需要時間被讀懂，只要不閃——90ms 遠高於會閃的門檻。
+
+           ★ 為什麼是 --dur-fast 而不是 --dur-base：hover 回饋的建議區間是
+           100–150ms，我們的刻度在那一段是空的（90 偏快、180 偏慢）。
+           往快的那邊靠是因為這是工具型的站，手感該跟手；
+           而且 180ms 會讓一百多個 hover **同時**變慢兩成，那個是感覺得到的。
+
+           ★ 選擇器用 `html [...]`（特異性 0,1,1）而不是裸的屬性選擇器（0,1,0）。
+           後者跟 Tailwind 的 `.transition-colors` 同級，誰贏要看誰排後面——
+           Tailwind Play CDN 是同步 script，注入的 style 排在這個 <style> 前面，
+           所以裸選擇器**現在**會贏。但那是它注入時機的副作用，不是保證；
+           多一階特異性就跟順序無關了。
+           ========================================================== */
+        html [class*="transition-"] {
+            transition-duration: var(--dur-fast);
+            transition-timing-function: var(--ease);
+        }
+        /* 明寫 duration-* 的仍然照自己的走，只是也收進刻度。
+           特異性 0,2,1 > 上面那條的 0,1,1，所以跟順序無關。 */
+        html [class*="transition-"].duration-200 { transition-duration: var(--dur-base); }
+        html [class*="transition-"].duration-300 { transition-duration: var(--dur-page); }
         .plan-row[draggable="true"]:active { transform: none; }
         @media (prefers-reduced-motion: reduce) {
             button:active, [data-action]:active, [data-tab]:active, .logo-menu-item:active { transform: none; }
@@ -2104,7 +2136,7 @@
                     <kbd class="kbd-hint text-[10px] font-bold px-1 py-0.5 rounded pointer-events-none">⌘K</kbd>
                 </button>
                 <button id="settingsBtn" data-tab="settings" title="設定" aria-label="設定"
-                        class="tap-44 shrink-0 p-2 rounded-xl transition-all text-slate-400 hover:text-emerald-400 hover:bg-white/10">
+                        class="tap-44 shrink-0 p-2 rounded-xl transition-colors text-slate-400 hover:text-emerald-400 hover:bg-white/10">
                     <i data-lucide="settings" class="w-5 h-5 pointer-events-none"></i>
                 </button>
             </div>
@@ -2112,7 +2144,7 @@
             <!-- 第一列的右半：帳號。order-2 讓它在手機上緊接著 logo，
                  桌機則回到原本的最右邊。 -->
             <div class="relative order-2 md:order-none shrink-0 flex items-center gap-2">
-                <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-all shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
+                <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-colors shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
                     <i data-lucide="log-in" class="w-4 h-4"></i>
                     <span>登入 / 註冊</span>
                 </button>
@@ -2338,7 +2370,7 @@
                             </div>
 
                             <div id="courseFilterContainer" class="relative px-2 mb-4 z-20">
-                                <button data-action="filter-toggle" class="flex items-center justify-between w-48 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm transition-all bg-slate-200 text-slate-700 hover:bg-slate-300">
+                                <button data-action="filter-toggle" class="flex items-center justify-between w-48 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm transition-colors bg-slate-200 text-slate-700 hover:bg-slate-300">
                                     <span id="currentFilterText" class="flex items-center gap-2 pointer-events-none">
                                         <i data-lucide="filter" class="w-4 h-4"></i> 分類：全部
                                     </span>
@@ -2543,13 +2575,13 @@
                                 </select>
                                 <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="雲端硬碟共用連結">
                                 <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium" aria-label="檔案名稱 (如: 期中考考古)">
-                                <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all">確認存檔</button>
+                                <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors">確認存檔</button>
                             </div>
                         </div>
                         <div id="importCoursesSection" class="bg-sky-600 rounded-[2rem] p-6 shadow-xl border-4 border-sky-400 hidden">
                             <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white"><i data-lucide="download-cloud" class="w-5 h-5"></i> 從教務系統匯入電子系課程</h3>
                             <p class="text-sky-100 text-sm font-medium mb-5">一鍵匯入彰師大電子系 115 學年第一學期課程（教師僅顯示姓氏）。已存在的課程會自動略過，匯入後仍可照常編輯或刪除。</p>
-                            <button id="importEECoursesBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-all flex items-center justify-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> 匯入電子系課程 (115上/114下，共 47 門)</button>
+                            <button id="importEECoursesBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> 匯入電子系課程 (115上/114下，共 47 門)</button>
                         </div>
                     </div>
                 </section>
@@ -2571,7 +2603,7 @@
                         <div class="flex-1">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">課程自學資源 </h2>
                         </div>
-                        <button id="addSelfStudyCourseBtn" class="hidden px-6 py-3 font-bold bg-fuchsia-500 text-white rounded-2xl hover:bg-fuchsia-400 transition-all shadow-lg flex items-center gap-2">
+                        <button id="addSelfStudyCourseBtn" class="hidden px-6 py-3 font-bold bg-fuchsia-500 text-white rounded-2xl hover:bg-fuchsia-400 transition-colors shadow-lg flex items-center gap-2">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增自學課程
                         </button>
                     </div>
@@ -2591,7 +2623,7 @@
                             <h2 id="ssDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                             <p class="text-emerald-400 font-bold text-sm flex items-center gap-2"><i data-lucide="link" class="w-4 h-4"></i> <span id="ssDetailsLinkedCourse"></span></p>
                         </div>
-                        <button id="addSelfStudyUnitBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2">
+                        <button id="addSelfStudyUnitBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg flex items-center gap-2">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增單元
                         </button>
                     </div>
@@ -2610,9 +2642,9 @@
                             <p class="text-slate-400 text-sm mt-2">讀英文新聞、點任一個字直接查劍橋字典。文章來源：Global Voices（CC BY 3.0）。</p>
                             <div class="mt-4 flex gap-2 max-w-md">
                                 <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500" aria-label="快查任一單字…">
-                                <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
+                                <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
                             </div>
-                            <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-all inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
+                            <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-colors inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
                         </div>
                     </div>
                     <div id="readingList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
@@ -2645,7 +2677,7 @@
                     <div class="flex-1">
                         <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">測驗 </h2>
                     </div>
-                    <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
+                    <button id="openCreateKahootBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg flex items-center gap-2 shrink-0">
                         <i data-lucide="plus-circle" class="w-5 h-5"></i> 建立測驗
                     </button>
                 </div>
@@ -2673,7 +2705,7 @@
                         <button id="addVocabFolderBtn" data-action="add-vocab-folder" class="hidden px-6 py-3 font-bold bg-slate-700 text-white rounded-2xl hover:bg-slate-600 transition-colors shadow-lg flex items-center gap-2 shrink-0">
                             <i data-lucide="folder-plus" class="w-5 h-5 pointer-events-none"></i> 新增資料夾
                         </button>
-                        <button id="addVocabBookBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2 shrink-0">
+                        <button id="addVocabBookBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-colors shadow-lg flex items-center gap-2 shrink-0">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 創建單字冊
                         </button>
                     </div>
@@ -2704,11 +2736,11 @@
                         <div class="flex-1">
                             <h2 id="vocabDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                             <p id="vocabDetailsSubtitle" class="text-blue-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
-                            <button id="startVocabQuizBtn" class="px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-all shadow-lg flex items-center gap-2">
+                            <button id="startVocabQuizBtn" class="px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg flex items-center gap-2">
                                 <i data-lucide="gamepad-2" class="w-5 h-5"></i> 進入單字擂台挑戰
                             </button>
                         </div>
-                        <button id="addVocabWordBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-all shadow-lg flex items-center gap-2">
+                        <button id="addVocabWordBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-colors shadow-lg flex items-center gap-2">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增單字
                         </button>
                     </div>
@@ -2745,7 +2777,7 @@
                                 <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">本月支出</div><div id="expExpense" class="text-lg font-black text-rose-400">$0</div></div>
                                 <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">結餘</div><div id="expBalance" class="text-lg font-black text-white">$0</div></div>
                             </div>
-                            <button id="openExpenseModalBtn" data-action="open-expense-modal" class="mt-4 px-5 py-2.5 bg-emerald-500 text-white rounded-2xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增一筆</button>
+                            <button id="openExpenseModalBtn" data-action="open-expense-modal" class="mt-4 px-5 py-2.5 bg-emerald-500 text-white rounded-2xl font-bold text-sm hover:bg-emerald-400 transition-colors inline-flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增一筆</button>
                         </div>
                     </div>
                     <div class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
@@ -2767,10 +2799,10 @@
                                 <div class="bg-white/10 rounded-2xl px-3 py-2 border border-white/10"><div class="text-[10px] text-slate-400 font-black uppercase">損益</div><div id="invPnl" class="text-lg font-black text-white">$0</div></div>
                             </div>
                             <div class="mt-4 flex flex-wrap gap-2">
-                                <button id="openHoldingModalBtn" data-action="open-holding-modal" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-all inline-flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增持倉</button>
-                                <button data-action="open-trade-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="repeat" class="w-4 h-4 pointer-events-none"></i> 記錄交易</button>
-                                <button data-action="open-watch-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i> 新增筆記</button>
-                                <button id="refreshPricesBtn" data-action="refresh-prices" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-all inline-flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> 更新現價</button>
+                                <button id="openHoldingModalBtn" data-action="open-holding-modal" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors inline-flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增持倉</button>
+                                <button data-action="open-trade-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="repeat" class="w-4 h-4 pointer-events-none"></i> 記錄交易</button>
+                                <button data-action="open-watch-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i> 新增筆記</button>
+                                <button id="refreshPricesBtn" data-action="refresh-prices" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> 更新現價</button>
                             </div>
                             <p class="text-[11px] text-slate-500 mt-3">※ 僅為個人記錄工具，不提供投資建議；現價需自行更新。</p>
                         </div>
@@ -3220,7 +3252,7 @@
             <p class="text-slate-400 text-xs mb-6">歡迎來到黑貓的領地</p>
             <input type="email" id="adminEmail" placeholder="電子信箱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-3" aria-label="電子信箱">
             <input type="password" id="adminPassword" placeholder="密碼" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-6" aria-label="密碼">
-            <button id="confirmAdminLogin" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">登入</button>
+            <button id="confirmAdminLogin" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-colors">登入</button>
 
             <!-- Google 登入。第二段（串接舊帳號）平常是收起來的，
                  只有在「這個信箱已經用密碼註冊過」時才展開。 -->
@@ -3229,7 +3261,7 @@
                 <span class="text-xs font-bold text-slate-400">或</span>
                 <span class="flex-1 h-px bg-slate-200"></span>
             </div>
-            <button id="googleLoginBtn" class="w-full py-4 bg-white text-slate-700 rounded-2xl font-bold border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-all flex items-center justify-center gap-3">
+            <button id="googleLoginBtn" class="w-full py-4 bg-white text-slate-700 rounded-2xl font-bold border-2 border-slate-200 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center justify-center gap-3">
                 <svg class="w-5 h-5 shrink-0" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
                 使用 Google 帳號登入
             </button>
@@ -3237,7 +3269,7 @@
                 <p class="text-sm font-bold text-amber-900 mb-1">這個信箱已經用密碼註冊過了</p>
                 <p id="googleLinkHint" class="text-xs text-amber-800 font-medium mb-3 leading-relaxed"></p>
                 <input type="password" id="googleLinkPassword" placeholder="原本的密碼" class="w-full px-4 py-3 bg-white rounded-xl border-none focus:ring-2 focus:ring-amber-500 font-bold mb-3" aria-label="原本的密碼">
-                <button id="googleLinkBtn" class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold shadow hover:bg-amber-600 transition-all">綁定並登入</button>
+                <button id="googleLinkBtn" class="w-full py-3 bg-amber-500 text-white rounded-xl font-bold shadow hover:bg-amber-600 transition-colors">綁定並登入</button>
             </div>
 
             <p id="toggleAuthMode" class="text-sm font-bold text-emerald-600 mt-6 cursor-pointer hover:underline">沒有帳號？註冊一個</p>
@@ -3400,14 +3432,14 @@
                 <p class="text-[11px] text-emerald-700/70 font-bold mb-3">選項填 2～4 個即可，留空的會自動略過（可以做是非題或三選一）。點左邊圓圈選出正解。</p>
                 <input type="text" id="qText" maxlength="200" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm" aria-label="輸入題目內容...">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 1（必填）"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 2（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 2（必填）"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt2" maxlength="100" placeholder="選項 3（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 3（可留空）"></label>
-                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-all hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" maxlength="100" placeholder="選項 4（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 4（可留空）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 1（必填）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 2（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 2（必填）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="2" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt2" maxlength="100" placeholder="選項 3（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 3（可留空）"></label>
+                    <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="3" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt3" maxlength="100" placeholder="選項 4（可留空）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 4（可留空）"></label>
                 </div>
                 <button id="addDraftQuestionBtn" class="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm">將此題加入測驗</button>
             </div>
-            <button id="saveKahootBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-all">確認儲存並發布</button>
+            <button id="saveKahootBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-colors">確認儲存並發布</button>
         </div>
     </div>
 
@@ -3442,7 +3474,7 @@
             </div>
             <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
             <div id="kahootNextWrap" class="hidden mt-7">
-                <button id="kahootNextBtn" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-all flex items-center justify-center gap-2">
+                <button id="kahootNextBtn" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
                     <span id="kahootNextLabel">下一題</span>
                     <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
                 </button>
@@ -3467,7 +3499,7 @@
                 <h3 class="text-sm font-black text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-rose-500"></i> 答錯的題目</h3>
                 <div id="resultWrongList" class="space-y-3 max-h-64 overflow-y-auto pr-1"></div>
             </div>
-            <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-all">回到大廳</button>
+            <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-colors">回到大廳</button>
         </div>
     </div>
 
@@ -3598,7 +3630,7 @@
          class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-10 py-4 rounded-full shadow-2xl font-bold text-sm hidden"></div>
 
     <!-- 回到頂端浮動鈕 -->
-    <button id="backToTopBtn" class="hidden fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl hover:bg-emerald-500 transition-all flex items-center justify-center" aria-label="回到頂端">
+    <button id="backToTopBtn" class="hidden fixed bottom-6 right-6 z-40 w-12 h-12 rounded-full bg-slate-900 text-white shadow-xl hover:bg-emerald-500 transition-colors flex items-center justify-center" aria-label="回到頂端">
         <i data-lucide="arrow-up" class="w-5 h-5 pointer-events-none"></i>
     </button>
 
@@ -4216,7 +4248,13 @@
                     ['骨架掃光從 ease-in-out 改成等速', '無限迴圈的東西不能用會減速的曲線：跑到終點慢下來、下一格瞬間跳回起點再加速，那個「停一下又彈出去」把接縫**指出來**給人看。等待中的骨架是背景紋理，它的工作是讓人知道還在跑，不是讓人盯著它看。'],
                     ['落在刻度外的硬寫值一起收回來', '開站畫面的 .45s、提示的 .34s、命令面板的 .2s、打勾的 .24s、logo 箭頭的 .18s。提示那個是往**長**的那邊靠（.36s 而不是 .27s）——這三個會過衝的東西裡它的位移最大，縮短才有變回「抖一下」的風險。'],
                     ['★ 貓、繞圈、轉圈、掃光這四個不受刻度管', '它們的時間來自現實世界：貓是原片 24fps 換算的 41.7ms 一格，繞圈是腳的半徑 130px、圓周 817px 算出來的 4.26 秒。照抄互動刻度反而是錯的。規矩改成「週期性動畫走自己的物理量，但一律用等速」。'],
+                    ['★ 但上面那些本來只管得到全站一成的過場', '盤下去才發現：主站有 121 個 Tailwind 的過場工具類別（`transition-all`、`transition-colors`…），走 token 的 CSS 只有 12 條。也就是說「整站的動效感覺」這個旋鈕，實際上只接在十分之一的東西上，其餘九成的真正規格是 Tailwind 的預設值——150ms 配它自己的曲線，兩個都在我們的體系外。加一條規則把它們全部接管了。'],
+                    ['一百多個 hover 換色從 150ms 變 90ms', '敢動是因為先盤過：121 個裡 118 個用預設的 150ms，而它們動的幾乎全是顏色（bg 74、border 13、text 9、shadow 6，transform 只有 5）。換色沒有位移，不需要時間被讀懂，只要不閃——90ms 遠高於會閃的門檻，而且這是工具型的站，手感該跟手。'],
+                    ['★ 接管的選擇器要帶 `html`', '裸的屬性選擇器跟 Tailwind 的 `.transition-colors` 優先級一樣，誰贏要看誰排後面。Tailwind 是同步載入的，注入的樣式排在我們前面，所以裸選擇器**現在**會贏——但那是它注入時機的副作用，不是保證。多一階特異性就跟順序無關了。'],
+                    ['37 個「只改顏色卻寫 transition-all」改掉了', '`transition-all` 會把每一個可動畫屬性都掛上去，包含沒打算動的版面屬性，那是「莫名其妙抖一下」的常見來源。剩下的 32 個是真的需要：9 個要過場 shadow／outline／scale（`transition-colors` 涵蓋不到那些，改過去等於把過場刪掉），22 個由 JS 換 class 驅動。'],
                     ['新增 `動效.md`', '把調性、四階時距、三條曲線、錯開、階層、什麼不該動、無障礙擋板寫成一份規格，附一張加東西之前的檢查表。以前這些理由散在各個 CSS 註解裡，找得到但拼不起來。'],
+                    ['★ 這一輪的規矩十條都有測試擋著', '`tests/design.mjs` 加了：四階是不是 90ms 的倍數、模擬器與主站的 token 是不是同值、有沒有裸的 `ease`、接管規則在不在、選擇器有沒有帶 `html`、數量上限。十個突變逐一試過都會紅——這一節寫的東西全部是「會安靜退回去」的那種，沒有測試的話下一輪就白做了。其中「兩個檔案同值」那條最該有：檔頭寫著「設計 token 共用」，但那句話在這之前只有顏色做到，而沒有任何東西擋得住它再次分岔。'],
+                    ['★ 然後那條數量上限立刻紅在這一篇更新紀錄上', '它數的是整個檔案，而這一篇正在解釋為什麼要移除那些寫法——於是寫得愈清楚、數字愈高。同一個坑在註解那邊已經踩過三次，這是第四次，換成資料。計數改成先把更新紀錄整段拿掉再數。'],
                     ['查過但沒改的兩件事', '打勾的過衝（1.22×）留著——那是全站唯一一個「慶祝」，而過衝正是完成的手感，而且它不在數字上。`prefers-reduced-motion` 也不必補：主站八處、模擬器兩處，每一個動畫都已經有擋板。'],
                 ],
             },
@@ -5146,7 +5184,7 @@
                             :'schedule-cell bg-teal-50 rounded-xl p-1.5 md:p-2 text-center border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 min-w-[100px] h-16 md:h-24 align-middle';
                     } else {
                         tdClass = editable
-                            ?'schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-all hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] h-16 md:h-24 align-middle'
+                            ?'schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-colors hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] h-16 md:h-24 align-middle'
                             :'schedule-cell bg-slate-50/40 rounded-xl p-1 md:p-2 text-center border border-slate-100 min-w-[100px] h-16 md:h-24 align-middle';
                     }
                     const action = editable ? `data-action="edit-schedule" data-cell="${cellId}"` :'';
@@ -6978,7 +7016,7 @@
          * ========================================================== */
         function materialCardHTML(m, tierKey) {
             return `
-                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center hover:border-emerald-200 transition-all">
+                <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center hover:border-emerald-200 transition-colors">
                     <div class="flex items-center gap-4">
                         <div class="bg-emerald-50 text-emerald-500 p-3 rounded-2xl"><i data-lucide="link-2" class="w-6 h-6"></i></div>
                         <div>
@@ -7085,13 +7123,13 @@
                             </div>
                             <p class="text-sm font-bold text-slate-500">你想為哪門課留下足跡？</p>
                         </div>
-                        <select id="wizardCourseSelect" aria-label="選擇課程" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 font-bold text-slate-700 appearance-none transition-all outline-none">
+                        <select id="wizardCourseSelect" aria-label="選擇課程" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 font-bold text-slate-700 appearance-none transition-colors outline-none">
                             <option value="" disabled selected>請選擇課程...</option>
                             ${state.courses.map(c => `<option value="${c.id}" ${reviewWizardData.courseId === c.id ?'selected' :''}>${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('')}
                         </select>
                         ${currentUserLevel >= 4 ? `
                         <button data-action="open-add-course" class="w-full py-2 text-xs font-bold text-emerald-600 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors border border-emerald-100">找不到？點我新增課程</button>` :''}
-                        <button data-action="next-review-step" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-all flex justify-center items-center gap-2">
+                        <button data-action="next-review-step" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-black text-lg shadow-lg hover:bg-slate-800 transition-colors flex justify-center items-center gap-2">
                             開始評價 <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
                         </button>
                     </div>`;
@@ -7123,7 +7161,7 @@
                         <p class="text-xs font-medium text-slate-400 mb-4">分享一下這門課的有趣（或是痛苦）之處吧...</p>
                         <textarea id="wizardComment" maxlength="500" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 focus:outline-none flex-1 min-h-[160px] resize-none transition-all font-medium mb-5 text-slate-700 placeholder:text-slate-400" placeholder="這門課有什麼特別的嗎？..." aria-label="這門課有什麼特別的嗎？..."></textarea>
                         <div class="flex gap-3">
-                            <button data-action="prev-review-step" class="px-5 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold hover:bg-slate-200 transition-all flex items-center justify-center">
+                            <button data-action="prev-review-step" class="px-5 py-4 bg-slate-100 text-slate-500 rounded-2xl font-bold hover:bg-slate-200 transition-colors flex items-center justify-center">
                                 <i data-lucide="arrow-left" class="w-5 h-5 pointer-events-none"></i>
                             </button>
                             <button data-action="submit-wizard-review" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg shadow-lg shadow-emerald-200 hover:bg-emerald-400 transition-all transform active:scale-95 flex items-center justify-center gap-2">
@@ -7191,7 +7229,7 @@
                 return;
             }
             grid.innerHTML = state.ssCourses.map(c => `
-                <div data-action="open-ss-course" data-id="${c.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-fuchsia-300 transition-all flex flex-col group relative">
+                <div data-action="open-ss-course" data-id="${c.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-fuchsia-300 transition-colors flex flex-col group relative">
                     <div class="w-12 h-12 bg-fuchsia-50 text-fuchsia-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i data-lucide="book" class="w-6 h-6"></i>
                     </div>
@@ -8288,7 +8326,7 @@
         function vocabBookCard(b, editable) {
             const badge = vocabScope ==='mine' ?'🔒 只有你看得到' : vocabScope ==='builtin' ?'內建' :'公有';
             return `
-                <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-all flex flex-col group relative">
+                <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-colors flex flex-col group relative">
                     <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i data-lucide="book-type" class="w-6 h-6"></i>
                     </div>
@@ -8664,7 +8702,7 @@
             list.innerHTML = filtered.map(k => {
                 const n = k.questions ? k.questions.length : 0;
                 return `
-                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-all flex flex-col justify-between">
+                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-colors flex flex-col justify-between">
                     <div>
                         <div class="flex justify-between items-start mb-2 gap-2">
                             <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
