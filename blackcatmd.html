@@ -159,7 +159,11 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 #mdTitle{flex:1;min-width:9rem;padding:6px 12px;border-radius:10px;
          border:1px solid var(--rule);background:var(--paper-raised);
          font-weight:900;font-size:15px}
-#panes{flex:1;min-height:0;display:grid;gap:8px;grid-template-columns:1fr 1fr}
+/* ★ `grid-template-rows:1fr` 不能省：少了它那一列是 auto，
+   而編輯區的 `max-height:100%` 就會拿一個「由內容決定」的高度去算百分比——
+   那是循環定義，瀏覽器會當成沒設，紙又會被字撐到比一頁還長。 */
+#panes{flex:1;min-height:0;display:grid;gap:8px;
+       grid-template-columns:1fr 1fr;grid-template-rows:1fr}
 #panes.single{grid-template-columns:1fr}
 
 .md-item{display:block;width:100%;text-align:left;padding:8px 11px;margin-bottom:6px;
@@ -216,20 +220,37 @@ html.dark .md-sheet{background-image:url(notepaper-dark.webp),
         transparent 0 calc(var(--md-line) - 1px),
         var(--md-rule) calc(var(--md-line) - 1px) var(--md-line))}
 
-/* ---- 編輯區：連續的紙 ----
-   ★ 這裡**不分頁**，而且不是偷懶。textarea 沒有辦法把自己的內容切成幾塊
+/* ---- 編輯區：也是一張完整的紙，只是它自己會捲 ----
+
+   ★★ 它**不分頁**，而且不是偷懶。textarea 沒有辦法把自己的內容切成幾塊
    （它裡面沒有節點可以搬），硬要分頁只能改用 contenteditable，
    而那會把「使用者打的是 Markdown 原文」這件事整個弄壞。
-   ★ 而且就算做得到也沒有意義：左邊是原文、右邊是排版後的結果，
-   兩邊的行本來就對不起來，在原文上畫分頁線只會誤導。 */
+   而且就算做得到也沒有意義：左邊是原文、右邊是排版後的結果，
+   兩邊的行本來就對不起來，在原文上畫分頁線只會誤導。
+
+   ★★★ 但**紙不可以長得比一頁還長**。原本讓它填滿整欄，於是螢幕愈高、
+   那張紙就愈往下延伸，看起來像紙壞掉了——而它其實只是一個很高的輸入框。
+   所以尺寸釘成跟 `.md-page` 一模一樣（610×816、同樣的影子），
+   捲的是**紙裡面的字**。畫面上永遠只有「一頁」這一種紙的形狀。 */
 #mdInput{
     font-family:ui-monospace,"Cascadia Code","Noto Sans TC",monospace;
-    font-size:14px;resize:none;width:100%;
-    border:1px solid var(--rule);border-radius:14px;
-    padding:var(--md-head) 16px 14px;
+    font-size:14px;resize:none;
+    /* ★★ 順序是 `height:100%` 配 `max-height:一頁`，不是反過來。
+       寫成 `height:816px; max-height:100%` 量出來**不會夾**——欄高 500 的時候
+       紙還是 816，直接溢出到工作區外面。反過來寫兩種情況都對：
+       欄夠高就停在一頁，欄不夠高就跟著欄縮。 */
+    width:var(--md-page-w);max-width:100%;
+    height:100%;max-height:var(--md-page-h);
+    justify-self:center;
+    border:0;border-radius:2px;
+    padding:var(--md-head) 16px var(--md-line);
     min-height:0;overflow:auto;
+    box-shadow:0 1px 3px rgba(0,0,0,.14),0 8px 24px rgba(0,0,0,.10);
 }
-#mdInput:focus{outline:none;border-color:var(--accent-bright)}
+html.dark #mdInput{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
+/* ★ 沒有邊框可以變色了，所以聚焦改用外框線（`outline` 不佔版面，
+   用 border 會讓紙在點下去的瞬間縮 1px）。 */
+#mdInput:focus{outline:2px solid var(--accent-bright);outline-offset:2px}
 
 /* ---- 預覽區：一頁一張紙 ----
    ★ 捲動的是這一層，紙本身不捲（`.md-page` 是固定尺寸的方塊）。
@@ -269,6 +290,8 @@ html.dark .md-page{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)
     .md-page{width:auto;height:auto;min-height:100%;
              padding:var(--md-head) 16px 14px;box-shadow:none;border-radius:14px}
     .md-page::after{content:none}
+    /* 手機上紙就是整個畫面，不用再擺一張 610 寬的紙在中間留白 */
+    #mdInput{width:100%;height:100%;max-height:none;box-shadow:none;border-radius:14px}
 }
 
 /* ---- 四種語意色 ---- */
@@ -461,7 +484,10 @@ let mdNotesLoaded = false;
    id 進來只有兩條路——從 onSnapshot 真的收到過，或本機剛建立的新篇。 */
 const mdReadyIds = new Set();
 let currentNoteId = null;
-let mdView = 'split';
+/* ★★ 預設是「只編輯」不是「並排」。並排的問題不是擠，是**畫面上會有兩張紙**——
+   左邊那張還因為 textarea 分不了頁而一路往下鈣，看起來像紙壞掉了。
+   一次只看一邊，畫面上永遠只有一張完整的紙。並排的按鈕留著，要對照的人自己按。 */
+let mdView = 'edit';
 let mdSaveTimer = null;
 let mdDirty = false;          // 有沒有還沒寫回雲端的改動
 let mdPreviewTimer = null;
