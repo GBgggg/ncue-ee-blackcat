@@ -471,6 +471,11 @@ html.dark .md-page{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)
 .md-page > :first-child{margin-top:0 !important}
 .md-body h1{font-size:20px} .md-body h2{font-size:17px} .md-body h3{font-size:15px}
 .md-body p,.md-body li{margin:0}
+/* ★★ 原文裡的空行＝紙上真的空一格（產生器見 mdKeepBlankLines）。
+   高度寫死一格而不是靠 `<br>` 撐：空的 `<p>` 沒有行框，高度是 0，
+   而 0 的那一塊在分頁時完全不佔位——症狀是「空行有時候有、有時候沒有」。
+   釘成 --md-line 的一倍，`mdSnapBlock` 量到的餘數就是 0，不會再補格。 */
+.md-body .md-blank{height:var(--md-line)}
 .md-body ul,.md-body ol{padding-left:1.6em;margin:0}
 .md-body ul{list-style:disc} .md-body ol{list-style:decimal}
 .md-body code{font-family:ui-monospace,monospace;font-size:.92em;
@@ -878,6 +883,90 @@ function mdFillMath(root, store){
 const MD_PAGE_BREAK = 820;      /* 與 CSS 那條 @media 必須是同一個數字 */
 const mdPagedNow = () => window.innerWidth > MD_PAGE_BREAK;
 
+/* ==========================================================
+   空行＝空一格
+
+   ★★★ 2026-08-13 回報：「我在第二頁打出的東西跑到空的第一頁」。
+   原因是 Markdown 把**連續空行只當成段落分隔**，不管你空了幾行高度都是 0
+   （這一頁又把 `.md-body p` 的 margin 設成 0，所以連段落間距都沒有）。
+   使用者在編輯區按了四十次 Enter 把字推到第二張紙上，預覽卻把那四十行
+   全部收掉，字回到第一頁的第一行。編輯區是一張連續的紙、所見即所得，
+   預覽是 Markdown——兩邊的行位置從**第一個空行**就開始對不上，
+   而且沒有任何錯誤訊息，看起來像「這篇筆記自己跳掉了」。
+
+   ★ 這也是把既有的宣告補回來：`mdSnapGrid` 的註解早就寫著
+   「空一行就是空一整行」，但當時只有公式那一塊照做。
+
+   做法是在交給 marked 之前，把每一個空行換成一塊 `<p class="md-blank">`
+   （高度剛好一格）。兩個刻意的例外：
+
+     一、**code fence 裡面不動**。那裡的空行是內容，換掉就是改了使用者的程式碼。
+        （四個空白縮排的程式碼區塊沒有處理——在筆記裡幾乎沒人這樣寫，
+          而要正確判斷它得把 Markdown 的區塊規則抄一遍。）
+     二、**清單項目之間不動**。插一塊 HTML 進去會把清單切成兩個，
+        `1. 2. 3.` 的編號會從頭數起——那是比「少一行空白」嚴重得多的錯。
+
+   ★ 順序：這一支跑在 `mdExtractMath` **之後**。反過來的話，$$…$$ 裡
+   跨行的空行會先被換成 `<p>`，公式就再也不成立了。
+   ========================================================== */
+const MD_BLANK = '<p class="md-blank"></p>';
+/* ★ 底下這兩支刻意**不用「帶次數限定的正規表示式」**（就是那種用大括號寫
+   幾次到幾次的寫法）。測試是把出貨的這段原始碼抽出來真的跑一遍，而抽取器
+   靠配對大括號找函式邊界——字串、正規表示式**甚至註解**裡的大括號都會讓它
+   在半路收工，訊息是「括號沒有配平」或「ln is not defined」，
+   看起來像原始碼壞了。這一段的註解本身就踩過一次，所以連舉例都不能寫。 */
+/* ★ 寫成有大括號的本體不是囉嗦：抽取器沒看到大括號就會拿第一組小括號
+   （也就是參數列）當邊界，抽出來是半截的 `const mdIndent = (ln)`。 */
+const mdIndent = (ln) => { return ln.length - ln.trimStart().length; };
+/* 是不是 code fence 的界線？回傳 '`' 或 '~'，不是就回 null。 */
+const mdFenceOf = (ln) => {
+    if (mdIndent(ln) > 3) return null;
+    const s = ln.trimStart();
+    if (s.startsWith('```')) return '`';
+    if (s.startsWith('~~~')) return '~';
+    return null;
+};
+/* 是不是清單項目的開頭（`- `、`* `、`+ `、`1. `、`1) `）？ */
+const mdIsListLine = (ln) => {
+    if (mdIndent(ln) > 3) return false;
+    const s = ln.trimStart();
+    return /^[-*+]\s/.test(s) || /^\d+[.)]\s/.test(s);
+};
+function mdKeepBlankLines(src){
+    const lines = src.split('\n');
+    const out = [];
+    let fence = null;                       // 目前在哪一種 fence 裡（``` 或 ~~~）
+    for (let i = 0; i < lines.length; i++){
+        const ln = lines[i];
+        const f  = mdFenceOf(ln);
+        if (fence !== null){                // fence 裡面：原封不動，只找收尾
+            out.push(ln);
+            if (f === fence) fence = null;
+            continue;
+        }
+        if (f){ fence = f; out.push(ln); continue; }
+        if (ln.trim() !== ''){ out.push(ln); continue; }
+
+        /* 一整串空行一次處理完，才數得出到底空了幾行。 */
+        let j = i;
+        while (j < lines.length && lines[j].trim() === '') j++;
+        const k = j - i;
+        const prev = out.length ? out[out.length - 1] : '';
+        const next = j < lines.length ? lines[j] : '';
+        i = j - 1;
+        if (mdIsListLine(prev) && mdIsListLine(next)){
+            /* 例外二：留給 Markdown 自己處理，不然清單會被切開。 */
+            for (let n = 0; n < k; n++) out.push('');
+            continue;
+        }
+        /* 每一塊都要被空行夾著才會各自成為一個 HTML 區塊；
+           少了那些空行，k 個 <p> 會黏成同一塊，高度只剩一格。 */
+        for (let n = 0; n < k; n++){ out.push(''); out.push(MD_BLANK); }
+        out.push('');
+    }
+    return out.join('\n');
+}
+
 /* 把一塊補到整數格。
 
    ★★ 為什麼需要這個：KaTeX 排出來的東西高度是「它需要多高就多高」，
@@ -1043,7 +1132,8 @@ function mdRenderPages(src){
     const store = [];
     let html;
     try {
-        html = M.parse(mdExtractMath(src, store), { breaks:true, gfm:true });
+        /* ★ 先抽公式再補空行，順序不能反（理由寫在 mdKeepBlankLines 的抬頭）。 */
+        html = M.parse(mdKeepBlankLines(mdExtractMath(src, store)), { breaks:true, gfm:true });
     } catch (e){
         page1.textContent = src;
         return;
