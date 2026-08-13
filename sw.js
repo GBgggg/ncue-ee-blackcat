@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v77';
+const CACHE = 'blackcat-v78';
 /* ★ 每一個會發布出去的頁面都要在這裡。漏掉不會報錯——
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
@@ -21,6 +21,11 @@ const CORE = ['./', './index.html', './image.png', './manifest.json',
               './ncue.html',            // 彰師電子（獨立頁）
               './blackcatspice.html',   // 電路模擬器（獨立頁）
               './blackcatmd.html',      // 筆記編輯器（獨立頁）
+              /* 筆記那張紙（亮／夜兩張，共約 35KB）。跟背景畫同一個理由要進 CORE：
+                 它不是「翻到才需要」的內容，是紙本身。少了它筆記還是有橫線
+                 （CSS 漸層接得住），但頁首與紙紋會不見——而那看起來很像
+                 「這一版把紙改壞了」，沒有人會知道那只是圖沒進快取。 */
+              './notepaper.webp', './notepaper-dark.webp',
               /* ★ 筆記那頁用的三支排版函式庫**不能**加進來：
                  CORE 走 addAll，而 addAll 對跨來源網址會整批失敗——
                  一個外部網址就會讓整個預快取掛掉，連自己的頁面都沒進快取。

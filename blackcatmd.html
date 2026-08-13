@@ -49,25 +49,39 @@ html.dark{
 
    ★ 筆記紙自己一組 token，不沿用 --paper。站上的紙是「向日葵的暖奶黃」，
    配的是背景那張畫；筆記紙要的是**筆記本**——更白、線更明顯，
-   而且它是不透明的。對比因此可以直接算，不必疊紋理取最壞像素。
+   而且它是不透明的。
+
+   ★★ 2026-08-13 改成真的那張紙：色值不再是挑的，是從 `md maker/筆記紙.pdf`
+   量出來的（紙 #fcf9f4、線 #c8c4be、線距 24px）。原本挑的 #fffdf6／#e6dcc0
+   偏黃，那是把站上那張暖奶黃的紙又抄了一次，看起來像同一塊布做的兩件衣服。
+   量出來的紙是中性的暖白、線是灰的——那才是筆記本。
 
    ★★ 顏色是**語意**不是色票。使用者不挑顏色，只標「這是定義」「這是答案」：
      一、自己挑的話，同一本筆記裡「藍色」這個月是推導、下個月是重點，
          三個月後自己也讀不出規則
      二、挑死的色碼在深色模式下是看不見的
 
-   對比全部量過（紙是單色所以直接算，門檻 4.5）：
-     淺色紙 #fffdf6：藍 6.54／橘 5.82／金 5.82／墨 17.47
-     深色紙 #171b24：藍 8.32／橘 9.26／金 10.58／墨 12.97
-     螢光底上的字：淺色 13.69／深色 8.67
+   對比全部量過（門檻 4.5）。**取的是紙面最壞的那一個像素，不是紙的平均色**——
+   貼圖有紙紋顆粒（淺色最暗 #f0ece6、深色最亮 #23262f）：
+     淺色紙：藍 5.65／橘 5.03／金 5.03／墨 15.11／螢光底上的字 13.42
+     深色紙：藍 7.28／橘 8.10／金 9.26／墨 11.34／螢光底上的字 12.52
+   ★ 那條 1px 橫線**不算**在字底裡（字坐在線上面不是線裡面，只有下伸部會碰到）。
+   要是哪天行高與線距脫鉤、字真的壓到線上，這個前提就不成立了，對比要重算。
    ========================================================== */
 :root{
-    --md-paper:#fffdf6; --md-rule:#e6dcc0; --md-ink:#1e1708;
+    --md-paper:#fcf9f4; --md-rule:#c8c4be; --md-ink:#1e1708;
     --md-derive:#1b4fd8;      /* 藍：推導 */
     --md-annot:#a8460b;       /* 橘：標註 */
     --md-answer:#8a5a06;      /* 金：答案 */
     --md-mark-bg:#fdf0a8; --md-mark-ink:#2a2205;   /* 黃螢光：定義 */
-    --md-line:30px;           /* 行距＝橫線間距，兩者必須是同一個數 */
+    /* ★ 行距＝橫線間距，兩者必須是同一個數。24 不是挑的，是原紙的線距
+       （量到的週期 63.599 source px ＠260ppi ÷ 2.65 ＝ 24）。改這個數字
+       就要重跑 `tools/notepaper.py` 重產貼圖，否則圖上的線與 CSS 的線會
+       各走各的——症狀是捲到圖片結束的地方橫線突然錯開，而且不會報錯。 */
+    --md-line:24px;
+    /* 貼圖的高度（32 條線＋上下留白）與頁首高度（點線／No.／Date 三行）。
+       頁首佔 3 行是原紙就長這樣，不是留白留太多。 */
+    --md-sheet-img:780px; --md-head:72px;
 }
 html.dark{
     --md-paper:#171b24; --md-rule:#2a3140; --md-ink:#d9e0ea;
@@ -156,17 +170,46 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 /* ---- 橫線紙 ----
    ★ 用 `background-image` 不是 `background` 簡寫——簡寫會把底色一起洗掉，
    症狀是紙變透明。編輯區與預覽區鋪同一張紙、**同一個行距**：
-   兩邊行距不同的話，左右對照著看會愈往下差愈多。 */
+   兩邊行距不同的話，左右對照著看會愈往下差愈多。
+
+   ★★ 兩層背景，順序有意義：
+     上層 `notepaper.webp` 是真的那張紙（頁首的點線／No.／Date、紙紋顆粒），
+          只鋪一次、不重複，高度 780px；
+     下層 repeating-linear-gradient 從圖片結束的地方接下去，一路到文章結尾。
+   兩層的線都落在 24px 的整數倍上（貼圖是照這個對齊重採樣過的），所以接得起來。
+   下層同時也是**降級**：圖沒載到（離線第一次開、或 GitHub Pages 還沒同步）
+   就只是少了頁首與顆粒，紙還是紙——這比整片空白好太多，而空白正是
+   「只寫貼圖不寫漸層」會發生的事。
+
+   ★★★ `background-attachment: local` 少了會壞而且不報錯：預設值是 scroll，
+   意思是背景釘在**元素**上不跟著內容捲。捲個兩三行之後字就浮在兩條線中間，
+   而畫面看起來一切正常。這兩塊都是自己會捲的容器，所以兩層都要 local。
+
+   ★ padding-top 用 --md-head（72px＝3 行）把第一行字讓到 Date 線底下，
+   而且它是 24 的整數倍——不是的話整篇的字會坐在線與線之間。 */
 .md-sheet{
     background-color:var(--md-paper);
-    background-image:repeating-linear-gradient(
-        var(--md-paper) 0 calc(var(--md-line) - 1px),
-        var(--md-rule) calc(var(--md-line) - 1px) var(--md-line));
+    background-image:url(notepaper.webp),
+        repeating-linear-gradient(
+            var(--md-paper) 0 calc(var(--md-line) - 1px),
+            var(--md-rule) calc(var(--md-line) - 1px) var(--md-line));
+    background-repeat:no-repeat,repeat;
+    background-size:100% var(--md-sheet-img),auto;
+    background-position:top left,top left;
+    background-attachment:local,local;
     color:var(--md-ink);
     line-height:var(--md-line);
-    border:1px solid var(--rule);border-radius:14px;padding:14px 16px;
+    border:1px solid var(--rule);border-radius:14px;
+    padding:var(--md-head) 16px 14px;
     min-height:0;overflow:auto;
 }
+/* 深色版是重算出來的不是反相（`tools/notepaper.py` 開頭寫了為什麼）。
+   ★ 頁首在深色也要在：兩個模式的 padding-top 一樣，切換主題時整篇字
+   不可以上下跳一格。 */
+html.dark .md-sheet{background-image:url(notepaper-dark.webp),
+    repeating-linear-gradient(
+        var(--md-paper) 0 calc(var(--md-line) - 1px),
+        var(--md-rule) calc(var(--md-line) - 1px) var(--md-line))}
 #mdInput{
     font-family:ui-monospace,"Cascadia Code","Noto Sans TC",monospace;
     font-size:14px;resize:none;width:100%;
@@ -186,8 +229,11 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
    那個指標很準也很便宜，不該為了一個裝飾字元把它弄鈍。 */
 .md-body .md-answer::before{content:"\2605";margin-right:.25em}
 
+/* ★ 標題的上邊距**必須是 --md-line 的整數倍**。原本是 .5 倍，
+   於是標題底下的每一行都比橫線低半格，而且愈往下看愈明顯。
+   紙上的字沒有「半行」這回事——空一行就是空一整行。 */
 .md-body h1,.md-body h2,.md-body h3{color:var(--md-derive);font-weight:900;
-    margin:calc(var(--md-line) * .5) 0 0}
+    margin:var(--md-line) 0 0}
 .md-body h1{font-size:20px} .md-body h2{font-size:17px} .md-body h3{font-size:15px}
 .md-body p,.md-body li{margin:0}
 .md-body ul,.md-body ol{padding-left:1.6em;margin:0}
