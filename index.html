@@ -940,6 +940,58 @@
            沒有這一層的話，代價是「一個看不見的元素每秒重繪 60 次」，
            而它不會有任何症狀，只會讓電池變短。 */
         .vg-sky-off { animation-play-state: paused !important; }
+
+        /* ==========================================================
+           天空從「圖在位移」換成「流場在流」（2026-08-13）
+
+           上一輪把週期算對了（1.5 px/s），程式、測試、眼睛三層終於一致。
+           但那個速度是**刻意壓在潛意識層級**的，而使用者要的是看得出來。
+           把 background-position 的速度直接調快十倍不行：那是一張畫好的圖
+           整張在滑，滑快了就是「壁紙在移動」，不是「天空在流」——
+           漩渦的形狀完全不變，只有位置變。眼睛對這件事非常敏感。
+
+           所以改成 shader：漩渦眼自己會緩慢移位，整片流場因此**變形**而不只是
+           平移，筆觸沿著流線被拉長。那才是梵谷那份指引裡的「流動感與能量」。
+
+           ★★ 流場常數是從 `tools/genswirl.mjs` 原封不動搬過去的（四個眼的
+              座標、方向、強度、半徑，連底流 0.30 都一樣）。這不是巧合也不是
+              風格參考——是**同一片天空的兩種畫法**。沒有 WebGL 的瀏覽器、
+              以及開了減少動態的人，看到的是底下那張 SVG，兩者必須是同一片，
+              不然「換個瀏覽器就變成另一個網站」。
+
+           ★★ 只有**一個** WebGL context，不是一個元素一個。
+              `.bg-slate-900.relative.overflow-hidden` 有 14 個，加上開站畫面
+              就是 15——Chrome 的 WebGL context 上限大約 16，踩到之後它會
+              **默默丟掉最舊的那一個**，症狀是「捲一捲，上面那張卡的天空黑掉了」，
+              而且沒有錯誤訊息。所以共用一張離畫面的 GL 畫布，每一格畫一次，
+              再用 2D 的 drawImage 依 cover 規則裁進各張卡。
+              可見的卡通常只有一兩張，所以每格是「一次 GL ＋ 兩次 blit」。
+
+           ★★ canvas 用 `z-index: -1` ＋ 宿主 `isolation: isolate`，兩個要一起。
+              只給 z-index:-1 的話，卡片本身沒有堆疊脈絡（`position: relative`
+              而 `z-index: auto` 不會製造），負值的子元素會被丟到更外層的堆疊
+              脈絡去畫，於是它跑到**卡片底色的下面**——畫面上就是天空整個不見，
+              而且 DOM 裡那張 canvas 好端端地在，尺寸也對。
+              `isolation: isolate` 只製造堆疊脈絡，不動版面也不動包含塊，
+              所以卡片裡原本的絕對定位元素不受影響（這正是當初不用 ::before
+              的那個坑，這裡繞開的方式不一樣但要防的是同一件事）。
+              反過來也別改成 z-index:1 + 把內容推上去：那要碰到每一張卡的內容。 */
+        .vg-sky-host { isolation: isolate; }
+        .vg-sky-gl {
+            position: absolute; inset: 0; width: 100%; height: 100%;
+            display: block; z-index: -1; pointer-events: none;
+        }
+        /* GL 接手之後要把底下那個 background-position 動畫**關掉**。
+           不關的話它會繼續跑，而且完全看不見（canvas 是不透明的蓋在上面）——
+           一個看不見的重繪迴圈，沒有症狀，只有電池知道。
+           ★ 選擇器要寫到贏得過上面開動畫那幾條，不要用 !important：
+             `.bg-slate-900\/95` 那條是 (0,1,0)，所以 `.vg-gl-on.bg-slate-900\/95`
+             的 (0,2,0) 就贏了；Hero 那條是 (1,3,0)，所以這裡要湊到 (1,4,0)。
+             這跟上面「關掉減少動態那條也要跟著補特異性」是同一個坑，
+             而且同樣是「漏了不會報錯，只會照樣在動」。 */
+        .vg-gl-on.bg-slate-900\/95, .vg-gl-on.bg-slate-900\/90,
+        .vg-gl-on.bg-slate-900.relative.overflow-hidden:not(#mainHeader),
+        #splash.vg-gl-on { animation: none; }
         /* ★ 減少動態：天空整個不動，但**圖層與尺寸要留著**。
            只把 animation 設成 none 的話，background-size 仍然是 118%，
            於是畫面會停在放大的某一格——那不是「原本的樣子」，
@@ -4344,6 +4396,265 @@
         })();
 
         /* ==========================================================
+         * 5.1b 天空 shader（2026-08-13）
+         *
+         * 設計理由與圖層順序寫在 <style> 裡「天空從『圖在位移』換成
+         * 『流場在流』」那一段，這裡只講程式上的取捨。
+         *
+         * ★★ 這一段是**純加分**：整段拿掉，站上仍然有一片會漂移的天空
+         *    （底下那張 SVG）。所以每一個失敗路徑都往同一個地方退——
+         *    沒有 WebGL、context 掉了、shader 編不過，一律「不掛就好」。
+         *    絕對不要在這裡丟例外或改動別人的狀態。
+         *
+         * ★ 開了減少動態就整段不做，不是「畫一格靜止的」。
+         *   畫一格靜止的 shader 會跟 SVG 是不同的圖，等於偷偷換了配圖；
+         *   而 @media 那條本來就已經把 SVG 還原成靜止的正確樣子了。
+         * ========================================================== */
+        (() => {
+            const reduce = matchMedia('(prefers-reduced-motion: reduce)');
+            if (reduce.matches) return;
+            /* ★★ 沒有 IntersectionObserver 就整段不做。少了這一行，
+               下面 `new IntersectionObserver(...)` 會在舊瀏覽器上丟例外，
+               而這一整段是寫在同一個 <script> 裡的——**整份程式會一起死**，
+               症狀是首頁全白。這份檔案就是因為改 CHANGELOG 改出語法錯
+               整站白過一次，才有 `tests/mainsmoke.mjs` 的。
+               降級要降在「沒省到電」，不是降在「網站打不開」。 */
+            if (!('IntersectionObserver' in window)) return;
+
+            const SEL = '.bg-slate-900.relative.overflow-hidden, #splash';
+            /* 共用的離畫面畫布。1200×440 是 genswirl.mjs 那個 600×220 座標系的
+               兩倍——天空是很低頻的東西，再高只是把同一片糊東西畫更多像素。 */
+            const GW = 1200, GH = 440, ASPECT = GW / GH;
+            const PERIOD = 20;      /* 秒。無縫，因為所有隨時間變的量都是 sin/cos(phase) */
+            const SPEED  = 1.0;     /* 唯一的調速旋鈕。1.0 ≈ 15.3 px/s，現行 SVG 版是 1.5 */
+
+            const VERT = 'attribute vec2 aPos;void main(){gl_Position=vec4(aPos,0.,1.);}';
+            const FRAG = [
+                'precision highp float;',
+                'uniform vec2 uRes;uniform float uPhase;uniform vec3 uBase;uniform float uSpeed;',
+                /* 白字對比 1.05/(0.115+0.05) = 6.36，門檻 4.5。見下面 toLin 那一段 */
+                'const float LMAX=0.115;',
+                'float hash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}',
+                /* ★ 格點先 mod 289 再進 hash：座標會長到一兩千，而
+                   sin(dot(p,·)) 在那個量級已經吃掉 float 尾數的大半。
+                   症狀是某些區域出現規則條紋，而且**只在部分 GPU 上**出現
+                   （桌機好好的，手機一看就是壞的）。 */
+                'float noise(vec2 p){vec2 i=mod(floor(p),289.),f=fract(p);',
+                'float a=hash(i),b=hash(mod(i+vec2(1,0),289.)),c=hash(mod(i+vec2(0,1),289.)),d=hash(mod(i+vec2(1,1),289.));',
+                'vec2 u=f*f*(3.-2.*f);return mix(mix(a,b,u.x),mix(c,d,u.x),u.y);}',
+                'float fbm(vec2 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p*=2.02;a*=.5;}return v;}',
+                /* 漩渦眼。除以 .72 是把壓扁的橢圓還原成圓來算切線角（genswirl.mjs 同一行）。
+                   ★ 眼自己繞一個小圈，那是整片流場會**變形**而不只是平移的來源，
+                     也是這一版看起來比 background-position 活得多的主因。 */
+                'vec2 eyeV(vec2 p,vec2 c,float dir,float k,float s,float off){',
+                'c+=vec2(cos(uPhase+off),sin(uPhase+off))*26.*uSpeed;',
+                'vec2 d=vec2(p.x-c.x,(p.y-c.y)/.72);float d2=dot(d,d);',
+                'float w=k/(1.+d2/(s*s));float r=sqrt(d2+40.);',
+                'return vec2(-d.y*dir*w/r,d.x*dir*w/r*.72);}',
+                /* 底流 .30：沒有它，離所有漩渦都遠的角落會沒有方向 */
+                'vec2 flowV(vec2 p){vec2 v=vec2(.30,0.);',
+                'v+=eyeV(p,vec2(120.,74.8),1.,1.,88.,0.);',
+                'v+=eyeV(p,vec2(372.,52.8),-1.,.85,66.,1.7);',
+                'v+=eyeV(p,vec2(528.,154.),1.,.75,58.,3.1);',
+                'v+=eyeV(p,vec2(216.,189.2),-1.,.55,52.,4.6);return v;}',
+                /* 沿流線走 12 步累加雜訊：雜訊被拉長成順著流場的條紋，那就是筆觸。
+                   ★ 權重遞減，不然條紋兩端一樣濃，看起來像鐵絲不像一筆顏料
+                     （genswirl.mjs 那句「中段最粗、兩端收乾」）。
+                   ★★ 不要用 normalize()：流場在漩渦眼正中央趨近零向量，
+                     那裡會除以零 → NaN → 一顆黑點或白點，不報錯。
+                   ★★ drift 要加在**乘 freq 之前**。寫成 (q*freq+drift) 的話，
+                     每一層的位移被自己的 freq 縮放過，三層互相滑開，
+                     看起來是「在沸騰」不是「在流」——而畫面上沒有一處是壞的，
+                     只是整體莫名其妙地不安定。這一版查了很久。 */
+                'float lic(vec2 p,vec2 dr,float freq){float sum=0.,ws=0.;vec2 q=p;',
+                'for(int i=0;i<12;i++){vec2 v=flowV(q);q+=v/max(length(v),1e-4)*2.8;',
+                'float w=1.-float(i)/12.;sum+=fbm((q+dr)*freq)*w;ws+=w;}return sum/ws;}',
+                /* ★ 夾亮度一定要在**線性空間**。直接把 sRGB 值乘係數會夾過頭
+                     （gamma 2.4），畫面無故暗一截，而且暗多少取決於顏色。 */
+                'vec3 toLin(vec3 c){return mix(c/12.92,pow((c+.055)/1.055,vec3(2.4)),step(vec3(.04045),c));}',
+                'vec3 toSrgb(vec3 c){return mix(c*12.92,1.055*pow(c,vec3(1./2.4))-.055,step(vec3(.0031308),c));}',
+                'void main(){vec2 uv=gl_FragCoord.xy/uRes;uv.y=1.-uv.y;',
+                'vec2 p=uv*vec2(600.,220.);',
+                /* 取樣點走一個圓 → phase 走完一圈回到原點 → 無縫，不需要 alternate。
+                   半徑 26 是算出來的：26 × (2π÷20) × 1.87(cover 放大率) ≈ 15.3 px/s。 */
+                'vec2 dr=vec2(cos(uPhase),sin(uPhase))*26.*uSpeed;',
+                /* 三層粗細。★ 三層不是為了細節，是為了粗細差——只有一種粗細
+                     會變成均勻的拉絲，像刮痕不像顏料（genswirl.mjs 第二版踩過）。
+                   ★★ s3 是「看得出一筆一筆」的關鍵，而且它**減掉 0.5 再加回去**，
+                     所以只加對比不加亮度。直接加的話整片被提亮一階，
+                     然後亮度夾子會全域把畫面壓暗回來——筆觸沒變清楚，只有顏色變濁。 */
+                'float s1=lic(p,dr*.80,.055),s2=lic(p,dr,.145),s3=lic(p,dr*1.25,.34);',
+                'float dab=fbm((p+dr)*.18);',
+                'float band=(s1*.56+s2*.22+dab*.10)+(smoothstep(.44,.56,s3)-.5)*.14;',
+                /* 藍怎麼濃都安全（白字壓在最濃的群青上仍有 9.6）。
+                   金不行：白字壓在飽和的金上只有 3.18，所以它是唯一要看著門檻調的顏色。
+                   ★ 這幾個門檻跟上面 band 的權重綁在一起：動了 band 就要重看金還在不在。
+                     調的過程中它整個消失過兩次，而畫面只是「看起來冷一點」，
+                     不會有任何跡象告訴你有一個顏色不見了。 */
+                'float blue=smoothstep(.26,.56,band)*.64;',
+                'float gm=smoothstep(.54,.68,fbm((p+dr*.6)*.011));',
+                'float gold=gm*smoothstep(.38,.58,band)*.26;',
+                'vec3 col=uBase;',
+                'col=mix(col,vec3(.184,.247,.525),blue);',   /* #2f3f86 */
+                'col=mix(col,vec3(.714,.533,0.),gold);',     /* #b68800 */
+                /* ★★ 亮度硬上限。刪掉這三行畫面會好看一點，然後白字在金的那幾片上
+                     掉到 3.2——不報錯、不會有人回報，只會有人覺得「這裡有點難讀」。
+                     這是**結構性**的保證：上游怎麼改都成立，不像量一張圖的 8.71
+                     那樣，配色一動就得重量。 */
+                'vec3 li=toLin(col);float L=dot(li,vec3(.2126,.7152,.0722));',
+                'li*=min(1.,LMAX/max(L,1e-5));gl_FragColor=vec4(toSrgb(li),1.);}',
+            ].join('\n');
+
+            let gl = null, glCanvas = null, uPhase = null, uBase = null, dead = false;
+            const hosts = new Map();      /* el -> { cv, ctx, on } */
+            let running = false;
+
+            function initGL() {
+                glCanvas = document.createElement('canvas');
+                glCanvas.width = GW; glCanvas.height = GH;
+                gl = glCanvas.getContext('webgl', { antialias: false, alpha: false, depth: false, stencil: false })
+                  || glCanvas.getContext('experimental-webgl');
+                if (!gl) return false;
+                /* ★ context 掉了就整組收攤，退回 SVG 那片天空。
+                   分頁在背景太久、切換顯示卡、GPU 驅動更新都會發生，
+                   而預設行為是「畫面停在最後一格」——一片凍住的天空
+                   比沒有天空更難發現，因為它看起來就只是「今天比較不明顯」。 */
+                glCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); teardown(); });
+
+                const mk = (t, src) => {
+                    const s = gl.createShader(t); gl.shaderSource(s, src); gl.compileShader(s);
+                    return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+                };
+                const vs = mk(gl.VERTEX_SHADER, VERT), fs = mk(gl.FRAGMENT_SHADER, FRAG);
+                if (!vs || !fs) return false;
+                const pr = gl.createProgram();
+                gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+                if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return false;
+                gl.useProgram(pr);
+
+                const buf = gl.createBuffer();
+                gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+                /* 一個蓋過整個裁剪空間的大三角形，不是兩個三角形拼的方形——
+                   少一條對角線的接縫，也少一次頂點。 */
+                gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+                const loc = gl.getAttribLocation(pr, 'aPos');
+                gl.enableVertexAttribArray(loc);
+                gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+                gl.viewport(0, 0, GW, GH);
+                gl.uniform2f(gl.getUniformLocation(pr, 'uRes'), GW, GH);
+                gl.uniform1f(gl.getUniformLocation(pr, 'uSpeed'), SPEED);
+                uPhase = gl.getUniformLocation(pr, 'uPhase');
+                uBase  = gl.getUniformLocation(pr, 'uBase');
+                return true;
+            }
+
+            /* ★ 底色**從畫面上量**，不要在這裡再寫一次 #171512／#0a1020。
+               那兩個值住在 .bg-slate-900 那條接管規則裡，換配色的人只會改那裡；
+               這邊複製一份的話，症狀是「換主題之後只有天空還是舊配色」，
+               而且它是漸層的一部分，不會有人一眼認出那是不同步。
+               ★★ 而且底色**不是只有一個**：卡片是 #171512，但 `#splash` 的底
+                  是 `var(--paper)`（淺色模式下是米黃）。第一版假設全站共用一個
+                  底色，症狀會是「開站畫面的天空整個變成深色墨塊」——
+                  那半秒鐘沒有人會回報，但它就是第一印象。
+                  所以底色記在每一個宿主身上，畫的時候照底色分組。 */
+            const baseOf = (el) => {
+                const m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
+                return m ? [m[0] / 255, m[1] / 255, m[2] / 255] : [0.09, 0.08, 0.07];
+            };
+            const refreshBase = () => { for (const [el, h] of hosts) h.base = baseOf(el); };
+
+            function teardown() {
+                dead = true; running = false;
+                for (const [el, h] of hosts) {
+                    h.cv.remove();
+                    el.classList.remove('vg-gl-on', 'vg-sky-host');
+                }
+                hosts.clear();
+            }
+
+            /* 依 cover 的規則把共用畫布裁進這張卡——跟 SVG 版的
+               `background-size: cover` 是同一套裁法，所以兩者框出來的是同一片天空。 */
+            function blit(el, h) {
+                const w = el.clientWidth, dh = el.clientHeight;
+                if (!w || !dh) return;
+                const r = Math.min(devicePixelRatio || 1, 1.5);   /* 天空很低頻，4K 用滿 dpr 只是浪費 */
+                const cw = Math.round(w * r), ch = Math.round(dh * r);
+                if (h.cv.width !== cw || h.cv.height !== ch) { h.cv.width = cw; h.cv.height = ch; }
+                const da = cw / ch;
+                let sx = 0, sy = 0, sw = GW, sh = GH;
+                if (da > ASPECT) { sh = GW / da; sy = (GH - sh) / 2; }
+                else             { sw = GH * da; sx = (GW - sw) / 2; }
+                h.ctx.drawImage(glCanvas, sx, sy, sw, sh, 0, 0, cw, ch);
+            }
+
+            const visible = (el, h) => h.on && !document.hidden
+                && !(el.id === 'splash' && el.classList.contains('done'));
+
+            const t0 = performance.now();
+            function frame() {
+                if (dead) { running = false; return; }
+                /* 照底色分組。看得見的宿主幾乎永遠共用同一個底色，
+                   所以這個迴圈通常只跑一輪（開站畫面疊在卡片上那一瞬間是兩輪）。 */
+                const groups = new Map();
+                for (const [el, h] of hosts) {
+                    if (!visible(el, h)) continue;
+                    const k = h.base.join(',');
+                    (groups.get(k) || groups.set(k, []).get(k)).push([el, h]);
+                }
+                if (!groups.size) { running = false; return; }   /* 全部看不見就真的停，不是空轉 */
+                const t = (performance.now() - t0) / 1000;
+                gl.uniform1f(uPhase, (t % PERIOD) / PERIOD * Math.PI * 2);
+                for (const g of groups.values()) {
+                    gl.uniform3fv(uBase, g[0][1].base);
+                    gl.drawArrays(gl.TRIANGLES, 0, 3);
+                    for (const [el, h] of g) blit(el, h);
+                }
+                requestAnimationFrame(frame);
+            }
+            const kick = () => { if (!running && !dead) { running = true; requestAnimationFrame(frame); } };
+
+            const io = new IntersectionObserver((es) => {
+                for (const e of es) {
+                    const h = hosts.get(e.target);
+                    if (h) h.on = e.isIntersecting;      /* ★ continue 不是 return：早年這裡寫成 return，
+                                                            結果同一批事件裡排在後面的卡整批沒更新 */
+                }
+                kick();
+            }, { rootMargin: '80px' });
+
+            function mount(el) {
+                if (dead || hosts.has(el)) return;
+                if (!gl && !initGL()) { dead = true; return; }
+                const cv = document.createElement('canvas');
+                cv.className = 'vg-sky-gl';
+                cv.setAttribute('aria-hidden', 'true');
+                el.insertBefore(cv, el.firstChild);
+                el.classList.add('vg-sky-host', 'vg-gl-on');
+                /* ★ 量底色要在加上 class **之後**：vg-gl-on 只關動畫沒有改底色，
+                   但下一個人加規則的時候很容易讓它改到，量在前面會量到舊的。 */
+                hosts.set(el, { cv, ctx: cv.getContext('2d'), on: true, base: baseOf(el) });
+                io.observe(el);
+                kick();
+            }
+            const scan = () => document.querySelectorAll(SEL).forEach(mount);
+
+            scan();
+            /* 分頁切換之後才畫出來的卡也要掛上。★ 用 MutationObserver 而不是
+               在每一個 render 函式裡呼叫——漏掉其中一個不會報錯，
+               只會有一張卡的天空跟旁邊那張不一樣。 */
+            new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+            document.addEventListener('visibilitychange', kick);
+            addEventListener('resize', kick);
+            /* 換主題要重新量底色（見 refreshBase）。 */
+            new MutationObserver(refreshBase).observe(document.documentElement,
+                { attributes: true, attributeFilter: ['class'] });
+            /* 使用者中途打開「減少動態」也要收攤。★ 這條漏掉不會報錯，
+               而且開發機通常沒開這個設定，所以看不到。 */
+            reduce.addEventListener?.('change', (e) => { if (e.matches) teardown(); });
+        })();
+
+        /* ==========================================================
          * 5.2 下拉刷新（只在觸控裝置）
          *
          * 為什麼要自己做一個：這個站可以「加到主畫面」，裝起來之後是獨立
@@ -4466,6 +4777,26 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-13',
+                title: '天空不再是「一張圖在滑」，而是一片真的在流的流場（WebGL）',
+                items: [
+                    ['要求是「背景整個很明顯地動起來」，而把舊做法調快十倍是錯的答案', '`background-position` 動的是**一張畫好的圖整張在滑**：漩渦的形狀從頭到尾沒有變過，只有位置變。1.5 px/s 的時候看不出來，調到 15 px/s 就變成「壁紙在移動」——眼睛對「形狀不變的東西在平移」非常敏感，那是廉價感的來源。所以不是調參數，是換一種畫法。'],
+                    ['★★ 流場常數是從 `tools/genswirl.mjs` 原封不動搬過去的', '四個漩渦眼的座標、方向、強度、半徑，連底流 0.30 都一樣。這不是風格參考，是**同一片天空的兩種畫法**——沒有 WebGL 的瀏覽器、以及開了減少動態的人，看到的是底下那張 SVG。兩者若不是同一片，症狀就是「換個瀏覽器變成另一個網站」。'],
+                    ['★★ 只開一個 WebGL context，不是一個元素一個', '`.bg-slate-900.relative.overflow-hidden` 有 14 個，加上開站畫面是 15，而 Chrome 的上限大約 16。踩到之後它**默默丟掉最舊的那一個**，症狀是「捲一捲，上面那張卡的天空黑掉了」，沒有錯誤訊息。改成一張離畫面的共用畫布每格畫一次，再用 2D 的 `drawImage` 依 cover 規則裁進各張卡——可見的卡通常只有一兩張。'],
+                    ['★★ `z-index: -1` 一定要配 `isolation: isolate`', '卡片是 `position: relative` 但 `z-index: auto`，那**不會**製造堆疊脈絡，於是負值的子元素被丟到更外層去畫，跑到卡片底色的**下面**。畫面上是天空整個不見，而 DOM 裡那張 canvas 好端端地在、尺寸也對。`isolation` 只製造堆疊脈絡，不動版面也不動包含塊，所以卡片裡原本的絕對定位元素不受影響（卡片本來就 `overflow: hidden`，沒有東西逃得出去，所以也沒有「被關住」的副作用）。'],
+                    ['★★ 位移要加在乘 freq **之前**，不然是在沸騰不是在流', '第一版寫成 `fbm(q * freq + drift)`，等於每一層的位移被自己的頻率縮放過——粗的那層一秒跑 64px、細的那層只跑 10px，三層互相滑開。畫面上沒有一處是壞的，只是整體莫名其妙地不安定，找了很久才知道是單位錯了。改成 `fbm((q + drift) * freq)`，位移發生在畫面座標系裡，三層才是同一片天空。'],
+                    ['★★ 底色不是只有一個：`#splash` 的底是米黃不是墨色', '卡片是 `#171512`，但開站畫面的底是 `var(--paper)`。第一版假設全站共用一個底色，症狀會是「開站畫面的天空整片變成深色墨塊」——那半秒鐘沒有人會回報，但它就是第一印象。改成底色記在每個宿主身上，畫的時候照底色分組（通常只有一組）。★ 而且底色是**從畫面上量**的，不是在 JS 裡再寫一次 `#171512`；複製一份的話，換配色時只有天空會停在舊色。'],
+                    ['★ 亮度上限改成結構性的保證，不是量出來的數字', '靜態 SVG 的「白字最壞 8.71」是量一張圖得到的，而 shader 逐幀生成，量不完。所以在 fragment 的最後一步、於**線性空間**把亮度硬夾在 0.115 以下 → 對比 6.36，門檻 4.5。這個夾子上游怎麼改都成立。★ 一定要在線性空間夾：直接把 sRGB 值乘係數會因為 gamma 2.4 夾過頭，畫面無故暗一截，而且暗多少取決於顏色。'],
+                    ['★ 雜訊格點要先 `mod 289` 再進 hash', '座標會長到一兩千（畫面 600 寬，fbm 裡再乘 2.02 四次），而 `sin(dot(p, ·))` 在那個量級已經吃掉 float 尾數的大半。症狀是某些區域出現規則條紋，而且**只在部分 GPU 上**出現——桌機好好的，手機一看就是壞的。'],
+                    ['★ 流場在漩渦眼正中央會除以零', '`normalize()` 碰到零向量會得到 NaN，那一顆像素變成黑點或白點，不報錯。自己夾分母（`v / max(length(v), 1e-4)`）就沒有這個坑。'],
+                    ['三層筆觸不是為了細節，是為了粗細差', '只有一種粗細會變成均勻的拉絲，看起來像刮痕不像顏料——`genswirl.mjs` 第二版踩過同一件事。★ 最細那層是**減掉平均再加回去**的，所以只加對比不加亮度；直接加的話整片被提亮一階，然後亮度夾子會全域把畫面壓暗回來，結果是筆觸沒變清楚、只有顏色變濁。'],
+                    ['★ 金消失過兩次而完全沒有跡象', '金的門檻跟 band 的權重是綁在一起的，調 band 的過程中金整個掉出值域兩次。畫面只是「看起來冷一點」，不會有任何東西告訴你有一個顏色不見了——所以動 band 就要回頭確認金還在。'],
+                    ['每一個失敗路徑都退回同一個地方', '沒有 WebGL、shader 編不過、context 掉了、使用者中途打開減少動態——一律「不掛就好」，底下那張會漂移的 SVG 天空原封不動。這一整段是純加分，整段拿掉站上仍然有天空。★ `webglcontextlost` 的預設行為是畫面停在最後一格，而一片凍住的天空比沒有天空更難發現，因為它看起來只是「今天比較不明顯」。'],
+                    ['★ 關掉底下那個 `background-position` 動畫，而且不用 `!important`', '不關的話它會繼續跑而且完全看不見（canvas 是不透明的蓋在上面）——一個沒有症狀的重繪迴圈，只有電池知道。選擇器湊到贏得過開動畫那幾條即可：`.vg-gl-on.bg-slate-900\\/95` 是 (0,2,0) 對 (0,1,0)，Hero 那條要湊到 (1,4,0) 對 (1,3,0)。'],
+                    ['開站畫面 15.3 px/s，是現行的十倍', '速度只有一個旋鈕（`SPEED`），改它不會動到流場的形狀。半徑 26 是算出來的：26 × (2π ÷ 20s) × 1.87（cover 放大率）≈ 15.3 px/s。要調快慢就動 `SPEED`，不要動週期——週期一動，三層的相對關係跟著跑掉。'],
+                ],
+            },
             {
                 date: '2026-08-13',
                 title: '上一輪的「麥田會流動」其實從來沒動過——三條測試全綠，動畫沒跑',
