@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>筆記小黑貓 - Markdown ＋ 數學公式</title>
+<link rel="icon" href="image.png">
+<meta name="description" content="筆記小黑貓：Markdown 加數學公式，橫線紙版面，只有你自己看得到。手機也能寫。">
+
+<!-- ★ 三支都是**跨來源**資源，`sw.js` 的 CORE 不能加（service worker 只管同源，
+     把跨來源網址塞進 addAll 會讓整批預快取失敗）。所以離線、CDN 被擋、
+     或載入比第一次渲染還慢的時候，它們一定會不在。三支各有各的降級：
+
+       KaTeX      沒到 → 公式顯示 $…$ 原文（橘色等寬）
+       marked     沒到 → 預覽顯示 Markdown 原文
+       DOMPurify  沒到 → **拒絕渲染 HTML**，退回純文字
+
+     ★ 第三支是唯一不做降級的。少了它等於把使用者打的字當程式跑，
+     而筆記將來要開分享——那時執行的是別人寫的字。 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+<style>
+/* ==========================================================
+   設計 token 與主站 publicnew.html 共用同一組值。改配色要三個檔案一起改。
+   ★ 跟模擬器一樣**不鋪背景圖**：這是滿版不捲動的工作區，
+   鋪了也只會被筆記紙蓋住，只剩邊縫露出幾條——那不是背景，是雜訊。
+   ========================================================== */
+:root{
+    --paper:#f8f1de; --paper-raised:#fffdf6;
+    --ink:#1e1708; --ink-2:#4c412c; --ink-3:#5c4e33;
+    --rule:#d8c79c; --accent:#7a5905; --accent-fill:#8a6605;
+    --accent-bright:#9e7405; --accent-soft:rgba(255,232,170,.6);
+    --ok:#2f7d8c; --bad:#c0392b;
+    --ease:cubic-bezier(0.22, 1, 0.36, 1);
+    --dur-fast:.09s; --dur-base:.18s;
+}
+html.dark{
+    --paper:#070b18; --paper-raised:#131b33;
+    --ink:#e9ecf7; --ink-2:#aeb6cc; --ink-3:#7d86a0;
+    --rule:rgba(175,190,235,.18); --accent:#e8c46a; --accent-fill:#8a6a12;
+    --accent-bright:#e8c46a; --accent-soft:rgba(232,196,106,.14);
+    --ok:#63b6c4; --bad:#ff8a80;
+}
+
+/* ==========================================================
+   筆記紙與四種語意色
+
+   ★ 筆記紙自己一組 token，不沿用 --paper。站上的紙是「向日葵的暖奶黃」，
+   配的是背景那張畫；筆記紙要的是**筆記本**——更白、線更明顯，
+   而且它是不透明的。對比因此可以直接算，不必疊紋理取最壞像素。
+
+   ★★ 顏色是**語意**不是色票。使用者不挑顏色，只標「這是定義」「這是答案」：
+     一、自己挑的話，同一本筆記裡「藍色」這個月是推導、下個月是重點，
+         三個月後自己也讀不出規則
+     二、挑死的色碼在深色模式下是看不見的
+
+   對比全部量過（紙是單色所以直接算，門檻 4.5）：
+     淺色紙 #fffdf6：藍 6.54／橘 5.82／金 5.82／墨 17.47
+     深色紙 #171b24：藍 8.32／橘 9.26／金 10.58／墨 12.97
+     螢光底上的字：淺色 13.69／深色 8.67
+   ========================================================== */
+:root{
+    --md-paper:#fffdf6; --md-rule:#e6dcc0; --md-ink:#1e1708;
+    --md-derive:#1b4fd8;      /* 藍：推導 */
+    --md-annot:#a8460b;       /* 橘：標註 */
+    --md-answer:#8a5a06;      /* 金：答案 */
+    --md-mark-bg:#fdf0a8; --md-mark-ink:#2a2205;   /* 黃螢光：定義 */
+    --md-line:30px;           /* 行距＝橫線間距，兩者必須是同一個數 */
+}
+html.dark{
+    --md-paper:#171b24; --md-rule:#2a3140; --md-ink:#d9e0ea;
+    --md-derive:#8fb4ff; --md-annot:#ffab6b; --md-answer:#f5c451;
+    --md-mark-bg:#4a3f14; --md-mark-ink:#ffe9a3;
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--paper);color:var(--ink);overflow:hidden;
+     font:16px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
+     -webkit-text-size-adjust:100%}
+a{color:var(--accent)}
+button,input{font:inherit;color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+button:not(:disabled):active{transform:scale(.97)}
+@media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+    button:not(:disabled):active{transform:none}
+}
+
+/* ---- 全螢幕版面：整頁不捲動，捲的是裡面那兩塊 ---- */
+#app{height:100dvh;display:flex;flex-direction:column;min-height:0}
+header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:6px 0 0}
+.hbar{padding:0 10px 6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.hbar2{border-top:1px solid var(--rule);padding-top:6px}
+.hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
+.tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
+
+.btn{font-weight:700;border-radius:10px;min-height:34px;padding:0 12px;font-size:14.5px;
+     background:transparent;border:1px solid var(--rule);cursor:pointer}
+.btn:hover{background:var(--accent-soft)}
+.btn.primary{background:var(--accent-fill);color:#fff;border-color:transparent}
+.btn.on{background:var(--accent-fill);color:#fff;border-color:transparent}
+.btn.danger{color:var(--bad);border-color:transparent}
+.btn.danger:hover{background:rgba(192,57,43,.1)}
+.btn.tiny{min-height:28px;padding:0 9px;font-size:13.5px;border-radius:8px}
+
+/* ---- logo 下拉選單（行為與主站一致） ---- */
+#logoWrap{position:relative;flex:none}
+#logoBtn{display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 6px 2px 2px;
+         border-radius:10px}
+#logoBtn:hover{background:var(--accent-soft)}
+#logoBtn img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
+.htitle{font-weight:900;font-size:16px;line-height:1.15;white-space:nowrap}
+.htitle small{display:block;font-weight:600;font-size:11.5px;color:var(--ink-3);letter-spacing:.16em}
+#logoChev{font-size:12.5px;line-height:1;opacity:.6;color:var(--ink-3);
+          transition:transform var(--dur-base) var(--ease)}
+#logoBtn[aria-expanded="true"] #logoChev{transform:rotate(180deg);opacity:1}
+#logoMenu{position:absolute;left:0;top:100%;margin-top:8px;z-index:80;
+          min-width:232px;border-radius:14px;overflow:hidden;background:var(--paper-raised);
+          border:1px solid var(--rule);box-shadow:0 10px 28px rgba(26,24,21,.22)}
+#logoMenu.hidden{display:none}
+.logo-menu-item{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+                width:100%;min-height:50px;padding:9px 15px;font-size:16px;font-weight:700;
+                text-align:left;text-decoration:none;color:var(--ink);background:transparent;
+                border:none;cursor:pointer}
+.logo-menu-item small{font-size:13px;font-weight:600;color:var(--ink-3);margin-top:1px}
+.logo-menu-item:hover{background:var(--accent-soft)}
+.logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
+.logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
+.logo-menu-item.is-here:hover{background:transparent}
+
+/* ---- 工作區 ---- */
+#work{flex:1;display:flex;min-height:0}
+#listCol{flex:none;width:15rem;min-height:0;overflow:auto;padding:10px;
+         border-right:1px solid var(--rule);background:var(--paper-raised)}
+#editCol{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:10px;gap:8px}
+#editHead{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+#mdTitle{flex:1;min-width:9rem;padding:6px 12px;border-radius:10px;
+         border:1px solid var(--rule);background:var(--paper-raised);
+         font-weight:900;font-size:15px}
+#panes{flex:1;min-height:0;display:grid;gap:8px;grid-template-columns:1fr 1fr}
+#panes.single{grid-template-columns:1fr}
+
+.md-item{display:block;width:100%;text-align:left;padding:8px 11px;margin-bottom:6px;
+         border-radius:12px;border:1px solid var(--rule);background:var(--paper);
+         cursor:pointer;transition:border-color var(--dur-base) var(--ease)}
+.md-item:hover{border-color:var(--accent-bright)}
+.md-item.is-open{border-color:var(--accent-bright);background:var(--accent-soft)}
+.md-item b{display:block;font-size:14px;font-weight:800;
+           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.md-item small{font-size:11.5px;color:var(--ink-3)}
+.hint{color:var(--ink-3);font-size:13px;padding:10px 2px}
+
+/* ---- 橫線紙 ----
+   ★ 用 `background-image` 不是 `background` 簡寫——簡寫會把底色一起洗掉，
+   症狀是紙變透明。編輯區與預覽區鋪同一張紙、**同一個行距**：
+   兩邊行距不同的話，左右對照著看會愈往下差愈多。 */
+.md-sheet{
+    background-color:var(--md-paper);
+    background-image:repeating-linear-gradient(
+        var(--md-paper) 0 calc(var(--md-line) - 1px),
+        var(--md-rule) calc(var(--md-line) - 1px) var(--md-line));
+    color:var(--md-ink);
+    line-height:var(--md-line);
+    border:1px solid var(--rule);border-radius:14px;padding:14px 16px;
+    min-height:0;overflow:auto;
+}
+#mdInput{
+    font-family:ui-monospace,"Cascadia Code","Noto Sans TC",monospace;
+    font-size:14px;resize:none;width:100%;
+}
+#mdInput:focus{outline:none;border-color:var(--accent-bright)}
+
+/* ---- 四種語意色 ---- */
+.md-body .md-derive{color:var(--md-derive)}
+.md-body .md-annot{color:var(--md-annot)}
+.md-body .md-def{background:var(--md-mark-bg);color:var(--md-mark-ink);
+                 padding:1px 5px;border-radius:3px}
+.md-body .md-answer{color:var(--md-answer);font-weight:700}
+/* ★ 星號用 ::before 產生，不寫進使用者的字裡。寫進去的話「改成不是答案」
+   會留下一顆孤兒星號，而那要使用者自己去刪。
+   ★ 而且寫成碼位 \2605，不要直接打那個字元——`tests/design.mjs` 把
+   「註解外面出現中文或★」當成「有個註解沒關好」的代理指標，
+   那個指標很準也很便宜，不該為了一個裝飾字元把它弄鈍。 */
+.md-body .md-answer::before{content:"\2605";margin-right:.25em}
+
+.md-body h1,.md-body h2,.md-body h3{color:var(--md-derive);font-weight:900;
+    margin:calc(var(--md-line) * .5) 0 0}
+.md-body h1{font-size:20px} .md-body h2{font-size:17px} .md-body h3{font-size:15px}
+.md-body p,.md-body li{margin:0}
+.md-body ul,.md-body ol{padding-left:1.6em;margin:0}
+.md-body ul{list-style:disc} .md-body ol{list-style:decimal}
+.md-body code{font-family:ui-monospace,monospace;font-size:.92em;
+              background:rgba(0,0,0,.05);padding:1px 4px;border-radius:3px}
+html.dark .md-body code{background:rgba(255,255,255,.08)}
+.md-body blockquote{border-left:3px solid var(--md-annot);padding-left:10px;
+                    margin:0;color:var(--md-annot)}
+.md-body table{border-collapse:collapse;width:100%}
+.md-body th,.md-body td{border:1px solid var(--md-rule);padding:4px 8px;text-align:left}
+.md-body th{color:var(--md-annot)}
+/* ★ KaTeX 的字級要壓回紙的行距裡。預設 1.21em 會把公式那一行撐高，
+   於是橫線紙從那一行開始整片對不齊。 */
+.md-body .katex{font-size:1.02em}
+/* 還沒被 KaTeX 接手（沒載到／語法錯）的公式維持等寬，至少排得整齊 */
+.md-tex-raw{font-family:ui-monospace,monospace;font-size:.92em;color:var(--md-annot)}
+
+#mdHelp{flex:none;font-size:13px;background:var(--paper-raised);
+        border:1px solid var(--rule);border-radius:12px;padding:9px 12px}
+#mdHelp.hidden{display:none}
+#mdHelp code{background:var(--accent-soft);padding:1px 5px;border-radius:4px;
+             font-family:ui-monospace,monospace}
+#mdHelp div + div{margin-top:3px}
+
+#saveState{font-size:13px;font-weight:700;color:var(--ink-3);white-space:nowrap}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200;
+       background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:12px;
+       font-weight:700;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);
+       max-width:calc(100% - 32px)}
+#toast.hidden{display:none}
+.hidden{display:none}
+
+/* ==========================================================
+   手機：不擋，改版面
+
+   ★ 電路那頁硬擋手機，因為拉線需要大螢幕。筆記相反——課堂上用手機
+   記一段是最常見的情境，擋掉等於把最主要的使用時機丟掉。
+
+   做法是主從切換：手機上一次只看得到「篇目清單」或「編輯器」其中一個，
+   而不是把兩欄壓成各半（各半的結果是兩邊都不能用）。
+   ========================================================== */
+@media (max-width: 820px){
+    #panes{grid-template-columns:1fr !important}
+    #listCol{width:100%;border-right:0;border-bottom:1px solid var(--rule)}
+    /* 手機上兩欄互斥。桌機沒有 .phone-* 這兩個 class，所以完全不受影響。 */
+    body.phone-edit #listCol{display:none}
+    body.phone-list #editCol{display:none}
+    .desk-only{display:none !important}
+}
+@media (min-width: 821px){ .phone-only{display:none !important} }
+</style>
+</head>
+<body class="phone-list">
+<div id="app">
+
+<header>
+  <!-- logo 的行為跟主站與模擬器一致：點一下展開選單，不是直接跳頁。
+       關閉的三條路：點選單外面、按 Esc、選了任何一項。 -->
+  <div class="hbar">
+    <div id="logoWrap">
+      <div id="logoBtn" role="button" tabindex="0"
+           aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
+        <img src="image.png" alt="">
+        <div class="htitle">筆記小黑貓<small>BLACKCAT MD</small></div>
+        <span id="logoChev" aria-hidden="true">&#9662;</span>
+      </div>
+      <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
+        <a class="logo-menu-item" href="./" role="menuitem">小黑貓<small>主頁、學習、理財</small></a>
+        <a class="logo-menu-item" href="ncue.html" role="menuitem">彰師電子小黑貓<small>課程評價、教材、測驗</small></a>
+        <span class="logo-menu-item is-here" role="menuitem" aria-current="page">
+          筆記小黑貓<small>Markdown ＋ 數學公式（目前所在）</small></span>
+        <a class="logo-menu-item" href="blackcatspice.html" role="menuitem">電路小黑貓<small>免安裝，用電腦開</small></a>
+      </div>
+    </div>
+    <div class="hbar-right">
+      <span id="whoami" style="font-size:13.5px;color:var(--ink-3)">載入中…</span>
+      <button id="themeBtn" class="btn tiny" title="切換深色／淺色">&#9681;</button>
+    </div>
+  </div>
+
+  <div class="hbar hbar2">
+    <button id="btnNew" class="btn primary">＋ 新增一篇</button>
+    <button id="btnBack" class="btn tiny phone-only">&#8592; 篇目</button>
+    <span class="tsep desk-only"></span>
+    <button data-view="split" class="btn tiny viewOpt desk-only">並排</button>
+    <button data-view="edit" class="btn tiny viewOpt">只編輯</button>
+    <button data-view="read" class="btn tiny viewOpt">只閱讀</button>
+    <span class="tsep"></span>
+    <button id="btnHelp" class="btn tiny">標記怎麼打</button>
+    <button id="btnExport" class="btn tiny">匯出 .md</button>
+    <div class="hbar-right">
+      <span id="saveState"></span>
+      <button id="btnDelete" class="btn tiny danger">刪除這篇</button>
+    </div>
+  </div>
+</header>
+
+<div id="mdHelp" class="hidden">
+  <div><code>==定義==</code> 黃螢光　<code>!!標註!!</code> 橘字　<code>@@答案@@</code> 金字並自動加 ★</div>
+  <div><code>$x=a\sin\theta$</code> 行內公式　<code>$$…$$</code> 獨立成行的公式</div>
+  <div><code># 標題</code>　<code>- 清單</code>　<code>| 表格 |</code>　<code>&gt; 引用</code>（標準 Markdown 都能用）</div>
+  <div style="color:var(--ink-3)">※ 公式語法跟課本一樣是 LaTeX；打錯的那一條會用橘色等寬字顯示原文，不會整頁壞掉。</div>
+</div>
+
+<div id="work">
+  <div id="listCol">
+    <div id="mdList"></div>
+  </div>
+
+  <div id="editCol">
+    <div id="loginHint" class="hint hidden">
+      登入後才能使用筆記，內容只有你自己看得到。<br>
+      請先到<a href="./">小黑貓主頁</a>登入，再回到這一頁。
+    </div>
+    <div id="emptyHint" class="hint hidden">左邊選一篇，或按上面的「＋ 新增一篇」開始寫。</div>
+
+    <div id="editHead" class="hidden">
+      <input id="mdTitle" maxlength="80" placeholder="這篇的標題">
+    </div>
+    <div id="panes" class="hidden">
+      <textarea id="mdInput" class="md-sheet" spellcheck="false"
+                placeholder="從這裡開始寫。
+
+# CH7
+==兩曲線之間的面積== 先定上下再積分
+$$\int_a^b [f(x)-g(x)]\,dx$$
+@@答案 24@@"></textarea>
+      <div id="mdPreview" class="md-sheet md-body"></div>
+    </div>
+  </div>
+</div>
+
+</div>
+<div id="toast" class="hidden" role="status"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc }
+    from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const $ = id => document.getElementById(id);
+
+/* ==========================================================
+   狀態
+
+   ★ 全部宣告在最前面。這個專案的暫時性死區已經踩過六次，
+   症狀一律是「一載入就掛、畫面全白」，而 `node --check` 看不出來。
+   ========================================================== */
+let notes = [];
+let mdNotesLoaded = false;
+/* ★★ 這個集合是整支程式最重要的一樣東西。它擋的是本專案最貴的那個坑：
+   面板開了、游標能打字，而雲端那篇還在路上——這時候自動存檔寫下去，
+   就是拿空的內容覆蓋掉使用者整晚寫的東西。
+   規則：**沒有在這個集合裡的篇章，一個字都不准寫回雲端。**
+   id 進來只有兩條路——從 onSnapshot 真的收到過，或本機剛建立的新篇。 */
+const mdReadyIds = new Set();
+let currentNoteId = null;
+let mdView = 'split';
+let mdSaveTimer = null;
+let mdDirty = false;          // 有沒有還沒寫回雲端的改動
+let mdPreviewTimer = null;
+let unsub = null;
+let toastTimer = null;
+
+const escapeHTML = s => String(s ?? '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+
+function showToast(msg){
+    const t = $('toast');
+    /* ★ 順序是「先顯示、再寫字」。藏起來的 live region 改內容螢幕閱讀器
+       不會播報——先寫字再顯示的話，role="status" 等於白加了。 */
+    t.classList.remove('hidden');
+    t.textContent = msg;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+}
+
+/* ---------- 主題：與主站共用同一個鍵 ---------- */
+const THEME_KEY = 'eeblackcat-theme';
+const applyTheme = t => {
+    document.documentElement.classList.toggle('dark', t === 'dark');
+    try { localStorage.setItem(THEME_KEY, t); } catch(e){}
+};
+try { applyTheme(localStorage.getItem(THEME_KEY) ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')); } catch(e){}
+$('themeBtn').onclick = () => applyTheme(
+    document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+
+/* ---------- logo 選單 ----------
+   判斷「點外面」時要用 #logoWrap 而不是 #logoBtn，
+   否則點選單本身也會被當成點外面而立刻關掉。 */
+const logoMenu = $('logoMenu'), logoBtn = $('logoBtn');
+const setLogoMenu = open => {
+    logoMenu.classList.toggle('hidden', !open);
+    logoBtn.setAttribute('aria-expanded', String(open));
+};
+logoBtn.onclick = () => setLogoMenu(logoMenu.classList.contains('hidden'));
+logoBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' '){
+        e.preventDefault(); setLogoMenu(logoMenu.classList.contains('hidden'));
+    }
+});
+addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape') setLogoMenu(false); });
+
+/* ---------- Firebase：同一個專案、同一個來源，登入狀態直接沿用 ---------- */
+const firebaseConfig = {
+    apiKey:"AIzaSyD9uIEAe3InKxHs86QhWHjuMSuimxrhdkQ",
+    authDomain:"eeblackcat-c605d.firebaseapp.com",
+    projectId:"eeblackcat-c605d",
+    storageBucket:"eeblackcat-c605d.firebasestorage.app",
+    messagingSenderId:"1012329411307",
+    appId:"1:1012329411307:web:63b87debbbc3e4778044ae"
+};
+const appId = "eeblackcat-c605d";
+const P  = n => `artifacts/${appId}/public/data/${n}`;
+const PU = n => auth.currentUser && !auth.currentUser.isAnonymous
+                ? `artifacts/${appId}/users/${auth.currentUser.uid}/${n}` : null;
+const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
+
+onAuthStateChanged(auth, async (user) => {
+    const me = (user && !user.isAnonymous) ? user : null;
+    if (!me){
+        $('whoami').textContent = '訪客';
+        stopMdSubs();
+        renderShell();
+        return;
+    }
+    let name = '已登入';
+    try {
+        const s = await getDoc(doc(db, P('users'), me.uid));
+        if (s.exists()) name = s.data().displayName || '無名小貓';
+    } catch(e){}
+    $('whoami').textContent = name;
+    initMdSubs();
+    renderShell();
+});
+
+/* ==========================================================
+   語意標記：三個，故意只有三個
+
+   每多一個標記就多一件要記的事，而使用者是自己。三份手寫筆記
+   （`md maker/`）裡真正在用的就是這三種：黃螢光標定義、橘字寫旁註、★ 標答案。
+   藍色不給標記——標題與公式自動是藍的，那正是手寫筆記裡藍筆的位置。
+   ========================================================== */
+const MD_MARKS = [
+    { name:'mdDef',    mark:'==', cls:'md-def' },
+    { name:'mdAnnot',  mark:'!!', cls:'md-annot' },
+    { name:'mdAnswer', mark:'@@', cls:'md-answer' }
+];
+
+let mdMarkedSetup = false;
+function mdSetupMarked(){
+    if (mdMarkedSetup || !window.marked) return;
+    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    marked.use({ extensions: MD_MARKS.map(({ name, mark, cls }) => ({
+        name, level:'inline',
+        /* start 是給 marked 找「下一個可能的起點」用的。回 -1 表示這一段沒有，
+           marked 就不必逐字問——漏寫的話大段文字會慢得有感。 */
+        start(src){ return src.indexOf(mark); },
+        tokenizer(src){
+            const re = new RegExp('^' + esc(mark) + '([\\s\\S]+?)' + esc(mark));
+            const m = re.exec(src);
+            if (!m) return;
+            return { type:name, raw:m[0], text:m[1],
+                     tokens: this.lexer.inlineTokens(m[1]) };
+        },
+        /* ★ 內容走 parseInline 而不是直接塞 text：標記裡面還可以有粗體、
+           行內程式碼與公式佔位符。直接塞的話那些會變成原文。 */
+        renderer(token){
+            return `<span class="${cls}">${this.parser.parseInline(token.tokens)}</span>`;
+        }
+    })) });
+    mdMarkedSetup = true;
+}
+
+/* ---- 公式的佔位符 ----
+   用私有使用區的字元：它們不會出現在任何一份筆記裡，而且 DOMPurify
+   不會去動文字節點的內容，所以佔位符一定活得到最後。
+   用 `@@MATH0@@` 這種寫法的話，只要有人真的打了那串字就會壞掉。
+
+   ★ 一定要寫成  這種明碼轉義，不要直接把字元貼進原始碼——
+   它在編輯器裡是看不見的，只要有人順手清理空白就會被刪掉，
+   而症狀是所有公式變成一串數字。 */
+const MD_TEX_OPEN = '\uE000', MD_TEX_CLOSE = '\uE001';
+
+function mdExtractMath(src, store){
+    /* ★ 先抽 $$…$$ 再抽 $…$。順序不能反——反過來的話 $$ 會先被當成
+       一對空的行內公式吃掉，症狀是整段公式變成兩個錢字號。 */
+    let out = src.replace(/\$\$([\s\S]+?)\$\$/g, (m, tex) => {
+        store.push({ tex, display:true });
+        return MD_TEX_OPEN + (store.length - 1) + MD_TEX_CLOSE;
+    });
+    /* 行內公式不跨行，而且前面是反斜線的錢字號要當成純文字（\$100）。 */
+    out = out.replace(/(^|[^\\])\$([^\n$]+?)\$/g, (m, pre, tex) => {
+        store.push({ tex, display:false });
+        return pre + MD_TEX_OPEN + (store.length - 1) + MD_TEX_CLOSE;
+    });
+    return out;
+}
+
+/* 把已經消毒過的 DOM 裡的佔位符換成 KaTeX 排好的公式。
+   ★ 走文字節點而不是 innerHTML 字串取代：字串取代會連 `<code>` 裡的
+   佔位符一起換掉，而那裡使用者要的正是原文。 */
+function mdFillMath(root, store){
+    if (!store.length) return;
+    const K = window.katex;   /* ★ 取一次就好，理由見 mdRenderPreview */
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const jobs = [];
+    for (let n = walker.nextNode(); n; n = walker.nextNode())
+        if (n.nodeValue.indexOf(MD_TEX_OPEN) >= 0) jobs.push(n);
+
+    for (const node of jobs){
+        const frag = document.createDocumentFragment();
+        const parts = node.nodeValue.split(new RegExp(MD_TEX_OPEN + '(\\d+)' + MD_TEX_CLOSE));
+        parts.forEach((part, i) => {
+            if (i % 2 === 0){ if (part) frag.appendChild(document.createTextNode(part)); return; }
+            const item = store[Number(part)];
+            if (!item) return;
+            const span = document.createElement('span');
+            /* ★ 先把 LaTeX 原文寫進去，再讓 KaTeX 換掉。反過來（先留空等 KaTeX 填）
+               的症狀是公式整片空白，而且不會報錯。 */
+            span.textContent = item.display ? '$$' + item.tex + '$$' : '$' + item.tex + '$';
+            span.className = 'md-tex-raw';
+            if (K){
+                try {
+                    K.render(item.tex, span, {
+                        throwOnError: true, displayMode: item.display,
+                        trust: false            /* \href、\includegraphics 一律不給 */
+                    });
+                    span.className = 'md-derive';   /* 公式是藍的，跟手寫筆記一樣 */
+                } catch (e){
+                    /* 打錯的那一條維持橘色原文。寫筆記時公式打到一半是常態，
+                       整頁不該因此壞掉。 */
+                }
+            }
+            frag.appendChild(span);
+        });
+        node.parentNode.replaceChild(frag, node);
+    }
+}
+
+function mdRenderPreview(src){
+    const box = $('mdPreview');
+    if (!box) return;
+    /* ★ 兩支函式庫各讀一次就好，不要在迴圈或分支裡重複取。
+       在深處才取的話，「根本沒載到」會被 try/catch 吃掉，
+       偽裝成「這份筆記的語法有問題」——兩個完全不同的問題。 */
+    const M = window.marked, P2 = window.DOMPurify;
+
+    /* ★★ 沒有消毒器就不渲染 HTML。這是唯一不做降級的一支：
+       少了它等於把使用者打的字當程式跑，而筆記將來要開分享。 */
+    if (!M || !P2){
+        box.textContent = src;
+        box.classList.add('md-tex-raw');
+        return;
+    }
+    box.classList.remove('md-tex-raw');
+    mdSetupMarked();
+
+    const store = [];
+    let html;
+    try {
+        html = M.parse(mdExtractMath(src, store), { breaks:true, gfm:true });
+    } catch (e){
+        box.textContent = src;
+        return;
+    }
+    /* 消毒。KaTeX 還沒進來，所以這裡消的純粹是使用者打的 prose。
+       ★ 公式**故意不經過**消毒器：KaTeX 產生的 MathML／span 會被啃掉，
+       症狀是公式少一半括號，看起來像「這條我打錯了」。 */
+    box.innerHTML = P2.sanitize(html, { USE_PROFILES: { html:true } });
+    mdFillMath(box, store);
+}
+
+/* ==========================================================
+   篇目、開啟、新增、刪除
+   ========================================================== */
+function renderMdList(){
+    const box = $('mdList');
+    const list = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    if (!list.length){ box.innerHTML = '<div class="hint">還沒有筆記</div>'; return; }
+    box.innerHTML = list.map(n => `
+        <button class="md-item${n.id === currentNoteId ? ' is-open' : ''}" data-id="${n.id}">
+            <b>${escapeHTML(n.title || '未命名')}</b>
+            <small>${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</small>
+        </button>`).join('');
+}
+$('mdList').addEventListener('click', (e) => {
+    const b = e.target.closest('.md-item');
+    if (b) openNote(b.dataset.id);
+});
+
+const setSaveState = (t) => { $('saveState').textContent = t; };
+
+function openNote(id){
+    /* ★ 先把上一篇還沒寫出去的存掉，**再**換 id。
+       順序反過來就是「A 篇的字寫進 B 篇」。 */
+    flushMdSave();
+    const n = notes.find(x => x.id === id);
+    if (!n) return;
+    currentNoteId = id;
+    mdDirty = false;
+    $('mdTitle').value = n.title || '';
+    $('mdInput').value = n.body || '';
+    mdRenderPreview(n.body || '');
+    setSaveState('已儲存');
+    document.body.classList.remove('phone-list');
+    document.body.classList.add('phone-edit');
+    renderMdList();
+    renderShell();
+}
+
+async function newNote(){
+    if (!auth.currentUser || auth.currentUser.isAnonymous){
+        showToast('請先到小黑貓主頁登入'); return;
+    }
+    const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+    const now = Date.now();
+    const note = {
+        title:'未命名', body:'', createdAt: now, updatedAt: now,
+        /* ★ 分享的欄位先留著，第一版一律 false。欄位之後再加不是不行，
+           但「已經存了兩百篇才想到要加」等於要寫一支回填腳本，
+           而那支腳本會在半夜跑壞。 */
+        shared:false, shareId:null
+    };
+    /* 本機剛建立的篇章直接算「已就緒」：它的內容就是我們自己給的，
+       沒有「雲端那份還在路上」的問題。 */
+    mdReadyIds.add(id);
+    notes.push({ id, ...note });
+    openNote(id);
+    $('mdInput').focus();
+    try { await setDoc(doc(db, PU('notes'), id), note); }
+    catch (e){ showToast('建立筆記失敗：' + (e.code || e.message)); }
+}
+
+async function deleteCurrentNote(){
+    const id = currentNoteId;
+    if (!id){ showToast('先選一篇筆記'); return; }
+    if (!confirm('刪除這篇筆記？刪掉就找不回來了。')) return;
+    clearTimeout(mdSaveTimer); mdSaveTimer = null; mdDirty = false;
+    currentNoteId = null;
+    notes = notes.filter(n => n.id !== id);
+    mdReadyIds.delete(id);
+    document.body.classList.remove('phone-edit');
+    document.body.classList.add('phone-list');
+    renderMdList(); renderShell();
+    try { await deleteDoc(doc(db, PU('notes'), id)); }
+    catch (e){ showToast('刪除失敗：' + (e.code || e.message)); }
+}
+
+/* ==========================================================
+   存檔
+
+   自動存檔，打完字停 0.8 秒才寫。每個按鍵都寫的話，一篇筆記一個晚上
+   就是好幾千次寫入——Firestore 的免費額度是用「次數」算的。
+   ========================================================== */
+function scheduleMdSave(){
+    if (!currentNoteId) return;
+    mdDirty = true;
+    setSaveState('編輯中…');
+    clearTimeout(mdSaveTimer);
+    mdSaveTimer = setTimeout(flushMdSave, 800);
+}
+function flushMdSave(){
+    clearTimeout(mdSaveTimer); mdSaveTimer = null;
+    if (!mdDirty || !currentNoteId) return;
+    saveNote(currentNoteId, $('mdTitle').value, $('mdInput').value);
+}
+async function saveNote(id, title, body){
+    /* ★★ 這道閘門是整支程式最重要的一行。沒有在 mdReadyIds 裡，代表
+       「雲端那篇還沒回來」——這時候寫下去就是拿一份殘缺的內容覆蓋掉
+       使用者真正的筆記。寧可存檔失敗（有吐司、看得見），
+       也不要安靜地把一篇寫掉。 */
+    if (!mdReadyIds.has(id)){
+        setSaveState('未存檔');
+        showToast('這篇還沒從雲端載回來，先不存檔');
+        return;
+    }
+    if (id !== currentNoteId) return;   /* 已經切到別篇，這次排程作廢 */
+    const now = Date.now();
+    const local = notes.find(n => n.id === id);
+    if (local){ local.title = title; local.body = body; local.updatedAt = now; }
+    mdDirty = false;
+    setSaveState('儲存中…');
+    try {
+        await setDoc(doc(db, PU('notes'), id), { title, body, updatedAt: now }, { merge:true });
+        setSaveState('已儲存');
+        renderMdList();
+    } catch (e){
+        mdDirty = true;                 /* 沒寫成功就不能算乾淨 */
+        setSaveState('存檔失敗');
+        showToast('存檔失敗：' + (e.code || e.message));
+    }
+}
+
+/* ==========================================================
+   訂閱：登入才有，登出即停並清空
+   ========================================================== */
+function initMdSubs(){
+    stopMdSubs();
+    const path = PU('notes');
+    if (!path) return;
+    unsub = onSnapshot(collection(db, path), (snap) => {
+        const incoming = snap.docs.map(d => ({ id:d.id, ...d.data() }));
+        /* ★ 真的收到過的篇章才准寫回去（見 saveNote 的閘門）。 */
+        incoming.forEach(n => mdReadyIds.add(n.id));
+        notes = incoming;
+        mdNotesLoaded = true;
+        renderMdList();
+        /* ★★ 正在編輯的那一篇**不要**用雲端那份覆蓋回輸入框。
+           覆蓋的症狀是「打到一半游標跳走、剛打的字被吃掉」——
+           自己存檔觸發的回音也會走到這裡，所以這條路每次存檔都會發生。
+           只有在「沒有未存的改動」而且內容真的不一樣時才回填
+           （那才是別台裝置改的）。 */
+        if (currentNoteId && !mdDirty){
+            const cur = incoming.find(n => n.id === currentNoteId);
+            if (cur && $('mdInput').value !== (cur.body || '')){
+                $('mdInput').value = cur.body || '';
+                $('mdTitle').value = cur.title || '';
+                mdRenderPreview(cur.body || '');
+            }
+        }
+        renderShell();
+    }, (err) => {
+        console.warn('訂閱 notes 失敗:', err.code || err);
+        /* ★ 讀不到 ≠ 沒有筆記。維持 mdNotesLoaded=false、而且**不清空
+           mdReadyIds**——清掉的話下一次存檔會被閘門擋住，但更糟的是
+           使用者看到一份空清單，以為筆記全沒了。 */
+        showToast('讀不到雲端的筆記，這次先不要編輯');
+    });
+}
+function stopMdSubs(){
+    if (unsub){ try { unsub(); } catch(e){} unsub = null; }
+    /* ★ 登出要把閘門一起收回。留著 ready 的話，下一個人登入的空窗裡
+       任何一次存檔都會寫到**他的**筆記路徑下，而內容是上一個人的。 */
+    clearTimeout(mdSaveTimer); mdSaveTimer = null;
+    notes = []; mdReadyIds.clear();
+    mdNotesLoaded = false; mdDirty = false; currentNoteId = null;
+    renderMdList();
+}
+
+/* ==========================================================
+   檢視模式與外殼
+   ========================================================== */
+function applyMdView(){
+    /* 手機上並排沒有意義（兩邊都會太窄），直接當成只編輯。 */
+    const narrow = matchMedia('(max-width: 820px)').matches;
+    const v = (narrow && mdView === 'split') ? 'edit' : mdView;
+    $('panes').classList.toggle('single', v !== 'split');
+    $('mdInput').classList.toggle('hidden', v === 'read');
+    $('mdPreview').classList.toggle('hidden', v === 'edit');
+    document.querySelectorAll('.viewOpt').forEach(b =>
+        b.classList.toggle('on', b.dataset.view === mdView));
+}
+function renderShell(){
+    const inUse = !!(auth.currentUser && !auth.currentUser.isAnonymous);
+    const has = inUse && !!(currentNoteId && notes.some(n => n.id === currentNoteId));
+    $('loginHint').classList.toggle('hidden', inUse);
+    $('emptyHint').classList.toggle('hidden', !inUse || has);
+    $('editHead').classList.toggle('hidden', !has);
+    $('panes').classList.toggle('hidden', !has);
+    if (has) applyMdView();
+}
+
+/* ==========================================================
+   事件
+   ========================================================== */
+$('btnNew').onclick = newNote;
+$('btnDelete').onclick = deleteCurrentNote;
+$('btnHelp').onclick = () => $('mdHelp').classList.toggle('hidden');
+$('btnBack').onclick = () => {
+    flushMdSave();
+    document.body.classList.remove('phone-edit');
+    document.body.classList.add('phone-list');
+};
+document.querySelectorAll('.viewOpt').forEach(b => b.onclick = () => {
+    mdView = b.dataset.view; applyMdView();
+});
+$('btnExport').onclick = () => {
+    const n = notes.find(x => x.id === currentNoteId);
+    if (!n){ showToast('先選一篇筆記'); return; }
+    /* 匯出的是 Markdown 原文，不是渲染後的 HTML——原文在別的編輯器
+       打得開，HTML 只能看。 */
+    const blob = new Blob([n.body || ''], { type:'text/markdown;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (n.title || '未命名') + '.md';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+};
+
+/* ★ 兩個節流時間刻意不一樣：預覽 150ms 是為了跟得上手感，
+   存檔 800ms 是為了少寫幾次 Firestore。 */
+$('mdInput').addEventListener('input', (e) => {
+    const v = e.target.value;
+    clearTimeout(mdPreviewTimer);
+    mdPreviewTimer = setTimeout(() => mdRenderPreview(v), 150);
+    scheduleMdSave();
+});
+$('mdTitle').addEventListener('input', scheduleMdSave);
+
+/* ★ 手機切到別的 App 走的是 visibilitychange，不是 beforeunload——
+   只綁後者的話，手機使用者每次切走都會掉最後 0.8 秒的字，而他不會知道。 */
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushMdSave();
+});
+addEventListener('beforeunload', flushMdSave);
+/* 轉個方向就從並排變單欄（或反過來），要重算一次。 */
+matchMedia('(max-width: 820px)').addEventListener?.('change', applyMdView);
+
+renderMdList();
+renderShell();
+
+/* Service Worker：跟其他兩頁共用同一支 */
+if ('serviceWorker' in navigator)
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
