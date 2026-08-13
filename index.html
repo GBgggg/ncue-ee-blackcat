@@ -24,6 +24,20 @@
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- ★ 筆記（小黑貓md）用的三支。全部 defer，而且**每一支沒載到都要有交代**，
+         因為離線、CDN 被擋、載入還沒完成是三種很常見的狀態：
+
+           marked     沒到 → 預覽顯示 Markdown 原文（讀得懂，只是沒排版）
+           KaTeX      沒到 → 公式維持 $...$ 原文（跟模擬器那套同一個作法）
+           DOMPurify  沒到 → **拒絕渲染 HTML**，退回純文字
+
+         ★ 第三支是唯一「不能照樣渲染」的。少了它等於把使用者打的字當程式跑，
+         而筆記將來會開分享——那時「別人寫的字」會在你的瀏覽器裡執行。
+         所以那條路寫成拒絕，不是寫成降級。 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
     <style>
         /* ★ 字重從 7 個砍到 5 個（Sans 去掉 500、Serif 去掉 500）。
            這是整頁最大的一筆資產（約 231 KB，見 使用量評估.md）。
@@ -2211,6 +2225,131 @@
         /* 小標籤：字距拉開的編輯體例 */
         .uppercase.tracking-widest { letter-spacing: 0.2em !important; }
 
+        /* ==========================================================
+           筆記（小黑貓md）：橫線紙與四種語意色
+
+           ★ 為什麼筆記紙自己一組 token，不沿用 --paper 那一套：
+           站上的紙是「向日葵的暖奶黃」，配的是背景那張畫。筆記紙要的是
+           **筆記本**——更白、線更明顯，而且它是不透明的（背景那張畫不透上來），
+           因為橫線加上透上來的杉樹林會讓公式讀不了。
+           不透明也讓對比可以直接算，不必像 Hero 那樣疊紋理取最壞像素。
+
+           ★★ 四種顏色是**語意**不是色票。使用者不挑顏色，只標「這是定義」
+           「這是答案」，顏色由這裡給。理由有兩個：
+             一、自己挑的話，同一本筆記裡「藍色」這個月是推導、下個月是重點，
+                 三個月後自己也讀不出規則
+             二、深色模式沒得換算——挑死的 #1b4fd8 在深色紙上是看不見的
+
+           對比全部量過（tools/ 那支算法，紙是單色所以直接算）：
+             淺色紙 #fffdf6 上：藍 6.54／橘 5.82／金 5.82／墨 17.47
+             深色紙 #171b24 上：藍 8.32／橘 9.26／金 10.58／墨 12.97
+             螢光底上：淺色 13.69／深色 8.67
+           門檻 4.5，最低的是 5.82，留了餘裕給日後微調。
+           ========================================================== */
+        :root {
+            --md-paper:   #fffdf6;   /* 筆記紙（不透明） */
+            --md-rule:    #e6dcc0;   /* 橫線 */
+            --md-ink:     #1e1708;   /* 正文 */
+            --md-derive:  #1b4fd8;   /* 藍：推導 */
+            --md-annot:   #a8460b;   /* 橘：標註 */
+            --md-answer:  #8a5a06;   /* 金：答案（前面自動加 ★） */
+            --md-mark-bg: #fdf0a8;   /* 黃螢光：定義 */
+            --md-mark-ink:#2a2205;
+            --md-line: 30px;         /* 行距＝橫線間距，兩者必須是同一個數 */
+        }
+        html.dark {
+            --md-paper:   #171b24;
+            --md-rule:    #2a3140;
+            --md-ink:     #d9e0ea;
+            --md-derive:  #8fb4ff;
+            --md-annot:   #ffab6b;
+            --md-answer:  #f5c451;
+            --md-mark-bg: #4a3f14;
+            --md-mark-ink:#ffe9a3;
+        }
+
+        /* 橫線紙。★ `background-image` 不是 `background` 簡寫——
+           簡寫會把底色一起洗掉，症狀是紙變透明、背景那張畫透上來。
+           （設計系統的織理那幾條踩過同一個坑。） */
+        .md-sheet {
+            background-color: var(--md-paper);
+            background-image: repeating-linear-gradient(
+                var(--md-paper) 0 calc(var(--md-line) - 1px),
+                var(--md-rule)  calc(var(--md-line) - 1px) var(--md-line));
+            color: var(--md-ink);
+            line-height: var(--md-line);
+        }
+        /* 編輯區也鋪同一張紙，而且**行距要跟預覽一模一樣**——
+           兩邊行距不同的話，左右對照著看會愈往下差愈多。 */
+        .md-input {
+            background-color: var(--md-paper);
+            background-image: repeating-linear-gradient(
+                var(--md-paper) 0 calc(var(--md-line) - 1px),
+                var(--md-rule)  calc(var(--md-line) - 1px) var(--md-line));
+            color: var(--md-ink);
+            line-height: var(--md-line);
+            font-family: ui-monospace, "Cascadia Code", "Noto Sans TC", monospace;
+            font-size: 14px;
+            resize: none;
+        }
+        .md-input:focus { outline: none; }
+
+        /* 四種語意色 */
+        .md-body .md-derive { color: var(--md-derive); }
+        .md-body .md-annot  { color: var(--md-annot); }
+        .md-body .md-def {
+            background: var(--md-mark-bg); color: var(--md-mark-ink);
+            padding: 1px 5px; border-radius: 3px;
+        }
+        .md-body .md-answer { color: var(--md-answer); font-weight: 700; }
+        /* ★ 星號用 ::before 產生，不寫進使用者的字裡。
+           寫進字裡的話「改成不是答案」會留下一顆孤兒星號，
+           而那要使用者自己去刪——他多半只會覺得這功能怪怪的。
+
+           ★★ 用碼位 \2605 而不是直接打那個字元：`tests/design.mjs` 把
+           「註解外面出現中文或★」當成「有個註解沒關好」的代理指標，
+           而那個指標很準也很便宜，不該為了一個裝飾字元把它弄鈍。
+           間距用 margin 不用字串裡的空白——CSS escape 後面那個空白會被
+           當成轉義的結束符吃掉，寫兩個空白才會留下一個，那太容易改壞。 */
+        .md-body .md-answer::before { content: "\2605"; margin-right: .25em; }
+
+        /* 預覽區的排版：字級與行距跟著紙走，不要讓 Tailwind 的 prose 接管 */
+        .md-body h1, .md-body h2, .md-body h3 {
+            color: var(--md-derive); font-weight: 900;
+            margin: calc(var(--md-line) * 0.5) 0 0;
+        }
+        .md-body h1 { font-size: 20px; }
+        .md-body h2 { font-size: 17px; }
+        .md-body h3 { font-size: 15px; }
+        .md-body p, .md-body li { margin: 0; }
+        .md-body ul, .md-body ol { padding-left: 1.6em; margin: 0; }
+        .md-body ul { list-style: disc; }
+        .md-body ol { list-style: decimal; }
+        .md-body code {
+            font-family: ui-monospace, monospace; font-size: .92em;
+            background: rgba(0,0,0,.05); padding: 1px 4px; border-radius: 3px;
+        }
+        html.dark .md-body code { background: rgba(255,255,255,.08); }
+        .md-body blockquote {
+            border-left: 3px solid var(--md-annot); padding-left: 10px;
+            color: var(--md-annot);
+        }
+        .md-body table { border-collapse: collapse; width: 100%; }
+        .md-body th, .md-body td {
+            border: 1px solid var(--md-rule); padding: 4px 8px; text-align: left;
+        }
+        .md-body th { color: var(--md-annot); }
+        /* ★ KaTeX 的字級要壓回紙的行距裡。預設 1.21em 會把公式那一行
+           撐高，於是橫線紙從那一行開始整片對不齊。 */
+        .md-body .katex { font-size: 1.02em; }
+        /* 還沒被 KaTeX 接手（沒載到／語法錯）的公式維持等寬，至少排得整齊。 */
+        .md-body .md-tex-raw {
+            font-family: ui-monospace, monospace; font-size: .92em;
+            color: var(--md-annot);
+        }
+        /* 篇目清單裡目前開著的那一篇 */
+        .md-item.is-open { border-color: var(--accent-bright); }
+
     </style>
     <script>
         // 開站前先套用上次使用者選的顯示模式，避免閃爍
@@ -3085,6 +3224,76 @@
                     <div id="tradeList" class="space-y-3 mb-8"></div>
                     <h3 class="font-black text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="eye" class="w-4 h-4 text-fuchsia-500"></i> 投資筆記 / 觀察清單</h3>
                     <div id="watchList" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== 筆記（小黑貓md）========================
+             ★ 私人資料：存在 users/{uid}/notes/{noteId}，一篇一份文件。
+             **不是**一份文件裝一個陣列——那是計劃與倒數的形狀，而那個形狀
+             配上非同步載入已經害使用者掉過整份資料（見 架構.md 4620 行那節）。
+             一篇一份的最壞情況只毀一篇，而且開一篇不必先把全部讀回來。 -->
+        <div id="page-md" class="page-section hidden">
+            <div id="mdLoginHint" class="bg-white rounded-[2rem] p-8 text-center text-slate-400 font-medium border-2 border-dashed border-slate-200 hidden">
+                <i data-lucide="lock" class="w-8 h-8 mx-auto mb-3 text-slate-300"></i>
+                登入後才能使用筆記，內容只有你自己看得到
+            </div>
+            <div id="mdContent" class="hidden">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-5 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                    <div class="relative z-10">
+                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">筆記本 <span>📓</span></h2>
+                        <p class="text-[11px] mt-2 text-slate-400">Markdown ＋ 數學公式，只有你自己看得到。</p>
+                        <div class="mt-4 flex flex-wrap gap-2">
+                            <button data-action="md-new" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors inline-flex items-center gap-1"><i data-lucide="plus-circle" class="w-4 h-4 pointer-events-none"></i> 新增一篇</button>
+                            <button data-action="md-export" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="download" class="w-4 h-4 pointer-events-none"></i> 匯出 .md</button>
+                            <button data-action="md-help" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="help-circle" class="w-4 h-4 pointer-events-none"></i> 標記怎麼打</button>
+                        </div>
+                        <!-- 語法說明。預設收起來：它是「查一次就記得」的東西，
+                             常駐的話每次進筆記都要先捲過它。 -->
+                        <div id="mdHelp" class="hidden mt-4 text-[12px] bg-white/10 border border-white/15 rounded-2xl p-3 space-y-1">
+                            <div><code>==定義==</code> 黃螢光　<code>!!標註!!</code> 橘字　<code>@@答案@@</code> 金字並自動加 ★</div>
+                            <div><code>$x=a\sin\theta$</code> 行內公式　<code>$$…$$</code> 獨立成行的公式</div>
+                            <div><code># 標題</code>　<code>- 清單</code>　<code>| 表格 |</code>　<code>&gt; 引用</code>（標準 Markdown 都能用）</div>
+                            <div class="text-slate-400">※ 公式語法跟課本一樣是 LaTeX；打錯的那一條會用橘色等寬字顯示原文，不會整頁壞掉。</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid lg:grid-cols-[15rem_1fr] gap-4 items-start">
+                    <!-- 篇目清單 -->
+                    <div>
+                        <h3 class="font-black text-slate-700 mb-2 px-1 text-sm flex items-center gap-2"><i data-lucide="notebook-pen" class="w-4 h-4 text-emerald-500"></i> 我的筆記</h3>
+                        <div id="mdList" class="space-y-2"></div>
+                    </div>
+
+                    <!-- 編輯器 -->
+                    <div id="mdEditorWrap" class="hidden">
+                        <div class="flex flex-wrap items-center gap-2 mb-2">
+                            <input id="mdTitle" maxlength="80" placeholder="這篇的標題"
+                                   class="flex-1 min-w-[10rem] px-4 py-2 rounded-2xl border-2 border-slate-200 font-black text-slate-800 bg-white">
+                            <div class="flex gap-1">
+                                <button data-action="md-view" data-view="split" class="md-view-opt px-3 py-2 rounded-xl text-xs font-black transition-colors">並排</button>
+                                <button data-action="md-view" data-view="edit" class="md-view-opt px-3 py-2 rounded-xl text-xs font-black transition-colors">只編輯</button>
+                                <button data-action="md-view" data-view="read" class="md-view-opt px-3 py-2 rounded-xl text-xs font-black transition-colors">只閱讀</button>
+                            </div>
+                            <span id="mdSaveState" class="text-xs font-bold text-slate-400 px-1" role="status"></span>
+                            <button data-action="md-delete" class="px-3 py-2 rounded-xl text-xs font-black text-rose-500 hover:bg-rose-50 transition-colors">刪除這篇</button>
+                        </div>
+
+                        <div id="mdPanes" class="grid md:grid-cols-2 gap-3">
+                            <!-- 左：打字。右：看結果。兩邊鋪同一張紙、同一個行距。 -->
+                            <textarea id="mdInput" spellcheck="false"
+                                      class="md-input md-sheet rounded-[1.25rem] border-2 border-slate-200 p-4 w-full min-h-[26rem]"
+                                      placeholder="從這裡開始寫。&#10;&#10;# CH7&#10;==兩曲線之間的面積== 先定上下再積分&#10;$$\int_a^b [f(x)-g(x)]\,dx$$&#10;@@答案 24@@"></textarea>
+                            <div id="mdPreview" class="md-sheet md-body rounded-[1.25rem] border-2 border-slate-200 p-4 w-full min-h-[26rem] overflow-x-auto"></div>
+                        </div>
+                    </div>
+
+                    <!-- 一篇都沒有、或還沒選一篇時顯示 -->
+                    <div id="mdEmpty" class="bg-white rounded-[2rem] p-10 text-center text-slate-400 font-medium border-2 border-dashed border-slate-200">
+                        <i data-lucide="notebook-pen" class="w-8 h-8 mx-auto mb-3 text-slate-300"></i>
+                        左邊選一篇，或按上面的「新增一篇」開始寫
+                    </div>
                 </div>
             </div>
         </div>
@@ -3979,8 +4188,11 @@
                ★ 內容沒有搬家：`#home-sub-plan` 還住在 `#page-home` 裡，
                只是路由上多一層對應（TAB_PAGE），跟英文分頁同一個作法。
                真的搬 HTML 的話風險遠高於收益，而且搬錯不報錯只會有某頁打不開。 */
-            cat:  [['home','主頁'], ['plan','計劃'], ['self-study','學習'],
-                   ['english','英文'], ['finance','理財']],
+            /* ★「筆記」排在計劃後面、學習前面：它跟計劃一樣是「每天會開好幾次」
+               的東西，而學習／英文／理財是「想到才去」的。放最後的話，
+               手機上分頁列要捲一段才看得到——那等於做了但沒人用。 */
+            cat:  [['home','主頁'], ['plan','計劃'], ['md','筆記'],
+                   ['self-study','學習'], ['english','英文'], ['finance','理財']],
             /* ★「管理」這個分頁不見了，拆成兩件事：
                內容管理（上傳資料、匯入課程）搬進設定頁，因為那是「工具」；
                星族大會拉成「帳號權限管理」，因為那是要對照名冊慢慢看的事。
@@ -4084,7 +4296,8 @@
             builtinVocabFolders: [], builtinVocabBooks: [], builtinVocabWords: [], builtinVocabSets: [],
             // 🔒 私人資料（只有本人讀得到，登出時清空）
             myVocabBooks: [], myVocabWords: [], myVocabFolders: [], myKahoots: [],
-            expenses: [], holdings: [], trades: [], watchlist: []   // 理財（個人私密）
+            expenses: [], holdings: [], trades: [], watchlist: [],  // 理財（個人私密）
+            notes: []                                               // 筆記（個人私密，一篇一份文件）
         };
 
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
@@ -4189,6 +4402,23 @@
         /* 跟計劃同一個坑、同一份 settings 文件、同樣是整包覆寫。 */
         let countdownsLoaded = false;
         let countdownsReady = Promise.resolve();
+        /* 筆記（小黑貓md）。★ 全部宣告在狀態區，理由跟這個檔案裡其他狀態一樣：
+           renderMd() 會被 applyTab 碰到，放在函式旁邊就是暫時性死區，
+           而症狀是整頁全白（已踩六次）。
+
+           ★★ `mdReadyIds` 是這一組裡最重要的一個，它擋的是本專案最貴的那個坑。
+           形狀跟計劃那次一樣（架構.md 4620 行）：面板開了、游標能打字，
+           而雲端那篇還在路上。差別是筆記一篇一份文件，所以最壞只毀一篇——
+           但一篇也是使用者整晚寫的東西。
+           規則很簡單：**沒有在這個集合裡的篇章，一個字都不准寫回雲端。**
+           id 進集合只有兩條路：從 onSnapshot 真的收到過，或是本機剛建立的新篇。 */
+        let mdNotesLoaded = false;
+        const mdReadyIds = new Set();
+        let currentNoteId = null;
+        let mdView ='split';          // split／edit／read
+        let mdSaveTimer = null;
+        let mdDirty = false;          // 有沒有還沒寫回雲端的改動
+        const mdUnsubs = [];
         let searchQuery ='', activeSemesterFilter ='all', selectedFilterCourseId = null;
 
         // 課程頁分批顯示。改搜尋或篩選時要退回第一批，否則使用者搜完
@@ -4823,6 +5053,25 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-13',
+                title: '新分頁「筆記」：Markdown ＋ 數學公式，一篇一份文件',
+                items: [
+                    ['做什麼', '第六個大分頁，排在計劃與學習之間。左邊打 Markdown、右邊即時看結果，兩邊鋪同一張橫線紙、同一個行距。三個語意標記：`==定義==` 黃螢光、`!!標註!!` 橘字、`@@答案@@` 金字自動加 ★；`$…$` 與 `$$…$$` 是 LaTeX 公式。標題與公式自動是藍的——那正是手寫筆記裡藍筆的位置。'],
+                    ['★ 動手前先驗地基', '整項的地基是 KaTeX，它排不出那幾種式子的話後面全部要重想。所以先寫了 `md排版驗證.html`（根目錄，不發布），把 `md maker/` 三份手寫筆記裡最難的 38 條式子丟給它——豎線求值 `|₀^{π/4}`、三角代換、巢狀根號、`cases` 聯立、`bmatrix`、`\\mathcal{L}`、科學記號——**零失敗**。這半小時省掉的是「做到一半才發現卡住」。'],
+                    ['★★ 存檔用一篇一份文件，不是一份文件裝一個陣列', '計劃與倒數是後者，而那個形狀配上非同步載入已經害使用者掉過整份資料（`blackcat-v61` 那次）。一篇一份的最壞情況只毀一篇，而且開一篇不必先把全部讀回來。'],
+                    ['★★ 但同一個坑換個樣子還在：`mdReadyIds`', '面板開了、游標能打字，而雲端那篇還在路上——這時候自動存檔寫下去，就是拿空的內容覆蓋掉整晚寫的東西。規則寫成「沒有真的從 onSnapshot 收到過的篇章，一個字都不准寫回雲端」，擋下來時有吐司。登出要把這個集合清掉，不然下一個人登入的空窗裡會把上一個人的內容寫進他的路徑。'],
+                    ['★★ 切篇之前一定要先 flush', '存檔是打完字停 0.8 秒才寫。這 0.8 秒裡使用者可能已經點到另一篇——計時器若在觸發時才去讀 `currentNoteId`，就會把 A 篇的內容寫進 B 篇。症狀是「我另一篇怎麼變成這篇的內容」，而且完全不會報錯。所以 `openNote` 第一行就是 `flushMdSave()`，`saveNote` 自己再比對一次 id。'],
+                    ['★ 自己存檔的回音不能蓋掉輸入框', 'onSnapshot 每次存檔都會回音一次。無條件回填的症狀是「打到一半游標跳走、剛打的字被吃掉」。所以只有在沒有未存改動、而且內容真的不一樣時才回填——那才是別台裝置改的。'],
+                    ['★★ DOMPurify 沒載到就不渲染 HTML', 'marked 的輸出是 HTML，等於把使用者打的字交給瀏覽器執行。現在只有自己看，風險低；但筆記將來要開分享，那時執行的是**別人寫的字**。所以這一支的降級路徑寫成「退回純文字」，不是「照樣渲染」——等開分享才補的話，那時已經有一堆存好的筆記，補不回去。marked 與 KaTeX 沒載到則各自降級（顯示原文），不影響使用。'],
+                    ['★ 公式故意不經過消毒器', '作法是先把 `$…$` 抽成佔位符（私有使用區字元，DOMPurify 不碰文字節點），prose 走 marked→DOMPurify，最後才由 KaTeX 把佔位符換成公式。這樣使用者的 HTML 被消毒過，而 KaTeX 產生的 MathML／span 不會被消毒器啃掉——被啃掉的症狀是公式少一半括號，看起來像「這條我打錯了」。KaTeX 的 `trust` 維持關閉（擋 `\\href`）。'],
+                    ['★ $$ 一定要比 $ 先抽', '順序反過來的話，`$$` 會先被當成一對「空的行內公式」吃掉，症狀是整段公式變成兩個錢字號。另外跳脫過的 `\\$100` 不算公式（記帳筆記會用到），行內公式不跨行（忘了關的話會吞掉後面好幾段）。'],
+                    ['★ 離線時預覽不會排版，這是刻意的', '三支函式庫都在 CDN 上，而 `sw.js` 的 CORE 只放同源資源——把跨來源網址塞進去會讓 `addAll` 整批失敗，等於整個離線快取都壞掉。代價是離線時看到 Markdown 原文，而那正是上面那幾條降級路徑存在的理由。'],
+                    ['★ 顏色是語意不是色票', '使用者不挑顏色，只標「這是定義」「這是答案」。自己挑的話，同一本筆記裡「藍色」這個月是推導、下個月是重點，三個月後自己也讀不出規則；而且挑死的色碼在深色模式下是看不見的。八個顏色都量過對比，最低 5.82（門檻 4.5）。'],
+                    ['★ `firestore.rules` 要跟著推', '私人集合是白名單制，這次多了 `notes`。漏推的症狀是「存檔按了沒反應」——權限被拒只有主控台看得到，畫面上什麼都不會說。而 `發布上github.bat` 只發 Pages，規則要另外推。'],
+                    ['測試 `tests/mdnote.mjs`（79 條）', '公式抽取與三個語意標記是**真的執行**的（把 `mdSetupMarked` 註冊的 extension 收下來逐一呼叫），不是字串比對。其餘是反向斷言，釘住那五個危險寫法不准回來。寫完照規矩故意弄壞五處確認會紅——第一次還抓到我自己的「弄壞」其實不算弄壞（把 flush 移到 `const n` 後面，`currentNoteId` 還沒換，行為一樣）。'],
+                ],
+            },
             {
                 date: '2026-08-13',
                 title: '★ 深色區塊上的次要文字一直是看不見的——量出來對比 1.07',
@@ -5755,6 +6004,11 @@
                 switchStudySub(subs.includes(studySub) ? studySub : subs[0]);
             }
             if (tab ==='finance') renderFinance();
+            if (tab ==='md') renderMd();
+            /* ★ 離開筆記分頁要把還沒寫出去的存掉。不做的話「打完字馬上切走」
+               那 0.8 秒的內容就沒了——而使用者的認知是「我打完就切走了，
+               它當然存好了」，沒有任何東西告訴他沒有。 */
+            else flushMdSave();
             icons();
         }
 
@@ -9330,6 +9584,371 @@
         }
 
         /* ==========================================================
+         * 14.6 筆記（小黑貓md）— 個人私密資料，僅本人可讀寫
+         *
+         * 目標：排得出 `md maker/` 那三份手寫筆記的效果。
+         * 地基（KaTeX 排不排得出豎線求值、三角代換、cases、矩陣）在動手前
+         * 用 `md排版驗證.html` 驗過，38 條真實式子零失敗。
+         *
+         * ---- 三件跟安全與資料有關、錯了不會報錯的事 ----
+         *
+         * 一、**DOMPurify 沒載到就不渲染 HTML。** marked 的輸出是 HTML，
+         *     等於把使用者打的字交給瀏覽器執行。現在只有自己看，風險低；
+         *     但筆記將來要開分享，那時執行的是**別人寫的字**。
+         *     所以這條路寫成「退回純文字」，不是「照樣渲染」——
+         *     等開分享才補的話，那時已經有一堆存好的筆記，補不回去。
+         *
+         * 二、**公式不經過 DOMPurify。** 作法是先把 $…$ 抽成佔位符，
+         *     prose 走 marked→DOMPurify，最後才由 KaTeX 把佔位符換成公式。
+         *     這樣兩邊都不吃虧：使用者的 HTML 被消毒過，而 KaTeX 產生的
+         *     MathML／span 不會被消毒器啃掉（那會讓公式少一半括號，
+         *     而且看起來像「這條公式我打錯了」）。KaTeX 的 trust 維持預設關閉。
+         *
+         * 三、**存檔的篇章 id 要在排程當下就抓住。** 打完字 0.8 秒才寫回雲端，
+         *     這 0.8 秒裡使用者可能已經點到另一篇——計時器若在觸發時才去讀
+         *     `currentNoteId`，就會把 A 篇的內容寫進 B 篇。症狀是「我另一篇
+         *     怎麼變成這篇的內容」，而且完全不會報錯。所以切篇之前一定要先
+         *     `flushMdSave()`，而且 `saveNote` 自己再比對一次 id。
+         * ========================================================== */
+
+        /* ---- 語意標記：三個，故意只有三個 ----
+           每多一個標記就多一件要記的事，而使用者是自己。三份 PDF 裡
+           真正在用的就是這三種：黃螢光標定義、橘字寫旁註、★ 標答案。
+           藍色不給標記——標題與公式自動是藍的，那正是手寫筆記裡藍筆的位置。 */
+        const MD_MARKS = [
+            { name:'mdDef',    mark:'==', cls:'md-def' },
+            { name:'mdAnnot',  mark:'!!', cls:'md-annot' },
+            { name:'mdAnswer', mark:'@@', cls:'md-answer' }
+        ];
+
+        let mdMarkedSetup = false;
+        function mdSetupMarked(){
+            if (mdMarkedSetup || !window.marked) return;
+            const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+            marked.use({ extensions: MD_MARKS.map(({ name, mark, cls }) => ({
+                name, level:'inline',
+                /* start 是給 marked 找「下一個可能的起點」用的。回 -1 表示這一段
+                   沒有，marked 就不必逐字問——漏寫的話大段文字會慢得有感。 */
+                start(src){ return src.indexOf(mark); },
+                tokenizer(src){
+                    const re = new RegExp('^' + esc(mark) + '([\\s\\S]+?)' + esc(mark));
+                    const m = re.exec(src);
+                    if (!m) return;
+                    return { type:name, raw:m[0], text:m[1],
+                             tokens: this.lexer.inlineTokens(m[1]) };
+                },
+                /* ★ 內容走 parseInline 而不是直接塞 text：標記裡面還可以有
+                   粗體、行內程式碼與公式佔位符。直接塞的話那些會變成原文。 */
+                renderer(token){
+                    return `<span class="${cls}">${this.parser.parseInline(token.tokens)}</span>`;
+                }
+            })) });
+            mdMarkedSetup = true;
+        }
+
+        /* ---- 公式的佔位符 ----
+           用私有使用區的字元，理由是它們不會出現在任何一份筆記裡，
+           而且 DOMPurify 不會去動文字節點的內容，所以佔位符一定活得到最後。
+           用 `@@MATH0@@` 這種寫法的話，只要有人真的打了那串字就會壞掉。 */
+        const MD_TEX_OPEN ='\uE000', MD_TEX_CLOSE ='\uE001';
+
+        function mdExtractMath(src, store){
+            /* 先抽 $$…$$ 再抽 $…$。順序不能反——反過來的話 $$ 會先被
+               當成一對空的行內公式吃掉，症狀是整段公式變成兩個錢字號。 */
+            let out = src.replace(/\$\$([\s\S]+?)\$\$/g, (m, tex) => {
+                store.push({ tex, display:true });
+                return MD_TEX_OPEN + (store.length - 1) + MD_TEX_CLOSE;
+            });
+            /* 行內公式不跨行，而且前面是反斜線的錢字號要當成純文字（\$100）。 */
+            out = out.replace(/(^|[^\\])\$([^\n$]+?)\$/g, (m, pre, tex) => {
+                store.push({ tex, display:false });
+                return pre + MD_TEX_OPEN + (store.length - 1) + MD_TEX_CLOSE;
+            });
+            return out;
+        }
+
+        /* 把已經消毒過的 DOM 裡的佔位符換成 KaTeX 排好的公式。
+           ★ 走文字節點而不是 innerHTML 字串取代：字串取代會連
+           `<code>` 裡的佔位符一起換掉，而那裡使用者要的正是原文。 */
+        function mdFillMath(root, store){
+            if (!store.length) return;
+            const K = window.katex;   // ★ 取一次就好，理由見下面 mdRenderPreview
+            const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+            const jobs = [];
+            for (let n = walker.nextNode(); n; n = walker.nextNode())
+                if (n.nodeValue.indexOf(MD_TEX_OPEN) >= 0) jobs.push(n);
+
+            for (const node of jobs){
+                const frag = document.createDocumentFragment();
+                const parts = node.nodeValue.split(new RegExp(
+                    MD_TEX_OPEN + '(\\d+)' + MD_TEX_CLOSE));
+                parts.forEach((part, i) => {
+                    if (i % 2 === 0){ if (part) frag.appendChild(document.createTextNode(part)); return; }
+                    const item = store[Number(part)];
+                    if (!item) return;
+                    const span = document.createElement('span');
+                    /* ★ 先把 LaTeX 原文寫進去，再讓 KaTeX 換掉。
+                       反過來（先留空等 KaTeX 填）的症狀是公式整片空白，
+                       而且不會報錯——模擬器那一輪就是這樣踩的。 */
+                    span.textContent = item.display ? '$$' + item.tex + '$$' : '$' + item.tex + '$';
+                    span.className ='md-tex-raw';
+                    if (K){
+                        try {
+                            K.render(item.tex, span, {
+                                throwOnError: true, displayMode: item.display,
+                                trust: false                  /* \href、\includegraphics 一律不給 */
+                            });
+                            span.className ='md-derive';      /* 公式是藍的，跟手寫筆記一樣 */
+                        } catch (e){
+                            /* 打錯的那一條維持橘色原文。整頁不該因為一條公式壞掉——
+                               寫筆記的時候公式打到一半是常態。 */
+                        }
+                    }
+                    frag.appendChild(span);
+                });
+                node.parentNode.replaceChild(frag, node);
+            }
+        }
+
+        function mdRenderPreview(src){
+            const box = $('mdPreview');
+            if (!box) return;
+            /* ★ 三支函式庫各讀一次就好，不要在迴圈或分支裡重複取。
+               在深處才取的話，「根本沒載到」會被 try/catch 吃掉，
+               偽裝成「這份筆記的語法有問題」——兩個完全不同的問題。 */
+            const M = window.marked, P = window.DOMPurify;
+
+            /* ★★ 沒有消毒器就不渲染 HTML。這是唯一不做降級的一支。 */
+            if (!M || !P){
+                box.textContent = src;
+                box.classList.add('md-tex-raw');
+                return;
+            }
+            box.classList.remove('md-tex-raw');
+            mdSetupMarked();
+
+            const store = [];
+            let html;
+            try {
+                html = M.parse(mdExtractMath(src, store), { breaks:true, gfm:true });
+            } catch (e){
+                box.textContent = src;
+                return;
+            }
+            /* 消毒。KaTeX 還沒進來，所以這裡消的純粹是使用者打的 prose。 */
+            box.innerHTML = P.sanitize(html, { USE_PROFILES: { html:true } });
+            mdFillMath(box, store);
+        }
+
+        /* ---- 篇目清單 ---- */
+        function renderMdList(){
+            const box = $('mdList');
+            if (!box) return;
+            const list = [...state.notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+            if (!list.length){
+                box.innerHTML = `<div class="text-xs text-slate-400 px-2 py-3">還沒有筆記</div>`;
+                return;
+            }
+            box.innerHTML = list.map(n => `
+                <button data-action="md-open" data-id="${n.id}"
+                        class="md-item w-full text-left px-3 py-2.5 rounded-2xl border-2 border-slate-100 bg-white hover:border-emerald-200 transition-colors ${n.id === currentNoteId ?'is-open' :''}">
+                    <div class="font-black text-sm text-slate-800 truncate">${escapeHTML(n.title ||'未命名')}</div>
+                    <div class="text-[11px] text-slate-400">${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() :''}</div>
+                </button>`).join('');
+        }
+
+        function setMdSaveState(txt){ const el = $('mdSaveState'); if (el) el.textContent = txt; }
+
+        /* ---- 開一篇 ---- */
+        function openNote(id){
+            /* ★ 先把上一篇還沒寫出去的存掉，**再**換 id。
+               順序反過來就是「A 篇的字寫進 B 篇」。 */
+            flushMdSave();
+            const n = state.notes.find(x => x.id === id);
+            if (!n) return;
+            currentNoteId = id;
+            mdDirty = false;
+            setVals({ mdTitle: n.title ||'' });
+            $('mdInput').value = n.body ||'';
+            $('mdEditorWrap').classList.remove('hidden');
+            $('mdEmpty').classList.add('hidden');
+            mdRenderPreview(n.body ||'');
+            setMdSaveState('已儲存');
+            renderMdList();
+            applyMdView();
+        }
+
+        async function newNote(){
+            if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+            const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+            const now = Date.now();
+            const note = {
+                title:'未命名', body:'', createdAt: now, updatedAt: now,
+                /* ★ 分享的欄位先留著，第一版一律 false。
+                   欄位之後再加不是不行，但「已經存了兩百篇才想到要加」
+                   等於要寫一支回填腳本，而那支腳本會在半夜跑壞。 */
+                shared: false, shareId: null
+            };
+            /* 本機剛建立的篇章直接算「已就緒」：它的內容就是我們自己給的，
+               沒有「雲端那份還在路上」的問題。 */
+            mdReadyIds.add(id);
+            state.notes.push({ id, ...note });
+            openNote(id);
+            try {
+                await setDoc(doc(db, PU('notes'), id), note);
+            } catch (e){
+                showToast('建立筆記失敗：' + (e.code || e.message));
+            }
+        }
+
+        async function deleteCurrentNote(){
+            const id = currentNoteId;
+            if (!id) return;
+            if (!confirm('刪除這篇筆記？刪掉就找不回來了。')) return;
+            clearTimeout(mdSaveTimer); mdSaveTimer = null; mdDirty = false;
+            currentNoteId = null;
+            $('mdEditorWrap').classList.add('hidden');
+            $('mdEmpty').classList.remove('hidden');
+            state.notes = state.notes.filter(n => n.id !== id);
+            mdReadyIds.delete(id);
+            renderMdList();
+            try { await deleteDoc(doc(db, PU('notes'), id)); }
+            catch (e){ showToast('刪除失敗：' + (e.code || e.message)); }
+        }
+
+        /* ---- 存檔 ----
+           自動存檔，打完字停 0.8 秒才寫。每個按鍵都寫的話，一篇筆記
+           一個晚上就是好幾千次寫入——Firestore 的免費額度是用「次數」算的。 */
+        function scheduleMdSave(){
+            if (!currentNoteId) return;
+            mdDirty = true;
+            setMdSaveState('編輯中…');
+            clearTimeout(mdSaveTimer);
+            mdSaveTimer = setTimeout(flushMdSave, 800);
+        }
+        function flushMdSave(){
+            clearTimeout(mdSaveTimer); mdSaveTimer = null;
+            if (!mdDirty || !currentNoteId) return;
+            saveNote(currentNoteId, getVal('mdTitle'), $('mdInput').value);
+        }
+        async function saveNote(id, title, body){
+            /* ★★ 這道閘門是整段最重要的一行。沒有在 mdReadyIds 裡，
+               代表「雲端那篇還沒回來」——這時候寫下去就是拿一份殘缺的內容
+               覆蓋掉使用者真正的筆記。寧可存檔失敗（有吐司、看得見），
+               也不要安靜地把一篇寫掉。 */
+            if (!mdReadyIds.has(id)){
+                setMdSaveState('未存檔');
+                showToast('這篇還沒從雲端載回來，先不存檔');
+                return;
+            }
+            if (id !== currentNoteId) return;   /* 已經切到別篇，這次排程作廢 */
+            const now = Date.now();
+            const local = state.notes.find(n => n.id === id);
+            if (local){ local.title = title; local.body = body; local.updatedAt = now; }
+            mdDirty = false;
+            setMdSaveState('儲存中…');
+            try {
+                await setDoc(doc(db, PU('notes'), id),
+                             { title, body, updatedAt: now }, { merge: true });
+                setMdSaveState('已儲存');
+                renderMdList();
+            } catch (e){
+                mdDirty = true;                 /* 沒寫成功就不能算乾淨 */
+                setMdSaveState('存檔失敗');
+                showToast('存檔失敗：' + (e.code || e.message));
+            }
+        }
+
+        /* ---- 檢視模式 ---- */
+        function applyMdView(){
+            const panes = $('mdPanes');
+            if (!panes) return;
+            panes.classList.toggle('md:grid-cols-2', mdView ==='split');
+            $('mdInput').classList.toggle('hidden', mdView ==='read');
+            $('mdPreview').classList.toggle('hidden', mdView ==='edit');
+            document.querySelectorAll('.md-view-opt').forEach(b => {
+                const on = b.dataset.view === mdView;
+                b.classList.toggle('bg-emerald-500', on);
+                b.classList.toggle('text-white', on);
+                b.classList.toggle('bg-slate-100', !on);
+                b.classList.toggle('text-slate-500', !on);
+            });
+        }
+        function switchMdView(v){
+            mdView = ['split','edit','read'].includes(v) ? v :'split';
+            applyMdView();
+        }
+
+        function exportCurrentNote(){
+            const n = state.notes.find(x => x.id === currentNoteId);
+            if (!n) { showToast('先選一篇筆記'); return; }
+            /* 匯出的是 Markdown 原文，不是渲染後的 HTML——原文在別的編輯器
+               打得開，HTML 只能看。 */
+            const blob = new Blob([n.body ||''], { type:'text/markdown;charset=utf-8' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = (n.title ||'未命名') + '.md';
+            a.click();
+            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+        }
+
+        /* ---- 訂閱：登入才有，登出即停並清空 ---- */
+        function initMdSubs(){
+            stopMdSubs();
+            if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+            const path = PU('notes');
+            if (!path) return;
+            mdUnsubs.push(onSnapshot(collection(db, path), (snap) => {
+                const incoming = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+                /* ★ 真的收到過的篇章才准寫回去（見 saveNote 的閘門）。 */
+                incoming.forEach(n => mdReadyIds.add(n.id));
+                state.notes = incoming;
+                mdNotesLoaded = true;
+                renderMdList();
+                /* ★★ 正在編輯的那一篇**不要**用雲端那份覆蓋回輸入框。
+                   覆蓋的症狀是「打到一半游標跳走、剛打的字被吃掉」——
+                   自己存檔觸發的回音也會走到這裡，所以這條路每次存檔都會發生。
+                   只有在「沒有未存的改動」而且內容真的不一樣時才回填
+                   （那才是別台裝置改的）。 */
+                if (currentNoteId && !mdDirty){
+                    const cur = incoming.find(n => n.id === currentNoteId);
+                    if (cur && $('mdInput') && $('mdInput').value !== (cur.body ||'')){
+                        $('mdInput').value = cur.body ||'';
+                        setVals({ mdTitle: cur.title ||'' });
+                        mdRenderPreview(cur.body ||'');
+                    }
+                }
+            }, (err) => {
+                console.warn('訂閱 notes 失敗:', err.code || err);
+                /* ★ 讀不到 ≠ 沒有筆記。維持 mdNotesLoaded=false、
+                   而且**不清空 mdReadyIds**——清掉的話下一次存檔會被閘門擋住，
+                   但更糟的是使用者看到一份空清單，以為筆記全沒了。 */
+                showToast('讀不到雲端的筆記，這次先不要編輯');
+            }));
+        }
+        function stopMdSubs(){
+            while (mdUnsubs.length) { try { mdUnsubs.pop()(); } catch (e) {} }
+            /* ★ 登出要把閘門一起收回。留著 ready 的話，下一個人登入的空窗裡
+               任何一次存檔都會寫到**他的**筆記路徑下，而內容是上一個人的。 */
+            clearTimeout(mdSaveTimer); mdSaveTimer = null;
+            state.notes = []; mdReadyIds.clear();
+            mdNotesLoaded = false; mdDirty = false; currentNoteId = null;
+        }
+
+        /* ---- 進分頁時 ---- */
+        function renderMd(){
+            const inUse = !!(auth.currentUser && !auth.currentUser.isAnonymous);
+            if ($('mdLoginHint')) $('mdLoginHint').classList.toggle('hidden', inUse);
+            if ($('mdContent')) $('mdContent').classList.toggle('hidden', !inUse);
+            if (!inUse) return;
+            renderMdList();
+            const has = !!(currentNoteId && state.notes.some(n => n.id === currentNoteId));
+            if ($('mdEditorWrap')) $('mdEditorWrap').classList.toggle('hidden', !has);
+            if ($('mdEmpty')) $('mdEmpty').classList.toggle('hidden', has);
+            if (has) applyMdView();
+        }
+
+        /* ==========================================================
          * 15. 挑戰擂台 (Kahoot)
          * ========================================================== */
         /* ==========================================================
@@ -10539,6 +11158,11 @@
             // 理財：登入才訂閱個人資料，登出即停止並清空
             if (user && !user.isAnonymous) initFinanceSubs(); else stopFinanceSubs();
             renderFinance();
+            // 筆記：同上。★ 登出時 stopMdSubs 會把 mdReadyIds 一起清掉——
+            // 留著的話，下一個人登入的空窗裡任何一次存檔都會寫到他的路徑下，
+            // 而內容是上一個人的。
+            if (user && !user.isAnonymous) initMdSubs(); else stopMdSubs();
+            renderMd();
             // 🔒 階級可能已改變，重新評估分級教材的訂閱
             resyncScopedSubs();
             updateAdminUI();
@@ -10699,6 +11323,13 @@
 'save-watch': saveWatch,
 'del-finance': (t) => deleteFinanceDoc(t.dataset.col, t.dataset.id),
 'refresh-prices': refreshPrices,
+            /* ---- 筆記（小黑貓md）---- */
+'md-new':    () => newNote(),
+'md-open':   (t) => openNote(t.dataset.id),
+'md-delete': () => deleteCurrentNote(),
+'md-export': () => exportCurrentNote(),
+'md-view':   (t) => switchMdView(t.dataset.view),
+'md-help':   () => $('mdHelp').classList.toggle('hidden'),
 'reading-open': (t) => openReadingArticle(t.dataset.id),
 'reading-back': () => { $('reading-reader-view').classList.add('hidden'); $('reading-list-view').classList.remove('hidden'); },
 'cambridge-quick': () => openCambridge($('cambridgeQuickInput').value),
@@ -11099,6 +11730,28 @@
             if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
             bind('confirmDelete', executeDelete);
 
+            /* ---- 筆記：打字 → 重畫預覽（快）＋ 排程存檔（慢）----
+               ★ 兩個節流時間刻意不一樣：預覽 150ms 是為了跟得上手感，
+               存檔 800ms 是為了少寫幾次 Firestore（免費額度算的是次數，
+               每個按鍵寫一次的話一個晚上就是好幾千次）。 */
+            if ($('mdInput')){
+                let mdPreviewTimer = null;
+                $('mdInput').addEventListener('input', (e) => {
+                    const v = e.target.value;
+                    clearTimeout(mdPreviewTimer);
+                    mdPreviewTimer = setTimeout(() => mdRenderPreview(v), 150);
+                    scheduleMdSave();
+                });
+            }
+            if ($('mdTitle')) $('mdTitle').addEventListener('input', () => { scheduleMdSave(); });
+            /* ★ 關掉分頁／切到背景之前把還沒寫出去的存掉。
+               手機上「切到別的 App」走的是 visibilitychange，而不是
+               beforeunload——只綁後者的話，手機使用者每次切走都會掉最後
+               0.8 秒的字，而且他不會知道。 */
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState ==='hidden') flushMdSave();
+            });
+            window.addEventListener('beforeunload', () => flushMdSave());
             $('searchInput').addEventListener('input', (e) => $('searchClear').classList.toggle('hidden', !e.target.value));
             $('searchInput').oninput = debounce((e) => {
                 searchQuery = e.target.value;
@@ -11174,6 +11827,11 @@
             /* ★ 計劃不需要課程清單（那是課表用來對課名的）。
                順手抄一份 home 的設定會讓每個開計劃的人多讀五十幾筆。 */
 'plan':       [],
+            /* ★ 筆記走自己的訂閱（initMdSubs，跟理財同一個作法），不掛在這裡。
+               私人集合的路徑要等登入才算得出來，而 ensureLoaded 那套是給
+               「登入與否都存在」的集合用的。掛進來的症狀是登出時它還在訂閱，
+               而路徑是 null。 */
+'md':         [],
 'news':       ['news','links'],     // 消息與連結搬去彰師電子了
             /* ★ 測驗對半拆之後這裡也跟著拆：彰師電子的測驗頁只讀公有題庫，
                不再訂閱 myKahoots——那是別的產品的東西，多訂一份沒有好處
