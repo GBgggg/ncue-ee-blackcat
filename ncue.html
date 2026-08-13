@@ -59,8 +59,12 @@
 
         /* 黑貓專屬裝飾樣式
            （原本這裡有 .cat-card:hover .cat-icon，但課程卡裡沒有任何元素掛
-             cat-icon 這個 class，是條永遠不會生效的死規則，已移除。） */
-        .paw-print { opacity: 0.1; position: absolute; z-index: 0; }
+             cat-icon 這個 class，是條永遠不會生效的死規則，已移除。）
+           ★ 2026-08-13 `.paw-print` 也一起移除了：那是每個深色 Hero 右上角
+             那隻 opacity .1 的巨大圖示，十個 Hero 掛了十次，連著看幾頁
+             會覺得每一頁都長一樣（`設計優化提案.md` B1）。
+             注意 `data-lucide="paw-print"` 仍在用（評價卡的引號、空狀態圖），
+             那是 lucide 的**圖示名稱**，跟這個 class 沒有關係，別一起搜掉。 */
 
         /* ==========================================================
            測驗作答畫面：紙上的考卷，不是 Kahoot 的四色大按鈕
@@ -2412,7 +2416,6 @@
 
             <!-- Hero：未登入 -->
             <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
-                <i data-lucide="home" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
                     <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">
                         ！歡迎來到小黑貓的領地 
@@ -2422,7 +2425,6 @@
 
             <!-- Hero：已登入 -->
             <div id="home-user-hero" class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500 hidden">
-                <i data-lucide="calendar-days" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                     <div>
                         <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">
@@ -2662,7 +2664,6 @@
              拉成獨立分頁之後，卡片上本來就寫著課名，反而更好找。 -->
         <div id="page-data" class="page-section hidden">
             <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-emerald-500">
-                <i data-lucide="folder-kanban" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
                     <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">資料 📁</h2>
                     <p class="text-emerald-300 font-bold text-sm mt-2">共享講義、考古題與各種整理好的檔案。階位越高，看得到的越多。</p>
@@ -2701,7 +2702,6 @@
              改成獨立大分頁，而且只有星族看得到那顆分頁按鈕。 -->
         <div id="page-account-admin" class="page-section hidden">
             <div class="bg-fuchsia-600 rounded-[2rem] p-5 md:p-8 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-fuchsia-400">
-                <i data-lucide="sparkles" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10">
                     <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">帳號權限管理 ✨</h2>
                     <p class="text-fuchsia-100 font-bold text-sm mt-2">只有星族可以管理部族。為夥伴們指派合適的階位吧！</p>
@@ -2734,7 +2734,6 @@
         <div id="page-settings" class="page-section hidden">
             <div class="max-w-3xl mx-auto space-y-6">
                 <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                    <i data-lucide="settings" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                     <div class="relative z-10">
                         <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">設定 ⚙️</h2>
                         <p id="settingsSiteNote" class="text-slate-300 font-bold text-sm mt-2"></p>
@@ -2819,7 +2818,6 @@
             <div id="study-sub-course">
             <div id="page-self-study-main">
                 <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                    <i data-lucide="book-open" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">課程自學資源 </h2>
@@ -2893,7 +2891,6 @@
             <div class="study-sub-row flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1"></div>
             <div id="quiz-sub-kahoot">
             <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                <i data-lucide="gamepad-2" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                 <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                     <div class="flex-1">
                         <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">測驗 </h2>
@@ -2918,7 +2915,6 @@
             <div id="quiz-sub-vocab" class="hidden">
             <div id="page-vocabulary-main">
                 <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                    <i data-lucide="library" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                     <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                         <div class="flex-1">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">專屬單字庫 </h2>
@@ -2990,7 +2986,6 @@
                 <!-- 記帳 -->
                 <div id="finance-sub-expense">
                     <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                        <i data-lucide="wallet" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                         <div class="relative z-10">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">記帳本 <span class="animate-bounce">💰</span></h2>
                             <div class="grid grid-cols-3 gap-3 mt-4 max-w-lg">
@@ -3011,7 +3006,6 @@
                 <!-- 投資 -->
                 <div id="finance-sub-invest" class="hidden">
                     <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                        <i data-lucide="trending-up" class="paw-print w-32 h-32 -top-10 -right-10 rotate-12"></i>
                         <div class="relative z-10">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">投資追蹤 <span class="animate-bounce">📈</span></h2>
                             <div class="grid grid-cols-3 gap-3 mt-4 max-w-lg">
@@ -3951,9 +3945,13 @@
            沒有錯誤訊息，只是顯示了另一個產品的名字。所以英文名也跟著產品走。
            ★ 這是**小黑貓這個產品**的英文名，跟模擬器頁首的 BLACKCAT SPICE 是兩回事。
 
-           `ladder`：這個產品的頁首徽章要顯示哪一條階梯。兩條互不換算
-           （見下方 currentUserTier 那一段），所以徽章不能兩邊共用一張表——
-           同一個人可以是彰師電子的星族、同時是小黑貓的一般使用者。 */
+           `ladder`：這個產品的頁首徽章要顯示哪一條階梯。徽章不能兩邊共用一張表——
+           同一個人可以是彰師電子的星族、同時是小黑貓的一般使用者。
+           ★ 講「兩條互不換算」是不精確的，會害人以為兩者永遠獨立：
+           **有 `tier` 欄位時才互不換算，沒有的時候 tier 是從 role 換算出來的**
+           （舊帳號的後備：星族→管理員、族長以上→會員、其餘→一般，見下方 tierOf）。
+           所以「改了 role 會不會動到 tier」的答案是「看那個帳號有沒有 tier 欄位」，
+           不是一句話能回答的。 */
         const PRODUCT_META = {
             cat:  { name:'小黑貓',   en:'Little Black Cat', logo:'image.png',
                     title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./', ladder:'tier' },
@@ -4043,9 +4041,12 @@
            一律放頂端，不然會是暫時性死區，而症狀是整頁全白。 */
         let pendingGoogleCred = null;
 
-        /* ★ 拆分之後有兩條互不相干的階梯：
+        /* ★ 拆分之後有兩條階梯，**判斷**互不相干：
              currentUserLevel — 貓族階級，只管彰師電子（課程、教材、測驗、消息）
              currentUserTier  — 小黑貓，管通用功能（自學課程、英文閱讀、單字庫）
+           ★ 但「互不相干」只指判斷，不指**值的來源**：舊帳號沒有 `tier` 欄位時，
+           tier 是從 role 換算出來的（見下方 tierOf）。所以動一個舊帳號的 role，
+           會連帶改到他在小黑貓的權限；有 tier 欄位的帳號才真的兩邊獨立。
            每一個舊的 currentUserLevel 判斷都必須回答「這一條屬於哪一套」，
            而且**答錯不會報錯**——只會變成某個階級的人突然不能做某件事，
            只有正好是那個階級的人會遇到，他多半也不會回報。
@@ -4054,7 +4055,8 @@
         let currentUserTierField = null;                  // 文件上的原始值（可能不存在）
         const TIER_LEVELS = { '管理員':3, '會員':2, '一般':1 };
         /* 跟 firestore.rules 的 tier() 是同一套換算，包含「舊帳號沒有 tier 欄位」
-           的後備：星族→管理員、族長以上→會員、其餘→一般。
+           的後備：星族(5)→管理員、巫醫(4)／族長(3)→會員、戰士(2)／見習生(1)→一般、
+           訪客(0)→訪客。
            兩邊不一致的話，畫面上看得到按鈕但按下去被規則拒絕（或反過來，
            明明有權限卻看不到入口）——兩種都不會有錯誤訊息。 */
         /* ★ 認不得的 tier 值要退到「一般」，**不能**掉回 role 的後備換算。
@@ -4768,6 +4770,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-13',
+                title: '每一頁深色區塊右上角那隻巨大浮水印圖示，十個一起拿掉',
+                items: [
+                    ['要求是「各分頁長黑框右上角的圖示刪除」', '深色 Hero 右上角那隻 `w-32 h-32`、`opacity .1`、轉 12 度的圖示（主頁的房子、計劃的日曆、資料的資料夾、設定的齒輪…）整組移除，`.paw-print` 這條 CSS 規則也一起收掉。十個 Hero 掛了十次，理由早就寫在 `設計優化提案.md` B1：單看好看，連著看五頁會覺得每一頁都長一樣。'],
+                    ['★ `data-lucide="paw-print"` 那兩處**不能**跟著搜掉', '評價卡的引號裝飾與空狀態的大圖示用的是 lucide 的**圖示名稱**，跟被刪掉的 class 同名但毫無關係。全域搜 `paw-print` 一次刪十三處，畫面不會報錯，只會少掉兩個本來就該在的東西。移除處留了註解釘住這件事。'],
+                    ['★ `relative overflow-hidden` 全部留著，不要順手清理', '看起來它們只是為了裁掉那隻超出邊界的圖示，但設計系統有一條 `.bg-slate-900.relative.overflow-hidden:not(#mainHeader)` 靠這兩個 class 掛紋理。拿掉的症狀是紋理消失——底色在、字在、版面正常，只是不太整齊，跟先前「三張面差點沒有紋理」那次一模一樣。'],
+                    ['刪掉後不用補留白', '那些圖示是絕對定位、`z-index 0`，Hero 內容全在 `relative z-10`，位置與間距完全沒動。'],
+                    ['★ 測試沒能全綠，但不是這次的改動', '`tests/` 底下六個暫存檔在 OneDrive 的資料夾裡 unlink 會 `EPERM`，害五組主站測試起不來。原本以為是 OneDrive 佔著檔案握把，實測在沙箱裡 `rm -f` 一樣不給——是那個掛載點寫得進去、刪不掉。所以正解是把暫存檔改寫到 OneDrive 以外的路徑，不是想辦法刪檔。'],
+                ],
+            },
             {
                 date: '2026-08-13',
                 title: '載入畫面的雲整片拿掉——而它前兩輪其實一直「意外地」沒有雲',
