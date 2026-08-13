@@ -660,6 +660,37 @@ function mdFillMath(root, store){
 const MD_PAGE_BREAK = 820;      /* 與 CSS 那條 @media 必須是同一個數字 */
 const mdPagedNow = () => window.innerWidth > MD_PAGE_BREAK;
 
+/* 把一塊補到整數格。
+
+   ★★ 為什麼需要這個：KaTeX 排出來的東西高度是「它需要多高就多高」，
+   不會剛好是 24 的整數倍——量到的是獨立公式 40.98px、行內的巢狀根號
+   會把那一行撐成 30.02px。差幾 px 看起來沒事，但**那一塊之後的每一行
+   都會離開橫線**，而且愈往下愈明顯。這正是鋪了真的紙之後才看得見的錯。
+
+   ★ 補的是 `padding-bottom` 不是 `margin-bottom`：相鄰的邊距會被合併掉，
+   量到的高度根本不會變（試過，段落還是 40.98）。padding 不會合併。 */
+function mdSnapBlock(el, L){
+    el.style.paddingBottom = '0';
+    const over = el.getBoundingClientRect().height % L;
+    if (over > 0.5) el.style.paddingBottom = (L - over).toFixed(2) + 'px';
+}
+
+/* ★ 行距**從 CSS 讀回來**，不要在 JS 裡再寫一個 24。
+   兩邊各寫一份的話，改了 --md-line 而忘了改這裡，症狀是整篇字慢慢離開橫線。 */
+function mdSnapGrid(root){
+    const L = parseFloat(getComputedStyle(root).lineHeight) || 24;
+    /* 獨立公式自己先補：它可能被包在一段有文字的段落裡，
+       只補外面那一塊的話，同一段裡公式**後面**的字仍然是歪的。
+       ★ 上下邊距歸零是刻意的：KaTeX 預設 1em（16px）不是整數格。
+       想讓公式跟前後空開的人，在原文裡空一行就好——空一行就是空一整行。 */
+    for (const d of root.querySelectorAll('.katex-display')){
+        d.style.marginTop = '0'; d.style.marginBottom = '0';
+        mdSnapBlock(d, L);
+    }
+    for (const b of root.children) mdSnapBlock(b, L);
+    return L;
+}
+
 function mdNewPage(box){
     const p = document.createElement('div');
     p.className = 'md-page md-sheet';
@@ -723,6 +754,7 @@ function mdSplitBlock(el, limitPx){
 function mdPaginate(box){
     const first = box.firstElementChild;
     if (!first) return;
+    const L = mdSnapGrid(first);
     const room = first.clientHeight
                - parseFloat(getComputedStyle(first).paddingTop)
                - parseFloat(getComputedStyle(first).paddingBottom);
@@ -741,7 +773,14 @@ function mdPaginate(box){
         const straddle = kids[i];
         if (straddle.getBoundingClientRect().top < top + room - 0.5){
             carry = mdSplitBlock(straddle, room - (straddle.getBoundingClientRect().top - top));
-            if (carry) i += 1;                 /* 前半留下，從下一塊開始搬 */
+            if (carry){
+                i += 1;                        /* 前半留下，從下一塊開始搬 */
+                /* ★ 前半是這一頁的最後一塊，**不要**再補格：補上去就超出這一頁了。
+                   而且不補也不會歪——下一頁的字是從頁首底下重新起算的，
+                   格子每一頁都會自己歸零。 */
+                straddle.style.paddingBottom = '0';
+                mdSnapBlock(carry, L);
+            }
             else if (i === 0) break;           /* 第一塊就切不動：裁掉，不然會空轉 */
         }
         const next = mdNewPage(box);
@@ -790,7 +829,9 @@ function mdRenderPreview(src){
        東西，高度跟原本的佔位符差很多——先分頁的話量到的是假的高度，
        症狀是有些頁只排到一半就換頁、有些頁滿出來。 */
     mdFillMath(page1, store);
-    if (mdPagedNow()) mdPaginate(box);
+    /* ★ 手機不分頁，但**還是要補格**：橫線紙在手機上也是橫線紙，
+       公式把後面的字推歪這件事跟分不分頁無關。 */
+    if (mdPagedNow()) mdPaginate(box); else mdSnapGrid(page1);
 }
 
 /* ★ 跨過斷點要重排：桌機分頁、手機連續紙，是兩種完全不同的版面。
