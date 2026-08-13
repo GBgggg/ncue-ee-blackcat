@@ -948,42 +948,62 @@
         /* ---- 分隔線改成波浪 ----
            原本是「一條直線被遮罩打斷」——濃度會變，但它仍然是直的。
            現在筆畫本身上下起伏，所以它是畫上去的不是量出來的。
-           ★ 因此 `.vg-drybrush` 的遮罩對它不再需要：遮罩是用來製造
-           「濃淡」的，而波浪那張圖裡本來就有濃淡。兩個疊起來會斷成一節一節。 */
-        .vg-wave, #mainHeader::after {
+
+           ★★ 站上唯一畫得出這條波浪的是 `#mainHeader::after`，
+           所以這條規則只寫它一個。以前這裡還掛著一個 `.vg-wave`，
+           而**沒有任何元素用過那個 class**——頁面上的分隔線是 Tailwind
+           的 `border-t`（CSS 邊框，不是元素），承載不了 background-image。
+           那半條規則活了好幾輪沒有人發現，因為選擇器對不到東西不會報錯：
+           畫面上波浪還在（頁首那條畫的），只是它屬於另一條規則。
+           教訓寫進 `tests/design.mjs` 的「沒有死的 .vg-* 選擇器」那條。
+
+           ★ 遮罩要明確關掉：`.vg-drybrush` 那組乾筆遮罩本來也套在頁首上，
+           而遮罩是用來製造「濃淡」的，波浪那張圖裡本來就有濃淡——
+           兩個疊起來會斷成一節一節。
+
+           ★★ 這條規則是**合併過的**，而且非合併不可（2026-08-13）。
+           以前 `#mainHeader::after` 有兩條規則：這一條寫波浪（4px 高），
+           乾筆那一版的規則寫在下面頁首那一段（1px 高）。同特異性、
+           都沒有 `!important`，所以**排在後面的 1px 贏**——
+           波浪圖的 viewBox 是 `0 0 320 6`，被壓進 1px 之後就是一條平線。
+           症狀跟麥田一模一樣：規則在、圖也還在（`background-image` 那行
+           有 `!important` 所以活下來了），只是看不出它是波浪。
+           瀏覽器實測 computed `height` 是 `0.99px`。
+
+           ★ 分成兩條寫本來就是坑：同一個 ::after 的宣告散在兩段註解底下，
+             誰蓋掉誰要靠讀者自己數行號。所以是合併不是「補 !important」——
+             補 !important 只會讓下一次衝突更難看出來。
+
+           ★ `content` 與 `position` 是從那條搬過來的，**不能漏**：
+             少了它們這個 ::after 根本不會產生，分隔線會整條消失。
+           ★ `background-color` 用 transparent：顏色由 `--vg-wave` 那張 SVG
+             自己帶（淺色深色各一份），不再走 `--rule`。 */
+        #mainHeader::after {
+            content: ''; position: absolute; left: 0; right: 0;
+            pointer-events: none;
             background-image: var(--vg-wave) !important;
             background-repeat: repeat-x;
             background-size: auto 100%;
             -webkit-mask-image: none !important;
             mask-image: none !important;
+            height: 4px; bottom: -3px; background-color: transparent !important;
         }
-        #mainHeader::after { height: 4px; bottom: -3px; background-color: transparent !important; }
 
-        /* ---- 麥田：分隔線流動起來（2026-08-12）----
-           指引裡的麥田是「波浪般流動的黃與綠、像風吹過」。分隔線本來就是
-           一排波浪，缺的只是風。
+        /* ---- 麥田：這裡本來有一段「分隔線流動起來」（2026-08-12 加，同月移除）----
+           ★★ 原本是 `@keyframes vgWheatDrift` ＋ `.vg-wave { animation: … }`，
+           規則本身完全正確：repeat-x、磚寬寫死 240px、位移剛好一個磚寬，
+           是真正的無縫迴圈所以用 linear（天空對不上自己，所以才用 alternate）。
+           三條測試也全綠——**因為它們比對的是 CSS 字串**。
+           實際上 `.vg-wave` 沒有任何元素在用，那個動畫從來沒有跑過。
 
-           ★ 這一條是**真正的無縫迴圈**，所以照規矩用 linear：
-           它 repeat-x，只要位移剛好等於一個磚寬就接得上，沒有折返點。
-           （天空那個不是無縫的，所以才要用 alternate ——兩者的差別
-             不是偏好，是那張圖能不能對齊。）
+           ★ 為什麼沒人發現：畫面上的波浪一直都在，是 `#mainHeader::after` 畫的，
+           而那一條**依設計刻意不給風**（頁首是外框不是內容，而且它永遠在畫面上，
+           永遠在動的東西會變成背景雜訊）。於是「分隔線會流動」看起來像做完了。
 
-           ★ 磚寬要**寫死**才有辦法無縫。原本是 `auto 100%`，磚寬會跟著
-           分隔線的高度走，於是「一個磚寬」是多少取決於它畫在哪裡——
-           那就沒有一個位移量能同時對得上所有地方。寫死 240px 之後，
-           全站的波長也一致了，那本來就比較像同一隻手畫的。
-
-           ★ `#mainHeader::after` **不給**。頁首是外框不是內容，
-           而且它永遠在畫面上——永遠在動的東西會變成背景雜訊，
-           不會有人說得出哪裡怪，但眼角一直有東西在晃。 */
-        @keyframes vgWheatDrift { to { background-position-x: -240px; } }
-        .vg-wave {
-            background-size: 240px 100%;
-            animation: vgWheatDrift 30s linear infinite;
-        }
-        @media (prefers-reduced-motion: reduce) {
-            .vg-wave { animation: none; }
-        }
+           ★ 沒有補上而是移除：唯一能承載它的元素正好就是那個刻意排除的頁首。
+           要讓麥田真的動，得先新增一批分隔用的元素，而那批東西會永遠在畫面上——
+           正是頁首被排除的同一個理由。留著一段死 CSS 比較糟：
+           下一輪會有人以為它在動，然後在它上面繼續蓋東西。 */
 
         /* ---- 空清單的向日葵 ----
            ★ 空狀態原本只有一行灰字。那句話本身沒問題，問題是**整塊區域
@@ -1119,30 +1139,29 @@
             #cmdk .cmdk-panel { animation: none; }
         }
 
-        /* ---- 乾筆的分隔線 ----
+        /* ---- 乾筆的分隔線（已被波浪取代，這段只留教訓）----
            一條均勻的 1px 細線是製圖的語彙。同樣的線用遮罩打斷成長短
            不一的幾段，就變成「畫上去的」——濃度與顏色完全沒變，
            所以對比不受影響，這是最便宜的一筆。
-           ★ 遮罩的段落刻意不等長也不整除，等長會被看成虛線。 */
-        /* ★★ 停止點必須是**軟的**。第一版用硬停止點（`#000 0 37px,
+           ★ 遮罩的段落刻意不等長也不整除，等長會被看成虛線。
+           ★★ 停止點必須是**軟的**。第一版用硬停止點（`#000 0 37px,
            rgba(0,0,0,.35) 37px 44px`），在淺色模式下很淡看不太出來，
            但深色模式的 --rule 是亮色壓在暗底上——那幾段就變成一排
            清清楚楚的**虛線**，看起來像沒寫完的邊框，不像乾筆。
            （這是開瀏覽器看深色模式才發現的：淺色模式下完全正常。
              原本的註解還特地寫「等長會被看成虛線」所以把長度錯開了——
              結果真正讓它變成虛線的不是長度，是邊緣夠不夠硬。）
-           軟停止點讓筆畫是「提起來又落下」，中間沒有一刀切的邊。 */
-        .vg-drybrush,
-        #mainHeader::after {
-            -webkit-mask-image: repeating-linear-gradient(90deg,
-                #000 0 26px, rgba(0,0,0,.30) 40px, #000 54px,
-                #000 96px, rgba(0,0,0,.20) 106px, #000 118px,
-                #000 158px, rgba(0,0,0,.40) 170px, #000 181px);
-            mask-image: repeating-linear-gradient(90deg,
-                #000 0 26px, rgba(0,0,0,.30) 40px, #000 54px,
-                #000 96px, rgba(0,0,0,.20) 106px, #000 118px,
-                #000 158px, rgba(0,0,0,.40) 170px, #000 181px);
-        }
+           以上是遮罩那一版的教訓，之後如果又要做「被打斷的線」還用得到。 */
+        /* ★★ 這裡本來有一組乾筆遮罩，掛在 `.vg-drybrush, #mainHeader::after` 上。
+           整組移除，因為它兩邊都碰不到東西：
+             1. `.vg-drybrush` 跟 `.vg-wave` 一樣，沒有任何元素在用；
+             2. `#mainHeader::after` 在上面「分隔線改成波浪」那一段已經被
+                `mask-image: none !important` 關掉了——波浪圖裡本來就有濃淡，
+                再疊一層遮罩會斷成一節一節，所以那個 `none` 是刻意的。
+           也就是說這組宣告從波浪那一輪開始就沒有生效過。
+           瀏覽器實測 `getComputedStyle(#mainHeader, '::after').maskImage === 'none'`
+           ——這種「規則寫得很認真但被 !important 蓋掉」的東西不會報錯，
+           只會在下一輪讓人以為調整它就會有效果。 */
 
         /* ==========================================================
            剩下那幾張還是平的面
@@ -1976,10 +1995,14 @@
         /* ---- 頁首：紙色 + 一條畫上去的線，取代原本的深色塊 ----
            ★ 那條 border 改成透明、線本身交給 ::after 畫。理由是 border
            畫不出「乾筆」——它一定是等寬等濃的一條，那是製圖不是繪畫。
-           顏色與濃度跟原本的 --rule 完全一樣，只是被遮罩打斷成長短不一
-           的幾段，所以對比一點都沒變。
            ★ #mainHeader 是 sticky，本身就建立了定位脈絡，::after 不必
-           再補 position: relative——補了反而會蓋掉 sticky。 */
+           再補 position: relative——補了反而會蓋掉 sticky。
+           ★★ `#mainHeader::after` 的宣告**整組搬到上面「分隔線改成波浪」
+           那一段**了（2026-08-13）。原本這裡還留著乾筆那一版的
+           `height: 1px; background: var(--rule)`，而它排在波浪那條後面、
+           同特異性，於是把 4px 蓋回 1px——波浪被壓平成一條線，不報錯。
+           同一個選擇器不要分兩段寫：誰蓋掉誰要靠讀者數行號，那不是規則，
+           是巧合。要改那條線去上面改，這裡刻意不留任何 ::after 宣告。 */
         #mainHeader {
             background-color: var(--paper-raised) !important;
             border-bottom: 1px solid transparent !important;
@@ -1992,11 +2015,6 @@
                所以走 --ease（減速）：頭要回來的那一次比較重要，
                而回來的東西該是落定的，不是加速衝進來的。 */
             transition: transform var(--dur-page) var(--ease);
-        }
-        #mainHeader::after {
-            content: ''; position: absolute; left: 0; right: 0; bottom: -1px;
-            height: 1px; background: var(--rule);
-            pointer-events: none;
         }
         #mainHeader h1 { color: var(--ink) !important; }
         #mainHeader .text-emerald-500 { color: var(--ink-3) !important; letter-spacing: 0.18em; }
@@ -4407,6 +4425,24 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-13',
+                title: '上一輪的「麥田會流動」其實從來沒動過——三條測試全綠，動畫沒跑',
+                items: [
+                    ['★★ 開瀏覽器實測天空，順手發現麥田是死的', '這一輪本來只是驗上一輪的動畫有沒有效。天空全部過關：把 `currentTime` 推到週期的 0/25/50/75/100% 直接讀 `background-position`，三級都真的在位移（Hero 卡 44%→56%），星星那層走得比天空多，視差成立。麥田那條卻連元素都找不到——`document.querySelectorAll(\'.vg-wave\').length` 是 0。'],
+                    ['★★ 規則完全正確，只是沒有人套用它', '`@keyframes vgWheatDrift` ＋ `.vg-wave { background-size: 240px 100%; animation: … linear infinite }`，磚寬寫死、無縫、連 reduced-motion 擋板都有。而整份檔案裡沒有任何元素掛 `.vg-wave`。**選擇器對不到東西不會報錯**，開發者工具也不會標記——這是它活了一整輪的原因。'],
+                    ['★ 畫面上有波浪，所以更不會被發現', '波浪一直都在，但它是 `#mainHeader::after` 畫的，而那一條**依設計刻意不給風**（頁首是外框不是內容，而且它永遠在畫面上，永遠在動的東西會變成背景雜訊）。於是「分隔線會流動」看起來像做完了：畫面上有東西，只是那個東西屬於另一條規則。跟「寫死的產品字樣」是同一種病。'],
+                    ['★★ 測試綠是因為它比對的是 CSS 字串', '`tests/CLAUDE.md` 第一條就是「字串比對的測試不算數」，但那條講的是解析與計算。這是它在 CSS 這一側的版本：**規則寫對不等於有人套用它**。三條檢查（linear、磚寬 240px、keyframes 存在）全部只證明有人寫過。'],
+                    ['新的擋板掃全部的 vg 開頭 class，不釘單一名字', '判準是「class 名在樣式區塊結束之後有沒有出現過」——那一段包含標記與所有 JS，所以 `classList.toggle(\'vg-sky-off\')` 這種由程式掛上去的不會被誤判。★ 兩邊都要先去掉註解，不然死掉的 class 會被自己的墓誌銘救活（這份檔案第四次踩）。★ 掃出來當場就多抓到一個乾筆遮罩，證明釘單一名字擋不住下一個。'],
+                    ['★ 選移除不是補上', '唯一能承載波浪的元素正好就是那個刻意排除的頁首——頁面上的分隔線是 Tailwind 的 `border-t`，是 CSS 邊框不是元素，承載不了 background-image。要讓麥田真的動得先新增一批分隔用的元素，而那批東西會永遠在畫面上，正是頁首被排除的同一個理由。留著死 CSS 更糟：下一輪會有人以為它在動，然後在上面繼續蓋東西。'],
+                    ['`.vg-drybrush` 那組乾筆遮罩兩邊都碰不到東西', '`.vg-drybrush` 沒有元素在用；`#mainHeader::after` 則早就被波浪那段的 `mask-image: none !important` 蓋掉了（瀏覽器實測 computed 值就是 `none`）。也就是說從波浪那一輪開始它就沒有生效過。★ 這種「規則寫得很認真但被 !important 蓋掉」的東西同樣不報錯，只會讓下一個人以為調整它會有效果。遮罩那一版的教訓（軟停止點、段落不等長）留在註解裡，之後要做「被打斷的線」還用得到。'],
+                    ['★ 移除的地方留一段註解說明，不是安靜刪掉', '不然下一輪會有人「發現漏了麥田」再把同樣的規則加回來，然後再綠一次。新測試也一起釘住「移除乾淨」——規則、keyframes、擋板都不留。'],
+                    ['★★ 同一種病的第三個病例：頁首那條波浪其實是平的', '`#mainHeader::after` 有**兩條**規則。一條寫波浪（4px 高），另一條是乾筆那一版留下的（1px 高），寫在下面頁首那一段。同特異性、都沒有 `!important`，於是排在後面的 1px 贏——波浪圖的 viewBox 是 `0 0 320 6`，被壓進 1px 就是一條平線。瀏覽器實測 computed `height` 是 `0.99px`。圖還在（`background-image` 那行有 `!important` 所以活下來了），只是看不出它是波浪。跟麥田一模一樣：東西都在，就是沒作用。'],
+                    ['★ 兩條合併成一條，不是補 `!important`', '補 `!important` 只會讓下一次衝突更難看出來。真正的問題是同一個 `::after` 的宣告散在兩段註解底下，誰蓋掉誰要靠讀者自己數行號——那不是規則，是巧合。合併的時候差點漏掉 `content` 與 `position`：少了它們這個 ::after 根本不會產生，分隔線會整條消失（不是變醜，是不見）。'],
+                    ['線的顏色不再走 `--rule`', '乾筆那版是 `background: var(--rule)` 的單色線；波浪的顏色由那張 SVG 自己帶（淺色深色各一份），所以 `background-color` 給 transparent。濃度沒變，對比不受影響。'],
+                    ['釘的是「只有一條規則」而不是「height 是 4px」', '後者擋不住有人再加第三條規則把它蓋掉——而那正是這個坑本來的樣子。三個突變逐一試過都會紅：加回第二條規則、把 4px 改回 1px、拿掉 content。'],
+                ],
+            },
             {
                 date: '2026-08-12',
                 title: '天空真的轉起來了，而且對比是量出來的不是估出來的',
