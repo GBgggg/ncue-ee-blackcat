@@ -828,9 +828,11 @@
            一顆按鈕裡有一片自己在流動的夜空，那不是梵谷，那是雜訊。
            而且「一格畫面裡同時動的東西不超過三分之一」這條會整個破掉。
            所以只給**整幅的面**：
-             甲 開站畫面   看得見地流動。第一眼、只活 8 秒、上面幾乎沒有字
              乙 對話框黑幕 微弱。一次只開一個，而且它九成不透明，天空本來就只透出一點
              丙 Hero 卡     極慢。上面壓著白字，而使用者會一直看著它工作
+           ★ 甲級（開站畫面）2026-08-13 移除——使用者要求載入畫面不要有會動的雲。
+             它仍然鋪著同一片天空，只是不放大也不動。開場的主角是繞著 logo
+             跑的那隻貓，而「一格畫面只有一個主角」本來就是這份規範的第六節。
            按鈕、輸入框、小面板：**不動**。
 
            ★ 丙那一級用 `.relative.overflow-hidden` 選中，不是列 id。
@@ -845,10 +847,13 @@
             from { background-position: 44% 47%, 42% 44%; }
             to   { background-position: 56% 53%, 58% 56%; }
         }
-        @keyframes vgSkyDriftSplash {
-            from { background-position: 42% 46%, 39% 42%, 0 0; }
-            to   { background-position: 58% 54%, 61% 58%, 0 0; }
-        }
+        /* ★ 這裡原本還有 `@keyframes vgSkyDriftSplash`（開站畫面那一級，48s）。
+           2026-08-13 移除：使用者要求載入畫面不要有會動的雲。
+           整組拿掉——規則、keyframes、減少動態的復原、`.vg-gl-on` 的擋板，
+           以及兩支 SEL 裡的 `#splash`。留半組的話那半組永遠不會被執行，
+           而「沒有人用的規則」在這份檔案裡已經出過三次事（麥田、乾筆遮罩、
+           `.vg-wave`），每一次都是因為選擇器對不到東西不會報錯。
+           ★ 開站畫面的天空還在，只是不動——見上面 #splash 那條的 cover。 */
         /* ★ 用 alternate ＋ ease-in-out，不是 linear 的無限迴圈。
            `動效.md` 說週期性動畫一律等速，這裡是**寫下來的例外**：
            漩渦那張圖不是無縫的，等速跑到底再跳回起點會有一道接縫；
@@ -898,10 +903,12 @@
             background-size: 112% 112%, 112% 112%;
             animation: vgSkyDrift 11s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
         }
-        #splash {
-            background-size: 132% 132%, 132% 132%, auto;
-            animation: vgSkyDriftSplash 48s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
-        }
+        /* ★★ 開站畫面**沒有**這一條（原本是 132% ＋ 48s）。
+           它不放大也不動，所以 background-size 就是上面那條的 `cover`。
+           ★ 拿掉動畫的時候一定要連 background-size 一起拿掉。只刪 animation
+             的話尺寸仍然是 132%，畫面會停在**放大的那一格**——那不是
+             「原本的樣子」，是「動畫的第一格」，而且看起來只是構圖有點怪。
+             reduced-motion 那段當初踩的是同一個坑，換一個入口而已。 */
         /* ★ 看不見的時候要**真的停**。background-position 是重繪不是合成，
            而 Hero 卡在頁面頂端，捲下去之後那個重繪迴圈還是會一直跑。
            `.vg-sky-off` 由下面那支 IntersectionObserver 掛上去。
@@ -958,8 +965,7 @@
              這跟上面「關掉減少動態那條也要跟著補特異性」是同一個坑，
              而且同樣是「漏了不會報錯，只會照樣在動」。 */
         .vg-gl-on.bg-slate-900\/95, .vg-gl-on.bg-slate-900\/90,
-        .vg-gl-on.bg-slate-900.relative.overflow-hidden:not(#mainHeader),
-        #splash.vg-gl-on { animation: none; }
+        .vg-gl-on.bg-slate-900.relative.overflow-hidden:not(#mainHeader) { animation: none; }
         /* ★ 減少動態：天空整個不動，但**圖層與尺寸要留著**。
            只把 animation 設成 none 的話，background-size 仍然是 118%，
            於是畫面會停在放大的某一格——那不是「原本的樣子」，
@@ -976,11 +982,8 @@
                 background-size: cover, cover;
                 background-position: center, center;
             }
-            #splash {
-                animation: none;
-                background-size: cover, cover, auto;
-                background-position: center, center, 0 0;
-            }
+            /* ★ 開站畫面不必列在這裡：它本來就不動，也沒有被放大，
+               所以沒有東西要復原。列著的話是一條永遠不會生效的規則。 */
         }
 
         /* ---- 標題底下的一筆 ----
@@ -4335,7 +4338,7 @@
          * ★ 黑幕不必進來：它們平常掛著 `hidden`，根本沒有算繪。
          * ========================================================== */
         (() => {
-            const SEL = '.bg-slate-900.relative.overflow-hidden, #splash';
+            const SEL = '.bg-slate-900.relative.overflow-hidden';
             /* 舊瀏覽器沒有 IO 就整個不做——後果只是「沒有省到電」，
                不是「天空不會動」。降級要降在省下來的那一半，不是功能那一半。 */
             if (!('IntersectionObserver' in window)) return;
@@ -4391,7 +4394,7 @@
                降級要降在「沒省到電」，不是降在「網站打不開」。 */
             if (!('IntersectionObserver' in window)) return;
 
-            const SEL = '.bg-slate-900.relative.overflow-hidden, #splash';
+            const SEL = '.bg-slate-900.relative.overflow-hidden';
             /* 共用的離畫面畫布。1200×440 是 genswirl.mjs 那個 600×220 座標系的
                兩倍——天空是很低頻的東西，再高只是把同一片糊東西畫更多像素。 */
             const GW = 1200, GH = 440, ASPECT = GW / GH;
@@ -4526,11 +4529,11 @@
                那兩個值住在 .bg-slate-900 那條接管規則裡，換配色的人只會改那裡；
                這邊複製一份的話，症狀是「換主題之後只有天空還是舊配色」，
                而且它是漸層的一部分，不會有人一眼認出那是不同步。
-               ★★ 而且底色**不是只有一個**：卡片是 #171512，但 `#splash` 的底
-                  是 `var(--paper)`（淺色模式下是米黃）。第一版假設全站共用一個
-                  底色，症狀會是「開站畫面的天空整個變成深色墨塊」——
-                  那半秒鐘沒有人會回報，但它就是第一印象。
-                  所以底色記在每一個宿主身上，畫的時候照底色分組。 */
+               ★ 底色記在每一個宿主身上、畫的時候照底色分組，不是抓一個當全站。
+                  現在的宿主全是深色卡，底色確實只有一個，所以這個分組**跑不到
+                  第二輪**——留著是因為它便宜，而且上一版就是假設「只有一個底色」
+                  才會在 `#splash`（底是米黃的 `var(--paper)`）上畫出一片深色墨塊。
+                  那半秒鐘沒有人會回報，但它就是第一印象。 */
             const baseOf = (el) => {
                 const m = getComputedStyle(el).backgroundColor.match(/[\d.]+/g);
                 return m ? [m[0] / 255, m[1] / 255, m[2] / 255] : [0.09, 0.08, 0.07];
@@ -4561,8 +4564,7 @@
                 h.ctx.drawImage(glCanvas, sx, sy, sw, sh, 0, 0, cw, ch);
             }
 
-            const visible = (el, h) => h.on && !document.hidden
-                && !(el.id === 'splash' && el.classList.contains('done'));
+            const visible = (el, h) => h.on && !document.hidden;
 
             const t0 = performance.now();
             function frame() {
@@ -4750,6 +4752,18 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-13',
+                title: '載入畫面的雲停下來了：天空還在，只是不動',
+                items: [
+                    ['要求是「載入畫面不要有會動的雲」', '開站畫面那一級（甲，48s、放大 132%）整組移除：規則、`@keyframes vgSkyDriftSplash`、減少動態那段的復原、`.vg-gl-on` 的擋板、兩支 SEL 裡的 `#splash` —— shader 也不再掛在它上面。天空本身還在，只是不放大也不動。'],
+                    ['★★ 拿掉動畫一定要連 `background-size` 一起拿掉', '只刪 `animation` 而留著 `132%`，畫面會停在**動畫的第一格**（放大的那一格）。那不是「原本的樣子」，而且它看起來只是「構圖有點怪」，不像壞掉——沒有人會回報。減少動態那段當初踩的就是這個坑，這次是換一個入口進來，所以 `tests/design.mjs` 新加了一條專門釘它。'],
+                    ['★ 整組拿掉，不留半組', '少拿掉其中一個，剩下那半組永遠不會被執行。「沒有人用的規則」在這份檔案已經出過三次事（麥田、乾筆遮罩、`.vg-wave`），每一次都是因為選擇器對不到東西不會報錯。測試那邊補了一條「`vgSkyDriftSplash` 整組移除乾淨」。'],
+                    ['★ 理由本來就寫在動效規範第六節', '開場的主角是繞著 logo 跑的那隻貓，而「一格畫面只有一個主角」。天空在那 8 秒裡是第二個會動的東西——它是這一輪才被放上去的（前一輪修好「開站畫面沒有天空」那個坑之後才第一次真的顯示）。'],
+                    ['★ 測試改成釘「不掛」，不是刪掉那條特例', 'shader 裡原本有「開站畫面淡出之後不再畫」的特例。宿主沒了，那段就是永遠不會執行的程式，所以連特例一起拿掉，改成釘「SEL 不含 `#splash`」。'],
+                    ['★ 第七次被自己的說明咬到', '「`vgSkyDriftSplash` 還在不在」如果連 CHANGELOG 與移除說明一起數，就會永遠是紅的。判準已經寫進文件：驗「程式裡有沒有」一律先去註解。'],
+                ],
+            },
             {
                 date: '2026-08-13',
                 title: '點狀筆觸整層移除——順手挖出「開站畫面其實一直沒有天空」',
