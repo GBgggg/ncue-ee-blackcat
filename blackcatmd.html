@@ -23,24 +23,46 @@
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
 <style>
 /* ==========================================================
-   設計 token 與主站 publicnew.html 共用同一組值。改配色要三個檔案一起改。
+   外殼 token：這一頁**故意不跟另外三個產品共用**
+
    ★ 跟模擬器一樣**不鋪背景圖**：這是滿版不捲動的工作區，
    鋪了也只會被筆記紙蓋住，只剩邊縫露出幾條——那不是背景，是雜訊。
+
+   ★★ 2026-08-13 從站上那組暖奶黃改成中性灰，理由不是「想換個顏色」：
+   這一頁的主角是**一張紙**，而紙的顏色（#fcf9f4）是從真的筆記紙量出來的，
+   動不了。暖奶黃的外殼跟那張紙只差一點點——差一點點的兩個暖色放在一起，
+   看起來不像「紙放在桌上」，像「同一塊布做的兩件衣服」（架構.md 那一輪
+   已經為了同樣的理由把紙從 #fffdf6 改掉過一次，那次只修了紙，沒修桌子）。
+   工作台改成中性灰之後紙才浮得起來——GoodNotes 那類手寫筆記 App 的
+   桌面一律是中性灰，也是同一個道理。
+
+   ★ 所以 `tests/design.mjs` 那條「兩個檔案的 token 必須一致」**不含這一頁**，
+   它比的是 publicnew 與 blackcatspice。這裡動色值不必去動另外兩個檔案，
+   但反過來也一樣：主站改配色時**不要**順手把這裡一起改回去。
+
+   對比全部量過（門檻 4.5，量的是最小的那級字 11.5px）：
+     淺色 ink-3 對 raised 5.57／對 paper 4.97；accent 對 paper 5.37
+     深色 ink-3 對 raised 5.46／對 paper 6.46
    ========================================================== */
 :root{
-    --paper:#f8f1de; --paper-raised:#fffdf6;
-    --ink:#1e1708; --ink-2:#4c412c; --ink-3:#5c4e33;
-    --rule:#d8c79c; --accent:#7a5905; --accent-fill:#8a6605;
-    --accent-bright:#9e7405; --accent-soft:rgba(255,232,170,.6);
+    /* paper＝工作台（紙外面那片桌子）／raised＝頁首與側欄／sunk＝分段控制的凹槽 */
+    --paper:#eaeaee; --paper-raised:#f7f7f9; --paper-sunk:#dcdce0;
+    --ink:#1c1c1e; --ink-2:#48484a; --ink-3:#63636a;
+    --rule:#d3d3d8; --accent:#7a5905; --accent-fill:#7a5905;
+    --accent-bright:#8a6605;
+    /* ★ hover 底改成中性的黑透明，不是原本那片暖黃。灰底上鋪暖黃等於
+       把剛剛趕走的那個暖色又請回來，而且只出現在滑鼠底下——
+       症狀是「滑過去的地方會變一個顏色」，不是「這一項被選中了」。 */
+    --accent-soft:rgba(0,0,0,.055);
     --ok:#2f7d8c; --bad:#c0392b;
     --ease:cubic-bezier(0.22, 1, 0.36, 1);
     --dur-fast:.09s; --dur-base:.18s;
 }
 html.dark{
-    --paper:#070b18; --paper-raised:#131b33;
-    --ink:#e9ecf7; --ink-2:#aeb6cc; --ink-3:#7d86a0;
-    --rule:rgba(175,190,235,.18); --accent:#e8c46a; --accent-fill:#8a6a12;
-    --accent-bright:#e8c46a; --accent-soft:rgba(232,196,106,.14);
+    --paper:#131316; --paper-raised:#232326; --paper-sunk:#0d0d0f;
+    --ink:#f2f2f7; --ink-2:#c7c7cc; --ink-3:#98989d;
+    --rule:#3a3a3e; --accent:#e8c46a; --accent-fill:#8a6a12;
+    --accent-bright:#e8c46a; --accent-soft:rgba(255,255,255,.08);
     --ok:#63b6c4; --bad:#ff8a80;
 }
 
@@ -110,20 +132,45 @@ button:not(:disabled):active{transform:scale(.97)}
 
 /* ---- 全螢幕版面：整頁不捲動，捲的是裡面那兩塊 ---- */
 #app{height:100dvh;display:flex;flex-direction:column;min-height:0}
-header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--rule);padding:6px 0 0}
-.hbar{padding:0 10px 6px;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-.hbar2{border-top:1px solid var(--rule);padding-top:6px}
+/* ★ 頁首從兩排壓成一排。原本第二排放的是「新增／檢視／說明／匯出／刪除」，
+   那是**針對某一篇**的操作，跟站名擺在同一個區塊裡等於把「這個網站」與
+   「這份文件」混成一團。現在第一排只有身分與全站的東西，
+   文件的操作跟著文件走（在 #editHead 裡）。 */
+header{flex:none;background:var(--paper-raised);padding:0}
+.hbar{padding:5px 8px;display:flex;align-items:center;gap:6px;min-height:44px}
 .hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
-.tsep{width:1px;height:20px;background:var(--rule);margin:0 2px}
+.tsep{width:1px;height:18px;background:var(--rule);margin:0 4px}
 
-.btn{font-weight:700;border-radius:10px;min-height:34px;padding:0 12px;font-size:14.5px;
-     background:transparent;border:1px solid var(--rule);cursor:pointer}
+/* ★ 按鈕改成「沒有框」。灰工作台上每多一個框就多一條線，而畫面上
+   真正該有線的只有紙。改成靠底色回饋：平時透明、滑過去才有一塊淡底。 */
+.btn{font-weight:700;border-radius:9px;min-height:32px;padding:0 11px;font-size:14px;
+     background:transparent;border:1px solid transparent;cursor:pointer;
+     transition:background var(--dur-fast) var(--ease)}
 .btn:hover{background:var(--accent-soft)}
-.btn.primary{background:var(--accent-fill);color:#fff;border-color:transparent}
-.btn.on{background:var(--accent-fill);color:#fff;border-color:transparent}
+/* ★ 原本有 `.btn.primary` 與 `.btn.on`（塗滿金色）。兩個都刪掉了不是忘了搬：
+   唯一的 primary 是「＋ 新增一篇」，它已經變成分頁列最右邊那顆＋；
+   而 `.on` 那三顆是三選一，改用 `.seg` 的凹槽表示。留著沒人用的規則，
+   下一個人只要加一個 class 就會讓金色塊莫名其妙地回到灰工作台上。 */
 .btn.danger{color:var(--bad);border-color:transparent}
 .btn.danger:hover{background:rgba(192,57,43,.1)}
 .btn.tiny{min-height:28px;padding:0 9px;font-size:13.5px;border-radius:8px}
+/* 只有圖示的方鈕（側欄開關、關分頁） */
+.btn.icon{min-width:32px;padding:0;font-size:15px;line-height:1}
+
+/* ---- 分段控制：一個凹槽，選中的那一格浮起來 ----
+   ★ 側欄的「篇目／頁面」與文件的「並排／只編輯／只閱讀」是同一種東西——
+   一組互斥的選項。用同一個外觀，使用者只要學一次。
+   原本那三顆是各自獨立的按鈕，選中態靠塗滿金色——那看起來像「三顆按鈕，
+   其中一顆被按住了」，不像「三選一」。 */
+.seg{display:flex;gap:2px;padding:2px;background:var(--paper-sunk);border-radius:9px}
+.seg button{flex:1;min-height:26px;padding:0 10px;border:0;border-radius:7px;
+            background:transparent;font-size:13px;font-weight:700;color:var(--ink-2);
+            white-space:nowrap;cursor:pointer;
+            transition:background var(--dur-fast) var(--ease)}
+.seg button:hover{background:var(--accent-soft)}
+.seg button.on{background:var(--paper-raised);color:var(--ink);
+               box-shadow:0 1px 2px rgba(0,0,0,.16)}
+html.dark .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.5)}
 
 /* ---- logo 下拉選單（行為與主站一致） ---- */
 #logoWrap{position:relative;flex:none}
@@ -150,15 +197,78 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
 .logo-menu-item.is-here:hover{background:transparent}
 
+/* ==========================================================
+   文件分頁列：同時開好幾篇
+
+   ★ 分頁不是「另一種按鈕列」，是**紙的耳朵**：選中的那一張跟工作台同色、
+   往下咬進去，未選的沉在頁首的灰裡。所以選中態靠的是**接得起來**
+   （分頁底色 ＝ 下面工作台的底色，中間沒有線），不是靠塗一塊顏色。
+   塗顏色只說得出「這個跟別的不一樣」，接起來才說得出「這一張在最上面」。
+
+   ★★ 分頁列的順序**不跟著更新時間重排**。左邊的清單照時間排是對的
+   （那是拿來找東西的），分頁列照時間排的話，打一個字整列就重新洗牌——
+   「我剛剛那篇跳到哪裡去了」。順序就是打開的順序，只增不動。
+
+   ★ 一個分頁裡是**兩顆並排的 button**，不是一顆 button 裡面塞一顆。
+   按鈕不能巢狀（HTML 不合法，而且瀏覽器的行為各家不同），
+   症狀是「按叉叉結果切了分頁」。
+   ========================================================== */
+#mdTabs{flex:none;display:flex;align-items:flex-end;gap:6px;
+        padding:0 8px;background:var(--paper-raised);
+        border-bottom:1px solid var(--rule)}
+/* ★ 捲的是這一層不是整列：右邊那顆「＋」必須永遠在，
+   分頁多到捲出去的時候使用者還是要新增得了。 */
+#mdTabStrip{flex:1;min-width:0;display:flex;align-items:flex-end;gap:2px;
+            overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+#mdTabStrip::-webkit-scrollbar{display:none}
+.md-tab{flex:none;display:flex;align-items:center;max-width:14rem;
+        height:32px;padding-right:3px;border-radius:9px 9px 0 0;
+        transition:background var(--dur-fast) var(--ease)}
+.md-tab:hover{background:var(--accent-soft)}
+/* ★★ 往下多 1px 蓋掉 #mdTabs 的底線——少了這 1px，選中的分頁與工作台
+   之間會有一條細線，看起來就只是「一顆比較亮的按鈕」。 */
+.md-tab.is-open{background:var(--paper);margin-bottom:-1px;padding-bottom:1px}
+.tab-go{flex:1;min-width:0;max-width:100%;height:100%;padding:0 4px 0 11px;
+        border:0;background:transparent;cursor:pointer;
+        font-size:13.5px;font-weight:700;color:var(--ink-3);
+        text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.md-tab.is-open .tab-go{color:var(--ink)}
+/* ★ 叉叉平常是透明的（不是 display:none）——用 display 切換的話，
+   分頁寬度會在滑鼠移進去的瞬間變一下，整列跟著抖。 */
+.tab-x{flex:none;width:19px;height:19px;padding:0;border:0;border-radius:6px;
+       background:transparent;color:var(--ink-3);font-size:13px;line-height:1;
+       cursor:pointer;opacity:0;transition:opacity var(--dur-fast) var(--ease)}
+.md-tab:hover .tab-x,.md-tab.is-open .tab-x,.tab-x:focus-visible{opacity:1}
+.tab-x:hover{background:rgba(0,0,0,.14);color:var(--ink)}
+html.dark .tab-x:hover{background:rgba(255,255,255,.16)}
+#btnNew{flex:none;align-self:center;min-width:30px;height:30px;padding:0;
+        border:0;border-radius:8px;background:transparent;color:var(--ink-2);
+        font-size:17px;font-weight:700;line-height:1;cursor:pointer;
+        transition:background var(--dur-fast) var(--ease)}
+#btnNew:hover{background:var(--accent-soft);color:var(--ink)}
+
 /* ---- 工作區 ---- */
 #work{flex:1;display:flex;min-height:0}
-#listCol{flex:none;width:15rem;min-height:0;overflow:auto;padding:10px;
+/* ★ 側欄改成 flex 直排：上面是固定的分段控制，下面是會捲的內容。
+   整欄一起捲的話，捲到第四十頁縮圖時「篇目／頁面」那組按鈕已經看不到了。 */
+#listCol{flex:none;width:16rem;min-height:0;display:flex;flex-direction:column;
          border-right:1px solid var(--rule);background:var(--paper-raised)}
+/* 側欄收起來那條規則寫在檔尾的 `@media (min-width: 821px)` 裡——
+   ★ 用 body 的 class 不是在 #listCol 上加 .hidden（手機那兩條主從切換
+   也是選 #listCol，混用兩種機制會互相蓋掉），而且**只在桌機生效**
+   （理由寫在那條 media query 裡）。 */
+#sideSeg{flex:none;margin:8px 8px 0}
+#sideBody{flex:1;min-height:0;overflow:auto;padding:8px}
 #editCol{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:10px;gap:8px}
 #editHead{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-#mdTitle{flex:1;min-width:9rem;padding:6px 12px;border-radius:10px;
-         border:1px solid var(--rule);background:var(--paper-raised);
-         font-weight:900;font-size:15px}
+/* ★ 標題也拿掉框：它是這份文件的名字，不是一個要人填的欄位。
+   點下去（focus）才長出底色，那時它才是輸入框。 */
+#mdTitle{flex:1;min-width:9rem;padding:5px 10px;border-radius:9px;
+         border:1px solid transparent;background:transparent;
+         font-weight:900;font-size:15px;
+         transition:background var(--dur-fast) var(--ease)}
+#mdTitle:hover{background:var(--accent-soft)}
+#mdTitle:focus{background:var(--paper-raised);border-color:var(--rule)}
 /* ★ `grid-template-rows:1fr` 不能省：少了它那一列是 auto，
    而編輯區的 `max-height:100%` 就會拿一個「由內容決定」的高度去算百分比——
    那是循環定義，瀏覽器會當成沒設，紙又會被字撐到比一頁還長。 */
@@ -166,15 +276,53 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
        grid-template-columns:1fr 1fr;grid-template-rows:1fr}
 #panes.single{grid-template-columns:1fr}
 
-.md-item{display:block;width:100%;text-align:left;padding:8px 11px;margin-bottom:6px;
-         border-radius:12px;border:1px solid var(--rule);background:var(--paper);
-         cursor:pointer;transition:border-color var(--dur-base) var(--ease)}
-.md-item:hover{border-color:var(--accent-bright)}
-.md-item.is-open{border-color:var(--accent-bright);background:var(--accent-soft)}
+/* ---- 篇目 ----
+   ★ 一樣拿掉框。十六篇筆記就是十六個圓角方框，那是十六條線。
+   選中態改成塗一塊底＋左邊一條金色的短棒——短棒比整圈框輕，
+   而且它只出現在被選中的那一項，不會變成滿滿的格線。 */
+.md-item{position:relative;display:block;width:100%;text-align:left;
+         padding:7px 10px;margin-bottom:2px;
+         border-radius:9px;border:0;background:transparent;
+         cursor:pointer;transition:background var(--dur-fast) var(--ease)}
+.md-item:hover{background:var(--accent-soft)}
+.md-item.is-open{background:var(--accent-soft)}
+.md-item.is-open::before{content:"";position:absolute;left:3px;top:9px;bottom:9px;
+                         width:3px;border-radius:2px;background:var(--accent-bright)}
 .md-item b{display:block;font-size:14px;font-weight:800;
            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .md-item small{font-size:11.5px;color:var(--ink-3)}
 .hint{color:var(--ink-3);font-size:13px;padding:10px 2px}
+
+/* ==========================================================
+   頁面縮圖
+
+   ★ 縮圖是把**已經排好的** `.md-page` 整個複製一份再縮小，不是另外畫一次。
+   另外畫的話那是第二套排版規則，兩套遲早會不一樣，而症狀是
+   「縮圖跟真的頁面長得不一樣」——沒有人會覺得那是 bug，只會覺得縮圖沒用。
+
+   ★★ 縮圖只有**一個**比例數字（--thumb-k）。頁寬、頁高、scale 三個都從它算，
+   改一個就是三個一起改。分開寫的話最容易發生的是「框的比例對、
+   裡面的紙比例不對」，於是縮圖右邊或下面露出一條底色。
+   ========================================================== */
+#mdThumbs{display:flex;flex-direction:column;align-items:center;gap:12px;
+          --thumb-k:.246}
+.thumb-wrap{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px}
+.thumb{position:relative;padding:0;cursor:pointer;
+       width:calc(var(--md-page-w) * var(--thumb-k));
+       height:calc(var(--md-page-h) * var(--thumb-k));
+       border:2px solid transparent;border-radius:4px;
+       background:var(--md-paper);overflow:hidden;
+       box-shadow:0 1px 3px rgba(0,0,0,.22);
+       transition:border-color var(--dur-fast) var(--ease)}
+.thumb:hover{border-color:var(--accent-bright)}
+/* ★★ `.thumb-in` 一定要掛 `md-body`：語意色、標題、表格全部是
+   `.md-body xxx` 選出來的。複製到別的祖先底下而忘了掛，
+   症狀是縮圖整片變成沒有顏色的黑字——看起來像「縮圖本來就這樣」。 */
+.thumb-in{transform-origin:top left;transform:scale(var(--thumb-k));
+          pointer-events:none}
+/* 縮圖裡不要再有第二層影子（縮小之後那圈影子會糊成一塊灰邊） */
+.thumb-in .md-page{box-shadow:none;border-radius:0}
+.thumb-n{font-size:11px;color:var(--ink-3);line-height:1}
 
 /* ---- 橫線紙 ----
    ★ 用 `background-image` 不是 `background` 簡寫——簡寫會把底色一起洗掉，
@@ -378,8 +526,16 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
     body.phone-edit #listCol{display:none}
     body.phone-list #editCol{display:none}
     .desk-only{display:none !important}
+    /* ★★ 側欄的收合鈕在手機上要**沒有作用**：手機本來就是主從切換
+       （一次只看得到一邊），再疊一層「收起來」的話，在篇目那一邊按下去
+       就是兩邊都不見——畫面全空，而且沒有東西可以按回來。
+       所以 `.side-off` 只在桌機生效，鈕本身也藏起來（`.desk-only`）。 */
+    .md-tab{max-width:9rem}
 }
-@media (min-width: 821px){ .phone-only{display:none !important} }
+@media (min-width: 821px){
+    .phone-only{display:none !important}
+    body.side-off #listCol{display:none}
+}
 </style>
 </head>
 <body class="phone-list">
@@ -389,6 +545,8 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
   <!-- logo 的行為跟主站與模擬器一致：點一下展開選單，不是直接跳頁。
        關閉的三條路：點選單外面、按 Esc、選了任何一項。 -->
   <div class="hbar">
+    <button id="btnSide" class="btn tiny icon desk-only" title="收合／展開側欄"
+            aria-expanded="true" aria-controls="listCol">&#9776;</button>
     <div id="logoWrap">
       <div id="logoBtn" role="button" tabindex="0"
            aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
@@ -406,24 +564,16 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
     </div>
     <div class="hbar-right">
       <span id="whoami" style="font-size:13.5px;color:var(--ink-3)">載入中…</span>
-      <button id="themeBtn" class="btn tiny" title="切換深色／淺色">&#9681;</button>
+      <button id="themeBtn" class="btn tiny icon" title="切換深色／淺色">&#9681;</button>
     </div>
   </div>
 
-  <div class="hbar hbar2">
-    <button id="btnNew" class="btn primary">＋ 新增一篇</button>
-    <button id="btnBack" class="btn tiny phone-only">&#8592; 篇目</button>
-    <span class="tsep desk-only"></span>
-    <button data-view="split" class="btn tiny viewOpt desk-only">並排</button>
-    <button data-view="edit" class="btn tiny viewOpt">只編輯</button>
-    <button data-view="read" class="btn tiny viewOpt">只閱讀</button>
-    <span class="tsep"></span>
-    <button id="btnHelp" class="btn tiny">標記怎麼打</button>
-    <button id="btnExport" class="btn tiny">匯出 .md</button>
-    <div class="hbar-right">
-      <span id="saveState"></span>
-      <button id="btnDelete" class="btn tiny danger">刪除這篇</button>
-    </div>
+  <!-- 文件分頁列：同時開好幾篇，切分頁不必回清單。
+       ★ 「＋」在分頁列的最右邊而不是在頁首——新增一篇的結果就是多一個分頁，
+       按鈕放在它會出現的地方，不必再解釋一次它會做什麼。 -->
+  <div id="mdTabs">
+    <div id="mdTabStrip" role="tablist" aria-label="開著的筆記"></div>
+    <button id="btnNew" title="新增一篇" aria-label="新增一篇">＋</button>
   </div>
 </header>
 
@@ -435,8 +585,17 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
 </div>
 
 <div id="work">
+  <!-- 側欄：上面是分段控制（固定），下面是會捲的內容。
+       「頁面」那一段是把排好的頁複製一份縮小，點一下捲到那一頁。 -->
   <div id="listCol">
-    <div id="mdList"></div>
+    <div id="sideSeg" class="seg">
+      <button data-side="list" class="sideOpt on">篇目</button>
+      <button data-side="pages" class="sideOpt">頁面</button>
+    </div>
+    <div id="sideBody">
+      <div id="mdList"></div>
+      <div id="mdThumbs" class="hidden"></div>
+    </div>
   </div>
 
   <div id="editCol">
@@ -446,8 +605,21 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
     </div>
     <div id="emptyHint" class="hint hidden">左邊選一篇，或按上面的「＋ 新增一篇」開始寫。</div>
 
+    <!-- 文件自己的工具列。★ 這些全部是「針對這一篇」的操作，所以它們跟著
+         文件走，不放在頁首——頁首那排是身分與全站的東西。 -->
     <div id="editHead" class="hidden">
+      <button id="btnBack" class="btn tiny phone-only">&#8592; 篇目</button>
       <input id="mdTitle" maxlength="80" placeholder="這篇的標題">
+      <div class="seg">
+        <button data-view="split" class="viewOpt desk-only">並排</button>
+        <button data-view="edit" class="viewOpt">只編輯</button>
+        <button data-view="read" class="viewOpt">只閱讀</button>
+      </div>
+      <span id="saveState"></span>
+      <span class="tsep"></span>
+      <button id="btnHelp" class="btn tiny">標記怎麼打</button>
+      <button id="btnExport" class="btn tiny">匯出 .md</button>
+      <button id="btnDelete" class="btn tiny danger">刪除這篇</button>
     </div>
     <div id="panes" class="hidden">
       <textarea id="mdInput" class="md-sheet" spellcheck="false"
@@ -499,6 +671,14 @@ let mdDirty = false;          // 有沒有還沒寫回雲端的改動
 let mdPreviewTimer = null;
 let unsub = null;
 let toastTimer = null;
+/* ---- 分頁列與側欄 ----
+   ★ 一樣宣告在這裡。這幾個被 renderTabs()／applySide()／renderThumbs() 碰到，
+   而那三支在頁面載入的最後會被叫到——宣告晚一步就是暫時性死區，
+   症狀是畫面全白，而 `node --check` 看不出來。 */
+let openTabs = [];            // 開著的分頁，順序＝打開的順序（不照時間重排）
+let mdTabsRestored = false;   // 第一批快照回來之前不還原分頁（見 initMdSubs）
+let sideMode = 'list';        // 側欄看的是「篇目」還是「頁面縮圖」
+let sideOpen = true;
 
 const escapeHTML = s => String(s ?? '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -828,7 +1008,16 @@ function mdPaginate(box){
     }
 }
 
+/* ★★ 縮圖只在這裡更新，不要讓每個呼叫端各自記得要更新一次。
+   下面 mdRenderPages() 有**三條**離開的路（正常、沒有消毒器、marked 解析失敗），
+   漏掉任何一條的症狀都是「側欄的縮圖停在上一個版本」——
+   而那看起來像「剛剛那段沒有存到」，是一個完全不同的問題。 */
 function mdRenderPreview(src){
+    mdRenderPages(src);
+    renderThumbs();
+}
+
+function mdRenderPages(src){
     const box = $('mdPreview');
     if (!box) return;
     /* ★ 兩支函式庫各讀一次就好，不要在迴圈或分支裡重複取。
@@ -903,6 +1092,70 @@ $('mdList').addEventListener('click', (e) => {
 
 const setSaveState = (t) => { $('saveState').textContent = t; };
 
+/* ==========================================================
+   文件分頁列
+
+   ★ 分頁裝的是「開著的篇」，不是「全部的篇」——全部的篇在左邊的清單裡。
+   兩者的差別就是分頁存在的理由：清單會愈長愈難找，分頁只有正在來回看的
+   那幾篇。所以分頁**不會自己出現**，只有真的開過才進去。
+
+   ★★ 分頁只是一組 id，內容還是一份 textarea 一次只裝一篇。
+   要「每個分頁各自一份編輯器」的話，那是好幾份未存的狀態同時活著——
+   而這一頁最貴的坑（`mdReadyIds`、切篇前 flush）全部是為了「一次一篇」
+   才成立的。多開幾份等於把那些保險全部重寫一次。
+   ========================================================== */
+const TABS_KEY = 'blackcatmd-tabs';
+const saveTabs = () => { try { localStorage.setItem(TABS_KEY, JSON.stringify(openTabs)); } catch(e){} };
+
+function renderTabs(){
+    const strip = $('mdTabStrip');
+    if (!strip) return;
+    /* 分頁指到已經不存在的篇（別台裝置刪掉、或換了帳號）就不要畫出來——
+       畫出來是一個點不開的死分頁。 */
+    const rows = openTabs.map(id => notes.find(n => n.id === id)).filter(Boolean);
+    strip.innerHTML = rows.map(n => `
+        <div class="md-tab${n.id === currentNoteId ? ' is-open' : ''}" data-id="${n.id}">
+          <button class="tab-go" data-id="${n.id}" role="tab"
+                  aria-selected="${n.id === currentNoteId}"
+                  >${escapeHTML(n.title || '未命名')}</button>
+          <button class="tab-x" data-id="${n.id}"
+                  aria-label="關閉 ${escapeHTML(n.title || '未命名')}">&#215;</button>
+        </div>`).join('');
+    /* ★ 分頁多到捲出畫面時，切過去要讓它自己捲回來看得見的地方。
+       少了這行的症狀是「按了清單裡的某一篇，分頁列看起來沒反應」。 */
+    strip.querySelector('.md-tab.is-open')
+         ?.scrollIntoView({ block:'nearest', inline:'nearest' });
+}
+
+function closeTab(id){
+    /* ★★ 關掉的是**分頁**不是筆記——內容還在雲端，左邊清單裡點得回來。
+       但還沒寫出去的字必須先 flush：不 flush 的話「關掉分頁」＝
+       安靜地丟掉最後 0.8 秒打的東西。 */
+    if (id === currentNoteId) flushMdSave();
+    const i = openTabs.indexOf(id);
+    if (i < 0) return;
+    openTabs.splice(i, 1);
+    saveTabs();
+    if (id !== currentNoteId){ renderTabs(); return; }
+    /* 關掉的是正在看的那個：接手右邊那個，沒有就左邊那個。
+       ★ 這時 currentNoteId 還指著剛關掉的 id，而 openNote() 第一行的
+       flushMdSave() 在上面已經跑過了（mdDirty 已經是 false），所以不會重存。 */
+    const next = openTabs[i] || openTabs[i - 1] || null;
+    if (next){ openNote(next); return; }
+    currentNoteId = null;
+    mdDirty = false;
+    document.body.classList.remove('phone-edit');
+    document.body.classList.add('phone-list');
+    renderTabs(); renderMdList(); renderShell();
+}
+
+$('mdTabs').addEventListener('click', (e) => {
+    const x = e.target.closest('.tab-x');
+    if (x){ closeTab(x.dataset.id); return; }
+    const g = e.target.closest('.tab-go');
+    if (g && g.dataset.id !== currentNoteId) openNote(g.dataset.id);
+});
+
 function openNote(id){
     /* ★ 先把上一篇還沒寫出去的存掉，**再**換 id。
        順序反過來就是「A 篇的字寫進 B 篇」。 */
@@ -911,12 +1164,16 @@ function openNote(id){
     if (!n) return;
     currentNoteId = id;
     mdDirty = false;
+    /* 開過的篇才進分頁列（push 不是 unshift：新的排在右邊，
+       已經在列上的那幾個位置不動——會跑的分頁是點不到的分頁）。 */
+    if (!openTabs.includes(id)){ openTabs.push(id); saveTabs(); }
     $('mdTitle').value = n.title || '';
     $('mdInput').value = n.body || '';
     mdRenderPreview(n.body || '');
     setSaveState('已儲存');
     document.body.classList.remove('phone-list');
     document.body.classList.add('phone-edit');
+    renderTabs();
     renderMdList();
     renderShell();
 }
@@ -949,12 +1206,21 @@ async function deleteCurrentNote(){
     if (!id){ showToast('先選一篇筆記'); return; }
     if (!confirm('刪除這篇筆記？刪掉就找不回來了。')) return;
     clearTimeout(mdSaveTimer); mdSaveTimer = null; mdDirty = false;
+    /* ★ currentNoteId 要**先**收回 null，再去 openNote 下一個分頁：
+       openNote 第一行是 flushMdSave()，還指著剛刪掉那篇的話，
+       它會把已經刪掉的那篇再寫回雲端一次（症狀是「刪掉的筆記又出現了」）。 */
     currentNoteId = null;
     notes = notes.filter(n => n.id !== id);
     mdReadyIds.delete(id);
-    document.body.classList.remove('phone-edit');
-    document.body.classList.add('phone-list');
-    renderMdList(); renderShell();
+    const i = openTabs.indexOf(id);
+    if (i >= 0){ openTabs.splice(i, 1); saveTabs(); }
+    const next = i >= 0 ? (openTabs[i] || openTabs[i - 1] || null) : null;
+    if (next){ openNote(next); }
+    else {
+        document.body.classList.remove('phone-edit');
+        document.body.classList.add('phone-list');
+        renderTabs(); renderMdList(); renderShell();
+    }
     try { await deleteDoc(doc(db, PU('notes'), id)); }
     catch (e){ showToast('刪除失敗：' + (e.code || e.message)); }
 }
@@ -1017,6 +1283,29 @@ function initMdSubs(){
         incoming.forEach(n => mdReadyIds.add(n.id));
         notes = incoming;
         mdNotesLoaded = true;
+        /* ★★ 分頁列要等**第一批快照回來**才從 localStorage 還原，不能在載入時
+           就還原：那時 notes 是空的，對不上的分頁會被當成「這篇沒了」而
+           整列洗掉，然後我們又把洗掉的結果存回 localStorage——
+           症狀是「重新整理一次，開著的分頁就全沒了」，而且救不回來。
+           ★ localStorage 是這台瀏覽器共用的，不是這個帳號的。所以還原時
+           一定要用「這個帳號真的有這篇」過濾一次，換帳號才不會看到
+           一排點不開的分頁。 */
+        if (!mdTabsRestored){
+            mdTabsRestored = true;
+            let want = [];
+            try { want = JSON.parse(localStorage.getItem(TABS_KEY) || '[]'); } catch(e){}
+            openTabs = (Array.isArray(want) ? want : [])
+                       .filter(id => notes.some(n => n.id === id));
+        } else {
+            /* ★ `id === currentNoteId` 這個例外不能省：剛按下「新增一篇」時
+               那一篇只存在本機，setDoc 還沒回來。這中間若有別的改動觸發快照，
+               沒有例外的話正在寫的那個分頁會被當成「這篇沒了」而關掉——
+               而使用者正在上面打字。 */
+            openTabs = openTabs.filter(id =>
+                id === currentNoteId || notes.some(n => n.id === id));
+        }
+        saveTabs();
+        renderTabs();
         renderMdList();
         /* ★★ 正在編輯的那一篇**不要**用雲端那份覆蓋回輸入框。
            覆蓋的症狀是「打到一半游標跳走、剛打的字被吃掉」——
@@ -1047,7 +1336,13 @@ function stopMdSubs(){
     clearTimeout(mdSaveTimer); mdSaveTimer = null;
     notes = []; mdReadyIds.clear();
     mdNotesLoaded = false; mdDirty = false; currentNoteId = null;
-    renderMdList();
+    /* ★★ 分頁列也要清，理由跟 mdReadyIds 同一個：留著的話，下一個人登入的
+       空窗裡看到的是**上一個人的**篇名。
+       ★ 但**故意不寫回 localStorage**——存的那份是「這台瀏覽器上次開著哪幾篇」，
+       登出把它洗成空的話，同一個人下次登入回來分頁列是空的。
+       清的是記憶體裡這份，硬碟上那份等下次真的還原時再用帳號過濾。 */
+    openTabs = []; mdTabsRestored = false;
+    renderTabs(); renderMdList(); renderThumbs();
 }
 
 /* ==========================================================
@@ -1068,6 +1363,82 @@ function applyMdView(){
        而且完全不會報錯（那正是「量測型程式碼」最典型的壞法）。 */
     if (wasHidden && v !== 'edit' && $('mdInput')) mdRenderPreview($('mdInput').value);
 }
+/* ==========================================================
+   側欄：篇目／頁面縮圖
+
+   ★★ 縮圖是把**已經排好的** `.md-page` 複製一份縮小，不是另外畫一次。
+   另外畫等於維護第二套排版規則，而兩套遲早會不一樣——症狀是
+   「縮圖跟真的那一頁長得不一樣」，沒有人會回報這種事，只會不再用它。
+   ========================================================== */
+const SIDE_KEY = 'blackcatmd-side';
+
+function applySide(){
+    document.body.classList.toggle('side-off', !sideOpen);
+    $('btnSide').setAttribute('aria-expanded', String(sideOpen));
+    document.querySelectorAll('.sideOpt').forEach(b =>
+        b.classList.toggle('on', b.dataset.side === sideMode));
+    /* 手機不分頁（一頁 610px 縮到 360px 是看不清楚的），沒有頁可以縮，
+       所以那一組分段控制在手機上整個收起來。 */
+    const canPage = mdPagedNow();
+    const pages = canPage && sideMode === 'pages';
+    $('sideSeg').classList.toggle('hidden', !canPage);
+    $('mdList').classList.toggle('hidden', pages);
+    $('mdThumbs').classList.toggle('hidden', !pages);
+    renderThumbs();
+}
+
+function renderThumbs(){
+    const box = $('mdThumbs');
+    if (!box) return;
+    /* 看不到的時候不要做——每敲一個字就複製四十頁的 DOM，那是打字會頓的原因，
+       而且頓起來看不出跟縮圖有關。 */
+    if (!sideOpen || sideMode !== 'pages' || !mdPagedNow()){ box.textContent = ''; return; }
+    const pages = $('mdPreview').querySelectorAll('.md-page');
+    if (!pages.length){ box.innerHTML = '<div class="hint">還沒有內容</div>'; return; }
+
+    /* ★ 先接在 fragment 上再一次掛進去。一張一張 appendChild 的話，
+       每接一張就重排一次整條側欄。 */
+    const frag = document.createDocumentFragment();
+    pages.forEach((p, i) => {
+        const wrap = document.createElement('div');
+        wrap.className = 'thumb-wrap';
+        const btn = document.createElement('button');
+        btn.className = 'thumb';
+        btn.dataset.page = String(i);
+        btn.setAttribute('aria-label', '跳到第 ' + (i + 1) + ' 頁');
+        /* ★★ 內層一定要掛 `md-body`：語意色、標題、表格全部是
+           `.md-body xxx` 選出來的。複製到別的祖先底下而忘了掛，
+           症狀是縮圖整片變成沒有顏色的黑字——看起來像「縮圖本來就長這樣」。 */
+        const inner = document.createElement('div');
+        inner.className = 'thumb-in md-body';
+        const clone = p.cloneNode(true);
+        /* 頁碼寫在縮圖**底下**，不是印在縮圖裡（縮到 0.246 倍的 11px 字
+           糊成一團灰點，比沒有還糟）。 */
+        clone.removeAttribute('data-page');
+        inner.appendChild(clone);
+        btn.appendChild(inner);
+        const n = document.createElement('span');
+        n.className = 'thumb-n';
+        n.textContent = String(i + 1);
+        wrap.appendChild(btn); wrap.appendChild(n);
+        frag.appendChild(wrap);
+    });
+    box.textContent = '';
+    box.appendChild(frag);
+}
+
+$('mdThumbs').addEventListener('click', (e) => {
+    const b = e.target.closest('.thumb');
+    if (!b) return;
+    const p = $('mdPreview').querySelectorAll('.md-page')[Number(b.dataset.page)];
+    if (!p) return;
+    p.scrollIntoView({
+        /* 尊重系統的「減少動態效果」——平滑捲動是這一頁唯一會自己跑起來的東西。 */
+        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start'
+    });
+});
+
 function renderShell(){
     const inUse = !!(auth.currentUser && !auth.currentUser.isAnonymous);
     const has = inUse && !!(currentNoteId && notes.some(n => n.id === currentNoteId));
@@ -1091,6 +1462,26 @@ $('btnBack').onclick = () => {
 };
 document.querySelectorAll('.viewOpt').forEach(b => b.onclick = () => {
     mdView = b.dataset.view; applyMdView();
+});
+
+$('btnSide').onclick = () => {
+    sideOpen = !sideOpen;
+    try { localStorage.setItem(SIDE_KEY, sideOpen ? '1' : '0'); } catch(e){}
+    applySide();
+};
+document.querySelectorAll('.sideOpt').forEach(b => b.onclick = () => {
+    sideMode = b.dataset.side;
+    /* ★★★ 「頁面」要看得到頁才有東西可縮。而「只編輯」模式下預覽區是
+       `display:none`——量出來的高度**全部是 0**，於是分頁邏輯把整份內容
+       塞進第一頁，縮圖就只有孤零零的一張，而且是錯的。
+       症狀完全不會報錯，看起來像「這份筆記只有一頁」。
+       所以切到「頁面」時順手把檢視換成看得見紙的那一種：
+       桌機並排（原文與頁面對照著看），窄螢幕只閱讀（並排會兩邊都太窄）。 */
+    if (sideMode === 'pages' && mdView === 'edit'){
+        mdView = matchMedia('(max-width: 820px)').matches ? 'read' : 'split';
+        applyMdView();
+    }
+    applySide();
 });
 $('btnExport').onclick = () => {
     const n = notes.find(x => x.id === currentNoteId);
@@ -1121,9 +1512,19 @@ document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushMdSave();
 });
 addEventListener('beforeunload', flushMdSave);
-/* 轉個方向就從並排變單欄（或反過來），要重算一次。 */
-matchMedia('(max-width: 820px)').addEventListener?.('change', applyMdView);
+/* 轉個方向就從並排變單欄（或反過來），要重算一次。
+   ★ 側欄也要跟著重算：跨過斷點之後「頁面」那一段有沒有東西可看會變。 */
+matchMedia('(max-width: 820px)').addEventListener?.('change', () => {
+    applyMdView(); applySide();
+});
 
+/* ★ 側欄的開合記在這台瀏覽器上。預設是**開著**——沒有值的時候要展開，
+   所以判斷寫成「不等於 '0'」而不是「等於 '1'」（後者會讓第一次來的人
+   看到一片空白的左邊）。 */
+try { sideOpen = localStorage.getItem(SIDE_KEY) !== '0'; } catch(e){}
+applySide();
+
+renderTabs();
 renderMdList();
 renderShell();
 
