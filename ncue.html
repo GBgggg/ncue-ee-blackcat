@@ -339,6 +339,16 @@
                兩面夾擊：深色字壓在它上面 5.11（暗筆觸處最壞），
                色塊對近白的頁首 3.03（亮筆觸把底提亮時最壞）。 */
             --accent-tab:     #b68800;
+            /* ★★ 墨塊（深色 Hero、播放畫面）上的字自己一組。2026-08-13 加的。
+               上面每一個金與墨都是配「紙」算出來的，而墨塊是反過來的面——
+               同一批 Tailwind 類別壓上去只有 1.07～1.45，等於看不見
+               （量測與中招清單在 1486 行那段註解與 `tools/herotext.mjs`）。
+               ★ 這三個**不在 `html.dark` 覆蓋**：墨塊在兩個模式下都是深的，
+                 所以它們不隨模式換色。底色取「天空疊完最亮的那個像素」
+                 （亮度 0.0706，來自 `tools/contrast.mjs`）算的。 */
+            --ink-3-on-ink:  #d3cabb;  /* 墨塊上的次要字：5.36 */
+            --accent-on-ink: #e8c46a;  /* 墨塊上的金（＝深色模式那顆月亮金）：5.20 */
+            --danger-on-ink: #f2b0ab;  /* 墨塊上的負值／警示：4.80 */
             /* ★ 從 #1a1408 再壓深到近黑。這不是美感，是**買餘裕**：
                對比公式的分母是「字的亮度 +0.05」，#1a1408 的 Y 是 0.0113
                → 分母 0.0613；近黑的 Y 是 0.004 → 分母 0.054。
@@ -1483,6 +1493,49 @@
         .text-slate-900, .text-slate-800 { color: var(--ink) !important; }
         .text-slate-700, .text-slate-600 { color: var(--ink-2) !important; }
         .text-slate-500, .text-slate-400, .text-slate-300 { color: var(--ink-3) !important; }
+
+        /* ---- ★★ 墨塊上的字要走亮的那一組（2026-08-13）----
+
+           上面那幾條（還有下面的 .text-emerald-*／.text-blue-*／.text-rose-*）
+           把 Tailwind 的色階整批對應成**給紙用的深色**。那在白卡上是對的，
+           但深色 Hero 上壓的字也是同一批類別，於是變成深色壓深色。
+
+           量出來的（`tools/herotext.mjs`，淺色模式）：
+             text-slate-300/400/500  → --ink-3 #5c4e33  → 對比 1.07
+             text-emerald-300/400/500、text-blue-400 → --accent #7a5905 → 1.35
+             text-rose-400 → #9c4a48 → 1.45
+           1.07 的意思不是「有點難讀」，是**看不見**。中招的包括主頁的
+           「現在時間」與使用者名稱、設定頁的說明、英文閱讀的說明、
+           記帳本與投資追蹤那六個統計標籤與數字。
+
+           ★ 這是 5438 行那個註解記的同一類坑（導覽列作用中的分頁）。
+             那次是一個一個發現的，所以這次連量測工具與測試一起做。
+
+           ★★ 選擇器不能寫成 `.bg-slate-900 .text-slate-400`。
+             `#mainHeader` 也掛著 `.bg-slate-900`，而它裡面有**白色的**帳號下拉
+             選單（`#accountMenu`）——那一條會把白底上的深色字改成亮色，
+             變成白底亮字，等於把坑從墨塊搬到選單。所以沿用這份檔案既有的
+             Hero 選擇器（`.bg-slate-900.relative.overflow-hidden:not(#mainHeader)`，
+             見天空那幾條）。實測那 14 個元素裡沒有任何淺色底的子元素。
+
+           ★ token 只寫在 `:root`，`html.dark` 不覆蓋——**墨塊在兩個模式下都是深的**
+             （#171512 與 #0a1020），所以「墨塊上的字」本來就不該隨模式換色。
+             這也是為什麼深色模式原本只有 slate 那三個是紅的：深色模式的
+             --accent 剛好已經是亮金了，那是巧合不是設計。 */
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-slate-300,
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-slate-400,
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-slate-500 {
+            color: var(--ink-3-on-ink) !important;
+        }
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-emerald-300,
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-emerald-400,
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-emerald-500,
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-blue-400 {
+            color: var(--accent-on-ink) !important;
+        }
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) .text-rose-400 {
+            color: var(--danger-on-ink) !important;
+        }
 
         /* ---- 線條：編輯感的關鍵，一律細線 ---- */
         .border-slate-100, .border-slate-200, .border-2, .border-4 { border-color: var(--rule) !important; }
@@ -4770,6 +4823,19 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-13',
+                title: '★ 深色區塊上的次要文字一直是看不見的——量出來對比 1.07',
+                items: [
+                    ['起點只是「順便看一下 Hero 上的字讀不讀得清楚」', '結果不是「有點淡」而是**看不見**。淺色模式下，深色 Hero 上除了白字以外的每一個顏色都落在 1.07～1.45（門檻 4.5）。中招的有：主頁的「現在時間」與使用者名稱、課程評價的搜尋提示、課程詳情的授課教師、設定頁的說明、英文閱讀的說明、單字庫的副標，以及記帳本與投資追蹤那六個統計標籤與數字。'],
+                    ['★★ 成因是「對的規則用在相反的面上」', '設計系統把 Tailwind 的色階整批對應成紙墨語彙的顏色——`.text-slate-300/400/500 → --ink-3`、`.text-emerald-*／.text-blue-* → --accent`、`.text-rose-* → #9c4a48`，而且全部帶 `!important`。那些值是配「白紙」算出來的，可是深色 Hero 上壓的是同一批類別，於是變成深色壓深色。每一條規則單獨看都是對的。'],
+                    ['修法是墨塊自己一組 token', '`--ink-3-on-ink` 5.36、`--accent-on-ink` 5.20、`--danger-on-ink` 4.80。★ 這三個**不寫進 `html.dark`**：墨塊在淺色與深色模式下都是深的，所以墨塊上的字本來就不該隨模式換色。深色模式原本只有 slate 那三個是紅的，是因為深色模式的 `--accent` 剛好已經是亮金——那是巧合，不是設計。'],
+                    ['★★ 選擇器不能寫成 `.bg-slate-900 .text-slate-400`', '`#mainHeader` 也掛著 `.bg-slate-900`，而它裡面有**白色的**帳號下拉選單。那樣寫會把白底上的深色字改成亮色，等於把同一個坑從墨塊搬到選單去。改用這份檔案既有的 Hero 選擇器（`.bg-slate-900.relative.overflow-hidden:not(#mainHeader)`），實測那 14 個元素裡沒有任何淺色底的子元素。'],
+                    ['★ 測試釘的是規則不是名字', '「那三個 token 存在」這種檢查擋不住下一次——有人在 Hero 裡加一個 `text-amber-400`，測試照樣綠，而那行字照樣看不見。所以改成「Hero 裡出現的每一個會被改深的類別，都要有墨塊專用的對應」，另外釘住 token 不准被 `html.dark` 覆蓋、選擇器不准退回會打到頁首的寫法。實測拿掉其中一條，這裡會紅。'],
+                    ['★ 量測工具 `tools/herotext.mjs`（不進發布）', '第一版的對應表是手抄的，漏了 `.text-blue-*` 與 `.text-rose-*` 兩條，於是那兩個色量到的是 Tailwind 原生的亮色（3.42／3.23，看起來只是「差一點」），實際上是 1.35／1.45。手抄的表會過期，而過期的症狀是**量出一個比實際好看的數字**。改成直接從樣式表解析。'],
+                    ['★ 解析選擇器一定要先去註解', '選擇器是靠「上一個 `}` 到 `{`」之間的字抓的，而這份檔案的註解又長又多逗號——註解會被當成選擇器清單的一部分，於是**規則裡的第一個選擇器**黏在註解尾巴上而認不出來。症狀很有欺騙性：同一條規則裡第二個之後都正常，只有第一個被漏掉，看起來像「那個顏色剛好沒修到」。這是這份專案「先去註解再驗」那條規矩的第八次。'],
+                ],
+            },
             {
                 date: '2026-08-13',
                 title: '每一頁深色區塊右上角那隻巨大浮水印圖示，十個一起拿掉',

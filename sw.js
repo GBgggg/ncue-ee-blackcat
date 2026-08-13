@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v74';
+const CACHE = 'blackcat-v75';
 /* ★ 每一個會發布出去的頁面都要在這裡。漏掉不會報錯——
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
