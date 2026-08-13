@@ -886,13 +886,49 @@
            漩渦那張圖不是無縫的，等速跑到底再跳回起點會有一道接縫；
            而它來回擺盪本來就比較像天空的渦流——梵谷的天空不是勻速旋轉的圓盤。
            時間夠長的話（最短 48 秒）折返點根本看不出來。 */
+        /* ★★ 週期是**算出來的，不是挑的**（2026-08-13 重訂）。
+           `background-position: X%` 移動的距離是「X% × (圖 − 容器)」，
+           所以真正的速度取決於**溢出量**，而溢出量來自 background-size。
+           把它算成像素之後（參考尺寸 1440×900，Hero 卡 1120×112）：
+
+             溢出X = 容器寬 × (size − 1)
+             整趟位移 = 溢出X × keyframe 的 X 範圍
+             速度 = 整趟位移 ÷ 週期
+
+           目標速度訂 **1.5 px/s**——那是開站畫面原本 48s 的手感，
+           也是三級裡唯一真的看得出來的一級，所以拿它當基準：
+
+             Hero   112%：134px 溢出 × 0.12 = 16px ÷ 1.5 →  11s
+             黑幕   118%：259px 溢出 × 0.12 = 31px ÷ 1.5 →  21s
+             開站   132%：461px 溢出 × 0.16 = 74px ÷ 1.5 →  48s（不變）
+
+           ★ 為什麼原本的 168s／96s 是錯的：它們是照「愈大的面愈慢」挑的，
+           而沒有算過那個面實際上只能走幾個像素。Hero 卡的整趟位移只有 16px，
+           168 秒走完等於**每 9 秒 1 個像素**——在知覺上就是靜止的。
+           程式在動、測試全綠、眼睛看不到，是這一輪查出來的第五個同型病例。
+
+           ★ 這幾個秒數**不受 90ms 刻度管**（`動效.md` 寫過的例外）：
+           週期性動畫走自己的物理量，而這裡的物理量是「每秒幾個像素」。
+
+           ★★ Hero 那條要帶 `:not(#mainHeader)`，否則 `background-size` 拿不到。
+           上面 821 行那條的選擇器是 `.bg-slate-900:not(#mainHeader)`，
+           `:not()` 裡的 id 會算進特異性，所以它是 (1,1,0)；
+           而 `.bg-slate-900.relative.overflow-hidden` 只有 (0,3,0)，
+           排在後面也贏不了——112% 被蓋回 `cover`。
+           `cover` 對一張 1120×112 的寬扁卡片來說**水平溢出剛好是 0**，
+           於是水平漂移不是慢，是字面上的零（實測 computed 值就是 `cover`）。
+           ★ 用 `:not(#mainHeader)` 補特異性而不是 `!important`：
+             這個排除本來就是真的（頁首不能有夜空，理由跟 821 行同一個），
+             所以它是說明不是手段。補 `!important` 只會讓下一次衝突更難查。
+           ★ 黑幕那條不必補：它跟 821 行是同一組類別、同特異性，靠順序就贏了
+             （實測 computed 是 118%，所以確實贏了）。 */
         .bg-slate-900\/95, .bg-slate-900\/90 {
             background-size: 118% 118%, 118% 118%, auto;
-            animation: vgSkyDrift 96s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+            animation: vgSkyDrift 21s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
         }
-        .bg-slate-900.relative.overflow-hidden {
+        .bg-slate-900.relative.overflow-hidden:not(#mainHeader) {
             background-size: 112% 112%, 112% 112%, auto;
-            animation: vgSkyDrift 168s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
+            animation: vgSkyDrift 11s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate;
         }
         #splash {
             background-size: 132% 132%, 132% 132%, auto, auto;
@@ -907,10 +943,15 @@
         /* ★ 減少動態：天空整個不動，但**圖層與尺寸要留著**。
            只把 animation 設成 none 的話，background-size 仍然是 118%，
            於是畫面會停在放大的某一格——那不是「原本的樣子」，
-           是「動畫的第一格」。所以連 size 與 position 一起復原。 */
+           是「動畫的第一格」。所以連 size 與 position 一起復原。
+           ★★ Hero 那個選擇器**也要帶 `:not(#mainHeader)`**。`@media` 不會加
+           特異性，所以這裡的 `animation: none` 要跟上面那條開動畫的規則
+           同級才蓋得掉——上面補成 (1,3,0) 之後，這裡若還是 (0,3,0)，
+           症狀是「開了減少動態，天空照樣在飄」，而且不會有任何錯誤訊息。
+           改特異性的時候最容易漏掉的就是關掉它的那一條。 */
         @media (prefers-reduced-motion: reduce) {
             .bg-slate-900\/95, .bg-slate-900\/90,
-            .bg-slate-900.relative.overflow-hidden {
+            .bg-slate-900.relative.overflow-hidden:not(#mainHeader) {
                 animation: none;
                 background-size: cover, cover, auto;
                 background-position: center, center, 0 0;
@@ -4441,6 +4482,12 @@
                     ['★ 兩條合併成一條，不是補 `!important`', '補 `!important` 只會讓下一次衝突更難看出來。真正的問題是同一個 `::after` 的宣告散在兩段註解底下，誰蓋掉誰要靠讀者自己數行號——那不是規則，是巧合。合併的時候差點漏掉 `content` 與 `position`：少了它們這個 ::after 根本不會產生，分隔線會整條消失（不是變醜，是不見）。'],
                     ['線的顏色不再走 `--rule`', '乾筆那版是 `background: var(--rule)` 的單色線；波浪的顏色由那張 SVG 自己帶（淺色深色各一份），所以 `background-color` 給 transparent。濃度沒變，對比不受影響。'],
                     ['釘的是「只有一條規則」而不是「height 是 4px」', '後者擋不住有人再加第三條規則把它蓋掉——而那正是這個坑本來的樣子。三個突變逐一試過都會紅：加回第二條規則、把 4px 改回 1px、拿掉 content。'],
+                    ['★★ 第五個病例，也是最貴的一個：天空真的在動，但肉眼看不到', '把三級的位移量算成像素才發現。`background-position: X%` 走的距離是「X% × (圖 − 容器)」，所以速度取決於**溢出量**。Hero 卡的整趟位移只有 16 px，而週期是 168 秒——**每 9 秒 1 個像素**，在知覺上就是靜止的。黑幕 0.43 px/s 同樣在門檻下。三級裡只有開站畫面的 2 px/s 勉強看得出來，而它只活 8 秒。上一輪「天空真的轉起來了」在程式與測試兩層都成立，在**看得到**這一層沒有。'],
+                    ['★★ 而 Hero 卡的水平位移根本是零', '821 行那條把 `background-size` 設成 `cover`，選擇器是 `.bg-slate-900:not(#mainHeader)`——`:not()` 裡的 id 會算進特異性，所以它是 (1,1,0)。開動畫那條 `.bg-slate-900.relative.overflow-hidden` 只有 (0,3,0)，排在後面也贏不了，於是 112% 從來沒生效過。而 `cover` 對一張 1120×112 的寬扁卡片來說**水平溢出剛好是 0**——不是慢，是字面上的零。補 `:not(#mainHeader)` 補特異性而不是補 `!important`：那個排除本來就是真的（頁首不能有夜空），所以它是說明不是手段。'],
+                    ['★ 改特異性最容易漏掉關掉它的那一條', '`@media` 不加特異性，所以 reduced-motion 裡那個把動畫關成 none 的宣告也要一起帶 `:not(#mainHeader)`，否則症狀是「開了減少動態，天空照樣飄」。測試釘的是**兩條同時有**——只釘其中一條的話，正好會放過壞的那一邊。'],
+                    ['週期改成算出來的：目標 1.5 px/s', 'Hero 168s→**11s**、黑幕 96s→**21s**、開站畫面維持 48s（它本來就是基準）。原本那三個數字是照「愈大的面愈慢」挑的，而沒有算過那個面實際上只能走幾個像素。★ 這幾個秒數不受 90ms 刻度管，`動效.md` 早就寫過這個例外：週期性動畫走自己的物理量，而這裡的物理量是每秒幾個像素。'],
+                    ['★ 測試真的把速度算出來，容差 ±35%', '不是比對字串。容差是必要的——卡片寬度本來就會變，釘死一個秒數等於禁止調整版面。四個突變逐一試過都會紅：拿掉任一條的 `:not(#mainHeader)`、把週期改回 168s（算出來 0.10 px/s）、把 112% 改回 cover。'],
+                    ['★ Hero 的 11 秒是這一輪唯一要用眼睛驗的東西', '11 秒一趟的來回擺盪，是從「幾乎靜止」跳到「摸得到的 ambient」。卡片上面有字，如果覺得吵，往回調的旋鈕是那個目標速度而不是個別秒數——三級要一起動才會是同一隻手。'],
                 ],
             },
             {
