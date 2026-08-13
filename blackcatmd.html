@@ -239,10 +239,8 @@ html.dark .md-sheet{background-image:url(notepaper-dark.webp),
     display:flex;flex-direction:column;align-items:center;gap:16px;
     padding:0 8px 16px;
 }
-/* ★★ 這一條少了會壞而且不報錯：`.hidden` 是 class（0,1,0），
-   而上面那條是 id（1,0,0）——id 贏，於是「只編輯」模式下預覽區關不掉。
-   在這一頁改成有 display 的 id 選擇器**都要**補一條同權重的 hidden。 */
-#mdPreview.hidden{display:none}
+/* ★ 這裡不必再補 `#mdPreview.hidden`——`.hidden` 已經是 `!important`
+   （為什麼要那樣寫，看下面 .hidden 那一段）。 */
 .md-page{
     flex:none;position:relative;
     width:var(--md-page-w);height:var(--md-page-h);
@@ -325,7 +323,15 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
        font-weight:700;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);
        max-width:calc(100% - 32px)}
 #toast.hidden{display:none}
-.hidden{display:none}
+/* ★★★ `!important` 不是偷懶，是這一頁踩過的坑。
+   `.hidden` 是 class（0,1,0），而版面用的是 id 選擇器（1,0,0）——
+   只要哪個 id 規則裡有 `display:`，那個元素就**關不掉**，而 CSS 不會報錯。
+   實際發生過的症狀：還沒選任何一篇時，`#panes`（display:grid）與
+   `#editHead`（display:flex）照樣顯示，於是一張空白的紙從上面一路延伸到底，
+   而「左邊選一篇」那行提示被擠在旁邊——看起來像版面壞掉，不像少了一行 CSS。
+   主站 `publicnew.html` 早就是 `!important`，這一頁是新檔案，抄的時候漏了。
+   `tests/mdnote.mjs` 會掃「id 設了 display 又會被加 hidden」的組合。 */
+.hidden{display:none !important}
 
 /* ==========================================================
    手機：不擋，改版面
