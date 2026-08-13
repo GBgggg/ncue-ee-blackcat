@@ -1104,8 +1104,34 @@ const setSaveState = (t) => { $('saveState').textContent = t; };
    而這一頁最貴的坑（`mdReadyIds`、切篇前 flush）全部是為了「一次一篇」
    才成立的。多開幾份等於把那些保險全部重寫一次。
    ========================================================== */
+/* ★★★ 分頁列存**兩份**，不是一份。這是踩過的坑，症狀完全不報錯：
+   只寫 localStorage 的話，那份是「整個瀏覽器共用一格」，而分頁列是
+   **每個視窗各自一份**的狀態。開兩個筆記分頁的時候，任何一次
+   Firestore 快照（新增一篇、改一個標題，兩邊都會收到）都會讓
+   **另一個視窗**把它自己的分頁清單寫回同一格，蓋掉你剛剛新增的那一個。
+   實際看到的是「按了＋，新分頁出現了，重新整理之後就不見了」——
+   而且那個視窗自己看起來一切正常，錯是別的視窗造成的。
+
+   所以：
+     sessionStorage（每個分頁一份，F5 不會掉）＝ 這個視窗的真實狀態，還原時先讀它；
+     localStorage（整個瀏覽器一份）＝ 只當「上次關掉瀏覽器前開著哪幾篇」的後備。
+   兩邊都寫，讀的時候 session 優先。多視窗互不干擾，關掉再開也還原得回來。 */
 const TABS_KEY = 'blackcatmd-tabs';
-const saveTabs = () => { try { localStorage.setItem(TABS_KEY, JSON.stringify(openTabs)); } catch(e){} };
+const saveTabs = () => {
+    const s = JSON.stringify(openTabs);
+    try { sessionStorage.setItem(TABS_KEY, s); } catch(e){}
+    try { localStorage.setItem(TABS_KEY, s); } catch(e){}
+};
+/* ★ 只有 sessionStorage 真的**存在**（不是空字串）才算數：這個視窗開過筆記，
+   就以它為準；沒有的話才退回 localStorage。用 `!== null` 不是看真假值，
+   不然「這個視窗把分頁全關光了」會被當成沒存過，一重整又把舊的那幾篇叫回來。 */
+const loadTabs = () => {
+    let raw = null;
+    try { raw = sessionStorage.getItem(TABS_KEY); } catch(e){}
+    if (raw === null){ try { raw = localStorage.getItem(TABS_KEY); } catch(e){} }
+    try { const v = JSON.parse(raw || '[]'); return Array.isArray(v) ? v : []; }
+    catch(e){ return []; }
+};
 
 function renderTabs(){
     const strip = $('mdTabStrip');
@@ -1283,19 +1309,16 @@ function initMdSubs(){
         incoming.forEach(n => mdReadyIds.add(n.id));
         notes = incoming;
         mdNotesLoaded = true;
-        /* ★★ 分頁列要等**第一批快照回來**才從 localStorage 還原，不能在載入時
-           就還原：那時 notes 是空的，對不上的分頁會被當成「這篇沒了」而
-           整列洗掉，然後我們又把洗掉的結果存回 localStorage——
+        /* ★★ 分頁列要等**第一批快照回來**才還原，不能在載入時就還原：
+           那時 notes 是空的，對不上的分頁會被當成「這篇沒了」而
+           整列洗掉，然後我們又把洗掉的結果存回去——
            症狀是「重新整理一次，開著的分頁就全沒了」，而且救不回來。
-           ★ localStorage 是這台瀏覽器共用的，不是這個帳號的。所以還原時
+           ★ 存的那兩份都是這台瀏覽器的，不是這個帳號的。所以還原時
            一定要用「這個帳號真的有這篇」過濾一次，換帳號才不會看到
-           一排點不開的分頁。 */
+           一排點不開的分頁。（session 優先於 local 的理由見 loadTabs。） */
         if (!mdTabsRestored){
             mdTabsRestored = true;
-            let want = [];
-            try { want = JSON.parse(localStorage.getItem(TABS_KEY) || '[]'); } catch(e){}
-            openTabs = (Array.isArray(want) ? want : [])
-                       .filter(id => notes.some(n => n.id === id));
+            openTabs = loadTabs().filter(id => notes.some(n => n.id === id));
         } else {
             /* ★ `id === currentNoteId` 這個例外不能省：剛按下「新增一篇」時
                那一篇只存在本機，setDoc 還沒回來。這中間若有別的改動觸發快照，
@@ -1338,9 +1361,9 @@ function stopMdSubs(){
     mdNotesLoaded = false; mdDirty = false; currentNoteId = null;
     /* ★★ 分頁列也要清，理由跟 mdReadyIds 同一個：留著的話，下一個人登入的
        空窗裡看到的是**上一個人的**篇名。
-       ★ 但**故意不寫回 localStorage**——存的那份是「這台瀏覽器上次開著哪幾篇」，
-       登出把它洗成空的話，同一個人下次登入回來分頁列是空的。
-       清的是記憶體裡這份，硬碟上那份等下次真的還原時再用帳號過濾。 */
+       ★ 但**故意不呼叫 saveTabs()**——存起來的那兩份是「上次開著哪幾篇」，
+       登出把它們洗成空的話，同一個人下次登入回來分頁列是空的。
+       清的是記憶體裡這份，存起來的那兩份等下次真的還原時再用帳號過濾。 */
     openTabs = []; mdTabsRestored = false;
     renderTabs(); renderMdList(); renderThumbs();
 }
