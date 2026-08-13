@@ -201,7 +201,13 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
         repeating-linear-gradient(
             transparent 0 calc(var(--md-line) - 1px),
             var(--md-rule) calc(var(--md-line) - 1px) var(--md-line));
-    background-repeat:no-repeat,repeat;
+    /* ★★ 貼圖是 `repeat-y`：捲過第一張紙的底之後，下面接的是**一模一樣的下一張**
+       （頁首的點線／No.／Date 也在），不是一片沒完沒了的橫線。
+       ★ 代價要講清楚：textarea 沒辦法讓文字「跳過」下一張的頁首那三格，
+       所以第二張以後的 No./Date 會在字的底下。這是 textarea 的天花板——
+       要讓字真的避開，只能改用 contenteditable，而那會弄壞「打的是原文」。
+       ★ 預覽區的 `.md-page` 是一張一張獨立的方塊，各自只鋪一張，不受這條影響。 */
+    background-repeat:repeat-y,repeat;
     /* ★ 寬度用 100% 不是 --md-page-w：`.md-page` 本來就是 610 寬，兩者一樣；
        但編輯區是跟著欄寬伸縮的，寫死 610 的話寬一點的螢幕上，
        紙紋與頁首會在 610px 那裡切一刀，右邊只剩 CSS 畫的線。
