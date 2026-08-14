@@ -4824,6 +4824,19 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-08-14',
+                title: '安全檢視後的五處修補：課程欄位跳脫、推播收件地址白名單、快取鍵、時間戳下界',
+                items: [
+                    ['起因', '拿「AI 寫的程式為什麼比較不安全」那份整理逐項對照這個專案。結論是大部分沒中——沒有自動執行的設定檔、沒有硬編碼的祕密、D1 的 SQL 全部參數化、Markdown 走 DOMPurify。以下是真的找到的五個。'],
+                    ['★★ 課程的三個欄位沒跳脫，而規則只驗證 name', '`isRemote`／`isRollCall`／`groupActivity` 直接進 innerHTML，隔壁的 `instructor` 卻有包 `escapeHTML`——**同一個函式裡，一個有一個沒有**，這就是「AI 只驗證了它當時看得到的那個欄位」的樣子。課程是 `read: if true`，訪客也讀得到，所以寫進去一次就是對全站生效的儲存型 XSS，而 ID Token 就在 localStorage。列表與詳情兩處都補了，順手把 `aria-label` 裡的 `course.name` 也跳脫（屬性裡的引號一樣跳得出去）。'],
+                    ['★★ 推播的 endpoint 沒有白名單＝Worker 變成別人的發送器', '`sendBarePush` 會直接 `fetch(endpoint)`，而 endpoint 完全來自 request body。任何人 POST 一個自己的網址進來，cron 就會定時往那裡送，還附一組用我們 VAPID 私鑰簽出來的 JWT。這件事**不會有任何錯誤訊息**，那些請求全部成功，只會表現成「Worker 呼叫次數莫名其妙變多」。白名單擋在 subscribe 與 events 兩個入口；unsubscribe 刻意不擋，萬一白名單漏了一個真的主機，已經存進去的人還要刪得掉。'],
+                    ['★ `/ai/word` 的快取鍵漏了 origin——`/ai/solve` 修過同一個 bug', '那邊留了一整段註解說明「ACAO 會被烤進快取的標頭」，這一支當時漏掉。症狀完全一樣而且更難查：只有某些單字按了沒反應，max-age 是一天，一卡就是一整天。**修過的坑要回頭看還有沒有第二個現場**，這次就是。'],
+                    ['★ `freshTimestamp` 只擋了上界', '註解寫「不能偽造排序」，但只擋未來、沒擋過去——`createdAt: 0` 通得過，升冪排序就能被永久釘在最前面。下界刻意放到一小時而不是跟上界一樣的一分鐘：使用者手機時間設錯很常見，窗開太窄的症狀是那些人新增課程一律失敗，畫面上只有一句「新增失敗…」。'],
+                    ['管理員改別人時沒鎖 email', '星族與小黑貓管理員那兩條 update 只約束了 `role`／`tier`，本人那條卻有鎖 `email`。不是提權（權限看的是 `request.auth.token.email`），但一次寫錯整份文件就會把別人的 email 蓋掉，而名冊顯示的就是那欄。'],
+                    ['★ 還沒做的（記在這裡免得忘記）', '一、AI 端點沒有認證也沒有限流，CORS 擋不住 curl，額度是可以被灌光的。二、五支 CDN 函式庫沒有 SRI，`lucide` 還用 `@latest`——**消毒器本身沒有指紋**這件事要記得。三、規則對課程欄位還沒有值白名單，所以前端那道跳脫目前是唯一一道。四、`/push/pending` 仍以 endpoint 當唯一憑證。'],
+                ]
+            },
+            {
                 date: '2026-08-13',
                 title: '筆記的空行＝紙上真的空一格（「在第二頁打的字跑到空的第一頁」）',
                 items: [
@@ -7673,15 +7686,24 @@
             const rollCall = course.isRollCall ||'未設定';
             const group = course.groupActivity ||'未設定';
 
+            /* ★ 這三個欄位一定要跳脫。隔壁的 instructor 有包 escapeHTML，
+               這三個原本沒有——而 Firestore 規則對課程「只驗證 name」，
+               isRemote／isRollCall／groupActivity 可以是任意字串。
+               課程是 `allow read: if true`（訪客也讀得到），所以寫進去一次
+               就是對所有人生效的儲存型 XSS，而 Firebase 的 ID Token
+               就放在 localStorage 裡。（規則那邊還沒補欄位白名單，
+               所以目前這裡是唯一一道，不要拿掉。）
+               ★ `current` 維持原字串不要跳脫——它只拿去跟固定選項做 ===，
+               跳脫過的話比較會失敗，症狀是下拉選單永遠停在第一項。 */
             if (!isAdmin) {
                 return `<div class="mt-3 flex flex-wrap gap-2 text-[10px] uppercase font-black tracking-widest pointer-events-none">
-                        <span class="tag-meta px-2 py-1 rounded-md">遠距: ${remote}</span>
-                        <span class="tag-meta px-2 py-1 rounded-md">點名: ${rollCall}</span>
-                        <span class="tag-meta px-2 py-1 rounded-md">分組: ${group}</span>
+                        <span class="tag-meta px-2 py-1 rounded-md">遠距: ${escapeHTML(remote)}</span>
+                        <span class="tag-meta px-2 py-1 rounded-md">點名: ${escapeHTML(rollCall)}</span>
+                        <span class="tag-meta px-2 py-1 rounded-md">分組: ${escapeHTML(group)}</span>
                     </div>`;
             }
             const sel = (field, current, options) => `
-                <select data-action="update-course-feature" data-id="${course.id}" data-field="${field}" aria-label="${course.name} 的${field}設定"
+                <select data-action="update-course-feature" data-id="${course.id}" data-field="${field}" aria-label="${escapeHTML(course.name)} 的${field}設定"
                     class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
                     ${options.map(([v, l]) => `<option value="${v}" ${current === v ?'selected' :''}>${l}</option>`).join('')}
                 </select>`;
@@ -7802,10 +7824,11 @@
 
             $('detailCourseTitle').textContent = course.name;
             $('detailCourseInstructor').innerHTML = `<i data-lucide="user" class="w-4 h-4"></i> ${escapeHTML(course.instructor)}`;
+            // 三個欄位同樣要跳脫，理由見 courseFeatureSection 的註解
             $('detailCourseFeatures').innerHTML = `
-                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-blue-300">是否遠距：${course.isRemote ||'未設定'}</span>
-                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-amber-300">是否點名：${course.isRollCall ||'未設定'}</span>
-                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-fuchsia-300">分組活動：${course.groupActivity ||'未設定'}</span>`;
+                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-blue-300">是否遠距：${escapeHTML(course.isRemote ||'未設定')}</span>
+                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-amber-300">是否點名：${escapeHTML(course.isRollCall ||'未設定')}</span>
+                <span class="px-3 py-1.5 bg-white/10 border border-white/20 rounded-xl text-xs font-bold text-fuchsia-300">分組活動：${escapeHTML(course.groupActivity ||'未設定')}</span>`;
 
             renderReviews();
             renderMaterials();
