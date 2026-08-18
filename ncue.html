@@ -4040,7 +4040,45 @@
             ['通識','通識'], ['校定必修','校定必修'], ['other','其他']
         ];
         // 分類 → 顯示文字（含舊資料 elective 的相容對應）
+
         const categoryMap = Object.fromEntries([...CATEGORIES, ['elective','系選修']]);
+
+        /* ==========================================================
+         * 一天從凌晨四點開始（2026-08-18 起全站統一）
+         *
+         * ★ 為什麼不是午夜：使用者是學生。23:50 讀到 01:00 是**同一個晚上**，
+         * 照午夜切的話，讀書計時會記成「昨天 10 分鐘、今天 60 分鐘」兩筆，
+         * 而計劃表會在使用者還沒睡的時候，把今天的計劃整批丟進「昨日」區
+         * ——半夜十二點零一分，畫面上突然多出一區「沒做完」，而他其實還在做。
+         * 兩種都不會報錯，只會讓人覺得「這個站半夜怪怪的」。
+         *
+         * ★ 這個常數是**唯一來源**。讀書計時原本自己有一個
+         * `STUDY_DAY_START_H`，計劃則用日曆天——兩套日界並存不會報錯，
+         * 只會讓「同一段時間」在兩個功能裡屬於不同的一天。
+         *
+         * ★ 倒數**刻意不吃這條**：它只記日期、一天只變一次，
+         * 語意是「離某一天還有幾天」，那個「天」就是日曆上的天。
+         *
+         * ⚠️ `planOccurrence` 的 `occ` 也**刻意不改**：那是重複計劃「哪一次」
+         * 的身分證（存在 `doneOn` 裡），不是「現在是哪一天」的判斷。
+         * 改了的話，已經打過勾的舊資料會對不上新的鍵——而症狀是
+         * 「打過的勾自己不見了」，沒有任何訊息。
+         * ========================================================== */
+        const DAY_START_H = 4;
+        /* 這個時間點屬於哪一天——回傳那一天的**本地零點**（不是四點）。
+           回零點是為了讓 `setDate(+n)` 這種日曆運算照常用。 */
+        const dayBaseOf = (ts) => {
+            const d = new Date(ts);
+            d.setTime(d.getTime() - DAY_START_H * 3600000);
+            d.setHours(0, 0, 0, 0);
+            return d;
+        };
+        /* 同一件事的字串版，格式跟 todayStr 一樣，所以可以直接餵給 countdownDays。 */
+        const dayKeyOf = (ts) => {
+            const d = dayBaseOf(ts);
+            const p = (n) => String(n).padStart(2,'0');
+            return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+        };
 
         /* ★ 這個檔案是**兩個產品的共同原始碼**。
            `tools/mkpages.mjs` 只換掉下面這一行，就產生出 `ncue.html`。
@@ -4963,6 +5001,26 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-18',
+                title: '一天從凌晨四點開始（全站統一），讀書計時接上計劃',
+                items: [
+                    ['起因', '讀書計時上線之後，站上有**兩套日界**：計時器用凌晨四點（讀到半夜是同一個晚上），計劃表用日曆天。兩套並存不會報錯，只會讓同一段時間在計時器裡算昨天、在計劃表裡算今天。'],
+                    ['★★ 半夜十二點零一分，今天的計劃會整批掉進「昨日」區', '這是照日曆天算的真正代價，而不只是「不一致」。使用者還沒睡，畫面上突然多出一區「沒做完」——他其實還在做。現在 `planZone`、`plansToPurge`、快速新增的「今天／明天」全部吃同一個 `DAY_START_H = 4`。'],
+                    ['★★ 而且「昨天的計劃」原本會被提早一天清掉', '自動清除是整個計劃表**唯一會弄丟資料**的地方。半夜一點開站時，昨天那批的日曆天差已經是 −2，正好踩到刪除線——而刪掉的救不回來，畫面上只跳一句「清掉 N 筆」。這一條現在被 `tests/study.mjs` 釘死。'],
+                    ['★ 只改一邊比兩邊都不改更糟', '`planZone` 要 `at` 與 `now` **兩邊**都換。只改一邊的話凌晨那四個小時會整批差一天，而白天完全正常——最難查的那一種。故意弄壞這一條確認過它會紅。'],
+                    ['★ 快速新增非跟著改不可', '不改的話，半夜一點打「明天下午三點」會算成日曆上的後天，那筆落在「本周」區——使用者明明選了明天，看起來就像分區壞了。順手也修掉一個舊的邊界：半夜一點打「8/18」（還沒過完的這一天）原本會被判成「今年已經過了」而排到**明年**。'],
+                    ['★ 代價寫在預覽上', '凌晨那四個小時，「今天」指的是還沒睡的那一天。預覽會多寫一句「現在是凌晨，『今天』算的還是昨天那一天」——不寫的話使用者看到的是日期少一天，而唯一的線索是星期幾對不上。'],
+                    ['★ 倒數刻意**不**跟著改', '它只記日期、一天只變一次，「離某一天還有幾天」的那個「天」就是日曆上的天。改了的話凌晨兩點看倒數會比日曆多一天。測試裡釘了一條，防的是下一個人「順手統一」。'],
+                    ['⚠️ 重複計劃的 `occ` 也刻意不改', '那是「哪一次」的身分證（存在 `doneOn` 裡），不是「現在是哪一天」的判斷。改了的話已經打過勾的舊資料會對不上新的鍵，症狀是**「打過的勾自己不見了」**，沒有任何訊息。'],
+                    ['計劃每一列多一顆計時鈕', '按下去用那筆計劃的標題開始計時，紀錄帶 `pid`。★ 記的是計劃 id 不是 `occ`：重複計劃的每一次都算在同一筆計劃頭上，用 occ 的話「這筆計劃總共讀了多久」會被切成一天一份。'],
+                    ['★ 累計要把進行中那一段算進去', '不算的話，使用者按了計時、盯著計劃那一列，數字整整半小時動也不動，看起來就像沒有在記。'],
+                    ['★ 已經有一段在跑就擋下來並說一聲', '整站只有一個計時器。從另一筆計劃按下去時靜默換科目的話，等於把前面讀的時間記到別科上，而畫面上只會看到科目那幾個字變了。'],
+                    ['科目建議多收計劃標題', '「今天要讀什麼」多半已經寫在計劃裡了，再打一次字是白做工。只收還沒打勾的。'],
+                    ['★ 測試裡「數量型」的檢查差點放水', '「開始／停止都要重畫計劃列」原本寫成「至少出現四次」，而把 `startStudy` 那一次拿掉之後**照樣是綠的**——別的函式湊滿了數量。改成一支一支看。這是這一輪十二條故意弄壞裡唯一一開始沒紅的。'],
+                    ['★ 日界的三個宣告集中到 `tests/_lib.mjs`', '`plans`／`quickadd`／`repeat`／`study` 四支測試都要餵這三個宣告。各抄一份的話，日界改一次要改四個地方，而漏掉的那一份會用舊定義跑出綠燈。'],
+                ]
+            },
             {
                 date: '2026-08-18',
                 title: '讀書計時（YPT 那一種）：掛在計劃底下，關掉分頁也不會少算',
@@ -6521,9 +6579,15 @@
 
         /* 畫面上要顯示的所有列。★ 不重複的計劃**不受窗口限制**——
            三個月後的期末考本來就該待在「未來」區，被窗口濾掉的話它會直接消失。 */
+
         function planBoardItems(plans, now) {
-            const from = new Date(now); from.setHours(0, 0, 0, 0); from.setDate(from.getDate() - 2);
-            const to = new Date(now); to.setHours(23, 59, 59, 999); to.setDate(to.getDate() + PLAN_REP_WINDOW_DAYS);
+            /* ★ 窗口也跟著日界走，而且兩頭都刻意放寬四小時：窗口只是
+               「重複計劃要展開到哪」的過濾器，寬一點沒有壞處，窄了才會出事——
+               一筆凌晨一點的每日計劃會在窗口邊緣安靜地消失。 */
+            const from = dayBaseOf(now); from.setDate(from.getDate() - 2);
+            const to = dayBaseOf(now);
+            to.setDate(to.getDate() + PLAN_REP_WINDOW_DAYS + 1);
+            to.setHours(DAY_START_H, 0, 0, 0);
             const out = [];
             for (const p of (plans || [])) {
                 if (!isRepeating(p)) { out.push(planOccurrence(p, Number(p.at))); continue; }
@@ -6556,11 +6620,19 @@
         /* ★ 區塊完全由「日期」決定，不看時間。
            這是跟上一版最大的差別：上一版用「開始時間過了沒」判斷過期，
            結果今天早上的計劃到了下午就跳出「今天」——但它明明還是今天的事。
-           現在今天的計劃一整天都待在「今天」，直到日期換了才落到昨日。 */
+
+           現在今天的計劃一整天都待在「今天」，直到日期換了才落到昨日。
+
+           ★★ 2026-08-18：「日期」改用 dayKeyOf（凌晨四點才換日），
+           不再是日曆天。原本的症狀是**使用者還沒睡，今天的計劃就整批
+           掉進「昨日」區**——半夜十二點零一分，畫面上突然多出一區
+           「沒做完」，而他其實還在做。沒有錯誤訊息。
+           ★ `at` 與 `now` 兩邊都要換。只改一邊的話，凌晨那四個小時會
+           整批差一天，而白天完全正常——最難查的那一種。 */
         function planZone(plan, now) {
             const at = Number(plan && plan.at);
             if (!isFinite(at)) return 'later';
-            const d = countdownDays(todayStr(new Date(at)), todayStr(new Date(now)));
+            const d = countdownDays(dayKeyOf(at), dayKeyOf(now));
             if (d === null) return 'later';
             if (d < 0)  return 'yesterday';   // 昨日以前的一律收在這裡
             if (d === 0) return 'today';
@@ -6582,15 +6654,20 @@
            使用者的說法是「昨日過了一天後自動刪除」——也就是它只活一天。
 
            ★ 已完成的不在這裡刪：那是紀錄，使用者可能想回頭看。 */
+
         function plansToPurge(plans, now) {
-            const today = todayStr(new Date(now));
+            /* ★ 跟 planZone 用同一個日界（凌晨四點）。兩邊不一致的話會出現
+               「畫面上還在昨日區、下次開站卻已經被清掉」，而清掉的東西
+               沒有辦法還原——所以這兩支一定要同一個定義。 */
+            const today = dayKeyOf(now);
             return (plans || []).filter(p => {
                 if (p && p.done) return false;
                 /* ★ 重複計劃永遠不清。它的 `at` 是「第一次」，通常早就過了——
                    照日期清的話，一筆建立兩天的每週例會會在第三天整條消失，
                    而使用者只會覺得計劃自己不見了。要停就自己刪或設結束日。 */
                 if (isRepeating(p)) return false;
-                const d = countdownDays(todayStr(new Date(Number(p && p.at))), today);
+
+                const d = countdownDays(dayKeyOf(Number(p && p.at)), today);
                 return d !== null && d <= -2;
             });
         }
@@ -6643,14 +6720,18 @@
                         '1':1,'2':2,'3':3,'4':4,'5':5,'6':6,'7':0 };
         /* 下一個某星期幾（今天也算）。「每週三」與一次性的「週三」共用同一條規則，
            不然同一個詞在兩個地方會算出不同的日子。 */
+
         function qpNextWeekday(target, now) {
-            const d = new Date(now); d.setHours(0, 0, 0, 0);
+            /* ★ 基準是「現在屬於哪一天」（凌晨四點才換日），不是日曆天。
+               不然半夜一點打「週三」會算成下一個週三，整整差七天。 */
+            const d = dayBaseOf(now);
             d.setDate(d.getDate() + ((target - d.getDay() + 7) % 7));
             return d.getTime();
         }
         /* 下一個某號（今天也算）。當月沒有那一天就往後找。 */
+
         function qpNextMonthDay(day, now) {
-            const d = new Date(now); d.setHours(0, 0, 0, 0);
+            const d = dayBaseOf(now);
             for (let i = 0; i < 14; i++) {
                 const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
                 if (day <= last) {
@@ -6841,17 +6922,26 @@
                     /* ★ 沒寫年份而那個日期今年已經過了 → 是明年的。
                        十二月打「1/5」不處理這一段的話會排到今年一月，
                        那筆計劃一出生就在「昨日」區。 */
-                    const t0 = new Date(now); t0.setHours(0, 0, 0, 0);
+
+                    /* ★ 這裡的「今天」也要用日界，不然半夜一點打「8/18」
+                       （也就是還沒過完的這一天）會被判成「今年已經過了」，
+                       整筆排到**明年**的 8/18。 */
+                    const t0 = dayBaseOf(now);
                     if (start.getTime() < t0.getTime()) start.setFullYear(start.getFullYear() + 1);
                 }
                 /* 2/30 這種不存在的日期，Date 會安靜地滾到 3/2。 */
                 if (start.getMonth() !== mo - 1) { res.reason = '沒有 ' + mo + '/' + da + ' 這一天'; return res; }
+
             } else if (dayOffset !== null) {
-                start.setHours(0, 0, 0, 0); start.setDate(start.getDate() + dayOffset);
+                /* ★「今天／明天／後天」以日界為準：半夜一點的「明天」是
+                   日曆上的今天。不這樣算的話，打進去的那筆會落在「本周」區，
+                   而使用者明明選的是明天——看起來就像分區壞了。 */
+                start.setTime(dayBaseOf(now).getTime()); start.setDate(start.getDate() + dayOffset);
             } else if (wdTs !== null) {
                 start.setTime(wdTs);
+
             } else {
-                dateGiven = false; start.setHours(0, 0, 0, 0);
+                dateGiven = false; start.setTime(dayBaseOf(now).getTime());
             }
 
             let hm = hmStart;
@@ -6869,10 +6959,17 @@
             /* ★ 只寫時間沒寫日期、而那個時間今天已經過了 → 是明天的事。
                不處理的話「三點 交報告」在下午四點打進去，會建立一筆
                已經過期的計劃，直接掛在「昨日」區。 */
+
             if (!dateGiven && hm && start.getTime() <= now) {
                 start.setDate(start.getDate() + 1);
                 res.notes.push('今天這個時間過了，排到明天');
             }
+            /* ★ 凌晨那四個小時，「今天」指的是還沒睡的那一天，不是日曆上的今天。
+               這件事一定要寫在預覽上：不寫的話使用者會看到日期少一天，
+               而唯一的線索是星期幾對不上——跟「打過去的日期排到明年」
+               那條待辦記著的是同一種困惑。 */
+            if (dayOffset !== null && new Date(now).getHours() < DAY_START_H)
+                res.notes.push('現在是凌晨，「今天」算的還是昨天那一天');
 
             let endTs;
             if (hmEnd) {
@@ -7032,7 +7129,13 @@
             /* 子任務一律展開，不做「點進度才打開」。
                ★ 它要回答的問題就是「還有什麼沒做」，收起來等於多按一次才看得到，
                那顆按鈕本身就是這個功能最大的成本。 */
+
             const st = planSubStat(p);
+            /* ★ 讀書計時接進來的兩個值。用 `p.id` 不是 `p.occ`：重複計劃的
+               每一次都算在同一筆計劃頭上，用 occ 的話「這筆計劃總共讀了多久」
+               會被切成一天一份。 */
+            const timing = !!(studyRun && studyRun.pid === p.id);
+            const studied = studyMsOfPlan(studySessions, studyRun, p.id, now);
             const subsHTML = st.total ? `
                 <div class="mt-2 pl-9 space-y-1">
                     ${planSubs(p).map(s => `
@@ -7056,7 +7159,13 @@
                         <div class="text-xs text-slate-500 truncate">${escapeHTML(when)}${p.note ?'・' + escapeHTML(p.note) :''}</div>
                     </div>
                 </div>
+
                 <div class="flex items-center gap-1 shrink-0">
+                    ${studied ? `<span class="text-[10px] font-black text-slate-400 mr-1" title="這筆計劃累計讀了多久">${escapeHTML(fmtStudyDur(studied))}</span>` :''}
+                    ${timing ? `<button data-action="open-study" title="正在計時，點一下看計時器"
+                            class="tap-44 shrink-0 px-2 py-1 rounded-lg text-[10px] font-black bg-amber-500 text-white flex items-center gap-1"><i data-lucide="timer" class="w-3.5 h-3.5 pointer-events-none"></i> 計時中</button>`
+                      : (p.done ?'' : `<button data-action="study-plan" data-id="${escapeHTML(p.id)}" title="用這筆計劃的標題開始讀書計時"
+                            class="tap-44 p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="timer" class="w-4 h-4 pointer-events-none"></i></button>`)}
                     ${st.total ? `<span class="text-[10px] font-black text-slate-400 mr-1">${st.done}/${st.total}</span>` :''}
                     ${p.done ?'' : `<span class="plan-countdown text-xs font-black mr-1 ${c.past ?'text-slate-400' : phase === 'during' ?'text-emerald-600' :'text-amber-600'}" data-at="${target}" data-prefix="${prefix}">${escapeHTML(prefix + c.text)}</span>`}
                     <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
@@ -8027,26 +8136,19 @@
         const STUDY_MAX_MS   = 6 * 3600 * 1000;       // 忘了按停止的上限：6 小時
         const STUDY_MIN_MS   = 60 * 1000;             // 不到一分鐘不記
         const STUDY_BEAT_MS  = 5 * 60 * 1000;         // 心跳間隔
-        const STUDY_WRITE_GAP = 60 * 1000;            // 兩次雲端寫入至少隔這麼久
-        const STUDY_DAY_START_H = 4;                  // 「一天」從凌晨四點開始（見下）
 
-        /* ★ 跨日算哪一天：以**開始時間**歸屬，而且日界在凌晨四點，不是午夜。
-           23:50 讀到 01:00 是同一個晚上，照午夜切的話會變成兩筆很短的紀錄
-           （「昨天 10 分鐘、今天 60 分鐘」），而使用者記得的是「昨晚讀了 70 分鐘」。
-           四點是折衷：真的熬到四點以後才睡的那一段，算成新的一天也說得過去。
-           ★ 抽成純函式是為了測試能真的餵時間進去跑——日界這種東西
-           用眼睛看很難確認（剛好 03:59、剛好 04:00、跨月、跨年）。 */
-        function studyDayKey(ts){
-            const d = new Date(ts - STUDY_DAY_START_H * 3600000);
-            const p = (n) => String(n).padStart(2,'0');
-            return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
-        }
-        /* 那一週的週一（週一為週首）。回傳的格式跟 studyDayKey 一樣，
+        const STUDY_WRITE_GAP = 60 * 1000;            // 兩次雲端寫入至少隔這麼久
+
+        /* ★ 跨日算哪一天：以**開始時間**歸屬，日界走全站共用的 `dayKeyOf`
+           （凌晨四點，見檔案上方那一段）。
+           ★ 2026-08-18 改過一次：原本這裡自己有一個 `STUDY_DAY_START_H`，
+           而計劃那邊用日曆天。**兩套日界並存不會報錯**，只會讓同一段時間
+           在讀書計時裡算「昨天」、在計劃表裡算「今天」。現在只有一份。 */
+        /* 那一週的週一（週一為週首）。回傳的格式跟 dayKeyOf 一樣，
            所以兩者可以直接比對。★ `getDay()` 的星期日是 0，直接減會把
            星期日算成「下一週的開頭」——(day+6)%7 讓週一變成 0。 */
         function studyWeekKey(ts){
-            const d = new Date(ts - STUDY_DAY_START_H * 3600000);
-            d.setHours(0,0,0,0);
+            const d = dayBaseOf(ts);
             d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
             const p = (n) => String(n).padStart(2,'0');
             return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
@@ -8076,7 +8178,14 @@
             }
             const rec = { id:'s' + run.start.toString(36), sub: run.sub || '',
                           s: run.start, e: run.start + ms + (run.pausedMs || 0),
+
                           ms, p: run.pauses || 0 };
+            /* ★ 從計劃按下去開始的那一段，把計劃 id 一起記著（`pid`）。
+               記的是計劃 id 不是 `occ`：重複計劃的每一次都算在同一筆計劃頭上，
+               用 occ 的話「這筆計劃總共讀了多久」會被切成一天一份。
+               ★ 只在真的有值時才寫這個欄位——一律寫 null 的話，
+               那 400 筆紀錄每一筆都多一個沒有用的欄位，白白吃 1 MB 的額度。 */
+            if (run.pid) rec.pid = run.pid;
             if (cut) rec.cut = 1;
             return rec;
         }
@@ -8084,20 +8193,33 @@
         /* 當日／當週統計。★ 迴圈裡加一個計數器（ran）是給測試用的：
            零筆資料的迴圈跟「算對了」長得一模一樣。 */
         function studyTotals(sessions, now){
-            const dk = studyDayKey(now), wk = studyWeekKey(now);
+            const dk = dayKeyOf(now), wk = studyWeekKey(now);
             let day = 0, week = 0, ran = 0;
             const bySub = new Map();
             for (const s of (sessions || [])){
                 if (!s || !(s.ms > 0)) continue;
                 ran++;
                 if (studyWeekKey(s.s) === wk) week += s.ms;
-                if (studyDayKey(s.s) === dk){
+                if (dayKeyOf(s.s) === dk){
                     day += s.ms;
                     const n = s.sub || '未分類';
                     bySub.set(n, (bySub.get(n) || 0) + s.ms);
                 }
             }
             return { day, week, ran, bySub: [...bySub.entries()].sort((a,b) => b[1] - a[1]) };
+        }
+
+
+        /* 某一筆計劃累計讀了多久（含正在跑的那一段）。
+           ★ 把進行中那一段一起算進去：不算的話，使用者按了計時、
+           盯著計劃那一列，數字整整半小時動也不動，看起來就像沒有在記。 */
+        function studyMsOfPlan(sessions, run, planId, now){
+            if (!planId) return 0;
+            let ms = 0;
+            for (const s of (sessions || []))
+                if (s && s.pid === planId && s.ms > 0) ms += s.ms;
+            if (run && run.pid === planId) ms += studyElapsed(run, now);
+            return ms;
         }
 
         /* 計時器上那串數字：時:分:秒，補零。 */
@@ -8192,18 +8314,37 @@
                 const c = userSchedule[k];
                 if (c && c.courseName) set.add(c.courseName);
             }
+
+            /* ★ 計劃的標題也是科目來源：「今天要讀什麼」多半已經寫在計劃裡了，
+               再打一次字是白做工。只收還沒打勾的——做完的不需要再讀一次。 */
+            for (const p of (userPlans || [])) if (p && !p.done && p.title) set.add(p.title);
             for (const s of studySessions) if (s && s.sub) set.add(s.sub);
             return [...set].slice(0, 60);
         }
 
-        function startStudy(){
-            if (studyRun) return;
+
+        /* `opts` 只有從計劃那一列按下來時才有：`{ sub, pid }`。
+           ★ 已經有一段在跑就**擋下來並說一聲**，不要偷偷換科目——
+           整站只有一個計時器，靜默改掉正在跑的那一段等於把前面讀的時間
+           記到另一個科目上，而畫面上只會看到科目那幾個字變了。 */
+        function startStudy(opts){
+            if (studyRun) return showToast('已經有一段在跑了，先按停止');
             const el = $('studySubject');
-            const sub = el ? el.value.trim().slice(0, 40) : '';
-            studyRun = { start: Date.now(), sub, pausedMs: 0, pausedAt: 0, pauses: 0, beat: Date.now() };
+            const sub = (opts && opts.sub) || (el ? el.value.trim() : '');
+            studyRun = { start: Date.now(), sub: String(sub || '').slice(0, 40),
+                         pausedMs: 0, pausedAt: 0, pauses: 0, beat: Date.now() };
+            if (opts && opts.pid) studyRun.pid = opts.pid;
             persistStudyLocal();
-            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            renderStudy(); renderPlans(); updateStudyTicker(); updateStudyBeat();
             beatStudy(true);
+            if (opts && opts.pid) showToast(`開始計時：${studyRun.sub || '（沒有標題）'}`);
+        }
+        /* 計劃那一列上的「計時」。★ 科目直接用計劃的標題，不另外問——
+           讓使用者按一顆按鈕再打一次字，等於這顆按鈕沒有省到任何事。 */
+        function startStudyFromPlan(id){
+            const p = (userPlans || []).find(x => x && x.id === id);
+            if (!p) return;
+            startStudy({ sub: p.title, pid: p.id });
         }
         /* ★ 暫停要記次數。不記的話「暫停一次」跟「停掉再開一段」在資料上
            完全一樣，而「純讀書時間」這個數字的意義就沒辦法解釋了
@@ -8211,17 +8352,19 @@
         function pauseStudy(){
             if (!studyRun || studyRun.pausedAt) return;
             studyRun.pausedAt = Date.now();
+
             studyRun.pauses = (studyRun.pauses || 0) + 1;
             persistStudyLocal();
-            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            renderStudy(); renderPlans(); updateStudyTicker(); updateStudyBeat();
             beatStudy();
         }
         function resumeStudy(){
             if (!studyRun || !studyRun.pausedAt) return;
             studyRun.pausedMs = (studyRun.pausedMs || 0) + (Date.now() - studyRun.pausedAt);
+
             studyRun.pausedAt = 0;
             persistStudyLocal();
-            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            renderStudy(); renderPlans(); updateStudyTicker(); updateStudyBeat();
             beatStudy();
         }
         async function stopStudy(){
@@ -8237,9 +8380,10 @@
             } else {
                 msg = '不到一分鐘，這一段不記';
             }
+
             studyDirty = true;
             persistStudyLocal();
-            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            renderStudy(); renderPlans(); updateStudyTicker(); updateStudyBeat();
             showToast(msg);
             try { await saveStudy(); }
             catch (e){
@@ -8252,7 +8396,8 @@
             if (i < 0) return;
             const back = studySessions.slice();
             studySessions.splice(i, 1);
-            studyDirty = true; persistStudyLocal(); renderStudy();
+
+            studyDirty = true; persistStudyLocal(); renderStudy(); renderPlans();
             try { await saveStudy(); showToast('已刪除'); }
             catch (e){
                 /* ★ 存不回去就把畫面還原。留著「畫面上刪了、雲端還在」的狀態，
@@ -8306,9 +8451,13 @@
             show('studyResumeBtn', running && paused);
             show('studyStopBtn',   running);
             const note = $('studyRunNote');
+
+            /* ★ 從計劃開始的那一段要講出來，不然使用者看到的只是一個科目名，
+               不知道這段時間會不會算到那筆計劃頭上。 */
+            const fromPlan = (running && studyRun.pid) ? '（算在同名的計劃上）' : '';
             if (note) note.textContent = !running ? ''
                 : paused ? `已暫停（這一段暫停過 ${studyRun.pauses} 次）`
-                         : (studyRun.sub ? `正在讀：${studyRun.sub}` : '正在讀（沒填科目）');
+                         : (studyRun.sub ? `正在讀：${studyRun.sub}${fromPlan}` : '正在讀（沒填科目）');
 
             /* 今天／本週 ＋ 今天各科 ＋ 最近幾筆。
                ★ 最近幾筆要看得到「暫停過幾次」與「截斷過」，
@@ -8341,7 +8490,7 @@
                             <div class="min-w-0">
                                 <div class="text-sm font-black text-slate-700 truncate">${escapeHTML(s.sub || '未分類')}</div>
                                 <div class="text-xs font-bold text-slate-400">
-                                    ${escapeHTML(studyDayKey(s.s))} ${escapeHTML(hhmm(s.s))}–${escapeHTML(hhmm(s.e))}
+                                    ${escapeHTML(dayKeyOf(s.s))} ${escapeHTML(hhmm(s.s))}–${escapeHTML(hhmm(s.e))}
                                     ${s.p ? ` · 暫停 ${s.p} 次` : ''}${s.cut ? ' · 已截斷' : ''}
                                 </div>
                             </div>
@@ -11577,7 +11726,10 @@
 'toggle-plan-sub': (t) => togglePlanSub(t.dataset.id, t.dataset.sub),
 'add-plan-sub': () => addPlanSub(),
 'del-plan-sub': (t) => delPlanSub(t.dataset.i),
+
 'study-start':  () => startStudy(),
+'study-plan':   (t) => startStudyFromPlan(t.dataset.id),
+'open-study':   () => switchStudySub('timer'),
 'study-pause':  () => pauseStudy(),
 'study-resume': () => resumeStudy(),
 'study-stop':   () => stopStudy(),
