@@ -9,7 +9,7 @@
   "background_color": "#0c1613",
   "theme_color": "#101f1b",
   "icons": [
-    { "src": "image.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
-    { "src": "image.png", "sizes": "256x256", "type": "image/png", "purpose": "maskable" }
+    { "src": "logomain.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "any" },
+    { "src": "logomain.jpg", "sizes": "512x512", "type": "image/jpeg", "purpose": "maskable" }
   ]
 }

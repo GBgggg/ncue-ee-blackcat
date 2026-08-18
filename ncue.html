@@ -52,7 +52,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="小黑貓">
-    <link rel="apple-touch-icon" href="image2.jpg">
+    <link rel="apple-touch-icon" href="logoncueee.jpg">
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -1230,59 +1230,6 @@
             mask: var(--vg-swatch) center / 100% 100% no-repeat;
         }
 
-        /* ---- 快速命令列 ----
-           ★ 面板用 --panel（不透明）。它浮在整頁之上，用半透明的
-           --paper-raised 會透出底下的文字，兩層字疊在一起——
-           跟 logo 下拉選單同一條規則。 */
-        .cmdk-panel {
-            background-color: var(--panel);
-            background-image: var(--vg-tooth);
-            border: 1px solid var(--rule);
-        }
-        /* 只給螢幕閱讀器的文字。★ 不能用 display:none 或 visibility:hidden，
-           那兩個會讓它**連螢幕閱讀器也讀不到**——那正是「加了但沒作用」。 */
-        .sr-only {
-            position: absolute; width: 1px; height: 1px;
-            padding: 0; margin: -1px; overflow: hidden;
-            clip: rect(0 0 0 0); white-space: nowrap; border: 0;
-        }
-        .cmdk-item {
-            display: flex; align-items: center; gap: 12px;
-            width: 100%; padding: 10px 16px; text-align: left;
-            background: transparent; border: 0;
-            color: var(--ink-2); font-weight: 700; font-size: .95rem;
-            transition: background-color var(--dur-fast) var(--ease),
-                        color var(--dur-fast) var(--ease);
-        }
-        /* ★ 選中態靠 aria-selected 而不是另一個 class：
-           這樣「畫面上highlight 的那一項」與「螢幕閱讀器認為選中的那一項」
-           保證是同一個，不會有一個更新了另一個沒更新。 */
-        .cmdk-item[aria-selected="true"] {
-            background-color: var(--accent-soft);
-            color: var(--ink);
-            box-shadow: inset 3px 0 0 var(--accent-bright);
-        }
-        .cmdk-item .cmdk-kind {
-            margin-left: auto; font-size: .72rem; font-weight: 800;
-            letter-spacing: .06em; color: var(--ink-3);
-        }
-        /* ★ 快捷鍵提示只在「有鍵盤」的裝置顯示。
-           判斷用 hover+fine pointer，不是螢幕寬度——平板接了鍵盤仍然是
-           觸控，而窄視窗的筆電還是有鍵盤。用寬度判斷兩種都會判錯。
-           手機上顯示「⌘K」是在教一個按不出來的東西。 */
-        .kbd-hint { display: none; }
-        @media (hover: hover) and (pointer: fine) {
-            .kbd-hint { display: inline-block; border: 1px solid currentColor; opacity: .55; }
-        }
-        #cmdk .cmdk-panel { animation: cmdkIn var(--dur-pop) var(--ease-spring); }
-        @keyframes cmdkIn {
-            from { opacity: 0; transform: translateY(-8px) scale(.98); }
-            to   { opacity: 1; transform: translateY(0) scale(1); }
-        }
-        @media (prefers-reduced-motion: reduce) {
-            #cmdk .cmdk-panel { animation: none; }
-        }
-
         /* ---- 乾筆的分隔線（已被波浪取代，這段只留教訓）----
            一條均勻的 1px 細線是製圖的語彙。同樣的線用遮罩打斷成長短
            不一的幾段，就變成「畫上去的」——濃度與顏色完全沒變，
@@ -1776,6 +1723,89 @@
         .plan-zone.is-over {
             background: color-mix(in srgb, var(--zone) 22%, var(--paper-sunk));
             box-shadow: inset 0 0 0 2px var(--zone);
+        }
+
+        /* ---- 拖曳的手感（2026-08-18）----
+           在這之前拖曳只有兩個**瞬間切換**的狀態：被拖的那一列直接跳成
+           Tailwind 的 `.opacity-40`、區塊直接跳成 `.is-over`。
+           動效.md 把這種叫「對稱的狀態變化」，該走 `--ease`——
+           而不給過場不是「比較克制」，只是還沒做。
+           ★ `.plan-zone` 那一條本來就有 transition，被拖的那一列沒有，
+           所以同一個手勢的兩半一個會過場一個是硬切。 */
+        .plan-row {
+            transition: opacity var(--dur-base) var(--ease),
+                        transform var(--dur-base) var(--ease),
+                        box-shadow var(--dur-base) var(--ease);
+        }
+        /* 被拿走的那一列留在原位當影子：它要說的是「這筆本來在這裡」，
+           所以是退到背景，不是消失（真的拿掉的話清單會在手指底下重排）。 */
+        .plan-row.is-dragging {
+            opacity: .38;
+            transform: scale(.985);
+        }
+        /* ★ 手指拖曳時跟著走的那一張。原生拖曳有瀏覽器自己畫的半透明殘影，
+           **觸控完全沒有**——少了這張，手機上的體感是「按著不放，然後畫面沒反應」。
+           ⚠️ 它是 `.plan-row` 複製出來的，所以會繼承上面那條 transition，
+           而跟著手指走的東西一旦有 transition 就會慢半拍、黏在手指後面。
+           這裡的 `transition: none` 是必要的，不是清乾淨。 */
+        .plan-drag-ghost {
+            position: fixed; left: 0; top: 0;
+            z-index: 70; pointer-events: none;
+            transition: none;
+            opacity: .96;
+            box-shadow: 0 12px 28px rgba(0, 0, 0, .28);
+            will-change: transform;
+        }
+        /* 落地。★ 用 `--ease` 不用 `--ease-spring`：動效.md 第三節寫著
+           過衝那三個使用者全是「跳出來的東西」，而 `.plan-check-pop`
+           是**全站唯一一個慶祝**。搬一筆計劃不是慶祝，它只是落定——
+           落定走減速曲線，這是「判準是方向不是元件」那一條。 */
+        @keyframes planLand {
+            from { opacity: .3; transform: translateY(-6px) scale(.98); }
+            to   { opacity: 1; transform: none; }
+        }
+        .plan-row-landed { animation: planLand var(--dur-pop) var(--ease); }
+        @media (prefers-reduced-motion: reduce) {
+            .plan-row { transition: none; }
+            .plan-row.is-dragging { transform: none; }
+            .plan-row-landed { animation: none; }
+        }
+
+        /* ---- 學測考過的年份：單字卡上那個圈起來的數字（2026-08-18）----
+           ★ 圈裡是「考過幾年」，不是「總共考過幾次」。資料本身就是照年數排的
+           （同一年考很多次只算一次），而那才是「高頻」要講的事——
+           改成總次數的話，一個只在某一年被密集考到的字會排到跨三年的字前面，
+           剛好是反的。次數沒有丟掉，它在 hover 出來的那一行裡。
+           ⚠️ 手機沒有 hover。標記掛 `tabindex="0"`，這裡連 `:focus-visible`
+           一起吃——只寫 `:hover` 的話這個提示在手機上等於不存在，
+           而畫面上還是有一個看起來可以點的圈。 */
+        .vocab-exam {
+            position: relative;
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 20px; height: 20px; border-radius: 999px;
+            border: 1.5px solid var(--accent);
+            background: var(--accent-soft);
+            color: var(--accent);
+            font-size: 11px; font-weight: 900; line-height: 1;
+            cursor: help;
+        }
+        .vocab-exam::after {
+            content: attr(data-tip);
+            position: absolute; bottom: calc(100% + 6px); left: 0;
+            /* ★ 不置中對齊。這個圈是標籤列的第一個，置中的話提示會往左溢出卡片，
+               而窄螢幕上溢出的那一半是直接看不到的（不會有捲軸）。 */
+            max-width: min(240px, 62vw);
+            width: max-content;
+            padding: 5px 9px; border-radius: 8px;
+            background: var(--ink); color: var(--paper);
+            font-size: 11px; font-weight: 700; line-height: 1.5;
+            opacity: 0; pointer-events: none;
+            transition: opacity var(--dur-fast) var(--ease);
+            z-index: 5;
+        }
+        .vocab-exam:hover::after, .vocab-exam:focus-visible::after { opacity: 1; }
+        @media (prefers-reduced-motion: reduce) {
+            .vocab-exam::after { transition: none; }
         }
 
         /* 金額的正負：依台股慣例，紅漲綠跌。
@@ -2311,7 +2341,7 @@
     <!-- 開站載入畫面：一隻喵繞著 logo 跑。首頁資料到齊後淡出 -->
     <div id="splash" aria-hidden="true">
         <div class="splash-stage">
-            <img src="image2.jpg" alt="" class="splash-logo">
+            <img src="logoncueee.jpg" alt="" class="splash-logo">
             <div class="splash-orbit">
                 <span class="splash-cat">
                     <!-- 這隻貓不是畫的，是從影片描出來的。
@@ -2412,7 +2442,7 @@
             <div id="logoWrap" class="relative flex-1 min-w-0 md:flex-none md:w-auto">
                 <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 cursor-pointer group"
                      role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
-                    <img src="image2.jpg" alt="" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
+                    <img src="logoncueee.jpg" alt="" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
                     <div class="flex flex-col min-w-0">
                         <h1 id="siteName" class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight truncate">小黑貓</h1>
                         <!-- 文字由 buildStaticUI() 依 PRODUCT 填入，這裡留空。
@@ -2447,20 +2477,6 @@
                      混進分頁列的話三個產品的分頁數各不相同，置中排列會被它拉歪，
                      而且手機橫捲時設定會被推到看不到的地方。
                      放在 nav **旁邊**（同一列、不捲動）就兩全。 -->
-                <!-- ★ 快速跳頁的入口。**沒有這顆按鈕的話 ⌘K 等於不存在**：
-                     沒有人會去猜一個沒有出現在畫面上的快捷鍵，
-                     而觸控裝置根本沒有鍵盤。功能寫好卻沒有人找得到，
-                     跟沒寫是一樣的，只是還要維護。
-                     ★ 快捷鍵的提示只在有鍵盤的裝置顯示（見 CSS 的 .kbd-hint）——
-                     手機上顯示「⌘K」是在教一個按不出來的東西。 -->
-                <button id="cmdkBtn" type="button" title="快速跳到（⌘K）" aria-label="快速跳到"
-                        class="tap-44 shrink-0 p-2 rounded-xl transition-colors duration-200 text-slate-400 hover:text-emerald-400 hover:bg-white/10 flex items-center gap-1.5">
-                    <svg class="w-5 h-5 pointer-events-none" viewBox="0 0 24 24" fill="none"
-                         stroke="currentColor" stroke-width="2" aria-hidden="true">
-                        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
-                    </svg>
-                    <kbd class="kbd-hint text-[10px] font-bold px-1 py-0.5 rounded pointer-events-none">⌘K</kbd>
-                </button>
                 <button id="settingsBtn" data-tab="settings" title="設定" aria-label="設定"
                         class="tap-44 shrink-0 p-2 rounded-xl transition-colors text-slate-400 hover:text-emerald-400 hover:bg-white/10">
                     <i data-lucide="settings" class="w-5 h-5 pointer-events-none"></i>
@@ -2573,7 +2589,7 @@
                          給它一個掰出來的 alt（「小黑貓標誌」之類）反而是雜訊——
                          螢幕閱讀器會唸「圖片 小黑貓標誌 本學期自編課表」。
                          空 alt ＋ aria-hidden 才是「跳過我」的正確講法。 -->
-                    <img src="image2.jpg" alt="" aria-hidden="true" class="w-6 h-6 rounded-full opacity-50 border border-slate-200">
+                    <img src="logoncueee.jpg" alt="" aria-hidden="true" class="w-6 h-6 rounded-full opacity-50 border border-slate-200">
                     本學期自編課表
                 </div>
             </div>
@@ -3145,7 +3161,7 @@
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-xl border-2 border-slate-100 text-center relative overflow-hidden">
                     <div class="absolute -top-10 -left-10 w-40 h-40 bg-emerald-50 rounded-full mix-blend-multiply opacity-60"></div>
                     <div class="absolute -bottom-10 -right-10 w-40 h-40 bg-rose-50 rounded-full mix-blend-multiply opacity-60"></div>
-                    <img src="image2.jpg" alt="" class="w-20 h-20 rounded-full object-cover shadow-lg mx-auto mb-4 relative z-10 border-4 border-emerald-500/20">
+                    <img src="logoncueee.jpg" alt="" class="w-20 h-20 rounded-full object-cover shadow-lg mx-auto mb-4 relative z-10 border-4 border-emerald-500/20">
                     <h2 class="text-2xl md:text-3xl font-black text-slate-900 mb-2 relative z-10">小黑貓・使用手冊</h2>
                     <p class="text-slate-500 font-medium relative z-10">課表、計劃、學習、英文、理財，一站搞定</p>
                 </div>
@@ -3563,7 +3579,7 @@
     <!-- 登入 / 註冊 -->
     <div id="adminModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl text-center">
-             <img src="image2.jpg" alt="登入認證" class="w-16 h-16 rounded-full object-cover shadow-md mx-auto mb-4 border-2 border-emerald-500/20">
+             <img src="logoncueee.jpg" alt="登入認證" class="w-16 h-16 rounded-full object-cover shadow-md mx-auto mb-4 border-2 border-emerald-500/20">
             <h3 id="modalTitle" class="text-2xl font-bold mb-2">身分認證</h3>
             <p class="text-slate-400 text-xs mb-6">歡迎來到黑貓的領地</p>
             <input type="email" id="adminEmail" placeholder="電子信箱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold mb-3" aria-label="電子信箱">
@@ -3906,34 +3922,6 @@
         </div>
     </div>
 
-    <!-- ==========================================================
-         快速命令列（⌘K／Ctrl+K）
-         ★ 分頁名稱**不寫在這裡**，由 TABS 產生。寫死的話從另一個產品
-         登入會看到不屬於它的分頁名——跟站名、頁首英文那兩次同一個坑。
-         ★ role="dialog" + aria-modal：不加的話螢幕閱讀器還會唸到底下
-         整頁的內容，而視覺上它明明被蓋住了。
-         ========================================================== -->
-    <div id="cmdk" class="hidden fixed inset-0 z-[60] flex items-start justify-center pt-[12vh] px-4">
-        <div id="cmdkBackdrop" class="absolute inset-0 bg-slate-900/50"></div>
-        <div role="dialog" aria-modal="true" aria-labelledby="cmdkLabel"
-             class="cmdk-panel relative w-full max-w-lg rounded-2xl overflow-hidden shadow-2xl">
-            <h2 id="cmdkLabel" class="sr-only">快速跳到</h2>
-            <div class="flex items-center gap-3 px-4 py-3 border-b" style="border-color:var(--rule)">
-                <svg class="w-5 h-5 shrink-0" style="color:var(--ink-3)" viewBox="0 0 24 24" fill="none"
-                     stroke="currentColor" stroke-width="2" aria-hidden="true">
-                    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
-                </svg>
-                <input id="cmdkInput" type="text" autocomplete="off" aria-label="搜尋要跳到哪裡"
-                       aria-controls="cmdkList" aria-expanded="true" role="combobox"
-                       placeholder="跳到…" class="flex-1 min-w-0 bg-transparent outline-none font-bold text-base"
-                       style="color:var(--ink)">
-                <kbd class="hidden sm:block text-[11px] font-bold px-1.5 py-0.5 rounded"
-                     style="color:var(--ink-3);border:1px solid var(--rule)">esc</kbd>
-            </div>
-            <ul id="cmdkList" role="listbox" aria-label="搜尋結果" class="max-h-[52vh] overflow-y-auto py-2"></ul>
-        </div>
-    </div>
-
     <!-- ★ role="status" ＋ aria-live="polite"：提示是全站唯一會說
          「存好了／失敗了／已複製」的地方，而它只用看的。看不見畫面的人
          按下存檔之後**完全沒有任何回應**——不會報錯，功能也是好的，
@@ -4054,9 +4042,9 @@
            所以「改了 role 會不會動到 tier」的答案是「看那個帳號有沒有 tier 欄位」，
            不是一句話能回答的。 */
         const PRODUCT_META = {
-            cat:  { name:'小黑貓',   en:'Little Black Cat', logo:'image.png',
+            cat:  { name:'小黑貓',   en:'Little Black Cat', logo:'logomain.jpg',
                     title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./', ladder:'tier' },
-            ncue: { name:'彰師電子小黑貓', en:'NCUE EE Black Cat', logo:'image2.jpg',
+            ncue: { name:'彰師電子小黑貓', en:'NCUE EE Black Cat', logo:'logoncueee.jpg',
                     title:'彰師電子小黑貓 - 課程評價與資源', href:'ncue.html', ladder:'role' }
         };
         /* ★ `logo` 是唯一來源，但**填的人是產生器不是這支程式**（見 tools/mkpages.mjs）。
@@ -4222,6 +4210,15 @@
         let subFailToastAt = 0;
         let draggingPlanId = null;
         let pendingZoneMove = null;
+        /* 拖曳高亮中的那一個區塊，以及觸控拖曳的整包狀態。
+           ★ 一樣宣告在狀態區：`bindPlanDragAndDrop()` 在啟動流程裡就會綁事件，
+           而那些處理器一碰到寫在函式旁邊的 let 就是暫時性死區（已踩六次，
+           症狀是一載入就整片白，而 `node --check` 看不出來）。
+           ★ 高亮改成記「現在是哪一區」而不是每次掃一遍所有區塊：
+           dragover／dragleave 在同一區的子元素之間移動時會**一直成對觸發**，
+           每一次都是加上再拿掉，畫面上就是那圈框在閃。 */
+        let planDragOverZone = null;
+        let planTouch = null;
         /* 編輯視窗裡「還沒按儲存」的子任務。★ 存這一份而不是每次去讀輸入框，
            是因為新增／刪除一項都要重畫整個編輯器，重畫就會蓋掉使用者剛打的字——
            所以任何一次重畫之前都先把輸入框的值收回這個陣列（syncPlanSubsFromInputs）。
@@ -4260,11 +4257,6 @@
            （例如一開始就抓不到資料的錯誤提示），寫在函式旁邊就是
            暫時性死區——畫面全白，而 node --check 看不出來。 */
         let toastTimer = null;
-        /* 快速命令列（⌘K）。三個都宣告在狀態區——renderCmdk() 會碰到它們，
-           而開站時就會綁鍵盤事件，寫在函式旁邊就是暫時性死區（已踩六次）。
-           cmdkPrevFocus：開啟前焦點在哪。關掉要還回去，不然用鍵盤的人
-           會被丟回頁面最上面重新 Tab 一次——這件事看得見卻很少人想到。 */
-        let cmdkItems = [], cmdkIndex = 0, cmdkPrevFocus = null;
 
         let reviewWizardStep = 0;
         let reviewWizardData = { courseId:'', courseDiff: 0, examDiff: 0, hwAmount: 0, learned: 0, comment:'' };
@@ -4907,6 +4899,30 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-18',
+                title: '換 logo、拿掉 ⌘K、拖曳補上手機能用的那一半、單字卡標學測考過幾年',
+                items: [
+                    ['起因', '路線圖短期目標裡積著四項小的，一起清掉。四項之間沒有關係，但有三項踩到同一種東西：**功能是好的，只是在某一種裝置上等於不存在**。'],
+                    ['logo 換成 logomain／logoncueee', '兩張新圖進來時是 1206×1212／488KB 與 1024×1024／197KB，而它們畫面上最大只顯示到 80px，還進 `sw.js` 的 CORE 預快取——也就是**每一個開站的人都會下載那 685KB**。置中裁成正方形再縮到 512（PWA 圖示的尺寸），變成 87KB 與 52KB。原圖備份在專案根目錄的 `圖片原檔/`，不發布。'],
+                    ['★ 舊的兩張要「刪」不是「不再引用」', '`image.png` 與 `image2.jpg` 已經在 GitHub Pages 上，發布腳本這輩子只做過 add——不管它的話那兩張會永遠留在線上。腳本裡本來就有 `STALE` 這個機制正是為了這件事，把兩個檔名加進去。'],
+                    ['★ 測試裡抄了一份會過期的檔名', '改完之後 `tests/mainsmoke.mjs` 紅了，訊息是「有人手改 ncue.html」——**但沒有人手改**。那條檢查裡寫死了 `image.png`，換名之後它把 logo 那幾行當成不明差異。已經改成跟 `tools/mkpages.mjs` 一樣從 `PRODUCT_META` 讀。教訓跟產生器那邊記著的是同一句：那張表是唯一來源，抄一份出去就是多一個會分岔的地方。'],
+                    ['移除 ⌘K 快速命令列', 'CSS、HTML、狀態、五支函式、鍵盤與滑鼠綁定整組拿掉，連只有它在用的 `.sr-only` 與 `.kbd-hint` 一起。★ `tests/design.mjs` 原本那十一條檢查換成一條「一個名字都沒剩」——因為這件事失敗的方式是**兩個方向都安靜**：多刪會吃掉旁邊的程式碼（拔筆記那次錨點挑了 `about`，`TAB_DATA` 中間二十行一起沒了），少刪會讓 `$(\'cmdkInput\')` 是 null，而那行在事件綁定裡，**整段綁定會從那裡斷掉**，後面的返回頂端、單字小卡全部跟著不動，畫面上什麼都不會說。'],
+                    ['★ 過往更新裡那筆「⌘K 快速跳頁」留著', '那是紀錄，講的是它當年上線那件事，改掉就等於竄改。但要知道現在按 ⌘K 不會有反應。'],
+                    ['★★ 拖曳在手機上從來沒有作用過', '畫面上寫著「拖曳可以把計劃搬到別的區塊」，而 HTML5 的原生拖曳在觸控上**一個事件都不會發**。手機使用者照著做，按住、拖，然後什麼都沒發生，也沒有任何訊息說為什麼——這個站是手機優先的，所以那句提示對多數人一直是假的。補了一套長按 250ms 才啟動的觸控拖曳：跟著手指走的殘影、手指底下那一區高亮、靠近上下緣自動捲。'],
+                    ['★ 觸控那套的三個「非這樣不可」', '一、要長按才算拖曳，不然「想捲頁面」會變成「把計劃甩來甩去」（8px 容忍是因為手指按下的瞬間本來就會抖）。二、**`touch-action` 在手勢開始的那一刻就決定了，中途改沒有用**，所以擋捲動只能靠 `passive:false` 的 `touchmove`，而且要綁在 document 上——綁在清單上的話手指拖出去就擋不住。三、殘影是 `.plan-row` 複製出來的，會繼承新加的 transition，**跟著手指走的東西一旦有 transition 就會黏在手指後面慢半拍**，所以 `transition: none` 是必要的不是清乾淨。'],
+                    ['★★ 殘影要延一個 frame 才變淡', '瀏覽器是在 `dragstart` **之後**立刻對元素拍一張殘影。當場加 class 的話拍到的是已經變淡縮小的那一張——於是跟著游標走的殘影本身半透明，而留在原地的那一列看起來正常。剛好反過來，而且完全不會報錯。'],
+                    ['拖曳高亮不再閃', '原本 `dragover` 加、`dragleave` 拿掉，而這兩個事件在同一區的**子元素之間**移動時會一直成對觸發（進到子元素＝離開父元素），那圈框在整段拖曳過程裡都在閃。改成記住「現在是哪一區」，只有真的換區才動 class。'],
+                    ['搬完會落地', '拖完的那一列本來直接出現在新區塊裡，跟原本就在那裡的其他列一模一樣——使用者要自己再找一次剛剛搬的是哪一筆。★ 落地用 `--ease` 不用 `--ease-spring`：`動效.md` 寫著過衝那三個使用者全是「跳出來的東西」，而打勾是**全站唯一一個慶祝**。搬一筆計劃不是慶祝，它只是落定。'],
+                    ['★ 長按之後反悔直接放開，不算一次搬移', '那會落在自己這一區。照搬的話會跳一句「已移到今天」，還順手把時間往後推到下一個整點——使用者什麼都沒做，資料卻變了。'],
+                    ['單字卡標「學測考過幾年」', '`7000 words frequency.md` 的第一部分（535 個字）併進 `tools/vocab7000.mjs`，單字卡上多一個圈起來的數字，hover 或點一下列出年份與次數。★ 圈裡是**年數**不是總次數：資料本身就是照年數排的（同一年考很多次只算一次），改成總次數的話，一個只在某一年被密集考到的字會排到跨三年的字前面，剛好是反的。'],
+                    ['★ 手機沒有 hover', '這個圈要是只寫 `:hover`，那句「hover 看年份」在手機上等於不存在，而畫面上還是有一個看起來可以點的圈。所以標記掛 `tabindex="0"`，CSS 連 `:focus-visible` 一起吃。'],
+                    ['★ 來源資料自己算錯了兩個字', '`alcoholic` 寫著「2 年：114年(1次)、115年(**0次**)」，`emergency` 寫著「2 年：111年(1次)、114年(**0次**)」。0 次代表那一年根本沒考出來，卻被算進年數。照抄的話那兩個字會掛著「2」，而點開是「115年0次」，自己打自己的臉。0 次的整筆丟掉。修在轉檔工具裡不是去改 md——那份是別人給的資料，下次更新會蓋回來。'],
+                    ['★ 資料存原始的年份與次數，不存算好的數字', '圈裡那個數字由前端算。先算好存下來的話，之後想改成顯示次數就得重跑工具、重新發布那 1.8MB。'],
+                    ['轉檔工具自己會對帳', '「frequency.md 解析出幾個」與「真的貼到單字上幾個」分開印，兩個數字不一樣就結束。★ 這條擋的是最安靜的那種失敗：兩份 md 的單字欄只要有一個字寫法不同（`enhance(ment)`、`medium/media` 這種），Map 就查不到，那個字沒有標記——畫面上完全正常，只是少了東西。這次三個數字都是 535。'],
+                    ['★ 這一輪的四條新測試都確認過真的會紅', '而且確認的過程本身出過一次錯：用 `perl -0pi -e "s///"` 弄壞 `passive: false` 時忘了 `/g`，全檔第一個 `{ passive: false }` 是別人的，所以測試照樣是綠的——差點就當成「這條檢查沒用」。**靶要打在自己那一處**，這件事上一輪也記過一次。'],
+                ]
+            },
             {
                 date: '2026-08-18',
                 title: '把 08-14 那筆「★ 還沒做的」四項全部做掉：函式庫自己 host、AI 端點要登入、推播加鑰匙、CSP',
@@ -5806,80 +5822,6 @@
             typeof document !== 'undefined' &&
             typeof document.startViewTransition === 'function' &&
             !(typeof calm !== 'undefined' && calm.matches);
-
-        /* ==========================================================
-           快速命令列（⌘K／Ctrl+K）
-
-           ★ 目標清單**從 TABS 產生**，不寫死。寫死的話從另一個產品
-           登入會跳出不屬於它的分頁——站名、頁首英文都已經踩過這個坑，
-           而它不會報錯，只是顯示了另一個產品的東西。
-
-           ★ 為什麼值得做：這個站有五到六個大分頁再加子分頁，
-           而最常見的動作是「我要去那一頁」。用點的要先找到分頁列
-           （手機上還可能要捲），用打的兩個鍵就到。
-
-           ★ 比對用「子序列」不是 includes：打「英」要中，打「ㄈㄨ」不用中，
-           但打「課評」也要能中「課程評價」——中間可以跳字。
-           這比模糊比對簡單得多，而且**不會出現莫名其妙的結果**，
-           那是比對演算法在小清單上最重要的事。
-           ========================================================== */
-        const cmdkTargets = () => [
-            ...TABS.map(([id, label]) => ({ label, kind:'分頁', run: () => switchTab(id) })),
-            { label:'設定', kind:'分頁', run: () => switchTab('settings') },
-        ];
-        /* 子序列比對：query 的每個字都要照順序在 text 裡找得到 */
-        function cmdkMatch(text, q) {
-            if (!q) return true;
-            let i = 0;
-            for (const ch of text.toLowerCase())
-                if (ch === q[i]) if (++i === q.length) return true;
-            return false;
-        }
-        function renderCmdk() {
-            const q = $('cmdkInput').value.trim().toLowerCase();
-            cmdkItems = cmdkTargets().filter(t => cmdkMatch(t.label, q));
-            if (cmdkIndex >= cmdkItems.length) cmdkIndex = 0;
-            const list = $('cmdkList');
-            if (!cmdkItems.length) {
-                /* ★ 空狀態要說「沒有相符的」，不是留白。留白會被讀成
-                   「還在載入」——而這裡永遠不會再有東西進來。 */
-                list.innerHTML = `<li class="px-4 py-6 text-center text-sm font-bold" style="color:var(--ink-3)">沒有相符的頁面</li>`;
-                return;
-            }
-            list.innerHTML = cmdkItems.map((t, i) => `
-                <li role="option" id="cmdk-opt-${i}" aria-selected="${i === cmdkIndex}"
-                    data-cmdk-index="${i}" class="cmdk-item">
-                    <span>${escapeHTML(t.label)}</span>
-                    <span class="cmdk-kind">${t.kind}</span>
-                </li>`).join('');
-            /* ★ aria-activedescendant 讓焦點留在輸入框、但螢幕閱讀器
-               仍會唸出目前highlight 的那一項。把焦點真的移到清單上的話
-               就不能繼續打字了——那是這種元件最常見的做壞方式。 */
-            $('cmdkInput').setAttribute('aria-activedescendant', `cmdk-opt-${cmdkIndex}`);
-            const cur = list.querySelector('[aria-selected="true"]');
-            if (cur) cur.scrollIntoView({ block:'nearest' });
-        }
-        function openCmdk() {
-            cmdkPrevFocus = document.activeElement;
-            cmdkIndex = 0;
-            $('cmdkInput').value = '';
-            $('cmdk').classList.remove('hidden');
-            renderCmdk();
-            $('cmdkInput').focus();
-        }
-        function closeCmdk() {
-            $('cmdk').classList.add('hidden');
-            /* 焦點還回去。★ 那個元素可能已經被重畫掉了（跳頁之後尤其），
-               所以要確認它還在文件裡再 focus，不然會靜靜地失敗。 */
-            if (cmdkPrevFocus && document.contains(cmdkPrevFocus)) cmdkPrevFocus.focus();
-            cmdkPrevFocus = null;
-        }
-        function runCmdk(i) {
-            const t = cmdkItems[i];
-            if (!t) return;
-            closeCmdk();
-            t.run();
-        }
 
         function switchTab(tab) {
             /* ★ 先驗證，而且是在轉場**外面**驗證（見上面第 3 點）。 */
@@ -7046,7 +6988,7 @@
             if (!box) return;
             const note = $('planReminderNote');
             if (note) note.textContent = classReminderOn
-                ?'到時間會用通知提醒你，App 關著也會響。拖曳可以把計劃搬到別的區塊。'
+                ?'到時間會用通知提醒你，App 關著也會響。拖曳可以把計劃搬到別的區塊（手機長按一下再拖）。'
                 :'⚠️ 還沒開「提醒」，所以只有畫面上的倒數，不會有通知。到課表右上角開啟。';
 
             const now = Date.now();
@@ -7166,15 +7108,52 @@
             try {
                 await savePlans();
                 renderPlans(); updatePlanTicker();
+                playPlanLandAnim(id);
                 showToast(bumped
                     ? `已移到「${PLAN_ZONE_META[zone].label}」，${hm(src)} 已經過了，改排 ${hm(dst)}`
                     : `已移到「${PLAN_ZONE_META[zone].label}」`);
             } catch (e) { showToast('存檔失敗，請稍後再試'); }
         }
 
+        /* 落地的動畫。★ 跟 `playCheckAnim` 同一個形狀，理由也一樣：
+           `renderPlans()` 會把整份清單的 innerHTML 換掉，重畫**之前**掛的
+           class 一定會被丟掉，所以要等重畫完再掛，而且要等一個 frame——
+           `icons()` 在重畫的最後才把 `<i data-lucide>` 換成 `<svg>`。
+           ★ 沒有這個動畫的話，拖完的那一列會直接出現在新的區塊裡，
+           跟原本就在那裡的其他列一模一樣——使用者要自己再找一次
+           「我剛剛搬的是哪一筆」。 */
+        function playPlanLandAnim(id) {
+            requestAnimationFrame(() => {
+                /* ★ 舊瀏覽器沒有 CSS.escape。id 是程式產生的（`p` ＋ 36 進位
+                   時間戳 ＋ 亂數，全是英數），退路直接原樣使用是安全的。
+                   （這裡刻意不寫含引號的正規表示式——tests/_lib.mjs 的括號
+                     掃描器不認得正規表示式字面值，會把引號當成字串開頭。） */
+                const esc = (v) => (window.CSS && CSS.escape) ? CSS.escape(v) : String(v);
+                const row = document.querySelector(`.plan-row[data-id="${esc(id)}"]`);
+                if (!row) return;
+                row.classList.remove('plan-row-landed');
+                void row.offsetWidth;              // 強制 reflow，否則同一個 class 不會重播
+                row.classList.add('plan-row-landed');
+            });
+        }
+
         /* 拖曳的接線。★ 用事件委派綁在容器上，不是每一列各綁一次——
            清單每次重畫都會換掉所有的列，各綁一次的話重畫之後就全部失效了，
            而畫面看起來完全正常，只是拖不動。 */
+        /* 高亮只有一個。★ 原本是 dragover 加、dragleave 拿掉，
+           而這兩個事件在同一區的子元素之間移動時**會一直成對觸發**
+           （進到子元素＝離開父元素），於是那圈框在整段拖曳過程裡不停閃。
+           改成記住現在是哪一區，只有真的換區才動 class。 */
+        function setPlanOverZone(zone) {
+            if (planDragOverZone === zone) return;
+            /* ★ 高亮用自己的 `.is-over`，不要用 `bg-slate-100`。
+               `.bg-slate-100` 被設計系統換成 `var(--paper-sunk)`，
+               而那正是區塊自己的底色——拖進去等於什麼都沒變。 */
+            if (planDragOverZone) planDragOverZone.classList.remove('is-over');
+            planDragOverZone = zone || null;
+            if (planDragOverZone) planDragOverZone.classList.add('is-over');
+        }
+
         function bindPlanDragAndDrop() {
             const box = $('planList');
             if (!box || box.dataset.dndBound) return;
@@ -7187,15 +7166,16 @@
                 e.dataTransfer.effectAllowed = 'move';
                 /* Firefox 不設 data 就不會開始拖 */
                 try { e.dataTransfer.setData('text/plain', draggingPlanId); } catch (err) {}
-                row.classList.add('opacity-40');
+                /* ⚠️ 一定要延到下一個 frame 才加。瀏覽器是在 dragstart **之後**
+                   立刻對元素拍一張殘影，當場加 class 的話拍到的是已經變淡、
+                   縮小的那一張——於是跟著游標走的殘影本身就是半透明的，
+                   而留在原地的那一列反而看起來正常。剛好反過來。 */
+                requestAnimationFrame(() => row.classList.add('is-dragging'));
             });
             box.addEventListener('dragend', (e) => {
                 const row = e.target.closest && e.target.closest('.plan-row');
-                if (row) row.classList.remove('opacity-40');
-                /* ★ 高亮用自己的 `.is-over`，不要用 `bg-slate-100`。
-                   `.bg-slate-100` 被設計系統換成 `var(--paper-sunk)`，
-                   而那正是區塊自己的底色——拖進去等於什麼都沒變。 */
-                box.querySelectorAll('.plan-zone').forEach(z => z.classList.remove('is-over'));
+                if (row) row.classList.remove('is-dragging');
+                setPlanOverZone(null);
                 draggingPlanId = null;
             });
             box.addEventListener('dragover', (e) => {
@@ -7203,21 +7183,136 @@
                 if (!zone) return;
                 e.preventDefault();                     // 不擋掉就不會觸發 drop
                 e.dataTransfer.dropEffect = 'move';
-                zone.classList.add('is-over');
+                setPlanOverZone(zone);
             });
+            /* ★ 只在真的離開整份清單時才清掉高亮。判斷用 relatedTarget
+               （游標接下來進到哪裡），因為在區塊內部移動時 dragleave 照樣會發。 */
             box.addEventListener('dragleave', (e) => {
-                const zone = e.target.closest && e.target.closest('.plan-zone');
-                if (zone) zone.classList.remove('is-over');
+                if (!e.relatedTarget || !box.contains(e.relatedTarget)) setPlanOverZone(null);
             });
             box.addEventListener('drop', (e) => {
                 const zone = e.target.closest && e.target.closest('.plan-zone');
                 if (!zone) return;
                 e.preventDefault();
-                zone.classList.remove('is-over');
+                setPlanOverZone(null);
                 const id = draggingPlanId || (e.dataTransfer && e.dataTransfer.getData('text/plain'));
                 draggingPlanId = null;
                 if (id) movePlanToZone(id, zone.dataset.zone);
             });
+
+            /* ==========================================================
+               觸控拖曳（2026-08-18 新增）
+
+               ★★ HTML5 的原生拖曳在手機觸控上**一個事件都不會發**。
+               而畫面上就寫著「拖曳可以把計劃搬到別的區塊」——手機使用者
+               照著做，按住、拖，然後什麼都沒發生，也沒有任何訊息說為什麼。
+               這個站是手機優先的，所以那句提示等於對多數使用者是假的。
+
+               ★ 為什麼要長按 250ms 才算拖曳：這份清單本身要能上下捲。
+               「碰到就拖」會讓「想捲頁面」變成「把計劃甩來甩去」。
+               8px 的容忍是因為手指按下的瞬間本來就會抖幾個像素。
+
+               ⚠️ `touch-action` 在手勢**開始的那一刻**就決定了，中途改沒有用。
+               所以擋捲動只能靠一個 `passive:false` 的 touchmove 監聽，
+               而且要綁在 document 上——綁在清單上的話，手指拖出清單範圍
+               之後就擋不住了，畫面會一邊拖一邊捲。
+               ============================================================ */
+            const LONG_PRESS = 250, SLOP = 8;
+
+            const ghostFollow = () => {
+                if (!planTouch || !planTouch.ghost) return;
+                planTouch.ghost.style.transform =
+                    `translate(${planTouch.x - planTouch.dx}px, ${planTouch.y - planTouch.dy}px)`
+                    + ' scale(1.03) rotate(-1deg)';
+            };
+            const zoneUnderFinger = () => {
+                /* 殘影自己是 `pointer-events: none`，所以它不會擋在手指與區塊之間。 */
+                const el = document.elementFromPoint(planTouch.x, planTouch.y);
+                setPlanOverZone(el && el.closest ? el.closest('.plan-zone') : null);
+            };
+            /* 靠近畫面上下緣就自動捲。★ 沒有這一段的話，手機上只搬得到
+               「現在看得到的那幾區」——五個區塊在手機直式一定超過一屏，
+               而手指按著的時候是捲不動頁面的（上面那條 preventDefault）。
+               用 rAF 迴圈不是每次 pointermove 才捲：把手指停在邊緣不動
+               是這個手勢最自然的做法，那時候沒有 move 事件。 */
+            const edgeScroll = () => {
+                if (!planTouch || !planTouch.active) return;
+                const M = 84, d = planTouch.y < M ? -10
+                                : planTouch.y > innerHeight - M ? 10 : 0;
+                if (d) { window.scrollBy(0, d); ghostFollow(); zoneUnderFinger(); }
+                requestAnimationFrame(edgeScroll);
+            };
+            function startTouchDrag() {
+                const row = planTouch.row;
+                const r = row.getBoundingClientRect();
+                const g = row.cloneNode(true);
+                g.classList.add('plan-drag-ghost');
+                g.classList.remove('is-dragging');
+                g.removeAttribute('data-id');       // 別讓落地動畫選到這一張
+                g.style.width = r.width + 'px';
+                document.body.appendChild(g);
+                planTouch.ghost = g;
+                planTouch.dx = planTouch.x - r.left;
+                planTouch.dy = planTouch.y - r.top;
+                planTouch.active = true;
+                planTouch.fromZone = row.closest('.plan-zone');
+                row.classList.add('is-dragging');
+                ghostFollow();
+                /* 手機上沒有游標，「拿起來了」只剩下震動講得出來。
+                   ★ 要包 try：iOS 沒有 vibrate，某些瀏覽器在非使用者手勢裡會丟例外。 */
+                if (navigator.vibrate) { try { navigator.vibrate(12); } catch (err) {} }
+                requestAnimationFrame(edgeScroll);
+            }
+            function endTouchDrag(drop) {
+                if (!planTouch) return;
+                const t = planTouch;
+                planTouch = null;                   // 先清掉，rAF 迴圈才會自己停
+                clearTimeout(t.timer);
+                if (t.ghost) t.ghost.remove();
+                if (t.row) t.row.classList.remove('is-dragging');
+                const zone = planDragOverZone;
+                setPlanOverZone(null);
+                /* ★ 放回原來那一區＝什麼都沒發生，不要當成一次搬移。
+                   長按之後直接放開（很常見：拿起來又反悔）會落在自己這一區，
+                   照搬的話會跳一句「已移到今天」還順手把時間往後推——
+                   使用者什麼都沒做，資料卻變了。 */
+                if (drop && t.active && zone && zone !== t.fromZone) movePlanToZone(t.id, zone.dataset.zone);
+            }
+
+            box.addEventListener('pointerdown', (e) => {
+                if (e.pointerType === 'mouse') return;      // 桌機走上面的原生拖曳
+                const row = e.target.closest && e.target.closest('.plan-row');
+                /* ★ `draggable="false"` 是重複計劃。原生那條路由瀏覽器擋掉，
+                   這條要自己認——不認的話手機拖得動、桌機拖不動，
+                   而 movePlanToZone 只會跳一句「請用編輯」，看起來像壞了。 */
+                if (!row || row.getAttribute('draggable') !== 'true') return;
+                /* 打勾、編輯、刪除、子任務都是按鈕，按在上面不算拖曳。 */
+                if (e.target.closest('button, a, input, textarea, select')) return;
+                endTouchDrag(false);
+                planTouch = { id: row.dataset.id, row, ghost: null,
+                              x: e.clientX, y: e.clientY, dx: 0, dy: 0,
+                              active: false, timer: null };
+                planTouch.timer = setTimeout(() => { if (planTouch) startTouchDrag(); }, LONG_PRESS);
+            });
+            box.addEventListener('pointermove', (e) => {
+                if (!planTouch) return;
+                if (!planTouch.active) {
+                    /* 還在長按判定裡：動超過容忍值就當成捲動，讓路。 */
+                    if (Math.abs(e.clientX - planTouch.x) > SLOP ||
+                        Math.abs(e.clientY - planTouch.y) > SLOP) endTouchDrag(false);
+                    return;
+                }
+                planTouch.x = e.clientX; planTouch.y = e.clientY;
+                ghostFollow();
+                zoneUnderFinger();
+            });
+            box.addEventListener('pointerup', () => endTouchDrag(true));
+            box.addEventListener('pointercancel', () => endTouchDrag(false));
+            /* 長按在 Android 上會叫出選字與長按選單，蓋在拖曳上面。 */
+            box.addEventListener('contextmenu', (e) => { if (planTouch && planTouch.active) e.preventDefault(); });
+            document.addEventListener('touchmove', (e) => {
+                if (planTouch && planTouch.active) e.preventDefault();
+            }, { passive: false });
         }
 
         async function togglePlanDone(id, occ) {
@@ -9441,11 +9536,26 @@
         function vocabTagRow(w) {
             const lv = Number(w.level);
             const tags = [];
+            /* 學測考過的年份。★ 只有內建那 3462 個字裡的 535 個有 `exam`，
+               使用者自己建的、公有單字冊的都沒有——所以這裡一定要能承受
+               它不存在，而且不能拿它當「這個字沒考過」（沒有欄位＝不知道）。
+               ★ 形狀是 [[年, 次數], …]，圈裡寫的是年數（陣列長度）。
+               換算刻意留在前端：資料檔存原始的年份與次數，之後要改成顯示
+               次數不必重跑 tools/vocab7000.mjs 也不必重新發布那 1.8MB。 */
+            const ex = Array.isArray(w.exam) ? w.exam.filter(y => Array.isArray(y)) : [];
+            if (ex.length) {
+                const tip = ex.map(([y, n]) => `${y}年${n}次`).join('・');
+                tags.push(`<span class="vocab-exam" tabindex="0" role="img"
+                        aria-label="學測考過 ${ex.length} 年：${escapeHTML(tip)}"
+                        data-tip="${escapeHTML(tip)}">${ex.length}</span>`);
+            }
             if (lv >= 3 && lv <= 6)
                 tags.push(`<span class="px-2 py-0.5 rounded-lg text-[10px] font-black ${VOCAB_LEVEL_COLORS[lv]}">Level ${lv}</span>`);
             if (w.pos)
                 tags.push(`<span class="px-2 py-0.5 rounded-lg text-[10px] font-black bg-slate-100 text-slate-500">${escapeHTML(w.pos)}</span>`);
-            return tags.length ? `<div class="flex flex-wrap gap-1.5 mb-2">${tags.join('')}</div>` :'';
+            /* ★ items-center：圈是 20px、Level 與詞性那兩個矮一截，
+               不對齊的話 flex 預設會把它們拉成一樣高，字就浮在框的上緣。 */
+            return tags.length ? `<div class="flex flex-wrap items-center gap-1.5 mb-2">${tags.join('')}</div>` :'';
         }
 
         function renderVocabWords() {
@@ -11230,49 +11340,6 @@
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape') setLogoMenu(false);
             });
-
-            /* ---- 快速命令列的鍵盤 ----
-               ★ 開啟的判斷放在**最前面、而且不看焦點在哪**：
-               ⌘K 在輸入框裡也要能開，這是這個手勢的慣例。
-               但 preventDefault 一定要有——Chrome 的 Ctrl+K 是「跳到網址列
-               搜尋」，不擋的話畫面會被瀏覽器搶走。 */
-            document.addEventListener('keydown', (e) => {
-                if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
-                    e.preventDefault();
-                    $('cmdk').classList.contains('hidden') ? openCmdk() : closeCmdk();
-                    return;
-                }
-                if ($('cmdk').classList.contains('hidden')) return;
-                /* 開著的時候，這幾個鍵歸命令列管，不要傳下去給別人
-                   （底下還有 Escape 關單字小卡、Enter 送出測驗答案）。 */
-                if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); closeCmdk(); return; }
-                if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
-                    e.preventDefault();
-                    if (!cmdkItems.length) return;
-                    /* 取模是為了頭尾相接：在最後一項按下去回到第一項。
-                       ＋length 是因為 -1 % n 在 JS 裡是 -1 不是 n-1。 */
-                    const d = e.key === 'ArrowDown' ? 1 : -1;
-                    cmdkIndex = (cmdkIndex + d + cmdkItems.length) % cmdkItems.length;
-                    renderCmdk();
-                    return;
-                }
-                if (e.key === 'Enter') { e.preventDefault(); runCmdk(cmdkIndex); }
-            }, true);   /* ★ 捕獲階段：要比底下那些 Escape 處理器先拿到 */
-            $('cmdkInput').addEventListener('input', () => { cmdkIndex = 0; renderCmdk(); });
-            /* 滑鼠：移過去就跟著換選中項（跟鍵盤共用同一個狀態，
-               不會出現「鍵盤選 A、滑鼠 hover B、按 Enter 跑了 A」）。 */
-            $('cmdkList').addEventListener('mousemove', (e) => {
-                const li = e.target.closest('[data-cmdk-index]');
-                if (!li) return;
-                const i = +li.dataset.cmdkIndex;
-                if (i !== cmdkIndex) { cmdkIndex = i; renderCmdk(); }
-            });
-            $('cmdkList').addEventListener('click', (e) => {
-                const li = e.target.closest('[data-cmdk-index]');
-                if (li) runCmdk(+li.dataset.cmdkIndex);
-            });
-            $('cmdkBackdrop').addEventListener('click', closeCmdk);
-            bind('cmdkBtn', openCmdk);
 
             bind('backToTopBtn', scrollTopSmooth);
             bind('importArticlesBtn', importArticles);

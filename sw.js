@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v83';
+const CACHE = 'blackcat-v84';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -23,8 +23,8 @@ const AUTH_URL   = 'https://blackcat-push.local/authkey';
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
    `tests/mainsmoke.mjs` 會拿發布腳本的 git add 清單來比對這一行。 */
-const CORE = ['./', './index.html', './image.png', './manifest.json',
-              './image2.jpg',           // 彰師電子的 logo（ncue.html 用）
+const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
+              './logoncueee.jpg',           // 彰師電子的 logo（ncue.html 用）
               './ncue.html',            // 彰師電子（獨立頁）
               './blackcatspice.html',   // 電路模擬器（獨立頁）
               './blackcatmd.html',      // 筆記編輯器（獨立頁）
@@ -130,8 +130,8 @@ self.addEventListener('push', (e) => {
     }
     await self.registration.showNotification(note.title, {
       body: note.body || '',
-      icon: './image.png',
-      badge: './image.png',
+      icon: './logomain.jpg',
+      badge: './logomain.jpg',
       tag: note.tag || 'class-reminder',
       renotify: true,
       data: { url: './' },
