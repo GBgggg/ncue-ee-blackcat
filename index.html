@@ -2630,6 +2630,55 @@
             </div>
             </div><!-- /#home-sub-plan -->
 
+            <!-- ==================== 讀書計時（YPT 那一種）====================
+                 掛在「計劃」這個大分頁底下，不另開一個大分頁——
+                 讀書計時本來就是「今天打算讀什麼」的延伸，而且整站只能有一個計時器
+                 （計劃表那邊也列著番茄鐘，做成兩個是這裡最容易犯的錯）。
+                 ★ 畫面上的秒數是算出來的不是累加的，所以關掉分頁、鎖屏都不影響。 -->
+            <div id="home-sub-timer" class="hidden">
+            <div id="home-user-study" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8 hidden">
+                <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
+                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
+                        <i data-lucide="timer" class="w-5 h-5 text-amber-500"></i> 讀書計時
+                    </h3>
+                </div>
+                <div class="rounded-2xl bg-slate-50 px-4 py-5 mb-5 text-center">
+                    <!-- ★ tabular-nums：不等寬的話秒數每跳一次整串數字都在左右晃 -->
+                    <div id="studyClock" class="text-4xl md:text-5xl font-black text-slate-800 tabular-nums">00:00:00</div>
+                    <p id="studyRunNote" class="text-xs font-bold text-slate-400 mt-2 min-h-[1rem]"></p>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                    <!-- 科目只是**建議**不是選單：課表上的課名會出現在建議裡，
+                         但使用者要打別的（自習、重補修、考古題）一樣可以。 -->
+                    <input type="text" id="studySubject" list="studySubjectList" maxlength="40"
+                           placeholder="讀什麼？（例：電路學）"
+                           class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold"
+                           aria-label="讀書科目">
+                    <datalist id="studySubjectList"></datalist>
+                    <div class="flex gap-2">
+                        <button id="studyStartBtn" data-action="study-start"
+                                class="flex-1 sm:flex-none px-5 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow hover:bg-amber-600 transition text-sm flex items-center justify-center gap-2">
+                            <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> 開始
+                        </button>
+                        <button id="studyPauseBtn" data-action="study-pause"
+                                class="hidden flex-1 sm:flex-none px-5 py-3 bg-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-300 transition text-sm flex items-center justify-center gap-2">
+                            <i data-lucide="pause" class="w-4 h-4 pointer-events-none"></i> 暫停
+                        </button>
+                        <button id="studyResumeBtn" data-action="study-resume"
+                                class="hidden flex-1 sm:flex-none px-5 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow hover:bg-amber-600 transition text-sm flex items-center justify-center gap-2">
+                            <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> 繼續
+                        </button>
+                        <button id="studyStopBtn" data-action="study-stop"
+                                class="hidden flex-1 sm:flex-none px-5 py-3 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-900 transition text-sm flex items-center justify-center gap-2">
+                            <i data-lucide="square" class="w-4 h-4 pointer-events-none"></i> 停止
+                        </button>
+                    </div>
+                </div>
+                <p class="text-xs font-bold text-slate-400 mb-5">關掉分頁或鎖屏都不會停——秒數是用開始時間算的，不是一秒一秒加上去的。</p>
+                <div id="studyBody"></div>
+            </div>
+            </div><!-- /#home-sub-timer -->
+
             <!-- ==================== 倒數（只記日期）====================
                  跟計劃刻意分開。倒數是「離某一天還有幾天」的牌子，
                  只有日期就不需要每秒重畫——一天只變一次。
@@ -4225,6 +4274,21 @@
            一樣宣告在狀態區：openPlanModal 會碰到它。 */
         let planModalSubs = [];
 
+        /* 讀書計時。★ 全部宣告在狀態區，理由跟這個檔案裡其他狀態一樣：
+           renderStudy()／updateStudyTicker() 會被 window.onload 之後的流程碰到，
+           寫在函式旁邊就是暫時性死區，而症狀是整頁全白（已踩六次，
+           node --check 看不出來，只有 tests/mainsmoke.mjs 抓得到）。
+           studyRun 是「進行中的那一段」：只有時間戳，沒有累加的秒數。 */
+        let studyRun = null;
+        let studySessions = [];
+        /* 跟計劃同一個坑：存檔是整包覆寫，所以雲端那一份還沒讀回來以前不能寫。 */
+        let studyLoaded = false;
+        let studyReady = Promise.resolve();
+        let studyTicker = null;      // 畫面重畫用（只在看得到時跑）
+        let studyBeatTimer = null;   // 心跳（跟看不看得到無關）
+        let studyWroteAt = 0;        // 上一次真的寫上雲端的時間（節流用）
+        let studyDirty = false;      // 有東西還沒寫上雲端（沒訊號時）
+
         /* 倒數（只記日期）。跟計劃是兩件事，刻意分開存也分開顯示：
              計劃 — 某個時間點要做某件事，會通知，倒數到秒
              倒數 — 「離某一天還有幾天」的牌子（比賽、開學、生日）
@@ -4899,6 +4963,25 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-18',
+                title: '讀書計時（YPT 那一種）：掛在計劃底下，關掉分頁也不會少算',
+                items: [
+                    ['起因', '路線圖短期目標只剩兩項，這是建議先做的那一項。站上原本**沒有任何讀書計時的東西**——`timer` 那幾處全是提示、倒數、計劃的計時器，這一項是從零開始。'],
+                    ['★★ 只存開始的時間戳，秒數用「現在 − 開始 − 暫停過的」算', '這是整項唯一非這樣不可的事。用 `setInterval` 累加的話，背景分頁的計時器會被瀏覽器節流到每分鐘一次、手機鎖屏後甚至整個停掉，**症狀是「讀了兩小時只記到四十分鐘」，而且不會報錯**。時間戳制的另一個好處是「畫面有沒有在跑」跟「時間有沒有算對」完全脫鉤，所以那個每秒重畫的計時器可以放心地只在看得到時才跑（跟計劃倒數同一個寫法）。'],
+                    ['★★ 存進 `settings/study` 這一份文件，不新開集合', '`firestore.rules` 的私人集合白名單裡已經有 `settings`，新開集合要改規則、推規則，而**忘了推的症狀是「按了沒反應」**（權限被拒只有主控台看得到）。這一點對這一項特別要緊：規則自 08-13 加了 `notes` 之後一直沒推上主控台，新開集合的話這個功能上線當天就是死的。所以這一輪 `firestore.rules` **一個字都沒動**，發布腳本跑完就能用。'],
+                    ['寫入頻率：停止才寫 ＋ 每 5 分鐘心跳，而且雲端寫入節流到 60 秒一次', 'Firestore 免費方案每天 20,000 次寫入。每分鐘寫一次的話，一個人讀三小時就是 180 次，**一百個人就把全站的額度連同別人的課表、計劃、記帳一起吃光**。心跳存在的理由只有一個：關分頁或當機時不會整段掉。'],
+                    ['★ 跨日以「開始時間」歸屬，而且日界在凌晨四點', '23:50 讀到 01:00 是同一個晚上，照午夜切會變成「昨天 10 分鐘、今天 60 分鐘」兩筆，而使用者記得的是「昨晚讀了 70 分鐘」。四點是折衷。這種邊界用眼睛看不出來，所以 `studyDayKey`／`studyWeekKey`／`studyElapsed`／`closeStudyRun`／`studyTotals` 全部抽成純函式，`tests/study.mjs` 真的餵時間進去跑。'],
+                    ['★ 忘了按停止是截斷不是丟掉', '超過 6 小時的那一段截到**最後一次心跳**（誤差最多 5 分鐘），紀錄上標 `cut`，畫面上寫「已截斷」並跳一句提示。安靜地截掉跟「時數莫名其妙變少」是同一件事。'],
+                    ['★ 暫停要記次數', '不記的話「暫停一次」跟「停掉再開一段」在資料上完全一樣，「純讀書時間」這個數字就沒辦法解釋了。YPT 記它也是為了這個。'],
+                    ['沒訊號先存本機，回線上自動補寫', '`localStorage` 的鍵名**帶 uid**：共用一台電腦的兩個帳號會互相看到對方的科目名稱，而科目名稱正是這一項最敏感的東西（「重補修微積分」）。登出時連同進行中那一段一起清空。'],
+                    ['★ 排行榜不做', '讀書時數是私有資料，科目名稱比時數更敏感。唯一不牴觸「私有資料不能被帳號持有者以外的人看到」的形狀是另開一份只有暱稱與分鐘數、預設關閉的公開文件——那是另一輪的事，不要順手把科目丟上去。'],
+                    ['科目從課表帶建議，但不綁死', '`&lt;datalist&gt;` 的來源是課表格子裡的課名 ＋ 過去用過的科目。這是「長在課表旁邊」才有的優勢，專門做讀書計時的 App 沒有你的課表。只當建議不當強制選項：換學期課表會變，綁死的話舊紀錄會對不上。'],
+                    ['★ 整站只能有一個計時器', '計劃表那項的待辦裡也列著番茄鐘。做成兩個計時器是這裡最容易犯的錯，所以番茄鐘之後要長在這一個上面，不是另外做一個。'],
+                    ['★ 掛成「計劃」底下的第二個子分頁', '不另開大分頁。`TAB_SUBS`／`SUB_PLACE`／`SUB_META` 三張表各加一列就好——那三張表存在的理由就是這個，寫死在 HTML 的分頁列裡才是錯的。子分頁列從一顆變兩顆，本來不顯示的那一列現在會出現。'],
+                    ['讀失敗就不開放存檔', '跟計劃、倒數同一條：存檔是整包覆寫，讀失敗回空陣列的話下一次停止就把雲端的歷史清光了，而畫面上只看得到「怎麼一筆紀錄都沒有」。'],
+                ]
+            },
             {
                 date: '2026-08-18',
                 title: '換 logo、拿掉 ⌘K、拖曳補上手機能用的那一半、單字卡標學測考過幾年',
@@ -5879,6 +5962,7 @@
                而畫面上根本沒人在看那個數字。 */
             if (tab ==='home') highlightCurrentClass();
             updatePlanTicker();
+            updateStudyTicker();
             /* ★ 進「帳號權限管理」先把搜尋清掉。留著上次的關鍵字的話，
                下次進來會看到一份被過濾過的名冊，而畫面上沒有任何東西
                提示「你正在搜尋中」——看起來就像有人不見了。
@@ -7909,6 +7993,373 @@
         // 現在改由 Worker 的 Cron 送推播，這段就整個移除，
         // 免得伺服器與前端各發一次、變成雙重通知。
 
+
+        /* ==========================================================
+         * 讀書計時（YPT 那一種）
+         *
+         * ★★ 只存「開始的時間戳」，畫面上的秒數一律用「現在 − 開始 − 暫停過的」算。
+         * **不要用 setInterval 累加**：背景分頁的計時器會被瀏覽器節流到每分鐘一次、
+         * 手機鎖屏後甚至整個停掉，而累加式的計時器就會少算——症狀是
+         * 「讀了兩小時只記到四十分鐘」，沒有任何錯誤訊息。
+         * 時間戳制的好處是「畫面沒在跑」與「時間有沒有算對」完全無關。
+         *
+         * ★ 存在 users/{uid}/settings/study 這一份文件裡，**不新開集合**。
+         * 理由跟計劃那一份一樣：`firestore.rules` 的私人集合白名單裡已經有
+         * 'settings'，新開集合要改規則、推規則，而**忘了推的症狀是
+         * 「按了沒反應」**（權限被拒只有主控台看得到）。
+         * ★ 這一點對這一項特別重要：規則自 2026-08-13 加了 'notes' 之後
+         * 一直沒推上主控台（見 `路線圖.md` 的「待你動手」），
+         * 新開集合的話這個功能上線當天就是死的，而且畫面上不會說。
+         *
+         * ★ 寫入頻率：**停止才寫 ＋ 每 5 分鐘一次心跳**，而且雲端寫入
+         * 節流到 60 秒一次。Firestore 免費方案每天 20,000 次寫入，
+         * 每分鐘寫一次的話一個人讀三小時就吃掉 180 次，
+         * 一百個人就把全站的額度（連同別人的課表、計劃、記帳）一起吃光。
+         * 心跳存在的理由只有一個：關分頁／當機時不會整段掉。
+         *
+         * ★ 排行榜**不做**。讀書時數是私有資料，而科目名稱比時數更敏感
+         * （「重補修微積分」）。唯一不牴觸「私有資料不能被帳號持有者以外的人看到」
+         * 的形狀是另開一份只有暱稱與分鐘數、預設關閉的公開文件——那是另一輪的事，
+         * 不要順手把科目丟上去。
+         * ========================================================== */
+        const studyPath = () => PU('settings');       // 私人區，僅本人可讀寫
+        const STUDY_MAX_SESSIONS = 400;               // 一份文件放得下的筆數（1 MB 上限）
+        const STUDY_MAX_MS   = 6 * 3600 * 1000;       // 忘了按停止的上限：6 小時
+        const STUDY_MIN_MS   = 60 * 1000;             // 不到一分鐘不記
+        const STUDY_BEAT_MS  = 5 * 60 * 1000;         // 心跳間隔
+        const STUDY_WRITE_GAP = 60 * 1000;            // 兩次雲端寫入至少隔這麼久
+        const STUDY_DAY_START_H = 4;                  // 「一天」從凌晨四點開始（見下）
+
+        /* ★ 跨日算哪一天：以**開始時間**歸屬，而且日界在凌晨四點，不是午夜。
+           23:50 讀到 01:00 是同一個晚上，照午夜切的話會變成兩筆很短的紀錄
+           （「昨天 10 分鐘、今天 60 分鐘」），而使用者記得的是「昨晚讀了 70 分鐘」。
+           四點是折衷：真的熬到四點以後才睡的那一段，算成新的一天也說得過去。
+           ★ 抽成純函式是為了測試能真的餵時間進去跑——日界這種東西
+           用眼睛看很難確認（剛好 03:59、剛好 04:00、跨月、跨年）。 */
+        function studyDayKey(ts){
+            const d = new Date(ts - STUDY_DAY_START_H * 3600000);
+            const p = (n) => String(n).padStart(2,'0');
+            return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+        }
+        /* 那一週的週一（週一為週首）。回傳的格式跟 studyDayKey 一樣，
+           所以兩者可以直接比對。★ `getDay()` 的星期日是 0，直接減會把
+           星期日算成「下一週的開頭」——(day+6)%7 讓週一變成 0。 */
+        function studyWeekKey(ts){
+            const d = new Date(ts - STUDY_DAY_START_H * 3600000);
+            d.setHours(0,0,0,0);
+            d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+            const p = (n) => String(n).padStart(2,'0');
+            return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
+        }
+
+        /* 這一段到現在為止的「純讀書時間」。暫停中就凍結在按下暫停的那一刻。
+           ★ 回傳負數要壓成 0：使用者把系統時間往回調（或跨時區）時
+           now 會小於 start，畫面上就會出現 -3:21:07 這種東西。 */
+        function studyElapsed(run, now){
+            if (!run || !run.start) return 0;
+            const end = run.pausedAt || now;
+            const ms = end - run.start - (run.pausedMs || 0);
+            return ms > 0 ? ms : 0;
+        }
+
+        /* 把進行中的那一段收成一筆紀錄。
+           ★ 忘了按停止的處理是**截斷不是丟掉**：截到最後一次心跳
+           （誤差最多 5 分鐘），並在紀錄上標 `cut`，畫面上要說一聲。
+           安靜地截掉跟「時數莫名其妙變少」是同一件事。 */
+        function closeStudyRun(run, now, maxMs = STUDY_MAX_MS){
+            if (!run || !run.start) return null;
+            let ms = studyElapsed(run, now), cut = 0;
+            if (ms > maxMs){
+                const beat = run.beat ? (run.beat - run.start - (run.pausedMs || 0)) : 0;
+                ms = (beat > 0 && beat <= maxMs) ? beat : maxMs;
+                cut = 1;
+            }
+            const rec = { id:'s' + run.start.toString(36), sub: run.sub || '',
+                          s: run.start, e: run.start + ms + (run.pausedMs || 0),
+                          ms, p: run.pauses || 0 };
+            if (cut) rec.cut = 1;
+            return rec;
+        }
+
+        /* 當日／當週統計。★ 迴圈裡加一個計數器（ran）是給測試用的：
+           零筆資料的迴圈跟「算對了」長得一模一樣。 */
+        function studyTotals(sessions, now){
+            const dk = studyDayKey(now), wk = studyWeekKey(now);
+            let day = 0, week = 0, ran = 0;
+            const bySub = new Map();
+            for (const s of (sessions || [])){
+                if (!s || !(s.ms > 0)) continue;
+                ran++;
+                if (studyWeekKey(s.s) === wk) week += s.ms;
+                if (studyDayKey(s.s) === dk){
+                    day += s.ms;
+                    const n = s.sub || '未分類';
+                    bySub.set(n, (bySub.get(n) || 0) + s.ms);
+                }
+            }
+            return { day, week, ran, bySub: [...bySub.entries()].sort((a,b) => b[1] - a[1]) };
+        }
+
+        /* 計時器上那串數字：時:分:秒，補零。 */
+        function studyClock(ms){
+            const t = Math.max(0, Math.floor(ms / 1000));
+            const p = (n) => String(n).padStart(2,'0');
+            return `${p(Math.floor(t/3600))}:${p(Math.floor(t/60)%60)}:${p(t%60)}`;
+        }
+        /* 統計上的時間：給人讀的，不需要秒。 */
+        function fmtStudyDur(ms){
+            const m = Math.round(ms / 60000);
+            if (m < 1) return '不到 1 分鐘';
+            return m < 60 ? `${m} 分鐘` : `${Math.floor(m/60)} 小時 ${m % 60} 分`;
+        }
+
+        /* ---------- 本機暫存：沒訊號時先存這裡 ---------- *
+           ★ 鍵名帶 uid。共用一台電腦的兩個帳號會互相看到對方的科目名稱，
+           而科目名稱正是這一項最敏感的東西。
+           ★ 存的是「進行中那一段 ＋ 還沒寫上雲端的紀錄」，不是整份歷史——
+           歷史的唯一來源是雲端，本機只是還沒寄出去的信。 */
+        const studyLocalKey = () => auth.currentUser ? 'blackcat-study-' + auth.currentUser.uid : null;
+        function persistStudyLocal(){
+            const k = studyLocalKey(); if (!k) return;
+            try { localStorage.setItem(k, JSON.stringify({ run: studyRun, dirty: studyDirty,
+                                                          pending: studyDirty ? studySessions.slice(-40) : [] })); }
+            catch (e) { /* 無痕模式或配額滿，計時本身照樣能動，不要因此中斷 */ }
+        }
+        function restoreStudyLocal(){
+            const k = studyLocalKey(); if (!k) return;
+            try {
+                const raw = localStorage.getItem(k); if (!raw) return;
+                const d = JSON.parse(raw) || {};
+                if (d.run && d.run.start) studyRun = d.run;
+                if (Array.isArray(d.pending) && d.pending.length){
+                    studySessions = d.pending.slice();
+                    studyDirty = true;
+                }
+            } catch (e) { console.warn('讀不回本機的讀書紀錄（略過）', e); }
+        }
+
+        /* ---------- 雲端 ---------- */
+        /* ★ 讀失敗**不能**回空的（跟計劃同一個坑）：存檔是整包覆寫，
+           回空的話下一次寫入就把雲端的歷史清光了，而畫面上只看得到
+           「怎麼一筆紀錄都沒有」。所以往外丟，由呼叫端決定不開放存檔。 */
+        async function loadStudy(){
+            const p = studyPath();
+            if (!p) return { sessions: [], running: null };
+            const snap = await getDoc(doc(db, p,'study'));
+            const d = snap.exists() ? (snap.data() || {}) : {};
+            return { sessions: Array.isArray(d.sessions) ? d.sessions : [],
+                     running: (d.running && d.running.start) ? d.running : null };
+        }
+        async function saveStudy(){
+            const p = studyPath();
+            if (!p) throw new Error('not signed in');
+            if (!studyLoaded){
+                await studyReady.catch(() => {});
+                if (!studyLoaded) throw new Error('study not loaded');
+            }
+            studySessions = studySessions.slice(-STUDY_MAX_SESSIONS);
+            await setDoc(doc(db, p,'study'),
+                         { sessions: studySessions, running: studyRun || null, updatedAt: Date.now() });
+            studyWroteAt = Date.now();
+            studyDirty = false;
+            persistStudyLocal();
+        }
+        /* 心跳與「補寄」共用這一支。★ `force` 只給開始／停止用，
+           其餘一律吃 60 秒的節流——不節流的話按幾下暫停繼續就寫好幾次。 */
+        function beatStudy(force){
+            if (!auth.currentUser || auth.currentUser.isAnonymous) return;
+            if (!force && Date.now() - studyWroteAt < STUDY_WRITE_GAP) return;
+            if (studyRun) studyRun.beat = Date.now();
+            saveStudy().catch(e => { studyDirty = true; persistStudyLocal();
+                                     console.warn('讀書紀錄暫時存不上去（留在本機）', e); });
+        }
+        /* 心跳的計時器只在「真的有一段在跑」時存在。
+           ★ 這一支跟畫面看不看得到無關（跟 updateStudyTicker 不同）：
+           使用者切到別的分頁去查資料時，那一段還在跑，心跳不能停。 */
+        function updateStudyBeat(){
+            const want = !!(studyRun && !studyRun.pausedAt);
+            if (want && !studyBeatTimer) studyBeatTimer = setInterval(() => beatStudy(), STUDY_BEAT_MS);
+            if (!want && studyBeatTimer){ clearInterval(studyBeatTimer); studyBeatTimer = null; }
+        }
+
+        /* ---------- 操作 ---------- */
+        function studySubjectOptions(){
+            const set = new Set();
+            /* ★ 從課表帶科目：這是「長在課表旁邊」才有的優勢，
+               專門做讀書計時的 App 沒有你的課表。
+               只當**建議**不當強制選項——換學期課表會變，綁死的話舊紀錄會對不上。 */
+            for (const k of Object.keys(userSchedule || {})){
+                const c = userSchedule[k];
+                if (c && c.courseName) set.add(c.courseName);
+            }
+            for (const s of studySessions) if (s && s.sub) set.add(s.sub);
+            return [...set].slice(0, 60);
+        }
+
+        function startStudy(){
+            if (studyRun) return;
+            const el = $('studySubject');
+            const sub = el ? el.value.trim().slice(0, 40) : '';
+            studyRun = { start: Date.now(), sub, pausedMs: 0, pausedAt: 0, pauses: 0, beat: Date.now() };
+            persistStudyLocal();
+            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            beatStudy(true);
+        }
+        /* ★ 暫停要記次數。不記的話「暫停一次」跟「停掉再開一段」在資料上
+           完全一樣，而「純讀書時間」這個數字的意義就沒辦法解釋了
+           （YPT 記它也是為了這個）。 */
+        function pauseStudy(){
+            if (!studyRun || studyRun.pausedAt) return;
+            studyRun.pausedAt = Date.now();
+            studyRun.pauses = (studyRun.pauses || 0) + 1;
+            persistStudyLocal();
+            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            beatStudy();
+        }
+        function resumeStudy(){
+            if (!studyRun || !studyRun.pausedAt) return;
+            studyRun.pausedMs = (studyRun.pausedMs || 0) + (Date.now() - studyRun.pausedAt);
+            studyRun.pausedAt = 0;
+            persistStudyLocal();
+            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            beatStudy();
+        }
+        async function stopStudy(){
+            if (!studyRun) return;
+            const rec = closeStudyRun(studyRun, Date.now());
+            studyRun = null;
+            let msg = '';
+            if (rec && rec.ms >= STUDY_MIN_MS){
+                studySessions.push(rec);
+                studySessions = studySessions.slice(-STUDY_MAX_SESSIONS);
+                msg = rec.cut ? '這段超過 6 小時，已截到最後一次記錄的時間'
+                              : `記下 ${fmtStudyDur(rec.ms)}`;
+            } else {
+                msg = '不到一分鐘，這一段不記';
+            }
+            studyDirty = true;
+            persistStudyLocal();
+            renderStudy(); updateStudyTicker(); updateStudyBeat();
+            showToast(msg);
+            try { await saveStudy(); }
+            catch (e){
+                console.warn('讀書紀錄存檔失敗（先留在這台裝置）', e);
+                showToast('存不上雲端，先留在這台裝置，等連線恢復會自動補上');
+            }
+        }
+        async function deleteStudySession(id){
+            const i = studySessions.findIndex(s => s && s.id === id);
+            if (i < 0) return;
+            const back = studySessions.slice();
+            studySessions.splice(i, 1);
+            studyDirty = true; persistStudyLocal(); renderStudy();
+            try { await saveStudy(); showToast('已刪除'); }
+            catch (e){
+                /* ★ 存不回去就把畫面還原。留著「畫面上刪了、雲端還在」的狀態，
+                   下次重新整理它會自己跑回來，而使用者會以為是站在亂跳。 */
+                studySessions = back; renderStudy();
+                console.warn('刪除讀書紀錄失敗', e);
+                showToast('刪除失敗，請稍後再試');
+            }
+        }
+
+        /* ---------- 畫面 ---------- */
+        /* ★ 計時器只在「讀書計時那一塊真的看得到」時跑，跟計劃倒數同一個道理：
+           看不到的數字每秒重畫一次只是讓手機一直醒著。
+           ★ 而**時間不會因此算錯**——秒數是算出來的不是累加的，
+           所以停掉計時器只是停止重畫。 */
+        function updateStudyTicker(){
+            const box = $('home-sub-timer');
+            const visible = !!studyRun && !studyRun.pausedAt
+                && !!$('page-home') && !$('page-home').classList.contains('hidden')
+                && !!box && !box.classList.contains('hidden');
+            if (visible && !studyTicker) studyTicker = setInterval(tickStudyClock, 1000);
+            if (!visible && studyTicker){ clearInterval(studyTicker); studyTicker = null; }
+        }
+        function tickStudyClock(){
+            const el = $('studyClock');
+            if (el && studyRun) el.textContent = studyClock(studyElapsed(studyRun, Date.now()));
+        }
+
+        function renderStudy(){
+            const list = $('studyBody');
+            if (!list) return;
+            const now = Date.now();
+            const running = !!studyRun, paused = !!(studyRun && studyRun.pausedAt);
+            const t = studyTotals(studySessions, now);
+
+            const clockEl = $('studyClock');
+            if (clockEl) clockEl.textContent = studyClock(studyElapsed(studyRun, now));
+            const subEl = $('studySubject');
+            if (subEl){
+                subEl.disabled = running;
+                if (running) subEl.value = studyRun.sub || '';
+            }
+            const dl = $('studySubjectList');
+            if (dl) dl.innerHTML = studySubjectOptions()
+                .map(s => `<option value="${escapeHTML(s)}"></option>`).join('');
+
+            /* 三顆按鈕的顯示規則：沒在跑只有「開始」；跑著有「暫停／繼續」與「停止」。 */
+            const show = (id, on) => { const el = $(id); if (el) el.classList.toggle('hidden', !on); };
+            show('studyStartBtn',  !running);
+            show('studyPauseBtn',  running && !paused);
+            show('studyResumeBtn', running && paused);
+            show('studyStopBtn',   running);
+            const note = $('studyRunNote');
+            if (note) note.textContent = !running ? ''
+                : paused ? `已暫停（這一段暫停過 ${studyRun.pauses} 次）`
+                         : (studyRun.sub ? `正在讀：${studyRun.sub}` : '正在讀（沒填科目）');
+
+            /* 今天／本週 ＋ 今天各科 ＋ 最近幾筆。
+               ★ 最近幾筆要看得到「暫停過幾次」與「截斷過」，
+               不然使用者只會看到一個變短的數字，不知道為什麼。 */
+            const recent = studySessions.slice(-8).reverse();
+            const hhmm = (ts) => { const d = new Date(ts); const p = (n) => String(n).padStart(2,'0');
+                                   return `${p(d.getHours())}:${p(d.getMinutes())}`; };
+            list.innerHTML = `
+                <div class="grid grid-cols-2 gap-3 mb-5">
+                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                        <div class="text-xs font-bold text-slate-400">今天</div>
+                        <div class="text-lg font-black text-slate-700">${escapeHTML(fmtStudyDur(t.day))}</div>
+                    </div>
+                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
+                        <div class="text-xs font-bold text-slate-400">本週（從週一起）</div>
+                        <div class="text-lg font-black text-slate-700">${escapeHTML(fmtStudyDur(t.week))}</div>
+                    </div>
+                </div>
+                ${t.bySub.length ? `<div class="mb-5">
+                    <div class="text-xs font-bold text-slate-400 mb-2">今天各科</div>
+                    <div class="space-y-1.5">${t.bySub.map(([n, ms]) => `
+                        <div class="flex items-center justify-between text-sm font-bold text-slate-600">
+                            <span class="truncate pr-3">${escapeHTML(n)}</span>
+                            <span class="shrink-0 text-slate-400">${escapeHTML(fmtStudyDur(ms))}</span>
+                        </div>`).join('')}</div></div>` : ''}
+                ${recent.length ? `<div>
+                    <div class="text-xs font-bold text-slate-400 mb-2">最近的紀錄</div>
+                    <div class="space-y-2">${recent.map(s => `
+                        <div class="flex items-center justify-between gap-3 rounded-2xl border border-slate-100 px-4 py-2.5">
+                            <div class="min-w-0">
+                                <div class="text-sm font-black text-slate-700 truncate">${escapeHTML(s.sub || '未分類')}</div>
+                                <div class="text-xs font-bold text-slate-400">
+                                    ${escapeHTML(studyDayKey(s.s))} ${escapeHTML(hhmm(s.s))}–${escapeHTML(hhmm(s.e))}
+                                    ${s.p ? ` · 暫停 ${s.p} 次` : ''}${s.cut ? ' · 已截斷' : ''}
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <span class="text-sm font-black text-slate-600">${escapeHTML(fmtStudyDur(s.ms))}</span>
+                                <button data-action="delete-study" data-id="${escapeHTML(s.id)}"
+                                        aria-label="刪除這筆讀書紀錄"
+                                        class="p-1.5 rounded-lg text-slate-300 hover:text-slate-500 hover:bg-slate-100 transition-colors">
+                                    <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i>
+                                </button>
+                            </div>
+                        </div>`).join('')}</div></div>`
+                  : emptyState({ text:'還沒有讀書紀錄', hint:'填一個科目、按開始就會開始算；關掉分頁也不會停',
+                                 clickId:'studyStartBtn', label:'開始計時' })}
+            `;
+            icons();
+        }
+
         /* ==========================================================
          * 10. 評價：課程地圖 / 課程詳細
          * ========================================================== */
@@ -8440,7 +8891,7 @@
            STUDY_SUBS 就成了第二份答案——留著不會報錯，只會在下次有人改其中一份時
            安靜地分岔，所以直接刪掉。ALL_STUDY_SUBS 留著是另一個用途：
            它是 switchStudySub 的白名單（認不得的參數退回預設）。 */
-        const ALL_STUDY_SUBS = ['schedule','plan','countdown','course','reading','kahoot','vocab'];
+        const ALL_STUDY_SUBS = ['schedule','plan','timer','countdown','course','reading','kahoot','vocab'];
 
         /* ★ 每一個子分頁住在哪個 page-section、哪個區塊。
            這張表取代原本那串寫死的 toggle——六個子分頁散在三個 page-section，
@@ -8453,6 +8904,7 @@
         const SUB_PLACE = {
 'schedule':  { section:'page-home',       block:'home-sub-schedule'  },
 'plan':      { section:'page-home',       block:'home-sub-plan'      },
+'timer':     { section:'page-home',       block:'home-sub-timer'     },
 'countdown': { section:'page-home',       block:'home-sub-countdown' },
 'course':    { section:'page-self-study', block:'study-sub-course'   },
 'reading':   { section:'page-self-study', block:'study-sub-reading'  },
@@ -8469,6 +8921,7 @@
         const SUB_META = {
 'schedule':  { label:'課表',     icon:'calendar-days'  },
 'plan':      { label:'計劃',     icon:'calendar-clock' },
+'timer':     { label:'讀書計時', icon:'timer'          },
 'countdown': { label:'倒數',     icon:'hourglass'      },
 'course':    { label:'自學課程', icon:'book-open'  },
 'reading':   { label:'英文閱讀', icon:'newspaper'  },
@@ -8477,7 +8930,7 @@
         };
         const TAB_SUBS = {
 'home':       ['schedule','countdown'],  // 主頁＝課表＋倒數（計劃已升格成大分頁）
-'plan':       ['plan'],                  // 計劃自己就是一個大分頁（只有一個子頁，所以不畫子分頁列）
+'plan':       ['plan','timer'],          // 計劃＋讀書計時（★ 計時器整站只能有一個，就是這一個）
 'self-study': ['course','kahoot'],       // 學習＝自學課程＋（自己出的）測驗
 'english':    ['reading','vocab'],       // 英文＝英文閱讀＋單字庫
 'quiz':       ['kahoot']                 // 彰師電子的測驗（只有公有的）
@@ -8558,6 +9011,8 @@
                 highlightCurrentClass();
             } else if (studySub ==='plan') {
                 renderPlans();
+            } else if (studySub ==='timer') {
+                renderStudy();
             } else if (studySub ==='countdown') {
                 renderCountdowns();
             } else {
@@ -8566,6 +9021,7 @@
             updateStudySubUI();
             /* 倒數的計時器只在「倒數」那個子分頁開著時才該跑 */
             updatePlanTicker();
+            updateStudyTicker();
             icons();
         }
 
@@ -10848,6 +11304,7 @@
                 $('home-user-schedule').classList.remove('hidden');
                 $('home-user-plans').classList.remove('hidden');
                 $('home-user-countdowns').classList.remove('hidden');
+                $('home-user-study').classList.remove('hidden');
                 $('displayUserName').textContent = userDisplayName;
 
                 renderSchedule();
@@ -10889,6 +11346,41 @@
                     console.warn('讀取計劃失敗', e);
                     showToast('讀不到雲端的計劃，這次先不存檔（避免蓋掉原本的）');
                 });
+                /* 讀書計時。★ 先把本機那一份接回來再去讀雲端：
+                   使用者可能是在沒訊號的時候按的停止，那一筆只在 localStorage 裡，
+                   等雲端回來才合併——反過來的話會被雲端那份整包蓋掉，
+                   而畫面上只會是「我剛剛記的那段不見了」。 */
+                studyLoaded = false;
+                studyRun = null; studySessions = []; studyDirty = false;
+                restoreStudyLocal();
+                studyReady = loadStudy().then(({ sessions, running }) => {
+                    const ids = new Set(sessions.map(s => s && s.id));
+                    const localOnly = studySessions.filter(s => s && !ids.has(s.id));
+                    studySessions = [...sessions, ...localOnly]
+                        .sort((a, b) => (a.s || 0) - (b.s || 0)).slice(-STUDY_MAX_SESSIONS);
+                    studyLoaded = true;                 // ★ 要在 saveStudy 之前
+                    /* 雲端有一段還在跑，而這台裝置沒有——那多半是在別台裝置按的開始，
+                       或是上次關掉分頁沒按停止。★ 超過上限就當場收掉並說一聲，
+                       不要讓它繼續累積成一段「讀了三十小時」的紀錄。 */
+                    if (!studyRun && running){
+                        if (studyElapsed(running, Date.now()) > STUDY_MAX_MS){
+                            const rec = closeStudyRun(running, Date.now());
+                            if (rec && rec.ms >= STUDY_MIN_MS) studySessions.push(rec);
+                            studyDirty = true;
+                            showToast('上次忘了按停止，已記到最後一次記錄的時間');
+                        } else {
+                            studyRun = running;
+                        }
+                    }
+                    if (localOnly.length || studyDirty)
+                        saveStudy().catch(e => console.warn('讀書紀錄補存失敗', e));
+                    renderStudy(); updateStudyTicker(); updateStudyBeat();
+                }).catch(e => {
+                    /* ★ 跟計劃同一條：讀不到就不要開放存檔（studyLoaded 維持 false），
+                       否則隨便一次停止就把雲端的歷史整包清掉。 */
+                    console.warn('讀取讀書紀錄失敗', e);
+                    showToast('讀不到雲端的讀書紀錄，這次先不存檔（避免蓋掉原本的）');
+                });
                 countdownsLoaded = false;
                 countdownsReady = loadCountdowns().then(list => {
                     const remote = Array.isArray(list) ? list : [];
@@ -10921,15 +11413,23 @@
                    那是私人資料，而畫面上完全看不出它屬於誰。 */
                 $('home-user-plans').classList.add('hidden');
                 $('home-user-countdowns').classList.add('hidden');
+                $('home-user-study').classList.add('hidden');
                 userPlans = [];
                 userCountdowns = [];
+                /* ★ 讀書紀錄也是私人資料：留著的話下一個登入的人會在
+                   同一台裝置上看到別人讀了什麼科目。計時器一起停掉。 */
+                studyRun = null; studySessions = []; studyDirty = false;
+                studyLoaded = false; studyReady = Promise.resolve();
                 /* ★ 一起把「載好了」收掉。留著 true 的話，登出後（或下一個人
                    登入的空窗裡）的任何一次存檔，都會拿這份空清單覆蓋雲端。 */
                 plansLoaded = false;    plansReady = Promise.resolve();
                 countdownsLoaded = false; countdownsReady = Promise.resolve();
                 renderPlans();
                 renderCountdowns();
+                renderStudy();
                 updatePlanTicker();
+                updateStudyTicker();
+                updateStudyBeat();
 
                 if (!user) signInAnonymously(auth).catch(e => console.error(e));
             }
@@ -11077,6 +11577,11 @@
 'toggle-plan-sub': (t) => togglePlanSub(t.dataset.id, t.dataset.sub),
 'add-plan-sub': () => addPlanSub(),
 'del-plan-sub': (t) => delPlanSub(t.dataset.i),
+'study-start':  () => startStudy(),
+'study-pause':  () => pauseStudy(),
+'study-resume': () => resumeStudy(),
+'study-stop':   () => stopStudy(),
+'delete-study': (t) => deleteStudySession(t.dataset.id),
 'edit-countdown':   (t) => openCountdownModal(t.dataset.id),
 'delete-countdown': (t) => deleteCountdown(t.dataset.id),
 'set-study-sub': (t) => switchStudySub(t.dataset.sub),
@@ -11622,7 +12127,13 @@
             renderVocabBooks();
         }
 
-        Object.assign(window, { PRODUCT, TABS, switchTab });
+        /* ★ 這一行存在的理由是 `tests/mainsmoke.mjs`：模組裡的函式不會自動掛到
+           window 上，冒煙測試就切不了分頁，也就證明不了「每一頁真的打得開」。
+           ★ 2026-08-18 多掛兩個：子分頁也要能被一個一個切過去。
+           `switchTab` 只會走到「上次停在的那一個」子分頁，所以新加的子分頁
+           在測試裡等於完全沒被碰過——而它失敗的方式正是「切過去整片空白」，
+           不會報錯、不會有訊息。 */
+        Object.assign(window, { PRODUCT, TABS, switchTab, switchStudySub, ALL_STUDY_SUBS });
 
         window.onload = () => {
             buildStaticUI();
