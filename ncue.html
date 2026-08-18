@@ -2674,7 +2674,12 @@
                         </button>
                     </div>
                 </div>
+
                 <p class="text-xs font-bold text-slate-400 mb-5">關掉分頁或鎖屏都不會停——秒數是用開始時間算的，不是一秒一秒加上去的。</p>
+                <!-- 科目與掛在底下的計劃。整塊由 renderSubjectBank() 填，
+                     因為它的內容同時受課表、計劃、與使用者自訂的清單影響——
+                     寫死在 HTML 的話三者任何一個變了都不會跟著動。 -->
+                <div id="studySubjectBank" class="mb-6"></div>
                 <div id="studyBody"></div>
             </div>
             </div><!-- /#home-sub-timer -->
@@ -3666,7 +3671,20 @@
             <p id="planZoneHint" class="hidden text-xs font-bold text-slate-400 mb-4"></p>
             <input type="hidden" id="editPlanId" value="">
             <div class="space-y-4">
+
                 <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：電路學期中考）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg" aria-label="要做什麼（如：電路學期中考）">
+                <!-- 科目：選填。★ 建議清單來自課表，但**不是下拉選單**——
+                     用 datalist 才能「有就挑、沒有就自己打」。做成 <select> 的話，
+                     課表還沒排的人會看到一個空的選單，而且打不了字。
+                     ★ 欄位名是 `subject` 不是 `sub`：計劃身上已經有一個 `subs`（子任務），
+                     差一個字母的兩個欄位遲早會有人寫錯，而寫錯不會報錯。 -->
+                <div>
+                    <label class="text-xs font-bold text-slate-400 mb-1 block" for="planSubject">科目（選填）</label>
+                    <input type="text" id="planSubject" list="planSubjectList" maxlength="40" placeholder="從課表挑一門，或自己打"
+                           class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold" aria-label="科目（選填）">
+                    <datalist id="planSubjectList"></datalist>
+                    <p class="text-xs font-bold text-slate-400 mt-1">填了之後，這筆計劃會掛在「讀書計時」那一頁的同名科目底下。</p>
+                </div>
                 <!-- ★ datetime-local 是絕對時間點，跟課表的「星期幾＋第幾節」是兩種東西。
                      這正是後端要另開一張表的原因。 -->
                 <!-- ★ 計劃是一段時間，不是一個時間點。兩個欄位擺在一起，
@@ -4325,7 +4343,16 @@
         let studyTicker = null;      // 畫面重畫用（只在看得到時跑）
         let studyBeatTimer = null;   // 心跳（跟看不看得到無關）
         let studyWroteAt = 0;        // 上一次真的寫上雲端的時間（節流用）
+
         let studyDirty = false;      // 有東西還沒寫上雲端（沒訊號時）
+        /* 科目庫：計時那一頁上面那一排。
+           ★ `null` 的意思是**還沒自訂過**，這時候直接用課表裡的課名。
+           用空陣列當初始值的話，「我還沒編輯過」與「我把它全部刪光了」
+           會變成同一個狀態——於是使用者刪光之後，下次開站課表又整批長回來。
+           ★ 名字刻意不叫 studySub：那個是**子分頁**（'plan'／'timer'），
+           兩個東西差一個字母的話，改錯了不會報錯，只會有一頁打不開。 */
+        let subjectBank = null;
+        let subjectBankEdit = false;   // 編輯模式（✕ 與新增欄位只在這時候出現）
 
         /* 倒數（只記日期）。跟計劃是兩件事，刻意分開存也分開顯示：
              計劃 — 某個時間點要做某件事，會通知，倒數到秒
@@ -5001,6 +5028,25 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-18',
+                title: '讀書計時改成以「科目」為主：一排科目隨時開始，計劃自動掛在底下',
+                items: [
+                    ['起因', '上一輪把計時鈕放在計劃每一列上。實際想一次流程就發現方向反了：**使用者要開始讀書的時候，腦子裡想的是「我要讀哪一科」，不是「我要做哪一筆計劃」**——而且有些時候他只是想讀書，根本沒有對應的計劃。'],
+                    ['計時那一頁多一排科目，點一下就開始', '科目預設從**課表的課名**帶進來（去重、照課表順序），也可以自己編輯：新增、刪除、「從課表補」。這是長在課表旁邊才有的優勢——專門做讀書計時的 App 沒有你的課表，只能請你把科目一個一個打進去。'],
+                    ['★★ 「還沒自訂過」與「全部刪光」不能是同一個狀態', '科目庫的初始值是 `null` 不是 `[]`。用空陣列的話，使用者把課表帶進來的科目刪掉之後，**下次開站它們又整批長回來**——而畫面上不會有任何訊息說為什麼。同樣的理由，雲端讀不到 `subs` 欄位時要回 `undefined` 不是 `[]`，沒自訂過也不要把這個欄位寫上去。'],
+                    ['★ 第一次編輯要先把課表那份「固化」下來', '不固化就直接改的話，改到的是每次重算出來的暫時陣列，下次開站又被課表蓋回去。症狀還是那句「我明明刪掉了，它又回來」。'],
+                    ['★ 「從課表補」是補不是覆蓋', '覆蓋的話使用者自己加的科目（自習、重補修、考古題）會被課表洗掉，而且不會有任何訊息。'],
+                    ['計劃多一個選填的科目欄位', '填了之後，那筆計劃會自動掛在計時那一頁的同名科目底下，隨時點得動。★ 建議清單用 `datalist` 不是 `<select>`：做成下拉選單的話，課表還沒排的人會看到一個空的選單，而且打不了字。'],
+                    ['★★ 欄位名是 `subject` 不是 `sub`', '計劃身上已經有一個 `subs`（子任務）。差一個字母的兩個欄位遲早會有人寫錯，而寫錯不會報錯，只會有一邊安靜地讀不到東西。'],
+                    ['★ 沒填科目的計劃不會消失', '它們收在「其他計劃」那一區。另外**填了科目、但那個科目已經被刪掉**的計劃，會自己長出一列並標成「課表外」——不這樣做的話，刪一個科目會讓底下的計劃從這一頁整批消失，而計劃表那邊還好好地列著，兩頁對不起來。'],
+                    ['★ 從計劃開始計時：有填科目就用科目，沒填才用標題', '用標題當科目的話，「寫第三章習題」與「寫第四章習題」會變成兩個科目，而「電路學今天讀了多久」就再也算不出來了——統計是照科目彙總的。'],
+                    ['★★ 計劃那一列的計時鈕拿掉了', '開始計時只剩一個入口。兩個入口不會報錯，只會慢慢分岔——「要不要帶科目」這種規則在兩邊各寫一次，遲早只有一邊是對的。★ 那一列**留著累計時數**：它是唯讀的資訊不是控制項，而「這筆計劃我讀多久了」正好是在計劃表上會想知道的事。'],
+                    ['⚠️ 截斷一定要說出來', '每個科目底下最多列六筆計劃。默默只顯示前六筆的話，畫面看起來就像「這個科目只有六筆計劃」，而使用者找不到的那一筆他會以為弄丟了。'],
+                    ['★ 測試裡一條「用字元數切視窗」的檢查差點誤報', '`tests/plans.mjs` 的登出檢查是「從某個字串往後數 1200 個字元」，這一輪在登出那一段多加幾行註解就紅了——而紅的原因是視窗太小，不是登出漏了什麼。改成用真正的區塊邊界（切到 `signInAnonymously` 為止）。**測試的錯誤訊息本身也會過期**，這件事上個月才記過一次。'],
+                    ['十四條故意弄壞全部確認會紅', '含「科目排提早 return」那一條——它靠 `tests/mainsmoke.mjs` 新加的「科目那一排真的畫得出來」抓到。渲染函式提早 `return` 不會報錯，而畫面上就只是少一整塊。'],
+                ]
+            },
             {
                 date: '2026-08-18',
                 title: '一天從凌晨四點開始（全站統一），讀書計時接上計劃',
@@ -7131,10 +7177,14 @@
                那顆按鈕本身就是這個功能最大的成本。 */
 
             const st = planSubStat(p);
-            /* ★ 讀書計時接進來的兩個值。用 `p.id` 不是 `p.occ`：重複計劃的
-               每一次都算在同一筆計劃頭上，用 occ 的話「這筆計劃總共讀了多久」
-               會被切成一天一份。 */
-            const timing = !!(studyRun && studyRun.pid === p.id);
+
+            /* ★ 這一列**不再有「開始計時」的按鈕**（2026-08-18 拿掉）。
+               開始計時只有一個入口：讀書計時那一頁的科目排。
+               兩個入口不會報錯，只會慢慢分岔——而且「要不要帶科目」
+               這種規則在兩邊各寫一次，遲早只有一邊是對的。
+               ★ 留下來的只有這個累計時數，它是**唯讀的資訊不是控制項**：
+               「這筆計劃我讀多久了」正好是在計劃表上會想知道的事。
+               用 `p.id` 不是 `p.occ`：重複計劃的每一次都算在同一筆計劃頭上。 */
             const studied = studyMsOfPlan(studySessions, studyRun, p.id, now);
             const subsHTML = st.total ? `
                 <div class="mt-2 pl-9 space-y-1">
@@ -7161,11 +7211,8 @@
                 </div>
 
                 <div class="flex items-center gap-1 shrink-0">
+
                     ${studied ? `<span class="text-[10px] font-black text-slate-400 mr-1" title="這筆計劃累計讀了多久">${escapeHTML(fmtStudyDur(studied))}</span>` :''}
-                    ${timing ? `<button data-action="open-study" title="正在計時，點一下看計時器"
-                            class="tap-44 shrink-0 px-2 py-1 rounded-lg text-[10px] font-black bg-amber-500 text-white flex items-center gap-1"><i data-lucide="timer" class="w-3.5 h-3.5 pointer-events-none"></i> 計時中</button>`
-                      : (p.done ?'' : `<button data-action="study-plan" data-id="${escapeHTML(p.id)}" title="用這筆計劃的標題開始讀書計時"
-                            class="tap-44 p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="timer" class="w-4 h-4 pointer-events-none"></i></button>`)}
                     ${st.total ? `<span class="text-[10px] font-black text-slate-400 mr-1">${st.done}/${st.total}</span>` :''}
                     ${p.done ?'' : `<span class="plan-countdown text-xs font-black mr-1 ${c.past ?'text-slate-400' : phase === 'during' ?'text-emerald-600' :'text-amber-600'}" data-at="${target}" data-prefix="${prefix}">${escapeHTML(prefix + c.text)}</span>`}
                     <button data-action="edit-plan" data-id="${escapeHTML(p.id)}" class="p-1.5 text-slate-300 hover:text-amber-500 rounded-lg"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
@@ -7638,8 +7685,17 @@
                 planTitle: p ? p.title :'',
                 planAt: (d && !mustPick) ? local(d) :'',
                 planEnd: (e && !mustPick) ? local(e) :'',
+
                 planNote: p ? (p.note ||'') :'',
+                planSubject: p ? (p.subject ||'') :'',
             });
+            /* 科目建議：課表 ＋ 現在的科目庫。★ 每次開視窗都重算，
+               不是開站時填一次——中間改過課表或加過科目的話，
+               填一次的那份會安靜地變成舊的。 */
+            const pdl = $('planSubjectList');
+            if (pdl) pdl.innerHTML = [...new Set([...effectiveSubjects(), ...scheduleSubjects(userSchedule)])]
+                .filter(Boolean).slice(0, 60)
+                .map(s => `<option value="${escapeHTML(s)}"></option>`).join('');
             /* 本周／未來沒有預設日期，提示要自己選——留白而不說明的話
                使用者會以為是壞掉，或隨便填一個。 */
             const hint = $('planZoneHint');
@@ -7787,7 +7843,12 @@
 
             const rec = { id: id || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6)),
                           title, at, end, lead: Number($('planLead').value) || 0,
+
                           note: getVal('planNote'), done: !!(id && prev.done),
+                          /* 科目（選填）。★ 欄位名是 `subject` 不是 `sub`——
+                             旁邊那個 `subs` 是子任務，差一個字母的兩個欄位
+                             寫錯不會報錯，只會有一邊安靜地讀不到東西。 */
+                          subject: getVal('planSubject').slice(0, 40),
                           rep, repUntil, subs,
                           /* 改規則不清打勾紀錄：把每週三改成每週四，先前打過的
                              那幾天還是做過了。 */
@@ -8210,6 +8271,47 @@
         }
 
 
+
+        /* 課表裡出現過的課名，去重、照課表的順序。
+           ★ 這是「長在課表旁邊」才有的優勢：專門做讀書計時的 App
+           沒有你的課表，所以它們只能請使用者自己把科目一個一個打進去。 */
+        function scheduleSubjects(schedule){
+            const out = [];
+            for (const k of Object.keys(schedule || {})){
+                const c = schedule[k];
+                const n = c && String(c.courseName || '').trim();
+                if (n && out.indexOf(n) < 0) out.push(n);
+            }
+            return out;
+        }
+
+        /* 計時那一頁的看板：一排科目，每個科目底下掛著填了同一個科目的計劃。
+           ★ 沒填科目的計劃**不會消失**，它們收在 `loose`（畫面上的「其他計劃」）。
+           ★ 填了科目、但那個科目不在清單裡的，會自己長出一列並標成 `extra`。
+           不這樣做的話，使用者把某個科目從清單裡刪掉之後，掛在它底下的計劃
+           就一起從這一頁消失了——而計劃表那邊還好好地列著，兩頁對不起來。
+           ★ `ran` 是給測試看的：零筆資料的迴圈跟「分對了」長得一模一樣。 */
+        function studyBoard(subjects, plans){
+            const rows = [], byName = new Map(), loose = [];
+            let ran = 0;
+            for (const s of (subjects || [])){
+                const name = String(s || '').trim();
+                if (!name || byName.has(name)) continue;
+                const row = { sub: name, extra: false, plans: [] };
+                byName.set(name, row); rows.push(row);
+            }
+            for (const p of (plans || [])){
+                if (!p || p.done) continue;
+                ran++;
+                const name = String(p.subject || '').trim();
+                if (!name){ loose.push(p); continue; }
+                let row = byName.get(name);
+                if (!row){ row = { sub: name, extra: true, plans: [] }; byName.set(name, row); rows.push(row); }
+                row.plans.push(p);
+            }
+            return { rows, loose, ran };
+        }
+
         /* 某一筆計劃累計讀了多久（含正在跑的那一段）。
            ★ 把進行中那一段一起算進去：不算的話，使用者按了計時、
            盯著計劃那一列，數字整整半小時動也不動，看起來就像沒有在記。 */
@@ -8268,8 +8370,13 @@
             const p = studyPath();
             if (!p) return { sessions: [], running: null };
             const snap = await getDoc(doc(db, p,'study'));
+
             const d = snap.exists() ? (snap.data() || {}) : {};
             return { sessions: Array.isArray(d.sessions) ? d.sessions : [],
+                     /* ★ 沒有這個欄位要回 undefined 不是 []：那兩個狀態不一樣
+                        （「還沒自訂過」vs「全部刪光」），回 [] 的話使用者
+                        刪光之後下次開站課表又整批長回來。 */
+                     subs: Array.isArray(d.subs) ? d.subs : undefined,
                      running: (d.running && d.running.start) ? d.running : null };
         }
         async function saveStudy(){
@@ -8280,8 +8387,12 @@
                 if (!studyLoaded) throw new Error('study not loaded');
             }
             studySessions = studySessions.slice(-STUDY_MAX_SESSIONS);
+
             await setDoc(doc(db, p,'study'),
-                         { sessions: studySessions, running: studyRun || null, updatedAt: Date.now() });
+                         { sessions: studySessions, running: studyRun || null,
+                           /* 沒自訂過就不要寫這個欄位（見 loadStudy 的說明）。 */
+                           ...(Array.isArray(subjectBank) ? { subs: subjectBank } : {}),
+                           updatedAt: Date.now() });
             studyWroteAt = Date.now();
             studyDirty = false;
             persistStudyLocal();
@@ -8305,8 +8416,56 @@
         }
 
         /* ---------- 操作 ---------- */
+
+        /* 現在實際生效的科目清單。★ 還沒自訂過就用課表的——
+           這一支是唯一的來源，畫面與存檔都走它，不要在別的地方再判斷一次 null。 */
+        const effectiveSubjects = () => Array.isArray(subjectBank)
+            ? subjectBank : scheduleSubjects(userSchedule);
+
+        /* 第一次編輯時把課表那份「固化」下來。
+           ★ 不固化就直接改的話，改的是每次重算出來的暫時陣列，
+           下次開站又被課表蓋回去——症狀是「我明明刪掉了，它又回來」。 */
+        function materializeSubjects(){
+            if (!Array.isArray(subjectBank)) subjectBank = effectiveSubjects().slice();
+            return subjectBank;
+        }
+        async function commitSubjects(){
+            renderSubjectBank(); renderStudy();
+            try { await saveStudy(); }
+            catch (e){ console.warn('科目清單存檔失敗', e); showToast('科目存不上雲端，先留在這台裝置'); }
+        }
+        function addSubject(){
+            const el = $('studySubNew');
+            const name = el ? el.value.trim().slice(0, 40) : '';
+            if (!name) return;
+            const list = materializeSubjects();
+            if (list.indexOf(name) >= 0) return showToast('已經有這個科目了');
+            if (list.length >= 40) return showToast('科目最多 40 個');
+            list.push(name);
+            if (el) el.value = '';
+            commitSubjects();
+        }
+        function removeSubject(name){
+            const list = materializeSubjects();
+            const i = list.indexOf(name);
+            if (i < 0) return;
+            list.splice(i, 1);
+            commitSubjects();
+        }
+        /* 從課表補進來。★ 是**補**不是覆蓋：覆蓋的話使用者自己加的科目
+           （自習、重補修、考古題）會被課表洗掉，而且不會有任何訊息。 */
+        function syncSubjectsFromSchedule(){
+            const list = materializeSubjects();
+            const add = scheduleSubjects(userSchedule).filter(n => list.indexOf(n) < 0);
+            if (!add.length) return showToast('課表上的課都已經在清單裡了');
+            list.push(...add);
+            showToast(`從課表補了 ${add.length} 個科目`);
+            commitSubjects();
+        }
+
         function studySubjectOptions(){
             const set = new Set();
+            for (const s of effectiveSubjects()) if (s) set.add(s);
             /* ★ 從課表帶科目：這是「長在課表旁邊」才有的優勢，
                專門做讀書計時的 App 沒有你的課表。
                只當**建議**不當強制選項——換學期課表會變，綁死的話舊紀錄會對不上。 */
@@ -8341,10 +8500,14 @@
         }
         /* 計劃那一列上的「計時」。★ 科目直接用計劃的標題，不另外問——
            讓使用者按一顆按鈕再打一次字，等於這顆按鈕沒有省到任何事。 */
+
+        /* ★ 有填科目就用科目、沒填才用標題。
+           用標題當科目的話，「寫第三章習題」與「寫第四章習題」會變成兩個科目，
+           而「電路學今天讀了多久」就再也算不出來了——統計是照科目彙總的。 */
         function startStudyFromPlan(id){
             const p = (userPlans || []).find(x => x && x.id === id);
             if (!p) return;
-            startStudy({ sub: p.title, pid: p.id });
+            startStudy({ sub: (p.subject || '').trim() || p.title, pid: p.id });
         }
         /* ★ 暫停要記次數。不記的話「暫停一次」跟「停掉再開一段」在資料上
            完全一樣，而「純讀書時間」這個數字的意義就沒辦法解釋了
@@ -8426,7 +8589,84 @@
             if (el && studyRun) el.textContent = studyClock(studyElapsed(studyRun, Date.now()));
         }
 
+
+        /* 科目那一排，以及掛在底下的計劃。
+           ★ 為什麼計劃在這裡而不是在計劃頁按「開始計時」：
+           使用者要開始讀書的時候，腦子裡想的是「我要讀哪一科」，
+           而不是「我要做哪一筆計劃」。把入口全部集中在這一頁，
+           整站也就只有一個地方會開始計時——兩個入口遲早會分岔。 */
+        function renderSubjectBank(){
+            const box = $('studySubjectBank');
+            if (!box) return;
+            const now = Date.now();
+            const board = studyBoard(effectiveSubjects(), userPlans);
+            const edit = subjectBankEdit;
+            const PLAN_CAP = 6;
+
+            /* 一筆計劃在這裡長什麼樣。★ 一定要顯示累計時數：
+               這一頁是「開始」的地方，而使用者最想知道的是「這個我讀多久了」。 */
+            const planBtn = (p) => {
+                const ms = studyMsOfPlan(studySessions, studyRun, p.id, now);
+                const on = !!(studyRun && studyRun.pid === p.id);
+                return `<button data-action="study-plan" data-id="${escapeHTML(p.id)}"
+                        class="tap-44 w-full text-left px-3 py-2 rounded-xl border text-xs font-bold flex items-center justify-between gap-2 ${on ?'bg-amber-500 text-white border-amber-500' :'bg-white border-slate-100 text-slate-600 hover:border-amber-300'}">
+                        <span class="truncate flex items-center gap-1.5"><i data-lucide="${on ?'timer' :'play'}" class="w-3.5 h-3.5 shrink-0 pointer-events-none"></i>${escapeHTML(p.title)}</span>
+                        <span class="shrink-0 ${on ?'text-white' :'text-slate-400'}">${on ?'計時中' : (ms ? escapeHTML(fmtStudyDur(ms)) :'')}</span>
+                    </button>`;
+            };
+            /* ★ 截斷一定要說出來。默默只顯示前六筆的話，畫面看起來就像
+               「這個科目只有六筆計劃」——而使用者找不到的那一筆他會以為弄丟了。 */
+            const planList = (arr) => !arr.length ?'' : `
+                <div class="mt-2 pl-3 space-y-1.5">
+                    ${arr.slice(0, PLAN_CAP).map(planBtn).join('')}
+                    ${arr.length > PLAN_CAP ? `<div class="text-[10px] font-bold text-slate-300 pl-1">還有 ${arr.length - PLAN_CAP} 筆沒列出來，去「計劃」那一頁看</div>` :''}
+                </div>`;
+
+            const rowHTML = (r) => `
+                <div class="rounded-2xl border border-slate-100 p-2">
+                    <div class="flex items-center gap-2">
+                        <button data-action="study-sub-start" data-sub="${escapeHTML(r.sub)}"
+                                class="tap-44 flex-1 min-w-0 text-left px-3 py-2 rounded-xl text-sm font-black flex items-center gap-2 ${(studyRun && !studyRun.pid && studyRun.sub === r.sub) ?'bg-amber-500 text-white' :'bg-slate-50 text-slate-700 hover:bg-amber-50'}">
+                            <i data-lucide="play" class="w-4 h-4 shrink-0 pointer-events-none"></i>
+                            <span class="truncate">${escapeHTML(r.sub)}</span>
+                            ${r.extra ? `<span class="shrink-0 text-[10px] font-bold text-slate-400">課表外</span>` :''}
+                        </button>
+                        ${edit ? `<button data-action="study-sub-del" data-sub="${escapeHTML(r.sub)}" aria-label="刪除科目 ${escapeHTML(r.sub)}"
+                                class="tap-44 shrink-0 p-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-slate-50"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                    </div>
+                    ${planList(r.plans)}
+                </div>`;
+
+            const empty = !board.rows.length && !board.loose.length;
+            box.innerHTML = `
+                <div class="flex items-center justify-between gap-2 mb-2">
+                    <div class="text-xs font-bold text-slate-400">科目（點一下就開始，計劃會掛在底下）</div>
+                    <button data-action="study-sub-edit"
+                            class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black ${edit ?'bg-slate-800 text-white' :'bg-slate-100 text-slate-500'}">${edit ?'完成' :'編輯'}</button>
+                </div>
+                ${empty ? `<div class="rounded-2xl border border-slate-100 px-4 py-6 text-center">
+                    <div class="text-sm font-bold text-slate-400">還沒有科目</div>
+                    <div class="text-xs font-medium text-slate-300 mt-1">科目預設從課表帶進來。課表還沒排的話，按「編輯」自己新增一個</div>
+                </div>` : `<div class="space-y-2">
+                    ${board.rows.map(rowHTML).join('')}
+                    ${board.loose.length ? `<div class="rounded-2xl border border-dashed border-slate-200 p-2">
+                        <div class="px-3 py-1 text-xs font-black text-slate-400">其他計劃（沒填科目）</div>
+                        ${planList(board.loose)}
+                    </div>` :''}
+                </div>`}
+                ${edit ? `<div class="mt-3 flex flex-col sm:flex-row gap-2">
+                    <input type="text" id="studySubNew" maxlength="40" placeholder="新增一個科目"
+                           class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-sm" aria-label="新增一個科目">
+                    <div class="flex gap-2">
+                        <button data-action="study-sub-add" class="shrink-0 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-sm">新增</button>
+                        <button data-action="study-sub-sync" class="shrink-0 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm">從課表補</button>
+                    </div>
+                </div>` :''}`;
+            icons();
+        }
+
         function renderStudy(){
+            renderSubjectBank();
             const list = $('studyBody');
             if (!list) return;
             const now = Date.now();
@@ -11502,7 +11742,9 @@
                 studyLoaded = false;
                 studyRun = null; studySessions = []; studyDirty = false;
                 restoreStudyLocal();
-                studyReady = loadStudy().then(({ sessions, running }) => {
+
+                studyReady = loadStudy().then(({ sessions, running, subs }) => {
+                    if (Array.isArray(subs)) subjectBank = subs;
                     const ids = new Set(sessions.map(s => s && s.id));
                     const localOnly = studySessions.filter(s => s && !ids.has(s.id));
                     studySessions = [...sessions, ...localOnly]
@@ -11567,8 +11809,12 @@
                 userCountdowns = [];
                 /* ★ 讀書紀錄也是私人資料：留著的話下一個登入的人會在
                    同一台裝置上看到別人讀了什麼科目。計時器一起停掉。 */
+
                 studyRun = null; studySessions = []; studyDirty = false;
                 studyLoaded = false; studyReady = Promise.resolve();
+                /* ★ 科目清單也要清：科目名稱是這一項最敏感的東西
+                   （「重補修微積分」），留著的話下一個登入的人在同一台裝置上看得到。 */
+                subjectBank = null; subjectBankEdit = false;
                 /* ★ 一起把「載好了」收掉。留著 true 的話，登出後（或下一個人
                    登入的空窗裡）的任何一次存檔，都會拿這份空清單覆蓋雲端。 */
                 plansLoaded = false;    plansReady = Promise.resolve();
@@ -11728,8 +11974,13 @@
 'del-plan-sub': (t) => delPlanSub(t.dataset.i),
 
 'study-start':  () => startStudy(),
-'study-plan':   (t) => startStudyFromPlan(t.dataset.id),
-'open-study':   () => switchStudySub('timer'),
+
+'study-plan':     (t) => startStudyFromPlan(t.dataset.id),
+'study-sub-start':(t) => startStudy({ sub: t.dataset.sub }),
+'study-sub-edit': () => { subjectBankEdit = !subjectBankEdit; renderSubjectBank(); },
+'study-sub-add':  () => addSubject(),
+'study-sub-del':  (t) => removeSubject(t.dataset.sub),
+'study-sub-sync': () => syncSubjectsFromSchedule(),
 'study-pause':  () => pauseStudy(),
 'study-resume': () => resumeStudy(),
 'study-stop':   () => stopStudy(),
