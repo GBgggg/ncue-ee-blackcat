@@ -36,7 +36,7 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' data: https://fonts.gstatic.com;
         img-src 'self' data: blob:;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev;
         frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
         worker-src 'self';
         manifest-src 'self';
@@ -4923,6 +4923,8 @@
                     ['★ 規則：過渡期到期、五個集合補上欄位驗證', '`atLeast(4) || isCatAdmin()` 是當初刻意的並存，註解自己寫著「觀察幾天就拿掉」——收掉了。**沒有 `tier` 欄位的巫醫與族長會掉權限**（後備換算讓他們落到「會員」），發布前先去帳號權限管理把該有的人設成管理員。另外 `selfStudy*`／`vocab*` 五個集合原本一個欄位都沒驗，而它們都是 `read: if true`；`courses` 只驗 `name` 那次的下場就寫在上一筆裡。'],
                     ['又一個「只驗證了當時看得到的那一個欄位」', '`aria-label="${u.displayName || u.email} 的階級"` 沒跳脫。`displayName` 是使用者自己改得動的，而那份名冊只有星族看得到——屬性裡跳出去的引號，執行時帶的是管理員的登入狀態。旁邊那個 `<span>` 有包 `escapeHTML`，這一個沒有。跟上一筆的課程三欄位是同一種病。順手把 42 處屬性裡的文件 ID 也包了（Firestore 的文件 ID 允許引號）。'],
                     ['★★ 測試差點是綠的假象', '`tests/security.mjs` 原本用 `grabDecl` 抽 `worker.js` 的函式，而那個檔案裡有正規表示式字面值——掃描器把裡面的引號當成字串開頭，`handleAiWord` 抽出來是 21000 字、一路吃到檔案結尾。於是「這一支有沒有要求登入」其實是在整個檔案上比對，**把那一支的 `requireUser` 整行刪掉，測試照樣是綠的**。這件事看原始碼看不出來，是 `node tools/mutate.mjs`（把每一條檢查故意弄壞一次）抓到的。那支工具留下來了。'],
+                    ['★★ 規則的選填欄位差點擋掉正常的寫入', '`optStr` 原本寫成 `d.get(k, \'\') is string`，而 **`get()` 的預設值只在欄位不存在時才會用上**——欄位存在、值是 `null` 的時候它回的是 `null`，整條規則就不成立。而前端真的會寫 null 進來（`level = levelRaw ? Number(levelRaw) : null`，還有 `bookId: currentViewVocabBookId` 這種「還沒選到就是 null」的變數）。症狀會是「新增單字失敗…」，Firestore 不留任何紀錄。另外上限也全部放寬到前端的兩倍以上：前端的 `isValidText` 是**先 trim 再量長度**，規則量的是原字串，打滿 80 字再多敲兩個空白就會前端放行、規則擋下。規則層要擋的是離譜的量，不是跟前端算同一個數字。'],
+                    ['★★ CSP 少了 gstatic，而我「用真的瀏覽器驗過沒有違規」', '發布之後 Console 噴 `Connecting to firebase-app.js.map violates ... connect-src`。source map 是**走 connect-src 不是 script-src** 的——模組本身載得進來，但開著 DevTools 時瀏覽器會再去要一次 `.map`。我在容器裡確實用 Chromium 載過四個頁面、確實是零違規，但**那台機器連不到 gstatic，模組根本沒載成功，自然不會去要 source map**。驗證環境少一個條件，就會少驗到一整類問題——「驗過了」要連同「在什麼條件下驗的」一起講才算數。修法不是「記得加 gstatic」，是寫成規則：`tests/security.mjs` 現在檢查 **script-src 的每個來源都要出現在 connect-src**，下次多加一支外部 script 才會被抓到。'],
                     ['★ 還沒做的', '一、Tailwind 仍在 `cdn.tailwindcss.com`。二、App Check 的接線寫好了但 `APPCHECK_SITE_KEY` 是空的——沒填就是沒開，規則擋得住越權擋不住量，而評價那條是「任何註冊帳號都能寫＋完全匿名＋只有星族能刪」。三、模擬引擎 `eecircuit-engine` 還在 jsdelivr（20MB，帶不進 repo；ES module 也掛不了 SRI），只能靠釘死版本。四、模擬器裡 `value="${p.ref}"` 那類屬性沒跳脫——那是使用者自己的電路，目前只有自傷性，但電路一開分享就要回來補。'],
                 ]
             },
