@@ -7,6 +7,42 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <meta charset="UTF-8">
+    <!-- ★ CSP：第二層防線，不是第一層。
+         第一層仍然是「每一處 innerHTML 都包 escapeHTML」——那 98 處一個都不能少。
+         這一條擋的是**萬一漏了一處**之後的下一步：注入進來的程式碼
+         載不到外部 script，也**沒辦法把偷到的 ID Token 送去別的網域**
+         （connect-src）。因為整個 App 是單檔內嵌 script，'unsafe-inline'
+         非開不可，所以它擋不住被注入的 inline script 本身——
+         別以為裝了這條就可以放心少包一次跳脫。
+
+         ★ 為什麼寫在 meta 而不是 HTTP 標頭：主要發布目標是 GitHub Pages，
+         那裡不給設標頭。firebase.json 裡另外放了一份完整的（含 meta 不支援的
+         frame-ancestors），兩邊要一起改。
+
+         ★ 改了外部來源就要跟著改這裡。症狀是那個功能安靜地沒反應，
+         畫面上什麼都不會說，錯誤只出現在 DevTools 的 Console——
+         正是這個專案一路在躲的那一類。目前白名單裡的每一項：
+           cdn.tailwindcss.com  樣式（唯一還在外面的 script，見 架構.md）
+           www.gstatic.com      Firebase SDK 的 ES module
+           apis.google.com      Google 登入
+           *.googleapis.com     Firestore／Auth／Token
+           firebaseapp.com      signInWithRedirect 用的隱藏 iframe
+           fonts.*              Noto Sans/Serif TC（CSS 裡的 @import）
+           dictionaryapi.dev    英文閱讀的查字典
+           workers.dev          報價、推播與 AI 的 Worker -->
+    <meta http-equiv="Content-Security-Policy" content="
+        default-src 'self';
+        script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.gstatic.com https://apis.google.com;
+        style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+        font-src 'self' data: https://fonts.gstatic.com;
+        img-src 'self' data: blob:;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev;
+        frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
+        worker-src 'self';
+        manifest-src 'self';
+        base-uri 'self';
+        object-src 'none';
+        form-action 'self'">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-product-title>彰師電子小黑貓 - 課程評價與資源</title>
     <!-- PWA：可安裝 + 離線 -->
@@ -23,7 +59,19 @@
         }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- ★ lucide 從 `unpkg.com/lucide@latest` 搬進 vendor/，這不是為了省流量。
+         `@latest` 的意思是「上游下一次發布的任何程式碼，都會自動在使用者的
+         瀏覽器上、以我們的來源執行」。真的發生的時候它拿得到的是 Firebase 的
+         登入狀態、私人課表、理財持股、單字冊與筆記——也就是 firestore.rules
+         裡寫著「連星族都不能看」的那一批。而且沒有 SRI，連「被換掉了」
+         都察覺不到。釘版本＋自己 host 之後，這條路整個不存在。
+         版本是搬進來當天 `@latest` 指到的 1.31.0，dist/umd/lucide.min.js
+         就是 unpkg 原本送的那一支（package.json 的 unpkg 欄位指向它），
+         所以行為一模一樣。要升級的話：npm pack lucide@<新版> 換掉檔案，
+         然後真的開一次頁面看圖示還在不在——tests 只驗得了「檔案存在」。
+         ★ Tailwind 還在外面。它是 JIT 編譯器不是一支函式庫，換掉要重排版，
+         而排版對不對只能用眼睛看。待辦寫在 架構.md。 -->
+    <script src="vendor/lucide.min.js"></script>
     <style>
         /* ★ 字重從 7 個砍到 5 個（Sans 去掉 500、Serif 去掉 500）。
            這是整頁最大的一筆資產（約 231 KB，見 使用量評估.md）。
@@ -4361,6 +4409,42 @@
          * 4. Firebase 初始化
          * ========================================================== */
         const app = initializeApp(firebaseConfig);
+
+        /* ---------- App Check（預設關閉，開它需要主控台的一把金鑰）----------
+           ★ 要解決的問題：firestore.rules 擋得住「越權」，擋不住「量」。
+           apiKey 是公開的識別碼（本來就該公開），所以任何人都能寫個腳本
+           繞過整個網頁直接打 Firestore——註冊帳號、灌評價、把每日讀取
+           額度掃光。額度用完的症狀是**全站清單同時變空**，隔天午夜自己好，
+           跟 AI 解題那次的 CORS 快取是同一類：沒有錯誤訊息的那一種。
+           評價那條特別值得看一眼：`allow create: if atLeast(1)`（任何註冊
+           帳號）＋ 設計上完全匿名 ＋ 只有星族能刪 = 被灌了就清不掉。
+
+           怎麼開（兩步，都在主控台）：
+             1. Firebase 主控台 → App Check → 註冊這個 Web App，
+                選 reCAPTCHA v3，拿到 site key
+             2. 把 site key 填進下面那個常數
+           ★ 先跑「未強制」模式幾天，看主控台的通過率確定沒有誤殺，
+             再回主控台按強制。**順序反了會把所有真的使用者一起擋在外面**，
+             而那個症狀是「大家突然都讀不到任何資料」。
+
+           ★ 常數留空時這一整段是 no-op：沒填就當作沒開，不會壞。
+             故意不寫成「找不到就丟例外」——半接好的 App Check
+             比沒有 App Check 更糟。 */
+        const APPCHECK_SITE_KEY ='';   // ← 填了才會生效
+        if (APPCHECK_SITE_KEY) {
+            try {
+                const { initializeAppCheck, ReCaptchaV3Provider } =
+                    await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check.js");
+                initializeAppCheck(app, {
+                    provider: new ReCaptchaV3Provider(APPCHECK_SITE_KEY),
+                    isTokenAutoRefreshEnabled: true,
+                });
+            } catch (e) {
+                // 載不到就繼續跑。App Check 是額外的一層，不該讓整個站開不起來
+                console.warn('App Check 初始化失敗', e);
+            }
+        }
+
         const auth = getAuth(app);
         const db = getFirestore(app);
         // 離線持久化：讓已載入的文章/課程等資料在離線時仍可讀（多分頁或不支援時會失敗，忽略即可）
@@ -4823,6 +4907,25 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-18',
+                title: '把 08-14 那筆「★ 還沒做的」四項全部做掉：函式庫自己 host、AI 端點要登入、推播加鑰匙、CSP',
+                items: [
+                    ['起因', '又做了一次資安檢視。好消息是 XSS 那一層真的守住了——98 處 `innerHTML` 對到 98 處 `escapeHTML`，逐一抽查評價、課程、文章、AI 講解、題庫全部有跳脫，`blackcatmd` 的 Markdown 走 DOMPurify 而且**沒載到就拒絕渲染**。所以這一輪找到的東西幾乎都不在前端，而是在「誰打得到我們的後端」與「我們載了誰的程式」。上一筆結尾那四項「還沒做的」，這次全部做完。'],
+                    ['★★★ `lucide@latest` 是整站最大的一個洞', '`@latest` 的意思是：**上游下一次發布的任何程式碼，都會自動在使用者的瀏覽器上、以我們的來源執行**。真的發生時它拿得到的是 Firebase 的登入狀態、自編課表、記帳與持股、單字冊、筆記——也就是 firestore.rules 裡寫著「連星族都不能看」的那一批。而且沒有 SRI，連「被換掉了」都察覺不到。lucide／KaTeX／marked／DOMPurify 四支全部釘死版本搬進 `public/vendor/` 自己 host。**DOMPurify 那支特別要記住：消毒器本身被掉包的話，筆記那一整套防護就是假的。**'],
+                    ['自己 host 順便解掉的兩件事', '一、`sw.js` 原本註解寫著「跨來源不能進 CORE，addAll 會整批失敗」——同源之後那個限制消失了，marked 與 DOMPurify 進了 CORE，離線也預覽得出來。二、KaTeX **刻意還是不進** CORE：js 加 20 個 woff2 字型約 570KB，多數人開筆記頁不是為了寫公式，它走「同源靜態資源快取優先」那條路。跟單字庫 1.8MB 不進 CORE 是同一個判斷。'],
+                    ['★ Tailwind 還在外面（唯一沒做完的一項）', '它是 JIT 編譯器不是一支函式庫，換掉等於重排版，而排版對不對只能用眼睛看。留在 架構.md 的待辦裡，不要以為這一輪把外部 script 清乾淨了。'],
+                    ['★★ AI 端點原本誰都能打，而 CORS 擋不住 curl', 'Worker 的網址就寫在公開的 `sw.js` 裡。`/ai/word` 與 `/ai/solve` 現在要 Firebase ID Token（Worker 自己驗 Google 的 JWKS 簽章，並且檢查 `aud`／`iss`——**少了那兩條，任何人自己開一個 Firebase 專案簽出來的 token 都會被當成自己人**），外加每個帳號每天 80 次的配額。額度被灌光的症狀是「AI 補全按了沒反應」，沒有錯誤訊息，跟當年 KV list 額度那次一模一樣。'],
+                    ['★★ `/push/pending` 是個沒人發現的 IDOR', 'endpoint 原本就是唯一的憑證，而它不是密碼等級的祕密——會經過前端、出現在瀏覽器日誌與除錯截圖裡。知道別人的 endpoint 就能讀走他下一則通知的內容（課名、教室、計劃備註），而且**取走即刪**，他從此收不到那一則、也不會有任何錯誤。現在多一把前端產生的 `authKey`。存在 Cache API 不是 localStorage，因為 `/push/pending` 是由 Service Worker 呼叫的（推播進來時頁面多半沒開），而 SW 讀不到 localStorage。'],
+                    ['★★★ 差點自己埋一顆地雷：sw.js 的 activate 會把金鑰洗掉', '`activate` 那段是「刪掉所有不是這一版 CACHE 的快取」，而金鑰就存在快取裡。漏掉排除的話，**每次發布新版都會把鑰匙洗掉**，接下來訂閱帶著新鑰匙上去被 Worker 回 403——症狀是「一發布，所有人的上課提醒都打不開」，而畫面上只寫「失敗」。這一條在 `tests/security.mjs` 裡釘死了。'],
+                    ['★ 舊訂閱刻意走 TOFU，不要「順手改嚴一點」', '遷移 SQL 只加一個可以是 NULL 的欄位，不主動填值；還是 NULL 的那些列由第一個報上來的 key 認養。直接給舊列亂數的話，那些人在下次開 App 之前都拿不到通知內容，只收得到保底的「快到上課時間了」——安全，但看起來像壞了。攻擊者本來就得先知道 endpoint，所以 TOFU **只會比現況好，不會更差**。'],
+                    ['CSP：講清楚它擋得住什麼、擋不住什麼', '三頁都加了 `<meta>` 版（GitHub Pages 給不了 HTTP 標頭），`firebase.json` 另放一份完整的（含 meta 放不了的 `frame-ancestors`）。**但整個 App 是單檔內嵌 script，`unsafe-inline` 非開不可，所以它擋不住被注入的 inline script 本身**——真正在做事的是 `connect-src`：就算 XSS 跑起來了，也沒辦法把偷到的 ID Token 送去別的網域。別以為裝了這條就可以少包一次 `escapeHTML`。'],
+                    ['★ 規則：過渡期到期、五個集合補上欄位驗證', '`atLeast(4) || isCatAdmin()` 是當初刻意的並存，註解自己寫著「觀察幾天就拿掉」——收掉了。**沒有 `tier` 欄位的巫醫與族長會掉權限**（後備換算讓他們落到「會員」），發布前先去帳號權限管理把該有的人設成管理員。另外 `selfStudy*`／`vocab*` 五個集合原本一個欄位都沒驗，而它們都是 `read: if true`；`courses` 只驗 `name` 那次的下場就寫在上一筆裡。'],
+                    ['又一個「只驗證了當時看得到的那一個欄位」', '`aria-label="${u.displayName || u.email} 的階級"` 沒跳脫。`displayName` 是使用者自己改得動的，而那份名冊只有星族看得到——屬性裡跳出去的引號，執行時帶的是管理員的登入狀態。旁邊那個 `<span>` 有包 `escapeHTML`，這一個沒有。跟上一筆的課程三欄位是同一種病。順手把 42 處屬性裡的文件 ID 也包了（Firestore 的文件 ID 允許引號）。'],
+                    ['★★ 測試差點是綠的假象', '`tests/security.mjs` 原本用 `grabDecl` 抽 `worker.js` 的函式，而那個檔案裡有正規表示式字面值——掃描器把裡面的引號當成字串開頭，`handleAiWord` 抽出來是 21000 字、一路吃到檔案結尾。於是「這一支有沒有要求登入」其實是在整個檔案上比對，**把那一支的 `requireUser` 整行刪掉，測試照樣是綠的**。這件事看原始碼看不出來，是 `node tools/mutate.mjs`（把每一條檢查故意弄壞一次）抓到的。那支工具留下來了。'],
+                    ['★ 還沒做的', '一、Tailwind 仍在 `cdn.tailwindcss.com`。二、App Check 的接線寫好了但 `APPCHECK_SITE_KEY` 是空的——沒填就是沒開，規則擋得住越權擋不住量，而評價那條是「任何註冊帳號都能寫＋完全匿名＋只有星族能刪」。三、模擬引擎 `eecircuit-engine` 還在 jsdelivr（20MB，帶不進 repo；ES module 也掛不了 SRI），只能靠釘死版本。四、模擬器裡 `value="${p.ref}"` 那類屬性沒跳脫——那是使用者自己的電路，目前只有自傷性，但電路一開分享就要回來補。'],
+                ]
+            },
             {
                 date: '2026-08-14',
                 title: '安全檢視後的五處修補：課程欄位跳脫、推播收件地址白名單、快取鍵、時間戳下界',
@@ -6136,6 +6239,49 @@
             return items;
         }
 
+        /* ==========================================================
+           推播端點的身分憑證（authKey）
+
+           ★ 為什麼需要：原本 Worker 那邊只認 endpoint，等於
+           「知道你的 endpoint 就是你」。而 endpoint 不是密碼等級的祕密，
+           它會經過前端、出現在瀏覽器日誌與除錯截圖裡。被拿到的後果是
+           別人可以讀走你下一則通知的內容（課名、教室、計劃備註），
+           而且讀完就刪——你從此收不到那一則，也不會有任何錯誤。
+
+           ★ 為什麼存在 Cache API 而不是 localStorage：
+           `/push/pending` 是**由 Service Worker 呼叫的**（推播進來的時候
+           頁面多半沒開著），而 SW 讀不到 localStorage。IndexedDB 也行，
+           但那是一整套 open/onupgradeneeded 的樣板；Cache API 兩邊都用得到。
+
+           ★★ sw.js 的 activate 會刪掉「不是這一版 CACHE」的所有快取。
+           這個 key 的快取一定要在那裡排除掉，否則**每次發布新版就會
+           把金鑰洗掉**，接下來 subscribe 帶著新 key 上去會被 Worker 回 403，
+           症狀是「發布之後所有人的上課提醒都打不開」。
+           兩邊的名字要一致，改了這裡就要去 sw.js 改。 */
+        const PUSH_KEY_CACHE ='blackcat-push-auth';
+        const PUSH_KEY_URL   ='https://blackcat-push.local/authkey';
+        async function pushAuthKey() {
+            try {
+                const c = await caches.open(PUSH_KEY_CACHE);
+                const hit = await c.match(PUSH_KEY_URL);
+                if (hit) {
+                    const s = (await hit.text()).trim();
+                    if (s) return s;
+                }
+                const k = (crypto.randomUUID)
+                    ? crypto.randomUUID()
+                    : String(Date.now()) + Math.random().toString(36).slice(2);
+                await c.put(PUSH_KEY_URL, new Response(k));
+                return k;
+            } catch (e) {
+                /* 拿不到就回空字串，讓 Worker 去回 400。
+                   ★ 不要在這裡自己生一個不存起來的 key——那會變成
+                   每次呼叫都是新的，Worker 一路回 403，而畫面只說「失敗」。 */
+                console.warn('取不到推播金鑰', e);
+                return'';
+            }
+        }
+
         // 課表改動後重新同步，否則伺服器提醒的還是舊課表
         async function syncReminderSubscription() {
             if (!classReminderOn || !QUOTE_API) return;
@@ -6145,7 +6291,7 @@
                 if (!sub) return;
                 await fetch(`${QUOTE_API}/push/subscribe`, {
                     method:'POST', headers: {'Content-Type':'application/json' },
-                    body: JSON.stringify({ subscription: sub.toJSON(), items: buildReminderItems(), lead: REMIND_LEAD }),
+                    body: JSON.stringify({ subscription: sub.toJSON(), items: buildReminderItems(), lead: REMIND_LEAD, authKey: await pushAuthKey() }),
                 });
             } catch (e) { console.warn('同步提醒失敗', e); }
         }
@@ -6842,7 +6988,7 @@
                 const events = [...planEvents, ...cdEvents].slice(0, PLAN_MAX);
                 await fetch(`${QUOTE_API}/push/events`, {
                     method:'POST', headers: {'Content-Type':'application/json' },
-                    body: JSON.stringify({ endpoint: sub.endpoint, events }),
+                    body: JSON.stringify({ endpoint: sub.endpoint, events, authKey: await pushAuthKey() }),
                 });
             } catch (e) { console.warn('同步計劃提醒失敗', e); }
         }
@@ -7600,7 +7746,7 @@
                     if (sub) {
                         await fetch(`${QUOTE_API}/push/unsubscribe`, {
                             method:'POST', headers: {'Content-Type':'application/json' },
-                            body: JSON.stringify({ endpoint: sub.endpoint }),
+                            body: JSON.stringify({ endpoint: sub.endpoint, authKey: await pushAuthKey() }),
                         }).catch(() => {});
                         await sub.unsubscribe().catch(() => {});
                     }
@@ -7637,7 +7783,7 @@
                 const items = buildReminderItems();
                 const r = await fetch(`${QUOTE_API}/push/subscribe`, {
                     method:'POST', headers: {'Content-Type':'application/json' },
-                    body: JSON.stringify({ subscription: sub.toJSON(), items, lead: REMIND_LEAD }),
+                    body: JSON.stringify({ subscription: sub.toJSON(), items, lead: REMIND_LEAD, authKey: await pushAuthKey() }),
                 });
                 const j = await r.json();
                 if (!j.ok) throw new Error(j.error ||'subscribe failed');
@@ -7703,7 +7849,7 @@
                     </div>`;
             }
             const sel = (field, current, options) => `
-                <select data-action="update-course-feature" data-id="${course.id}" data-field="${field}" aria-label="${escapeHTML(course.name)} 的${field}設定"
+                <select data-action="update-course-feature" data-id="${escapeHTML(course.id)}" data-field="${field}" aria-label="${escapeHTML(course.name)} 的${field}設定"
                     class="text-xs bg-slate-100 rounded-lg px-2 py-1 border border-slate-200 focus:outline-none font-bold text-slate-600 pointer-events-auto">
                     ${options.map(([v, l]) => `<option value="${v}" ${current === v ?'selected' :''}>${l}</option>`).join('')}
                 </select>`;
@@ -7775,12 +7921,12 @@
                     </div>`;
                 };
                 return `
-                <div data-action="toggle-course" data-id="${course.id}" class="cat-card cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 transition-all hover:shadow-xl flex flex-col border-slate-100 hover:border-emerald-300">
+                <div data-action="toggle-course" data-id="${escapeHTML(course.id)}" class="cat-card cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 transition-all hover:shadow-xl flex flex-col border-slate-100 hover:border-emerald-300">
                     <div class="mb-3 flex justify-between items-start">
                         <span class="inline-block text-[10px] font-black bg-emerald-100 text-emerald-700 px-2 py-1 rounded border border-emerald-200 pointer-events-none">${courseTagText(course)}</span>
                         <div class="flex items-center gap-2">
                             <div class="text-slate-400 font-bold text-[10px] bg-slate-50 px-3 py-1 rounded-full uppercase pointer-events-none whitespace-nowrap">${a.count} 貓評</div>
-                            ${isAdmin ? `<button data-action="delete" data-type="course" data-id="${course.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` :''}
+                            ${isAdmin ? `<button data-action="delete" data-type="course" data-id="${escapeHTML(course.id)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` :''}
                         </div>
                     </div>
                     <div class="flex justify-between items-start mb-2">
@@ -7851,7 +7997,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         <a href="${escapeHTML(m.url)}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
-                        ${isAdmin ? `<button data-action="delete" data-type="${tierKey}" data-id="${m.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                        ${isAdmin ? `<button data-action="delete" data-type="${tierKey}" data-id="${escapeHTML(m.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` :''}
                     </div>
                 </div>`;
         }
@@ -7916,7 +8062,7 @@
                             <h4 class="text-xl font-black text-slate-900">${escapeHTML(r.courseName)}</h4>
                             <p class="text-xs text-emerald-600 font-bold mt-1 flex items-center gap-2"><span>@${escapeHTML(r.instructor)}</span><span class="text-slate-300">|</span><span class="text-slate-400">${escapeHTML(r.date ||'')}</span></p>
                         </div>
-                        ${isAdmin ? `<button data-action="delete" data-type="review" data-id="${r.id}" class="p-2 text-red-200 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` :''}
+                        ${isAdmin ? `<button data-action="delete" data-type="review" data-id="${escapeHTML(r.id)}" class="p-2 text-red-200 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-5 h-5 pointer-events-none"></i></button>` :''}
                     </div>
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-5 p-4 bg-slate-50 rounded-2xl">
                         ${metric('課程難度', r.courseDiff,'bg-data-1')}
@@ -7950,7 +8096,7 @@
                         </div>
                         <select id="wizardCourseSelect" aria-label="選擇課程" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-2 border-slate-200 focus:border-emerald-500 font-bold text-slate-700 appearance-none transition-colors outline-none">
                             <option value="" disabled selected>請選擇課程...</option>
-                            ${state.courses.map(c => `<option value="${c.id}" ${reviewWizardData.courseId === c.id ?'selected' :''}>${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('')}
+                            ${state.courses.map(c => `<option value="${escapeHTML(c.id)}" ${reviewWizardData.courseId === c.id ?'selected' :''}>${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('')}
                         </select>
                         ${currentUserLevel >= 4 ? `
                         <button data-action="open-add-course" class="w-full py-2 text-xs font-bold text-emerald-600 bg-emerald-50 rounded-xl hover:bg-emerald-100 transition-colors border border-emerald-100">找不到？點我新增課程</button>` :''}
@@ -8054,7 +8200,7 @@
                 return;
             }
             grid.innerHTML = state.ssCourses.map(c => `
-                <div data-action="open-ss-course" data-id="${c.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-fuchsia-300 transition-colors flex flex-col group relative">
+                <div data-action="open-ss-course" data-id="${escapeHTML(c.id)}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-fuchsia-300 transition-colors flex flex-col group relative">
                     <div class="w-12 h-12 bg-fuchsia-50 text-fuchsia-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i data-lucide="book" class="w-6 h-6"></i>
                     </div>
@@ -8062,8 +8208,8 @@
                     <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold flex items-center gap-1 truncate"><i data-lucide="link" class="w-3 h-3"></i> ${escapeHTML(c.linkedCourseName)}</p>
                     ${isAdmin ? `
                     <div class="absolute top-4 right-4 flex gap-2">
-                        <button data-action="edit-ss-course" data-id="${c.id}" class="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete" data-type="ssCourse" data-id="${c.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="edit-ss-course" data-id="${escapeHTML(c.id)}" class="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="ssCourse" data-id="${escapeHTML(c.id)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                 </div>
             `).join('');
@@ -8087,8 +8233,8 @@
                 <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all relative">
                     ${isAdmin ? `
                     <div class="absolute top-4 right-4 flex gap-2">
-                        <button data-action="edit-ss-unit" data-id="${u.id}" class="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete" data-type="ssUnit" data-id="${u.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="edit-ss-unit" data-id="${escapeHTML(u.id)}" class="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="ssUnit" data-id="${escapeHTML(u.id)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                     <h4 class="text-xl font-black text-slate-900 mb-3 pr-20">${escapeHTML(u.title)}</h4>
                     ${u.description ? `<p class="text-slate-600 text-sm font-medium mb-5 bg-slate-50 p-4 rounded-2xl whitespace-pre-line leading-relaxed">${escapeHTML(u.description)}</p>` :''}
@@ -8418,8 +8564,8 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <span class="font-black ${e.type ==='income' ?'text-emerald-500' :'text-rose-500'}">${e.type ==='income' ?'+' :'-'}${money(e.amount)}</span>
-                            <button data-action="edit-expense" data-id="${e.id}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                            <button data-action="del-finance" data-col="expenses" data-id="${e.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="edit-expense" data-id="${escapeHTML(e.id)}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="del-finance" data-col="expenses" data-id="${escapeHTML(e.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                         </div>
                     </div>`).join('');
         }
@@ -8459,8 +8605,8 @@
                         </div>
                         <div class="flex items-center gap-2 shrink-0">
                             <div class="text-right"><div class="font-black text-slate-800 text-sm">${money(v)}</div><div class="text-xs font-bold ${p >= 0 ?'val-up' :'val-down'}">${p >= 0 ?'+' :''}${money(p)}</div></div>
-                            <button data-action="edit-holding" data-id="${h.id}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                            <button data-action="del-finance" data-col="holdings" data-id="${h.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="edit-holding" data-id="${escapeHTML(h.id)}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="del-finance" data-col="holdings" data-id="${escapeHTML(h.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                         </div>
                     </div>`; }).join('');
 
@@ -8473,7 +8619,7 @@
                             <div class="font-black text-slate-900 truncate"><span class="${t.side ==='sell' ?'text-rose-500' :'text-blue-500'}">${t.side ==='sell' ?'賣出' :'買入'}</span> ${escapeHTML(t.name)}</div>
                             <div class="text-xs text-slate-400">${t.qty} × ${t.price} = ${money((t.qty || 0) * (t.price || 0))} · ${escapeHTML(t.date ||'')}</div>
                         </div>
-                        <button data-action="del-finance" data-col="trades" data-id="${t.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg shrink-0"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="del-finance" data-col="trades" data-id="${escapeHTML(t.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg shrink-0"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>`).join('');
 
             $('watchList').innerHTML = state.watchlist.length === 0
@@ -8487,8 +8633,8 @@
                                 ${w.note ? `<p class="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">${escapeHTML(w.note)}</p>` :''}
                             </div>
                             <div class="flex gap-1 shrink-0">
-                                <button data-action="edit-watch" data-id="${w.id}" class="p-1.5 text-slate-300 hover:text-fuchsia-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                                <button data-action="del-finance" data-col="watchlist" data-id="${w.id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="edit-watch" data-id="${escapeHTML(w.id)}" class="p-1.5 text-slate-300 hover:text-fuchsia-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="del-finance" data-col="watchlist" data-id="${escapeHTML(w.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                             </div>
                         </div>
                     </div>`).join('');
@@ -8887,7 +9033,7 @@
             // 有資料夾之後同名冊子會變多，選項前面補上資料夾名才分得出來
             sel.innerHTML = books.map(b => {
                 const f = state.myVocabFolders.find(x => x.id === b.folderId);
-                return `<option value="${b.id}">${escapeHTML(f ? `${f.title} / ${b.title}` : b.title)}</option>`;
+                return `<option value="${escapeHTML(b.id)}">${escapeHTML(f ? `${f.title} / ${b.title}` : b.title)}</option>`;
             }).join('');
 
             setVals({ addWordEnglish: word, addWordEngDef:'', addWordRootPrefix:'', addWordExample:'', addWordChinese:'' });
@@ -8897,10 +9043,28 @@
             icons();
 
             try {
+                /* ★ 帶 ID Token。Worker 那邊 /ai/* 已經改成要登入——
+                   理由是那支 Worker 在公開網址上，CORS 只約束瀏覽器不約束
+                   curl，不擋的話任何人都能拿它燒 Workers AI 的額度，
+                   而額度用完的症狀是「AI 補全按了沒反應」，沒有錯誤訊息。
+                   ★ getIdToken() 會自己處理過期換發，不要自己快取字串。 */
+                const tok = auth.currentUser ? await auth.currentUser.getIdToken() :'';
                 const r = await fetch(`${QUOTE_API}/ai/word`, {
-                    method:'POST', headers: {'Content-Type':'application/json' },
+                    method:'POST',
+                    headers: {'Content-Type':'application/json','Authorization':`Bearer ${tok}` },
                     body: JSON.stringify({ word }),
                 });
+                /* ★ 401 與 429 要分開講。兩個都是「按了沒反應」，
+                   但使用者要做的事完全不同：一個是去登入，一個是明天再來。
+                   混成一句「查不到」的話，沒登入的人會一直重按。 */
+                if (r.status === 401) {
+                    status.innerHTML ='<i data-lucide="log-in" class="w-3.5 h-3.5 text-amber-500"></i> 要先登入才能用 AI 補全，請自己填';
+                    icons(); return;
+                }
+                if (r.status === 429) {
+                    status.innerHTML ='<i data-lucide="alert-circle" class="w-3.5 h-3.5 text-amber-500"></i> 今天的 AI 次數用完了，請自己填';
+                    icons(); return;
+                }
                 const j = await r.json();
                 if (j.ok && j.data) {
                     setVals({
@@ -8958,8 +9122,8 @@
                 return;
             }
             el.innerHTML = state.articles.map(a => `
-                <div data-action="reading-open" data-id="${a.id}" class="cursor-pointer bg-white rounded-2xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all relative">
-                    ${isCatAdmin() ? `<button data-action="delete" data-type="article" data-id="${a.id}" class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                <div data-action="reading-open" data-id="${escapeHTML(a.id)}" class="cursor-pointer bg-white rounded-2xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all relative">
+                    ${isCatAdmin() ? `<button data-action="delete" data-type="article" data-id="${escapeHTML(a.id)}" class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
                     <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 pr-6">${escapeHTML(a.topic ||'')}</div>
                     <h4 class="font-black text-slate-900 mb-1 leading-snug break-words pr-6">${escapeHTML(a.title)}</h4>
                     <p class="text-xs text-slate-400">${escapeHTML(a.source ||'')}${a.author ?' ·' + escapeHTML(a.author) :''}</p>
@@ -9133,7 +9297,7 @@
         function vocabFolderCard(f, editable) {
             const n = f.bookCount != null ? f.bookCount : vocabBooksOf(vocabScope).filter(b => b.folderId === f.id).length;
             return `
-                <div data-action="open-vocab-folder" data-id="${f.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-slate-400 transition-colors flex flex-col group relative">
+                <div data-action="open-vocab-folder" data-id="${escapeHTML(f.id)}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-slate-400 transition-colors flex flex-col group relative">
                     <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i data-lucide="folder" class="w-6 h-6"></i>
                     </div>
@@ -9142,8 +9306,8 @@
                     <span class="text-[10px] font-black tracking-widest uppercase text-slate-400">${n} 冊${f.count ? ` · ${f.count} 字` :''}</span>
                     ${editable ? `
                     <div class="absolute top-4 right-4 flex gap-2">
-                        <button data-action="edit-vocab-folder" data-id="${f.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete" data-type="vocabFolder" data-id="${f.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="edit-vocab-folder" data-id="${escapeHTML(f.id)}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabFolder" data-id="${escapeHTML(f.id)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                 </div>`;
         }
@@ -9151,7 +9315,7 @@
         function vocabBookCard(b, editable) {
             const badge = vocabScope ==='mine' ?'🔒 只有你看得到' : vocabScope ==='builtin' ?'內建' :'公有';
             return `
-                <div data-action="open-vocab-book" data-id="${b.id}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-colors flex flex-col group relative">
+                <div data-action="open-vocab-book" data-id="${escapeHTML(b.id)}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-blue-300 transition-colors flex flex-col group relative">
                     <div class="w-12 h-12 bg-blue-50 text-blue-500 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                         <i data-lucide="book-type" class="w-6 h-6"></i>
                     </div>
@@ -9160,8 +9324,8 @@
                     <span class="text-[10px] font-black tracking-widest uppercase ${vocabScope ==='mine' ?'text-blue-500' :'text-slate-400'}">${badge}${b.count ? ` · ${b.count} 字` :''}</span>
                     ${editable ? `
                     <div class="absolute top-4 right-4 flex gap-2">
-                        <button data-action="edit-vocab-book" data-id="${b.id}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete" data-type="vocabBook" data-id="${b.id}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="edit-vocab-book" data-id="${escapeHTML(b.id)}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabBook" data-id="${escapeHTML(b.id)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                 </div>`;
         }
@@ -9295,8 +9459,8 @@
                 <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-slate-100 hover:shadow-md transition-all relative flex flex-col justify-center">
                     ${canEditVocab(currentViewVocabScope) ? `
                     <div class="absolute top-4 right-4 flex gap-2">
-                        <button data-action="edit-vocab-word" data-id="${w.id}" class="p-2 text-slate-300 hover:text-emerald-500 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                        <button data-action="delete" data-type="vocabWord" data-id="${w.id}" class="p-2 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="edit-vocab-word" data-id="${escapeHTML(w.id)}" class="p-2 text-slate-300 hover:text-emerald-500 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                        <button data-action="delete" data-type="vocabWord" data-id="${escapeHTML(w.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                     <h4 class="text-2xl font-black text-blue-700 mb-1 pr-14 break-words">${escapeHTML(w.english)}</h4>
                     ${vocabTagRow(w)}
@@ -9335,7 +9499,7 @@
             if (sel) {
                 const folders = vocabFoldersOf(vocabScope);
                 sel.innerHTML = `<option value="">未分類</option>` +
-                    folders.map(f => `<option value="${f.id}">${escapeHTML(f.title)}</option>`).join('');
+                    folders.map(f => `<option value="${escapeHTML(f.id)}">${escapeHTML(f.title)}</option>`).join('');
                 sel.value = b ? (b.folderId ||'') : (currentVocabFolderId ||'');
             }
             setVals({ editVocabBookId: b ? b.id :'', vocabBookTitle: b ? b.title :'', vocabBookDescription: b ? (b.description ||'') :'' });
@@ -9533,8 +9697,8 @@
                             <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
                             ${editable ? `
                             <div class="flex gap-2 shrink-0">
-                                <button data-action="edit-kahoot" data-id="${k.id}" class="text-slate-300 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                                <button data-action="delete" data-type="kahoot" data-id="${k.id}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="edit-kahoot" data-id="${escapeHTML(k.id)}" class="text-slate-300 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="delete" data-type="kahoot" data-id="${escapeHTML(k.id)}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                             </div>` :''}
                         </div>
                         <p class="text-sm text-emerald-600 font-bold mb-2 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName ||'未指定課程')}</p>
@@ -9543,7 +9707,7 @@
                             ${kahootScope ==='mine' ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' :''}
                         </div>
                     </div>
-                    <button data-action="start-kahoot" data-id="${k.id}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                    <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
                         <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' :'開始測驗'}
                     </button>
                 </div>`;
@@ -10022,7 +10186,12 @@
                         <span class="font-bold text-slate-800 text-sm truncate">${escapeHTML(u.email)}</span>
                         <span class="text-xs text-slate-400 truncate">${escapeHTML(u.displayName ||'無名小貓')}・${new Date(u.createdAt).toLocaleDateString()} 加入</span>
                     </div>
-                    <select data-action="change-role" data-uid="${u.uid}" aria-label="${u.displayName || u.email} 的階級"
+                    <!-- ★ aria-label 也要跳脫。displayName 是使用者自己改得動的欄位
+                         （firestore.rules 只鎖了 role／tier／email），而這一份名冊
+                         只有星族看得到——屬性裡跳出去的引號，執行時帶的就是管理員的
+                         登入狀態。旁邊那個 <span> 有包 escapeHTML，這裡沒有，
+                         又是「只驗證了當時看得到的那一個欄位」。 -->
+                    <select data-action="change-role" data-uid="${escapeHTML(u.uid)}" aria-label="${escapeHTML(u.displayName || u.email)} 的階級"
                             class="shrink-0 ml-3 px-3 py-1.5 bg-white border-2 border-slate-200 rounded-xl text-sm font-bold text-slate-700 outline-none focus:border-fuchsia-400 transition-colors">
                         ${ROLES.map(r => `<option value="${r}" ${u.role === r ?'selected' :''}>${r}</option>`).join('')}
                     </select>
@@ -10181,7 +10350,7 @@
             list = list.slice(0, 30);
             box.innerHTML = list.length === 0
                 ?'<div class="px-4 py-3 text-sm text-slate-400 font-bold text-center">查無此課，將以自訂名稱儲存</div>'
-                : list.map(c => `<button type="button" data-action="pick-schedule-course" data-id="${c.id}" class="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-teal-50 border-b border-slate-50">${escapeHTML(c.name)} <span class="text-slate-400 font-medium">（${escapeHTML(c.instructor)}）</span></button>`).join('');
+                : list.map(c => `<button type="button" data-action="pick-schedule-course" data-id="${escapeHTML(c.id)}" class="w-full text-left px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-teal-50 border-b border-slate-50">${escapeHTML(c.name)} <span class="text-slate-400 font-medium">（${escapeHTML(c.instructor)}）</span></button>`).join('');
             box.classList.remove('hidden');
         }
 
@@ -10274,7 +10443,7 @@
                 if (!select) return;
                 const currentVal = select.value;
                 select.innerHTML ='<option value="" disabled selected>請選擇課程...</option>' +
-                    state.courses.map(c => `<option value="${c.id}">${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('');
+                    state.courses.map(c => `<option value="${escapeHTML(c.id)}">${escapeHTML(c.name)} (${escapeHTML(c.instructor)})</option>`).join('');
                 if (currentVal) select.value = currentVal;
             });
         }

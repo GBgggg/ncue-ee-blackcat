@@ -11,7 +11,14 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v82';
+const CACHE = 'blackcat-v83';
+/* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
+   所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
+   上去，Worker 認得是舊的那把於是回 403，症狀是
+   「發布新版之後所有人的上課提醒都打不開」，而畫面上只寫著「失敗」。
+   名字要跟 publicnew.html 的 PUSH_KEY_CACHE 一致。 */
+const AUTH_CACHE = 'blackcat-push-auth';
+const AUTH_URL   = 'https://blackcat-push.local/authkey';
 /* ★ 每一個會發布出去的頁面都要在這裡。漏掉不會報錯——
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
@@ -21,6 +28,26 @@ const CORE = ['./', './index.html', './image.png', './manifest.json',
               './ncue.html',            // 彰師電子（獨立頁）
               './blackcatspice.html',   // 電路模擬器（獨立頁）
               './blackcatmd.html',      // 筆記編輯器（獨立頁）
+              /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
+                 搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`
+                 那種浮動版本等於「上游下一次發布的程式碼會自動在使用者的
+                 瀏覽器上、以我們的來源執行」，而它拿得到的是 Firebase 的
+                 登入狀態與整個私人區。詳見 publicnew.html 那段註解。
+
+                 ★ 同源之後才進得了 CORE——原本這裡寫著「跨來源不能加，
+                 addAll 會整批失敗」，那個限制隨著搬家一起消失了，
+                 順便把「離線時筆記不排版」那個舊代價也解掉一半。
+                 lucide 是每一頁的圖示，marked 與 DOMPurify 是筆記頁
+                 沒有就不能用的東西（DOMPurify 缺席時它會拒絕渲染）。
+
+                 ★ KaTeX **刻意不進**：js 加 20 個 woff2 字型約 570KB，
+                 而多數人開筆記頁不是為了寫公式。它走下面「同源靜態資源
+                 快取優先」那條路，用過一次就留著。這跟單字庫 1.8MB
+                 不進 CORE 是同一個判斷：不是「翻到才需要」的東西才預先抓。
+                 tests/latex.mjs 有一條在釘這件事。 */
+              './vendor/lucide.min.js',
+              './vendor/marked.min.js',
+              './vendor/purify.min.js',
               /* 筆記那張紙（亮／夜兩張，共約 35KB）。跟背景畫同一個理由要進 CORE：
                  它不是「翻到才需要」的內容，是紙本身。少了它筆記還是有橫線
                  （CSS 漸層接得住），但頁首與紙紋會不見——而那看起來很像
@@ -59,7 +86,9 @@ self.addEventListener('install', (e) => {
 self.addEventListener('activate', (e) => {
   e.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((k) => k !== CACHE).map((k) => caches.delete(k))))
+      // AUTH_CACHE 不是版本化的快取，是一把金鑰，絕對不能跟著清（見上面）
+      .then((keys) => Promise.all(
+        keys.filter((k) => k !== CACHE && k !== AUTH_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -79,10 +108,19 @@ self.addEventListener('push', (e) => {
     try {
       const sub = await self.registration.pushManager.getSubscription();
       if (sub) {
+        /* ★ 要帶 authKey，否則 Worker 會回 403 而這裡只會走到保底文案——
+           「通知會響但永遠只寫『快到上課時間了』」，沒有錯誤訊息。
+           金鑰是頁面產生並存進 AUTH_CACHE 的，SW 讀不到 localStorage，
+           所以兩邊約好用 Cache API。 */
+        let authKey = '';
+        try {
+          const hit = await (await caches.open(AUTH_CACHE)).match(AUTH_URL);
+          if (hit) authKey = (await hit.text()).trim();
+        } catch (e) { /* 拿不到就讓 Worker 去判斷，保底文案還在 */ }
         const r = await fetch(`${PUSH_API}/push/pending`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
+          body: JSON.stringify({ endpoint: sub.endpoint, authKey }),
         });
         const j = await r.json();
         if (j && j.note && j.note.title) note = j.note;

@@ -7,20 +7,47 @@
 <link rel="icon" href="image.png">
 <meta name="description" content="筆記小黑貓：Markdown 加數學公式，橫線紙版面，只有你自己看得到。手機也能寫。">
 
-<!-- ★ 三支都是**跨來源**資源，`sw.js` 的 CORE 不能加（service worker 只管同源，
-     把跨來源網址塞進 addAll 會讓整批預快取失敗）。所以離線、CDN 被擋、
-     或載入比第一次渲染還慢的時候，它們一定會不在。三支各有各的降級：
+<!-- ★ CSP：第二層防線。這一頁的第一層是 DOMPurify（下面那段）。
+     整頁是單檔內嵌 script，所以 'unsafe-inline' 非開不可，這條擋不住
+     被注入的 inline script 本身；它擋的是下一步——載不到外部 script，
+     也送不出去任何東西（connect-src 只留 Firebase）。
+     改了外部來源要跟著改這裡，也要改 firebase.json。 -->
+<meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com;
+    style-src 'self' 'unsafe-inline';
+    font-src 'self' data:;
+    img-src 'self' data: blob:;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com;
+    frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
+    worker-src 'self';
+    base-uri 'self';
+    object-src 'none';
+    form-action 'self'">
 
+<!-- ★ 三支原本是**跨來源**資源（cdnjs），現在搬進 vendor/ 自己 host。
+     搬的理由是資安：沒有 SRI 的第三方 script 等於「上游哪天被換掉，
+     我們照跑不誤，而且察覺不到」——這一頁還特別敏感，因為它跑的是
+     DOMPurify，消毒器本身被換掉的話下面那段防護就整個是假的。
+
+     ★ 順帶解掉的是離線：原本這裡寫著「CORE 不能加，因為 addAll 對跨來源
+     會整批失敗」。搬成同源之後那個限制消失了，marked 與 DOMPurify
+     已經加進 CORE（兩支加起來 56KB）。
+     ★ KaTeX **刻意還是不進 CORE**：js 加 20 個 woff2 字型共約 570KB，
+     而多數人開這一頁不是為了寫公式。它走 sw.js「同源靜態資源快取優先」
+     那條路——用過一次就留在快取裡，之後離線也排得出來。
+
+     三支各有各的降級（同源之後仍然要留著：檔案還是可能沒到）：
        KaTeX      沒到 → 公式顯示 $…$ 原文（橘色等寬）
        marked     沒到 → 預覽顯示 Markdown 原文
        DOMPurify  沒到 → **拒絕渲染 HTML**，退回純文字
 
      ★ 第三支是唯一不做降級的。少了它等於把使用者打的字當程式跑，
      而筆記將來要開分享——那時執行的是別人寫的字。 -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
+<link rel="stylesheet" href="vendor/katex.min.css">
+<script defer src="vendor/katex.min.js"></script>
+<script defer src="vendor/marked.min.js"></script>
+<script defer src="vendor/purify.min.js"></script>
 <style>
 /* ==========================================================
    外殼 token：這一頁**故意不跟另外三個產品共用**

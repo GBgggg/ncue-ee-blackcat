@@ -6,13 +6,40 @@
 <title>電路小黑貓 - 電路模擬器</title>
 <link rel="icon" href="image.png">
 <meta name="description" content="電路小黑貓：畫電路、按執行、看波形。畫電路、按執行、看波形。免安裝，手機也能跑。">
+<!-- ★ CSP：第二層防線。
+     ★★ 這一頁的白名單比另外兩頁寬，原因是模擬引擎：
+     `eecircuit-engine` 是一支 20 MB 的 ES module（ngspice 編成 WebAssembly，
+     wasm 用 base64 內嵌在裡面），大到不可能跟著發布進 GitHub Pages，
+     所以它必須留在 jsdelivr／unpkg 上——版本是釘死的 1.7.0，
+     但 ES module 的 import 沒辦法掛 SRI，這一條無解，只能靠釘版本。
+     `'wasm-unsafe-eval'` 也是為了它：少了這個 token，WebAssembly
+     根本 instantiate 不了。支援的是 Chrome 97+／Firefox 102+／Safari 16.4+，
+     而這一頁本來就是「用電腦開」的，可以接受。
+     ★ 引擎載不到會走 getSim() 的逾時與錯誤訊息，是**看得見**的失敗，
+     不是靜默的——這是刻意的，否則按了執行沒反應沒人查得出原因。 -->
+<meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://apis.google.com https://cdn.jsdelivr.net https://unpkg.com;
+    style-src 'self' 'unsafe-inline';
+    font-src 'self' data:;
+    img-src 'self' data: blob:;
+    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://cdn.jsdelivr.net https://unpkg.com https://blackcat-quote.cctsai03.workers.dev;
+    frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
+    worker-src 'self' blob:;
+    base-uri 'self';
+    object-src 'none';
+    form-action 'self'">
+
 <!-- 解題卡的算式用 KaTeX 排版。
-     ★ 這是**跨來源**資源，sw.js 的 CORE 不能加（service worker 只管同源），
-     所以離線、CDN 被擋、或載入比第一次算式還慢的時候，它一定會不在。
-     因此每一條算式都以純文字寫進 DOM，KaTeX 只是「有的話就升級」——
-     少了這個防護，症狀是算式那一行整片空白，而且完全不會報錯。 -->
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.css">
-<script defer src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
+     ★ 原本從 cdnjs 載，現在搬進 vendor/ 自己 host——沒有 SRI 的第三方
+     script 等於「上游被換掉也照跑」，而這一頁存得到使用者的私人電路。
+     ★ 但**降級路徑要留著**：KaTeX 沒進 sw.js 的 CORE（js 加 20 個字型
+     約 570KB，多數人不需要），所以第一次離線開、或檔案還沒下載完的時候
+     它一樣會不在。因此每一條算式都以純文字寫進 DOM，KaTeX 只是
+     「有的話就升級」——少了這個防護，症狀是算式那一行整片空白，
+     而且完全不會報錯。 -->
+<link rel="stylesheet" href="vendor/katex.min.css">
+<script defer src="vendor/katex.min.js"></script>
 <style>
 /* ==========================================================
    設計 token 與主站 publicnew.html 共用同一組值。改配色要兩邊一起改。
@@ -5370,11 +5397,22 @@ $('wkAi').onclick = async () => {
     out.hidden = false;
     out.textContent = '正在請 AI 把算式串成推導…（第一次可能要幾秒）';
     try {
+        /* ★ 帶 ID Token。Worker 的 /ai/* 已經改成要登入——那支 Worker
+           在公開網址上，CORS 只約束瀏覽器不約束 curl，不擋的話任何人
+           都能拿它燒 Workers AI 的額度，而額度用完的症狀是
+           「按了沒反應」，兩邊都沒有錯誤訊息。 */
+        const tok = auth.currentUser ? await auth.currentUser.getIdToken() : '';
         const r = await fetch(AI_API + '/ai/solve', {
-            method:'POST', headers:{'Content-Type':'application/json'},
+            method:'POST',
+            headers:{'Content-Type':'application/json','Authorization':'Bearer ' + tok},
             body: JSON.stringify(payload) });
+        /* ★ 兩種擋下來的理由要分開講。都是「沒有講解」，
+           但一個要去登入、一個要等明天，講成同一句話只會讓人一直重按。 */
+        if (r.status === 401){ out.textContent = '要先登入才能用 AI 講解。（數值與方程式不受影響，上面那張卡就是答案。）'; return; }
+        if (r.status === 429){ out.textContent = '今天的 AI 次數用完了，明天再來。（數值與方程式不受影響。）'; return; }
         const j = await r.json();
-        if (!j.ok) throw new Error(j.detail || j.error || '未知錯誤');
+        // detail 已經不再回傳（那是上游的原始錯誤字串，可能夾帶金鑰）
+        if (!j.ok) throw new Error(j.error || '未知錯誤');
         out.innerHTML = `<div class="who">AI 講解（${esc(j.model||'')}）　`
             + `數字來自模擬器，不是模型算的</div>${esc(j.text)}`;
     } catch(e){
