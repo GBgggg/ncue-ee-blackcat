@@ -13283,6 +13283,30 @@
             });
 
             bind('backToTopBtn', scrollTopSmooth);
+
+            /* ⚠️⚠️ 暫時的：找「按了看結果之後卡十幾秒」到底是誰卡住的。查完就刪。
+               longtask  = 主執行緒被單一一件事佔住超過 50ms（真正的凍結）
+               event     = 那一次點擊：等了多久才輪到它、以及處理它花了多久
+               兩個分開看：等很久＝別的東西在忙；處理很久＝我們自己的 handler 慢。 */
+            try {
+                new PerformanceObserver((list) => {
+                    for (const e of list.getEntries())
+                        if (e.duration >= 150)
+                            console.info('[克漏字計時] 主執行緒被佔住', Math.round(e.duration), 'ms',
+                                '（從', Math.round(e.startTime), 'ms 開始）',
+                                (e.attribution || []).map(a => a.name).join(',') || '');
+                }).observe({ type: 'longtask', buffered: true });
+            } catch {}
+            try {
+                new PerformanceObserver((list) => {
+                    for (const e of list.getEntries())
+                        console.info('[克漏字計時] 慢的互動', e.name,
+                            '| 等了', Math.round(e.processingStart - e.startTime), 'ms 才輪到它',
+                            '| handler 跑了', Math.round(e.processingEnd - e.processingStart), 'ms',
+                            '| 到畫面更新總共', Math.round(e.duration), 'ms');
+                }).observe({ type: 'event', durationThreshold: 200, buffered: true });
+            } catch {}
+
             // 點任一單字彈出英英小卡（可堆疊）；點小卡外關閉全部、Esc 關閉最上面那張
             document.addEventListener('click', (e) => {
                 const w = e.target.closest('.lw');
