@@ -28,7 +28,7 @@
            *.googleapis.com     Firestore／Auth／Token
            firebaseapp.com      signInWithRedirect 用的隱藏 iframe
            fonts.*              Noto Sans/Serif TC（CSS 裡的 @import）
-           dictionaryapi.dev    英文閱讀的查字典
+           dictionaryapi.dev    查字典的英英解釋（單字庫那一頁）
            workers.dev          報價、推播與 AI 的 Worker -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
@@ -233,7 +233,7 @@
         @keyframes pageFade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .page-enter { animation: pageFade var(--dur-page) var(--ease); }
 
-        /* 英文閱讀：可點查的單字 */
+        /* 查字典：可點查的單字（小卡裡的定義也切成一個個 .lw，靠這個一層層往下查）*/
         .lw { cursor: pointer; border-radius: 3px; padding: 0 1px; transition: background-color var(--dur-fast) var(--ease); }
         .lw:hover { background-color: var(--accent-soft); }
         html.dark .lw:hover { background-color: rgba(232, 196, 106, 0.22); }
@@ -3098,33 +3098,19 @@
                 </div>
             </div>
             </div>
-            <!-- 子分頁：英文閱讀 -->
-            <div id="study-sub-reading" class="hidden">
-                <div id="reading-list-view">
-                    <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
-                        <div class="relative z-10">
-                            <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">英文閱讀 <span class="animate-bounce">📰</span></h2>
-                            <p class="text-slate-400 text-sm mt-2">讀英文新聞、點任一個字直接查劍橋字典。文章來源：Global Voices（CC BY 3.0）。</p>
-                            <div class="mt-4 flex gap-2 max-w-md">
-                                <input id="cambridgeQuickInput" type="text" placeholder="快查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-slate-800 text-white border border-slate-700 focus:outline-none focus:border-emerald-500 text-sm placeholder:text-slate-500" aria-label="快查任一單字…">
-                                <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查劍橋</button>
-                            </div>
-                            <button id="importArticlesBtn" class="hidden mt-3 px-4 py-2 bg-white/10 border border-emerald-500/40 text-emerald-300 rounded-xl font-bold text-sm hover:bg-emerald-500 hover:text-white transition-colors inline-flex items-center gap-2"><i data-lucide="download-cloud" class="w-4 h-4 pointer-events-none"></i> 匯入文章</button>
-                        </div>
-                    </div>
-                    <div id="readingList" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
-                </div>
-                <div id="reading-reader-view" class="hidden">
-                    <button data-action="reading-back" class="mb-6 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm"><i data-lucide="arrow-left" class="w-4 h-4"></i> 返回文章列表</button>
-                    <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
-                        <div id="readingTopic" class="text-xs text-emerald-600 font-black uppercase tracking-widest mb-2"></div>
-                        <h2 id="readingTitle" class="text-2xl md:text-3xl font-black text-slate-900 mb-2 leading-snug"></h2>
-                        <p id="readingMeta" class="text-sm text-slate-400 mb-1"></p>
-                        <div class="text-xs text-teal-600 font-bold mb-5 pb-4 border-b border-slate-100 flex items-center gap-1"><i data-lucide="hand-pointer" class="w-3.5 h-3.5"></i> 點任一個英文字即可查劍橋字典</div>
-                        <div id="readingBody" class="text-slate-700 text-lg leading-loose space-y-4"></div>
-                        <div id="readingAttribution" class="mt-8 pt-4 border-t border-slate-100 text-xs text-slate-400 leading-relaxed"></div>
+            <!-- 子分頁：克漏字
+                 ★ 2026-08-19 這一格原本是「英文閱讀」。閱讀整塊拿掉之後，
+                 克漏字從「單字庫最上層的一張卡」升格成自己的子分頁——
+                 卡片本體（#clozeCard）由 renderClozeCard() 填，內容一行沒搬，
+                 只是換了住的地方（搬程式的風險遠高於收益，這條寫過很多次了）。 -->
+            <div id="study-sub-cloze" class="hidden">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                    <div class="relative z-10">
+                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">克漏字 <span class="animate-bounce">✏️</span></h2>
+                        <p class="text-slate-400 text-sm mt-2">從內建單字庫的例句挖一個字，選好範圍就開始。錯的字會記起來，之後拿來排複習。</p>
                     </div>
                 </div>
+                <div id="clozeCard" class="mb-5"></div>
             </div>
         </div>
 
@@ -3180,10 +3166,14 @@
                     <button data-action="set-vocab-scope" data-scope="public" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
                     <button data-action="set-vocab-scope" data-scope="mine" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
                 </div>
-                <!-- 克漏字測驗：素材就是內建單字庫，所以入口放在它旁邊。
-                     內容由 renderClozeCard() 填，只在「內建」的最上層出現——
-                     公有／我的那兩邊沒有「每個字都有例句」這個保證。 -->
-                <div id="clozeCard" class="hidden mb-5"></div>
+                <!-- 查字典：原本住在英文閱讀那一頁（隨手查完直接加進單字冊）。
+                     閱讀拿掉之後它搬到這裡——查完就是要收進單字冊，本來就同一件事。
+                     ★ 按下去開的是站內的英英小卡（可以一層層往下點），
+                     劍橋連結在小卡裡面，不是直接跳出去。 -->
+                <div class="flex gap-2 mb-5 max-w-md">
+                    <input id="cambridgeQuickInput" type="text" placeholder="查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-white border-2 border-slate-200 focus:outline-none focus:border-emerald-500 text-sm" aria-label="查任一單字…">
+                    <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查字典</button>
+                </div>
                 <!-- 資料夾麵包屑：在資料夾裡才顯示 -->
                 <div id="vocabFolderBar" class="hidden flex flex-wrap items-center gap-2 mb-5">
                     <button data-action="back-to-vocab-folders" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 所有資料夾</button>
@@ -3310,7 +3300,7 @@
                     <div class="space-y-4">
                         <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">主頁：</span>自編課表、計劃、倒數。計劃可以打一行字新增（例如「明天下午三點 交報告」），也可以設每天／每週／每月重複。</p></div>
                         <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>自學課程的單元教材，以及你自己出的測驗。<span class="font-bold text-slate-800">自己的測驗只有你看得到。</span></p></div>
-                        <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>英文閱讀點任一個字就跳出英英解釋，可以一層層往下查；看到生字直接收進自己的單字冊。</p></div>
+                        <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>克漏字測驗從內建三千多字的例句自動出題；查字典跳出英英解釋，可以一層層往下查，看到生字直接收進自己的單字冊。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>記帳與投資紀錄，按一下會帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價是延遲資料，只供自己記錄，不是投資建議。</span></p></div>
                         <div class="flex gap-3"><i data-lucide="settings" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">設定（右上角 ⚙️）：</span>深色模式、通知、暱稱與密碼都在這裡。<span class="font-bold text-slate-800">通知</span>打開之後，上課前、計劃開始前、以及你勾了提醒的倒數當天早上都會響，關掉 App 也會響。iPhone 要先用 Safari「分享 → 加入主畫面」裝成 App，按下去會有圖解帶你裝。</p></div>
                         <div class="flex gap-3"><i data-lucide="git-branch" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">左上角 logo：</span>切到另外兩個站——<span class="font-bold text-slate-800">彰師電子小黑貓</span>（課程評價、資料、測驗、消息）與<span class="font-bold text-slate-800">電路小黑貓</span>（電路模擬器，要用電腦開）。</p></div>
@@ -3387,7 +3377,7 @@
         </div>
     </div>
 
-    <!-- 從英文閱讀把單字加進單字冊（欄位由 AI 自動填，存檔前可自行修改） -->
+    <!-- 從查字典小卡把單字加進單字冊（欄位由 AI 自動填，存檔前可自行修改） -->
     <div id="addWordModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-[70] p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-400">
             <h3 class="text-2xl font-black mb-1 text-slate-900">加入單字冊</h3>
@@ -4010,6 +4000,17 @@
         </div>
     </div>
 
+    <!-- 結算中：最後一題答完到錯題清單出來之間的那一段。
+         克漏字要把錯的字寫進 settings/vocabWrong，那是一次網路來回；
+         沒有這一張的話那幾百毫秒到幾秒是**整片空白**，看起來像按了沒反應。
+         ★ 只有真的等超過一瞬間才會出現（見 withQuizWrapUp），
+         不然每一場結束都閃一下反而更吵。 -->
+    <div id="quizWrapUp" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-center p-4" role="status" aria-live="polite">
+        <i data-lucide="loader" class="w-10 h-10 text-emerald-400 animate-spin mb-4"></i>
+        <p class="text-white font-black text-lg">結算中…</p>
+        <p class="text-white/50 text-sm font-bold mt-1">正在把這一場的錯字記起來</p>
+    </div>
+
     <!-- 測驗結果 -->
     <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white rounded-[3rem] p-8 md:p-10 text-center max-w-lg w-full shadow-2xl relative my-8">
@@ -4163,7 +4164,6 @@
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
             vocabFolders: P('vocabFolders'),
             news: P('news'),           links: P('quickLinks'),
-            articles: P('articles'),
             /* 🔒 錯誤回報／更新建議：誰都能寫一筆進來，但**只有管理員讀得到**。
                所以它放在 public/data 底下卻不是「公開」的——規則裡 read 只開給
                isCatAdmin()。放進私人區（users/{uid}/…）做不到這件事，
@@ -4376,7 +4376,7 @@
         const state = {
             courses: [], reviews: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
-            news: [], links: [], articles: [],
+            news: [], links: [],
             /* 內建單字庫（7000 單字＋多益／托福 DLC，共 3,822 字）：
                唯讀的靜態 JSON，不是 Firestore。
                為什麼不進資料庫：vocabWords 是整個集合全量訂閱，三千多筆灌進去
@@ -4413,8 +4413,8 @@
         let missionsReady = Promise.resolve();
 
         /* 克漏字測驗的狀態。★ 宣告在狀態區的理由跟上面幾條一樣：
-           `renderClozeCard()` 是被 `renderVocabBooks()` 叫的，而那支在
-           「進英文分頁」的路徑上就會跑——寫在函式旁邊就是暫時性死區，
+           `renderClozeCard()` 被 `switchStudySub()` 與 `loadBuiltinVocabIndex()`
+           叫，兩支都在「進英文分頁」的路徑上——寫在函式旁邊就是暫時性死區，
            症狀是一載入整頁全白，而 `node --check` 看不出來（已經踩過六次）。
            ★ 預設只勾 Level 4：全勾等於第一次按下去要抓 25 份檔案，
            而使用者還不知道自己按了什麼。 */
@@ -4441,7 +4441,7 @@
 
         /* ★ 拆分之後有兩條階梯，**判斷**互不相干：
              currentUserLevel — 貓族階級，只管彰師電子（課程、教材、測驗、消息）
-             currentUserTier  — 小黑貓，管通用功能（自學課程、英文閱讀、單字庫）
+             currentUserTier  — 小黑貓，管通用功能（自學課程、克漏字、單字庫）
            ★ 但「互不相干」只指判斷，不指**值的來源**：舊帳號沒有 `tier` 欄位時，
            tier 是從 role 換算出來的（見下方 tierOf）。所以動一個舊帳號的 role，
            會連帶改到他在小黑貓的權限；有 tier 欄位的帳號才真的兩邊獨立。
@@ -5241,6 +5241,21 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-19',
+                title: '英文閱讀收掉，克漏字獨立成一個分頁；查字典留下來搬到單字庫',
+                items: [
+                    ['起因', '路線圖短期第一條。英文閱讀那一頁是「Global Voices 文章清單 ＋ 閱讀器 ＋ 管理員手動匯入」，而文章要靠管理員按一顆按鈕才會進來——沒人按就是一頁空的，按了也只是那八篇。判準是路線圖第二條：這一項單獨拉出來跟專門做英文閱讀的 App 比撐不撐得住？撐不住，所以收掉，不做半套。'],
+                    ['★ 收掉閱讀，但查字典留著', '那一頁真正天天會用到的是「點任一個字跳英英小卡、可以一層層往下點、看到生字直接收進單字冊」，那跟文章從哪來無關。所以刪的是文章清單、閱讀器與匯入，留的是整套查字典。入口搬到單字庫那一頁——查完就是要收進單字冊，本來就是同一件事。'],
+                    ['★ 查字典的按鈕從「跳劍橋」改成「開站內小卡」', '原本快查框按下去是直接開新分頁到劍橋，等於離開這個站；而站內小卡本來就做好了，只是以前只有點文章裡的字才叫得動它。劍橋連結留在小卡裡面。'],
+                    ['⚠️ 留下來的那幾支彼此有相依，刪的時候差點連坐', '`lookupWord` 用 `wrapWordsForLookup` 把定義本身也切成一個個可點的字（一層層往下查靠的就是這個），而那支又靠 `.lw` 這個 class 與最底下那個委派的 click。三者少任何一環都是「點了沒反應」，不會報錯。'],
+                    ['克漏字從「單字庫裡的一張卡」變成自己的子分頁', '英文分頁底下現在是「克漏字 / 單字庫」。卡片內容一行沒搬，只是換了住的地方——搬程式的風險遠高於收益，這條在拆分頁那幾次已經寫過很多遍。'],
+                    ['★ 升格之後有一個新的壞法：整頁空白', '那張卡原本有一段「不是內建單字庫就整張收掉」的判斷，因為它借住在別人的頁面上。現在這一頁就只有它，收掉等於切過去什麼都沒有。所以改成一律畫、但索引還沒好時把按鈕停用，右邊那行話分成「載入單字庫索引…」與「載入失敗，重新整理再試」——**「還在載入」與「壞了」不能是同一個畫面**。'],
+                    ['測驗做完到錯題出來之間補了一張「結算中」', '路線圖短期第二條。克漏字結束時要把錯的字寫進 `settings/vocabWrong`，那是一次網路來回，而原本那段等待畫面上完全空白，看起來像按了沒反應。現在等它寫完再畫結果。'],
+                    ['★ 這張載入畫面有兩個門檻，都是刻意的', '**200ms 之後才出現**：存檔通常比這快，秒回還閃一下轉圈比什麼都不做更像壞掉。**等最多 5 秒**：存檔失敗不能把結果整個擋住，錯題清單本來就在記憶體裡，跟雲端存不存得起來無關——不設上限的話症狀會是「測驗做完永遠在轉圈」。'],
+                    ['⚠️ `firestore.rules` 的 articles 那一段沒有動', '程式面已經不讀不寫它了，但規則留著。理由是動規則就要再跑一次主控台，而那份規則本來就還沒推上去（見路線圖「待你動手」）——這一輪不想在那筆待辦上再疊一件事。'],
+                ]
+            },
             {
                 date: '2026-08-19',
                 title: '英文內建單字庫的資料錯誤全部修掉，托福 DLC 補上詞性',
@@ -9568,13 +9583,13 @@
         }
 
         /* ==========================================================
-         * 14. 子分頁路由（自學課程 / 英文閱讀 / 單字庫 / 測驗）
+         * 14. 子分頁路由（自學課程 / 克漏字 / 單字庫 / 測驗）
          *
          * 這四塊內容分住在兩個 page-section：
-         *   #page-self-study … 自學課程、英文閱讀
+         *   #page-self-study … 自學課程、克漏字
          *   #page-quiz       … 測驗、單字庫
          * 而使用者看到的分組跟這個位置**不一樣**：
-         *   學習 = 自學課程 ／ 英文 = 英文閱讀＋單字庫 ／ 測驗 = 測驗
+         *   學習 = 自學課程 ／ 英文 = 克漏字＋單字庫 ／ 測驗 = 測驗
          *
          * ★ 兩者不一致是刻意的。要讓它們一致就得搬動幾百行 HTML，
          * 而搬錯不會報錯，只會有某一頁打不開。所以位置維持原狀，
@@ -9588,14 +9603,14 @@
            STUDY_SUBS 就成了第二份答案——留著不會報錯，只會在下次有人改其中一份時
            安靜地分岔，所以直接刪掉。ALL_STUDY_SUBS 留著是另一個用途：
            它是 switchStudySub 的白名單（認不得的參數退回預設）。 */
-        const ALL_STUDY_SUBS = ['schedule','plan','timer','countdown','course','reading','kahoot','vocab'];
+        const ALL_STUDY_SUBS = ['schedule','plan','timer','countdown','course','cloze','kahoot','vocab'];
 
         /* ★ 每一個子分頁住在哪個 page-section、哪個區塊。
            這張表取代原本那串寫死的 toggle——六個子分頁散在三個 page-section，
            寫死的話漏一行不會報錯，只會變成「兩塊內容疊在一起」或「什麼都沒有」。
 
            ★ 這裡再次出現「使用者看到的分組」與「HTML 位置」不一致：
-           主頁的兩塊本來就在 #page-home，但英文閱讀住在 #page-self-study、
+           主頁的兩塊本來就在 #page-home，但克漏字住在 #page-self-study、
            單字庫住在 #page-quiz。搬動那些區塊的風險遠高於收益（各好幾百行，
            搬錯不報錯只會有某頁打不開），所以維持原狀、由這張表對起來。 */
         const SUB_PLACE = {
@@ -9604,7 +9619,7 @@
 'timer':     { section:'page-home',       block:'home-sub-timer'     },
 'countdown': { section:'page-home',       block:'home-sub-countdown' },
 'course':    { section:'page-self-study', block:'study-sub-course'   },
-'reading':   { section:'page-self-study', block:'study-sub-reading'  },
+'cloze':     { section:'page-self-study', block:'study-sub-cloze'    },
 'kahoot':    { section:'page-quiz',       block:'quiz-sub-kahoot'    },
 'vocab':     { section:'page-quiz',       block:'quiz-sub-vocab'     }
         };
@@ -9621,7 +9636,7 @@
 'timer':     { label:'讀書計時', icon:'timer'          },
 'countdown': { label:'倒數',     icon:'hourglass'      },
 'course':    { label:'自學課程', icon:'book-open'  },
-'reading':   { label:'英文閱讀', icon:'newspaper'  },
+'cloze':     { label:'克漏字',   icon:'pencil-line'},
 'vocab':     { label:'單字庫',   icon:'library'    },
 'kahoot':    { label:'測驗',     icon:'gamepad-2'  }
         };
@@ -9629,11 +9644,11 @@
 'home':       ['schedule','countdown'],  // 主頁＝課表＋倒數（計劃已升格成大分頁）
 'plan':       ['plan','timer'],          // 計劃＋讀書計時（★ 計時器整站只能有一個，就是這一個）
 'self-study': ['course','kahoot'],       // 學習＝自學課程＋（自己出的）測驗
-'english':    ['reading','vocab'],       // 英文＝英文閱讀＋單字庫
+'english':    ['cloze','vocab'],         // 英文＝克漏字＋單字庫
 'quiz':       ['kahoot']                 // 彰師電子的測驗（只有公有的）
         };
         /* ★ 英文分頁沒有自己的 page-section。
-           英文閱讀住在 #page-self-study、單字庫住在 #page-quiz，兩塊都好幾百行。
+           克漏字住在 #page-self-study、單字庫住在 #page-quiz。
            搬動它們的風險遠高於收益，而且搬錯不會報錯，只會有某一頁打不開
            （這條在拆三大分頁那次就寫過，這裡照舊）。
            所以只在路由上多一層對應：進英文分頁時先開哪一個 page-section，
@@ -9692,10 +9707,13 @@
                 closeModalView('page-self-study-details','page-self-study-main');
                 currentViewSSCourseId = null;
                 renderSelfStudyCourses();
-            } else if (studySub ==='reading') {
-                $('reading-reader-view').classList.add('hidden');
-                $('reading-list-view').classList.remove('hidden');
-                renderReadingList();
+            } else if (studySub ==='cloze') {
+                /* 克漏字吃的是內建單字庫的索引，而那份不是 Firestore 訂閱，
+                   沒人幫它「等資料進來就重畫」——所以跟單字庫那一頁一樣，
+                   進來就自己抓一次（抓完會再叫一次 renderClozeCard）。
+                   ⚠️ 抓過就不會重抓，所以這行不是每次切分頁都發一次請求。 */
+                loadBuiltinVocabIndex();
+                renderClozeCard();
             } else if (studySub ==='vocab') {
                 closeModalView('page-vocabulary-details','page-vocabulary-main');
                 currentViewVocabBookId = null;
@@ -10037,164 +10055,17 @@
         }
 
         /* ==========================================================
-         * 14.5 英文閱讀（Global Voices, CC BY 3.0）+ 逐字查劍橋
+         * 14.5 查字典：點一個字 → 英英小卡 → 加入單字冊
+         *
+         * ★ 2026-08-19：這一節原本叫「英文閱讀」，附帶一整套 Global Voices
+         * 文章清單與閱讀器。閱讀整塊拿掉了（路線圖短期第一條），
+         * **但查字典留著**——它本來就是閱讀那一頁裡天天會用到的部分，
+         * 而且查完可以直接收進單字冊。入口從閱讀頁搬到單字庫那一頁。
+         * ⚠️ 留下來的東西彼此有相依：`lookupWord` 會用 `wrapWordsForLookup`
+         * 把定義本身也切成可點的字（一層層往下查靠的就是這個），
+         * 而那支又靠 `.lw` 這個 class 與最底下那個委派的 click——
+         * 少掉任何一環都是「點了沒反應」，而且不會報錯。
          * ========================================================== */
-        // 排程任務會更新此「匯入來源」陣列；管理員按「匯入文章」寫進 Firestore
-        const ARTICLE_IMPORTS = [
-            {
-                title: "Can AI help build peace? African youth are showing a path forward",
-                topic: "Digital Activism",
-                source: "Global Voices",
-                author: "Peace News",
-                sourceUrl: "https://globalvoices.org/2026/08/09/can-ai-help-build-peace-african-youth-are-showing-a-path-forward/",
-                license: "CC BY 3.0",
-                date: "2026-08-09",
-                paragraphs: [
-                    "How are African youth using Artificial intelligence (AI) to build peace? What are some of the challenges that come with using AI for peace?",
-                    "Artificial intelligence often dominates headlines for its risks and misuses: Misinformation, surveillance, job losses, and deepfakes. Far less attention is paid to another story unfolding across Africa. Young people are using digital technologies to detect conflict early, counter hate speech, and strengthen community resilience.",
-                    "A recent policy brief by the Institute for Security Studies (ISS Africa) argues that African youth are not simply adapting to AI. They are helping shape how digital technologies are used for peacebuilding. At the same time, the report warns that outdated policies, weak digital infrastructure, and persistent inequality threaten to limit that potential.",
-                    "African governments, regional organizations, and civil society are beginning to develop AI governance frameworks that will influence how these technologies are used for years to come. One of the report’s central messages is that young people should not be consulted only after these frameworks are written. They should help design them from the beginning.",
-                    "The report’s greatest strength is its refusal to portray African youth as passive recipients of technology. Instead, it presents them as knowledge creators who generate information, build digital tools, and shape public conversations about conflict. This is an important shift. Discussions of youth, peace, and security often focus on participation or representation. Here, the emphasis is on expertise. Young peacebuilders are producing the data, local knowledge, and digital innovations that increasingly underpin conflict prevention efforts.",
-                    "The examples illustrate this well. Kenya’s Ushahidi platform demonstrated, following post-election violence from 2007 to 2008, how citizens could crowdsource reports during crises. More recent initiatives such as iVerify, piloted in Zambia in 2021, train young journalists to identify and counter false information before it spreads further. iVerify is now being used in Sierra Leone and Liberia as a Digital Public Good, where young journalists are being trained in fact-checking. Other youth-led projects combine machine learning, open-source intelligence, and community reporting to monitor elections, identify conflict risks, and challenge false narratives online.",
-                    "Perhaps most importantly, the report avoids treating technology as a substitute for human relationships. Many of its strongest examples combine digital platforms with face-to-face dialogue, community organizing, local radio, and peace education. Digital tools become effective because they strengthen existing social networks rather than replace them.",
-                    "The report is equally persuasive in highlighting barriers that continue to shape Africa’s digital future."
-                ]
-            },
-            {
-                title: "Whose conservation, whose development? The Maasai struggle over land in northern Tanzania",
-                topic: "Development",
-                source: "Global Voices",
-                author: "Peace News",
-                sourceUrl: "https://globalvoices.org/2026/08/07/whose-conservation-whose-development-the-maasai-struggle-over-land-in-northern-tanzania/",
-                license: "CC BY 3.0",
-                date: "2026-08-07",
-                paragraphs: [
-                    "In northern Tanzania, the struggle over land conservation has become more than an environmental dispute. It is a question of peace, justice, identity, and survival. Our recent research article examined how the Indigenous Maasai communities of the Ngorongoro Conservation Area (NCA) and the Loliondo Game Controlled Area (LGCA) have been repeatedly displaced under the guise of conservation, environmental protection, and modernization.",
-                    "The government, through its coercive apparatuses such as the police, has repeatedly displaced Maasai communities of the NCA and LGCA, saying that the Maasai are overburdening the area and putting a strain on environmental resources. This displacement has led to violent confrontations between Maasai residents and security forces. The article’s central message is clear: For sustainable and peaceful development, conservation should be people-centered.",
-                    "The Maasai have lived in these areas for decades after being moved from what is now Serengeti National Park in 1959. At the time, they were resettled in Ngorongoro and Loliondo with the understanding that they could continue their pastoral way of life while coexisting with wildlife.",
-                    "Today, however, they face renewed pressure to leave. The International Union for Conservation of Nature (IUCN) argues that growing populations, livestock numbers, farming, and permanent settlements threaten fragile ecosystems. From this perspective, relocation is presented as necessary to protect biodiversity and tourism resources.",
-                    "Yet the Maasai and many human rights advocates see the situation differently. They argue that conservation has become a tool for “green grabbing”: The taking of community land in the name of environmental protection while opening space for tourism, hunting, and investment interests. In Loliondo, Tanzania, the government’s proposed demarcation of 1,500 square kilometers (579 square miles) from village land has become a major source of tension. In 2022, attempts to enforce the demarcation led to confrontations between Maasai residents and security forces, causing injuries, arrests, the death of a police officer, and a Maasai man going missing after being shot in his legs. In 2024, a government decree to delist several villages deepened fears that communities were being pushed out without genuine consent.",
-                    "For development to be peaceful, the most important issue is not whether conservation matters. It does. Tanzania’s wildlife and landscapes are globally significant, and protecting them is a legitimate concern at the national and international levels. The deeper question is how conservation is done. When communities are treated as threats rather than partners, conservation becomes militarized. When social services are reduced, villages are delisted, movement is restricted, or people are pressured into relocation, “voluntary resettlement” loses its meaning.",
-                    "Peace cannot be built where communities feel unheard, criminalized, or separated from ancestral land.",
-                    "The Maasai response challenges the idea that pastoralists are simply destroyers of nature. They present themselves as “guardians of the land” — people whose culture, livestock systems, medicinal knowledge, sacred sites, and seasonal movement have long been connected to the ecosystem. This does not mean every local practice is automatically sustainable, nor does it deny that population growth and land-use changes create real environmental pressures. But it does mean that solutions must be negotiated, evidence-based, and respectful of Indigenous traditions and knowledge."
-                ]
-            },
-            {
-                title: "What does home mean for people with no single territory connecting them?",
-                topic: "Eastern & Central Europe",
-                source: "Global Voices",
-                author: "Daria Dergacheva",
-                sourceUrl: "https://globalvoices.org/2026/08/07/what-does-home-mean-for-people-with-no-single-territory-connecting-them/",
-                license: "CC BY 3.0",
-                date: "2026-08-07",
-                paragraphs: [
-                    "While trying to define nationhood, people often rely on simplistic descriptions and groupings — the lines drawn on a map, demarcations outlined by treaties and agreements, common identities and ideologies within a specific space — but for many people groups, the concept of nationhood can fall outside these traditional borders. This is the case for many in post-Soviet spaces, for example, Ukraine’s Roma community, whose members are now fighting Russia and dying for a country that, for generations, treated them as outsiders. It is also true for Tatars, whose homeland largely exists within a cultural space rather than a physical one.",
-                    "Since Russia’s full-scale invasion in February 2022, hundreds of Roma have joined the Armed Forces of Ukraine in the fight against Russia. Yet despite this service, Roma Ukrainian refugees continue facing discrimination within Ukraine and beyond in Europe.",
-                    "Further east, within Russia, Tatars, the country’s second-largest ethnic group, continue to grapple with a different question: What does homeland mean for a people scattered across continents, with no single territory uniting them? Tatarstan, a republic of the Russian Federation, remains a cultural anchor, but for many Tatars, belonging is carried through community and culture rather than a location on a map. That dispersion, together with a traumatic, fraught history, shapes how Tatars today navigate conversations about sovereignty, separatism, and self-determination.",
-                    "In this collaborative article, Global Voices contributors explore these two stories of statelessness and reveal how minority communities are redefining nationhood, loyalty, and identity across the region.",
-                    "Since the second Russian large-scale invasion of Ukraine began in February 2022, there have been few stories of Ukraine’s Roma population fighting for Ukraine, even as many took to the front lines.",
-                    "Already in 2022, Roma journalist Viktor Chovka reported that Roma soldiers were fighting within the Ukrainian Army because they were born in Ukraine and considered it their home.",
-                    "Myroslav Horvat, another Romani activist in Ukraine, told Swedish Radio Romano at that time that most Romani people were concerned about how they would make a living because they lost their jobs when the war began. On his Facebook profile, Horvat often shares photographs of Romani soldiers in the Ukrainian Army. His main photo also features the Ukrainian flag, highlighting the dual identities that many Ukrainian Roma carry.",
-                    "According to Horvat, approximately 250 Roma from Zakarpattia joined Ukraine’s defense forces in 2022. By August 2024, he estimated that more than 500 were serving. Ukrainian flags have become increasingly visible in Roma settlements, alongside greater use of the Ukrainian language and Ukrainian songs."
-                ]
-            },
-            {
-                title: "Legal access in a shrinking space: Building ecosystems to end statelessness",
-                topic: "Governance",
-                source: "Global Voices",
-                author: "Global Movement Against Statelessness",
-                sourceUrl: "https://globalvoices.org/2026/08/06/legal-access-in-a-shrinking-space-building-ecosystems-to-end-statelessness/",
-                license: "CC BY 3.0",
-                date: "2026-08-06",
-                paragraphs: [
-                    "For many people, citizenship is treated as a fact of life. It sits quietly in the background, represented by a birth certificate, an identity document, a passport, a sense of belonging. But for people affected by statelessness, legal identity is not a background issue. It is the line between inclusion and exclusion, between being able to participate in society and being forced to live in its shadows.",
-                    "In South Africa, this reality is visible in the lives of many young people who were born and raised in the country, but remain unable to access citizenship or documentation despite legal entitlement. Section 4(3) of the South African Citizenship Act provides a pathway to citizenship for certain people born in South Africa to parents who were neither South African citizens nor permanent residents. On paper, it should offer a route to legal recognition. In practice, many applicants encounter unclear procedures, inconsistent implementation, inordinate delays, missing records and an administrative architecture that, whether by neglect or design, exhausts rather than resolves.",
-                    "This is where the language of “legal access” must be taken seriously. Access to justice is not only about whether a person can eventually find a lawyer. It is also about whether the law is understandable, whether procedures are accessible, whether officials apply the law consistently, and whether there are meaningful ways to hold the state accountable when rights are denied in practice.",
-                    "These questions become even more urgent in a shrinking civic space. Across many contexts, civil society organisations and public interest lawyers are operating with fewer resources, heavier administrative burdens, and a political climate increasingly hostile towards marginalised groups.",
-                    "In South Africa, the Cabinet-approved Revised White Paper on Citizenship, Immigration and Refugee Protection signals a potentially significant legal restructuring whose implications for statelessness protections remain actively contested, and that contest is occurring precisely when the communities and organisations equipped to monitor it have the least capacity to do so.",
-                    "A narrow legal response is, therefore, not enough. Statelessness and citizenship exclusion require a legal ecosystem.",
-                    "That ecosystem begins at community level. People affected by statelessness are often the first to understand how the system fails — which offices turn people away, which documents are demanded without legal basis, which barriers repeat across generations, and what sustainable responses look like. Building a legal ecosystem means creating structures where that knowledge leads, and affected communities are treated as co-strategists, not passive beneficiaries. This Is Home, a collective of young South Africans living with barriers to citizenship, models this approach: through storytelling, organising, and advocacy, the collective ensures that lived experience informs both legal reform and public understanding: not as a supplement to strategy, but as its foundation.",
-                    "Legal clinics and civil society organisations are often the first point of contact for people who have been turned away by government offices or who do not know whether the law protects them. They translate complex legal rules into practical advice, build trust in communities where formal systems have caused harm, and, critically, identify patterns across individual cases that reveal when a personal problem is also a systemic one. It is at that point that broader partnerships become essential."
-                ]
-            },
-            {
-                title: "When Chinese parents outsource control over their adult children",
-                topic: "China",
-                source: "Global Voices",
-                author: "Lina Ma",
-                sourceUrl: "https://globalvoices.org/2026/08/06/when-chinese-parents-outsource-control-over-their-adult-children/",
-                license: "CC BY 3.0",
-                date: "2026-08-06",
-                paragraphs: [
-                    "On a Sunday morning in March, a 21-year-old music student arrived at an apartment complex in Beijing to teach a piano lesson — a side job she did to earn money to fund her studies. Her father, her aunt, and two employees of a private disciplinary institution were waiting for her.",
-                    "Her relatives claimed that the strangers were police officers investigating a family member. They forced her into a van, confiscated her phone, and drove her hundreds of miles away to a closed institution in Henan province, China, supposedly for “internet addiction rehabilitation.”",
-                    "Her internet use had little to do with her confinement. According to an investigation by Southern People Weekly, her parents disapproved of her boyfriend and believed their previously obedient daughter had stopped listening to them. They paid the institution to isolate her, control her daily life, and pressure her to end the relationship. Public reporting indicates that this institution charged 26,800 yuan (USD 3,970) for six months or CNY 36,800 (USD 5,451) for a year, including room and board.",
-                    "Staff told her that she could leave after she had forgotten her boyfriend. She was legally an adult and fully independent at the time.",
-                    "A July 2026 investigation by China Newsweek documented several adults placed in similar institutions by their families. A 21-year-old shop worker said employees restrained him and transported him hundreds of miles after his parents paid them to correct his sleeping habits. A 25-year-old woman living alone said three people entered her home, seized her phone, and took her from Jiangxi to a disciplinary school in Hubei.",
-                    "In another case, an institution advised a mother to lure her 26-year-old son to Chongqing by promising him a vacation. He spent 82 days inside the facility.",
-                    "Several former detainees later reported the institutions for unlawful detention or restriction of personal liberty. Their complaints did not result in criminal cases.",
-                    "For many readers outside China, “internet addiction” camps feel like a remnant of the early 2000s. These institutions became notorious for military drills, physical punishment, forced confinement, and electroshock treatment during this time. In 2009, China’s Ministry of Health ordered medical institutions to stop using electrical stimulation to treat internet addiction, citing insufficient evidence of its safety and effectiveness."
-                ]
-            },
-            {
-                title: "Indigenous stories are global stories",
-                topic: "Ethnicity & Race",
-                source: "Global Voices",
-                author: "genner",
-                sourceUrl: "https://globalvoices.org/2026/08/05/indigenous-stories-are-global-stories/",
-                license: "CC BY 3.0",
-                date: "2026-08-05",
-                paragraphs: [
-                    "Wherever you live on this planet, there is a strong possibility that your city, town or village is built on Indigenous lands. The Canadian non-profit Native Land Digital created an interactive atlas that shows where Indigenous societies have existed for centuries in the Americas and Oceania, as well as in northern and western Africa, northern Europe, Siberia, and East Asia. This mapping exercise of historical and contemporary Indigenous territories is still, however, incomplete. It is not just that it does not show all Indigenous presence in Sub-Saharan Africa and Asia. The exercise would still be incomplete without integrating the fundamentally global importance of Indigenous histories and perspectives, which this GV thematic programming seeks to do this month.",
-                    "I am a Maya researcher from the Yucatan Peninsula in Mexico (which means that I am an Indigenous person), and I currently live, work, and learn in W8banakiak wdakiw8k, the traditional unceded territory of the Abenaki people, in what is today southern Quebec, Canada. This land acknowledgement aims to be more than a conventional gesture and, rather, to be a show of respect and gratitude to the people who have welcomed and shared their cultural and historical knowledge with me as an Indigenous guest in their home.",
-                    "We, Indigenous peoples, are persons and societies that descend from those who lived in a particular territory before its colonization and settlement by other peoples, or before the creation of modern nation states which incorporated said territory. Although the term “Indigenous” etymologically means “born from the place,” it has been exclusively applied in history to societies framed by Western powers and national governments as “natural,” “rustic,” “savage,” “primitive,” or “uncivilized.” This makes ours a particular type of stateless society within modern nation-states — type of racialized society often considered too “different,” “rudimentary,” and “unmanageable” to be accepted as a self-determined nation within current state structures.",
-                    "We have often been identified or called Indios or “Indians,” “Aboriginals,” “Natives,” “Bushmen,” “Berbers,” or “Tribals.” However, we have more recently demanded to be called by the names we choose, usually reclaiming our own historical names, for example, Original Peoples, First Nations, Adivasi, Maya, Inuit, Sami, Ainu, Māori, Khoisan, Amazigh, among others.",
-                    "Our Indigenous languages, identities, forms of knowledge and ways of life have been maintained and transformed for hundreds of years despite territorial dispossession, forced assimilation, political and economic exclusion and, in quite a few cases, cultural genocide. Even after the fall of empires and political decolonization, we, Indigenous peoples, continue to struggle for recognition and to protect and advance our fundamental rights in the world. These rights hinge on territorial access and political self-governance, and on maintaining our livelihoods and our relationship with the land, both within and across national borders.",
-                    "Contrary to conventional thought, rather than presenting Indigenous stories as past or marginal stories, I want to highlight their importance as global stories. Their significance stems from the fact that while Indigenous peoples represent approximately 6.2 percent of the global population, the territories we continue to occupy, maintain and steward amount to 25 percent of the planet’s landmass, and house a significant portion of earth's biodiversity. The importance of this biodiversity for the future survival of our species cannot be underestimated. A key fact in this story is that while the “primitivism” or “lack of technology” attributed to Indigenous peoples has often been argued as an explanation for this conservation of natural diversity, recent studies demonstrate that it is, in fact, the multifaceted and intricate Indigenous landscape management which has originated, cared for, and expanded such diversity. It has thus become crucial to heed the knowledge, cultural practices and experiences of these diverse peoples in whose hands this crucial resource has not only been preserved but keeps thriving. This commitment to the protection of the land and all the life that inhabits it (which we consider our other-than-human relatives: animals, plants, mountains, waters) frequently puts lives in danger, with reports showing that environmental activists kidnapped and murdered are disproportionately Indigenous earth defenders.",
-                    "Today we are around 476 million people in the world who identify or are identified as belonging to an Indigenous people, nation and/or community. Our societies have in many cases inhabited and thrived in the same lands for hundreds, if not thousands, of years. We have often found ourselves living outside of (and resisting the pressure to be fully assimilated by) mainstream national cultures, yet we have also contributed to global cultural and scientific advancement. Indigenous peoples have added maize, tea, potato, peanut, maple syrup, chilli, quinoa, avocado, cacao, stevia, aspirin, quinine, and other products, to the diets and the pharmacies of the world, as well as to the development of canoeing, kayaking, lacrosse, hockey, the Enlightenment, constitutional federalism, legal pluralism, multi-crop agriculture, land management, botany, among other fields of human endeavour.",
-                    "Indigenous worlds are as diverse as our languages, which represent the majority of the 7,000 still spoken in the world. They are, however, threatened by racial and political discrimination, and by economic marginalization. Through Rising Voices, a Global Voices program, we support communities of Indigenous activists in their efforts to reclaim, maintain and increase visibility for their languages."
-                ]
-            },
-            {
-                title: "The anatomy of erasure: Indigenous Assyrian women and forgotten genocide",
-                topic: "Ethnicity & Race",
-                source: "Global Voices",
-                author: "Guest Contributor",
-                sourceUrl: "https://globalvoices.org/2026/08/05/the-anatomy-of-erasure-indigenous-assyrian-women-and-forgotten-genocide/",
-                license: "CC BY 3.0",
-                date: "2026-08-05",
-                paragraphs: [
-                    "I was 11 years old the first time I was told Assyrians don’t exist by a friend. I got home, slumped on a stool and snapped open a packet of prawn cocktail crisps.",
-                    "Assyrians are an Indigenous ethnic group from West Asia, tracing our ancestry to an ancient people. Parts of Syria, Turkey, Iran and Iraq make up our homeland. We speak the Neo-Aramaic Assyrian language. While predominantly Christian, we maintain ancient cultural traditions such as Akitu and Musarda.",
-                    "Intuition on full alert, it didn’t take my mother long to wheedle out what was troubling me that day. With dill splayed across a chopping board, she told me about the Simele massacre for the first time.",
-                    "The massacre took place in 1933. The Iraqi army, with the assistance of Kurdish tribes, executed an attack on the town of Simele and surrounding districts inhabited by Assyrians. It was a systematic campaign of ethnic cleansing, with extensive propaganda unleashed beforehand by the state to sour public opinion, describing us as “foreign” and “colonial agents.”",
-                    "In the massacre’s prelude, Assyrian men were forcibly disarmed while Arab families received evacuation notices. The British administration in Iraq, aware of the impending violence, remained inactive. Thousands of Assyrians were killed in the violence that followed, and afterwards public celebrations were held; according to some accounts, some even commemorated with watermelons carved to resemble skulls. The army commander who led the operations, Bakr Sidqi, became a national hero. The Iraqi state has never officially acknowledged the massacre.",
-                    "On August 7, we commemorate Assyrian Martyrs’ Day, founded for those who lost their lives at Simele but which now encompasses remembrance for all Assyrians who have been persecuted.",
-                    "Hearing about Simele was a gut punch. As I immersed myself in our contemporary history, its cyclical nature was apparent: genocides, displacement and the eternal lack of accountability. One aspect proved especially resonant: the plight of Assyrian women and girls.",
-                    "I saw the same pattern: girls taken from their homes, women disappearing without a trace, families left searching for answers that never came. Within our families, they live on anecdotally: a sister escaping, an aunt resisting. But how many were they? What were their names? What became of them afterwards?"
-                ]
-            },
-            {
-                title: "Courts and unions fail to protect workers in Kazakhstan",
-                topic: "Central Asia & Caucasus",
-                source: "Global Voices",
-                author: "Vlast.kz",
-                sourceUrl: "https://globalvoices.org/2026/08/04/courts-and-unions-fail-to-protect-workers-in-kazakhstan/",
-                license: "CC BY 3.0",
-                date: "2026-08-04",
-                paragraphs: [
-                    "In the first half of June 2026, a wave of labor protests erupted across Kazakhstan, from a Kazakhmys mine in the country’s center to a phosphorus plant in the south, a stark reminder that labor rights issues are never far from the surface.",
-                    "The strikes were spontaneous, continuing a trend of labor rights actions that officials have termed “illegal,” and which experts say would have been virtually impossible to organize through legal channels.",
-                    "The government of President Kassym-Jomart Tokayev has introduced several amendments to the Labor Code over the past few years, ostensibly aiming to protect workers’ rights and improve collective bargaining power.",
-                    "But independent trade union activists, researchers, and human rights defenders argue that these changes have been merely cosmetic and labor legislation remains repressive, largely favoring employers’ interests.",
-                    "Experts surveyed by Vlast also think that the core issue in Kazakhstan remains the absence of an independent judiciary capable of guaranteeing a fair hearing for any labor dispute that may arise.",
-                    "On paper, trade unions serve as the primary institution by which workers’ rights are protected. For more than three decades in Kazakhstan, however, they have been under constant pressure.",
-                    "“The situation with pressure is very complicated,” said Kospan Kosshygulov, who heads the Fuel and Energy Sector Union, one of the last independent trade unions in Kazakhstan. “In [the western city of] Mangistau, some workers managed to set up a local branch at an oil company. They decided to join our union officially, and all five were immediately fired. Management simply claimed it was because they were doing a poor job.”",
-                    "According to Kosshygulov, the independent trade union had tried to address the issue of severe understaffing, where a single worker had been forced to do the job of three specialists. He said:"
-                ]
-            }
-        ];
-
         // 劍橋英英字典
         const cambridgeUrl = (w) =>'https://dictionary.cambridge.org/dictionary/english/' + encodeURIComponent((w ||'').toLowerCase());
         function openCambridge(raw) {
@@ -10232,8 +10103,12 @@
             pop.style.top = Math.max(8, top) +'px';
         }
 
-        async function lookupWord(anchorEl) {
-            const w = (anchorEl.textContent ||'').replace(/[^a-zA-Z'-]/g,'').toLowerCase();
+        /* ★ `override` 是給「查字典」那個輸入框用的：它要查的字在 input 裡，
+           不在被點的那顆按鈕上（按鈕只負責決定小卡貼在畫面哪裡）。
+           多這一個參數，比為了輸入框另外寫一套查詢流程安全——
+           寫第二套的話兩邊的錯誤處理遲早會分岔。 */
+        async function lookupWord(anchorEl, override) {
+            const w = ((override ?? anchorEl.textContent) ||'').replace(/[^a-zA-Z'-]/g,'').toLowerCase();
             if (!w) return;
             const r = anchorEl.getBoundingClientRect();          // 先記下被點字的位置
             const inPopup = !!anchorEl.closest('.word-popup');
@@ -10268,7 +10143,7 @@
             positionPopup(pop, r, inPopup);                       // 內容載入後高度改變，重新定位
         }
         /* ==========================================================
-         * 英文閱讀 → 加入單字冊（欄位由 Worker 的 AI 端點自動填）
+         * 查字典 → 加入單字冊（欄位由 Worker 的 AI 端點自動填）
          *
          * 只列出「我的」單字冊；公有的要巫醫以上才能改，不適合從閱讀頁隨手加。
          * AI 內容是參考性質，所以一定讓使用者存檔前看得到、改得動。
@@ -10364,64 +10239,6 @@
             escapeHTML(text).split(/(\s+)/).map(tok =>
                 /[a-zA-Z]/.test(tok) ? `<span class="lw">${tok}</span>` : tok).join('');
 
-        function renderReadingList() {
-            const el = $('readingList');
-            if (!el) return;
-            if (state.articles.length === 0) {
-                el.innerHTML = `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有文章${isCatAdmin() ?'，按上方「匯入文章」加入最新的 Global Voices 文章' :'，等巫醫匯入文章'}</div>`;
-                return;
-            }
-            el.innerHTML = state.articles.map(a => `
-                <div data-action="reading-open" data-id="${escapeHTML(a.id)}" class="cursor-pointer bg-white rounded-2xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 hover:shadow-md transition-all relative">
-                    ${isCatAdmin() ? `<button data-action="delete" data-type="article" data-id="${escapeHTML(a.id)}" class="absolute top-3 right-3 p-1.5 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
-                    <div class="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1 pr-6">${escapeHTML(a.topic ||'')}</div>
-                    <h4 class="font-black text-slate-900 mb-1 leading-snug break-words pr-6">${escapeHTML(a.title)}</h4>
-                    <p class="text-xs text-slate-400">${escapeHTML(a.source ||'')}${a.author ?' ·' + escapeHTML(a.author) :''}</p>
-                    <p class="text-sm text-slate-500 mt-2">${escapeHTML(((a.paragraphs && a.paragraphs[0]) ||'').slice(0, 90))}…</p>
-                </div>`).join('');
-            icons();
-        }
-
-        async function importArticles() {
-            // 小黑貓：英文閱讀是通用功能，看 tier 不看貓族階級
-            if (!isCatAdmin()) return showToast("只有小黑貓管理員才能匯入文章！");
-            const exists = (a) => state.articles.some(x => (x.sourceUrl && x.sourceUrl === a.sourceUrl) || (x.title === a.title && x.source === a.source));
-            const toAdd = ARTICLE_IMPORTS.filter(a => a.title && (a.paragraphs || []).length && !exists(a));
-            if (toAdd.length === 0) return showToast("目前沒有新文章可匯入");
-            if (!confirm(`即將匯入 ${toAdd.length} 篇文章。確定嗎？`)) return;
-            const btn = $('importArticlesBtn'); const orig = btn.innerHTML; btn.disabled = true;
-            let ok = 0, fail = 0;
-            for (const a of toAdd) {
-                btn.textContent = `匯入中... (${ok + fail + 1}/${toAdd.length})`;
-                try {
-                    await setDoc(doc(collection(db, PATHS.articles)), {
-                        title: a.title, topic: a.topic ||'World', source: a.source ||'Global Voices',
-                        author: a.author ||'', sourceUrl: a.sourceUrl ||'', license: a.license ||'CC BY 3.0',
-                        date: a.date ||'', paragraphs: a.paragraphs, createdAt: Date.now()
-                    });
-                    ok++;
-                } catch (e) { fail++; console.error(e); }
-            }
-            btn.disabled = false; btn.innerHTML = orig; icons();
-            showToast(`匯入完成：成功 ${ok} 篇${fail ? `，失敗 ${fail} 篇` :''}`);
-        }
-
-        function openReadingArticle(id) {
-            const a = state.articles.find(x => x.id === id);
-            if (!a) return;
-            $('readingTopic').textContent = a.topic ||'';
-            $('readingTitle').innerHTML = wrapWordsForLookup(a.title);
-            $('readingMeta').textContent = [a.author, a.date].filter(Boolean).join(' ·');
-            $('readingBody').innerHTML = (a.paragraphs || []).map(p => `<p>${wrapWordsForLookup(p)}</p>`).join('');
-            $('readingAttribution').innerHTML = a.sourceUrl
-                ? `本文轉載自 <a href="${escapeHTML(a.sourceUrl)}" target="_blank" rel="noopener" class="text-emerald-600 font-bold underline">${escapeHTML(a.source)}</a>${a.author ?'，作者' + escapeHTML(a.author) :''}，依 ${escapeHTML(a.license ||'CC BY')} 授權轉載。`
-                :'這是示範文章；真實文章將由 Global Voices（CC BY 3.0）自動匯入。';
-            $('reading-list-view').classList.add('hidden');
-            $('reading-reader-view').classList.remove('hidden');
-            icons();
-            scrollTopSmooth();
-        }
-
         /* ==========================================================
          * 單字庫：內建 / 公有 / 我的
          *
@@ -10475,6 +10292,10 @@
                 builtinVocabState ='ready';
             } catch { builtinVocabState ='error'; }
             if (vocabScope ==='builtin') renderVocabBooks();
+            /* ★ 克漏字那一頁也吃這份索引（範圍有幾個字、第一次要抓幾份檔案
+               全部從它算）。漏掉這一行的症狀是那一頁永遠停在「載入單字庫索引…」，
+               而且不會報錯——索引其實已經好了，只是沒有人叫它重畫。 */
+            renderClozeCard();
         }
 
         /* ---- 內建單字庫：抓某個資料夾的單字 ---- */
@@ -10584,11 +10405,10 @@
             const grid = $('vocabBookGrid');
             if (!grid) return;
             updateVocabScopeUI();
-            /* 克漏字那張卡跟著這一頁走（它自己判斷該不該出現）。
-               ★ 放在早退之前：下面幾個 return 都是「這一頁沒有東西可顯示」，
-               但卡片該不該收掉是另一回事，漏掉的話切到「我的」還會留著一張
-               屬於內建的卡——不會報錯，只是它屬於另一個範圍。 */
-            renderClozeCard();
+            /* ★ 2026-08-19：這裡原本會叫 renderClozeCard()——當時那張卡住在
+               單字庫「內建」的最上層，所以要跟著這一頁的範圍切換一起收放。
+               克漏字升格成自己的子分頁之後那個相依就沒了，留著反而是
+               「換一頁會去重畫另一頁」，兩邊的狀態遲早互相干擾。 */
 
             const folders = vocabFoldersOf(vocabScope);
             const inFolder = currentVocabFolderId !== null
@@ -10725,7 +10545,7 @@
             const addBtn = $('addVocabWordBtn');
             if (addBtn) addBtn.classList.toggle('hidden', !canEditVocab(currentViewVocabScope));
             if (words.length === 0) {
-                $('vocabWordList').innerHTML = `<div class="oil-empty col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${currentViewVocabScope ==='mine' ?'這本還是空的，按上方「新增單字」，或到英文閱讀點單字直接加進來' :'這個單字冊還是空的，等巫醫來補充'}</div>`;
+                $('vocabWordList').innerHTML = `<div class="oil-empty col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${currentViewVocabScope ==='mine' ?'這本還是空的，按上方「新增單字」，或用上面的「查字典」查完直接加進來' :'這個單字冊還是空的，等巫醫來補充'}</div>`;
                 return;
             }
             $('vocabWordList').innerHTML = words.map(w => `
@@ -11087,16 +10907,20 @@
             renderClozeCard();
         }
 
-        /* 這張卡只在「內建」那一層出現（素材就是內建單字庫）。 */
+        /* ★ 2026-08-19：這張卡原本住在單字庫「內建」的最上層，所以有一段
+           「不是內建就整張收掉」的判斷。克漏字升格成自己的子分頁之後那段拿掉了——
+           **這一整頁就只有這張卡**，收掉等於切過去是一片空白。
+           ⚠️ 索引還沒好的時候也不能收：以前收掉沒關係（下面還有單字冊），
+           現在收掉就沒有東西了。所以改成畫同一張卡、但把按鈕停用、
+           右邊那行話換成「正在載入」或「載入失敗」——
+           「還在載入」與「壞了」不能是同一個畫面，這條在課表那邊踩過。 */
         function renderClozeCard() {
             const box = $('clozeCard');
             if (!box) return;
-            const show = vocabScope ==='builtin' && currentVocabFolderId === null
-                      && builtinVocabState ==='ready';
-            box.classList.toggle('hidden', !show);
-            if (!show) { box.innerHTML =''; return; }
+            box.classList.remove('hidden');
+            const ready = builtinVocabState ==='ready';
 
-            const folders = clozeFoldersFor(clozeScopes);
+            const folders = ready ? clozeFoldersFor(clozeScopes) : [];
             /* 字數用索引上的 count 估，不必等單字檔抓下來——
                這張卡在「還沒抓任何東西」的時候就要說得出範圍有多大。 */
             const words = folders.reduce((n, f) => n + (f.count || 0), 0);
@@ -11112,10 +10936,13 @@
                         ?'bg-emerald-500 text-white border-emerald-500 shadow-md'
                         :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${escapeHTML(s.label)}</button>`;
             }).join('');
-            const note = clozeBusy ? escapeHTML(clozeProgress)
+            const note = builtinVocabState ==='error' ?'單字庫索引載入失敗，重新整理再試一次'
+                : !ready ?'載入單字庫索引…'
+                : clozeBusy ? escapeHTML(clozeProgress)
                 : !clozeScopes.length ?'先選一個範圍'
                 : todo ? `${words} 字可出題 · 第一次要先抓 ${todo} 份單字檔`
                        : `${words} 字可出題`;
+            const canStart = ready && !clozeBusy && clozeScopes.length > 0;
             box.innerHTML = `
                 <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800">
                     <div class="flex items-start gap-3 mb-4">
@@ -11129,10 +10956,10 @@
                     </div>
                     <div class="flex flex-wrap gap-2 mb-4">${chips}</div>
                     <div class="flex flex-wrap items-center gap-3">
-                        <button data-action="start-cloze" ${clozeBusy || !clozeScopes.length ?'disabled' :''}
-                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${clozeBusy || !clozeScopes.length
-                                ?'bg-slate-700 text-slate-400 cursor-not-allowed'
-                                :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                        <button data-action="start-cloze" ${canStart ?'' :'disabled'}
+                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${canStart
+                                ?'bg-emerald-500 text-white hover:bg-emerald-400'
+                                :'bg-slate-700 text-slate-400 cursor-not-allowed'}">
                             <i data-lucide="${clozeBusy ?'loader' :'play'}" class="w-4 h-4 pointer-events-none"></i> ${clozeBusy ?'載入中…' :'開始測驗'}
                         </button>
                         <span class="text-xs font-bold text-white/50">${note}</span>
@@ -11208,9 +11035,12 @@
            ★ 錯的字記「錯過幾次」與「最後一次錯在什麼時候」——
              下一項（艾賓浩斯）要的就是這兩個欄位，只記字的話它還得再改一次資料。
            ★ 沒登入就只留在這一輪的記憶體裡：不擋人做測驗。 */
+        /* ★ 回傳存檔那個 Promise：結算畫面要等它（見 withQuizWrapUp）。
+           沒有東西可記、或沒登入的時候回一個已完成的 Promise，
+           讓呼叫端不必分兩種寫法。 */
         function recordClozeResult(answers) {
             const list = (answers ||[]).filter(a => a && a.word);
-            if (!list.length) return;
+            if (!list.length) return Promise.resolve();
             const now = Date.now();
             const byWord = new Map((clozeWrong.words ||[]).map(x => [x.w, { ...x }]));
             for (const a of list) if (!a.correct) {
@@ -11222,7 +11052,8 @@
             const seen = [...(clozeWrong.seen ||[]).filter(w => !list.some(a => a.word === w)),
                           ...list.map(a => a.word)].slice(-CLOZE_SEEN_KEEP);
             clozeWrong = { words, seen };
-            if (clozeWrongLoaded) saveClozeWrong().catch(e => console.warn('錯題存檔失敗', e));
+            if (!clozeWrongLoaded) return Promise.resolve();
+            return saveClozeWrong().catch(e => console.warn('錯題存檔失敗', e));
         }
         /* ---- 克漏字：結束 ---- */
 
@@ -11583,12 +11414,39 @@
             renderPlayQuestion();
         }
 
-        function showKahootResult() {
+        /* 等一件事做完，期間顯示「結算中」。
+           ★ 兩個門檻都是刻意的：
+             - 200ms 才顯示：存檔通常比這快，秒回的時候閃一下 loading
+               比什麼都不做更像壞掉。
+             - 5 秒就放棄等：存檔失敗不能把結果整個擋住——
+               錯題清單本來就在記憶體裡，跟雲端存不存得起來無關。
+               卡在這裡的症狀會是「測驗做完之後永遠在轉圈」。 */
+        async function withQuizWrapUp(promise) {
+            const box = $('quizWrapUp');
+            let shown = false;
+            const show = setTimeout(() => {
+                shown = true;
+                box.classList.remove('hidden');
+                box.classList.add('flex');
+                icons();
+            }, 200);
+            const timeout = new Promise(r => setTimeout(r, 5000));
+            try { await Promise.race([promise, timeout]); }
+            catch { /* 存檔失敗照樣往下走，錯題清單不依賴它 */ }
+            clearTimeout(show);
+            if (shown) { box.classList.add('hidden'); box.classList.remove('flex'); }
+        }
+
+        async function showKahootResult() {
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
             /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
-               ★ 只有克漏字的題目帶 `cloze` 旗標，一般測驗走同一支不受影響。 */
-            if (activeKahoot && activeKahoot.cloze) recordClozeResult(playAnswers);
+               ★ 只有克漏字的題目帶 `cloze` 旗標，一般測驗走同一支不受影響。
+               ★ 這裡**等**它寫完再畫結果（原本是丟著不管）。理由不是資料
+               安全——是那段等待原本沒有任何畫面，最後一題答完之後
+               什麼都沒有，然後錯題清單才突然出現。 */
+            if (activeKahoot && activeKahoot.cloze)
+                await withQuizWrapUp(recordClozeResult(playAnswers));
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
@@ -11675,7 +11533,7 @@
             ['plan:timer',       '計劃 → 讀書計時'],
             ['self-study',       '學習 → 自學課程'],
             ['self-study:kahoot','學習 → 我的測驗'],
-            ['english',          '英文 → 英文閱讀'],
+            ['english',          '英文 → 克漏字'],
             ['english:vocab',    '英文 → 單字庫'],
             ['finance',          '理財'],
             ['settings',         '設定']
@@ -12050,14 +11908,14 @@
         // 只有公有的才需要 Lv4。相關邏輯在 updateVocabScopeUI / updateKahootScopeUI / renderVocabWords。
         /* ★ 這張表原本混著兩種東西。拆分之後必須分家，
            不然「小黑貓的管理員」看不到自學課程的新增鈕，
-           而「彰師電子的巫醫」卻看得到英文閱讀的匯入鈕——
+           而「彰師電子的巫醫」卻看得到自學課程的新增鈕——
            兩種都只是按鈕在不在，不會有任何錯誤訊息。 */
         const LEVEL4_ELEMENT_IDS = [          // 彰師電子：巫醫(4)以上
 'settingsContentBox','adminUploadSection','importCoursesSection',
 'addNewsBtn','addLinkBtn'
         ];
         const CAT_ADMIN_ELEMENT_IDS = [       // 小黑貓：管理員
-'addSelfStudyCourseBtn','addSelfStudyUnitBtn','importArticlesBtn'
+'addSelfStudyCourseBtn','addSelfStudyUnitBtn'
         ];
 
         function updateAdminUI() {
@@ -12102,7 +11960,7 @@
                 const el = $(id);
                 if (el) el.classList.toggle('hidden', currentUserLevel < 4);
             });
-            // 小黑貓：管理員功能（自學課程、英文閱讀）
+            // 小黑貓：管理員功能（自學課程）
             CAT_ADMIN_ELEMENT_IDS.forEach(id => {
                 const el = $(id);
                 if (el) el.classList.toggle('hidden', !isCatAdmin());
@@ -12262,7 +12120,7 @@
             review: PATHS.reviews, kahoot: PATHS.kahoots,
             matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
-            news: PATHS.news, quickLink: PATHS.links, article: PATHS.articles,
+            news: PATHS.news, quickLink: PATHS.links,
             /* 回報沒有子資料，所以走這條簡單刪除。
                漏掉這一行的症狀是按了刪除跳出「失敗…」——
                因為 SIMPLE_DELETE_PATHS[type] 會是 undefined，
@@ -13163,9 +13021,13 @@
 'save-watch': saveWatch,
 'del-finance': (t) => deleteFinanceDoc(t.dataset.col, t.dataset.id),
 'refresh-prices': refreshPrices,
-'reading-open': (t) => openReadingArticle(t.dataset.id),
-'reading-back': () => { $('reading-reader-view').classList.add('hidden'); $('reading-list-view').classList.remove('hidden'); },
-'cambridge-quick': () => openCambridge($('cambridgeQuickInput').value),
+            /* 查字典：開站內的英英小卡（劍橋連結在小卡裡）。
+               ★ 小卡貼在按鈕旁邊，所以要把按鈕本身傳進去當定位錨點。 */
+'cambridge-quick': (t) => {
+                const v = ($('cambridgeQuickInput').value ||'').trim();
+                if (!v) return showToast("先輸入一個英文單字");
+                lookupWord(t, v);
+            },
             /* 設定頁的帳號動作。★ 全部沿用既有的視窗與流程，不另外寫一套——
                寫第二套的話兩邊的驗證規則遲早會分岔，而分岔不會報錯。 */
 'settings-login':    () => openModal('adminModal'),
@@ -13409,7 +13271,6 @@
             });
 
             bind('backToTopBtn', scrollTopSmooth);
-            bind('importArticlesBtn', importArticles);
             // 點任一單字彈出英英小卡（可堆疊）；點小卡外關閉全部、Esc 關閉最上面那張
             document.addEventListener('click', (e) => {
                 const w = e.target.closest('.lw');
@@ -13441,8 +13302,15 @@
                 }
                 if (e.key ==='Escape') quitKahoot();
             });
-            // 快查框：Enter 或按鈕 → 開劍橋英英
-            $('cambridgeQuickInput').addEventListener('keydown', (e) => { if (e.key ==='Enter') openCambridge(e.target.value); });
+            /* 查字典框：Enter 等同按那顆按鈕。
+               ★ 特意走同一顆按鈕而不是自己再叫一次 lookupWord——
+               小卡要貼在按鈕旁邊，而且「空字串要提醒」那一條只寫在按鈕那邊，
+               各寫一份的話兩條路的行為遲早會不一樣。 */
+            $('cambridgeQuickInput').addEventListener('keydown', (e) => {
+                if (e.key !=='Enter') return;
+                const btn = document.querySelector('[data-action="cambridge-quick"]');
+                if (btn) btn.click();
+            });
             bind('adminBtn', handleAdminBtn);
             bind('toggleAuthMode', toggleAuthMode);
             bind('confirmAdminLogin', submitAuth);
@@ -13555,7 +13423,6 @@
             { key:'vocabFolders', path: PATHS.vocabFolders, sort: byOldest, render: () => renderVocabBooks() },
             { key:'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
             { key:'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
-            { key:'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (studySub ==='reading') renderReadingList(); } },
             /* 🔒 回報：只有小黑貓管理員讀得到，所以要有 minTier。
                沒有這個門檻的話，每個打開設定頁的人都會發一個註定被規則拒絕的
                listener——不會有畫面上的症狀，只是白白多一次失敗的請求，
@@ -13629,10 +13496,13 @@
                這份資料在這一輪已經搬過一次家（self-study → quiz → self-study），
                每次搬都要記得把訂閱一起帶走。 */
 'self-study': ['ssCourses','ssUnits','courses','myKahoots'],
-            /* 英文分頁：英文閱讀與單字庫。★ 這一組是從 self-study 拆出來的——
+            /* 英文分頁：克漏字與單字庫。★ 這一組是從 self-study 拆出來的——
                拆的時候要真的把資料集跟著搬，不然畫面切過去了、清單卻是空的，
-               而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。 */
-'english':    ['articles','vocabFolders','vocabBooks','vocabWords','myVocabFolders','myVocabBooks','myVocabWords'],
+               而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。
+               ★ 克漏字沒有自己的一份：它吃的是內建單字庫（隨網站發布的靜態
+               JSON），不是 Firestore 訂閱，所以進頁面時自己抓（見 switchStudySub）。
+               ⚠️ 'articles' 這一份 2026-08-19 隨英文閱讀一起拿掉了。 */
+'english':    ['vocabFolders','vocabBooks','vocabWords','myVocabFolders','myVocabBooks','myVocabWords'],
 'about':      []
         };
 
