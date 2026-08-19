@@ -3180,6 +3180,10 @@
                     <button data-action="set-vocab-scope" data-scope="public" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="globe" class="w-4 h-4 pointer-events-none"></i> 公有</button>
                     <button data-action="set-vocab-scope" data-scope="mine" class="vocab-scope-opt px-5 py-2 rounded-2xl text-sm font-black transition-all flex items-center gap-2 shrink-0"><i data-lucide="lock" class="w-4 h-4 pointer-events-none"></i> 我的</button>
                 </div>
+                <!-- 克漏字測驗：素材就是內建單字庫，所以入口放在它旁邊。
+                     內容由 renderClozeCard() 填，只在「內建」的最上層出現——
+                     公有／我的那兩邊沒有「每個字都有例句」這個保證。 -->
+                <div id="clozeCard" class="hidden mb-5"></div>
                 <!-- 資料夾麵包屑：在資料夾裡才顯示 -->
                 <div id="vocabFolderBar" class="hidden flex flex-wrap items-center gap-2 mb-5">
                     <button data-action="back-to-vocab-folders" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 所有資料夾</button>
@@ -4301,6 +4305,31 @@
         // Tailwind 色階；現在選項本身不帶顏色，只用字母區分，顏色留給回饋。
         const KAHOOT_LETTERS = ['A','B','C','D'];
 
+        /* ---- 克漏字測驗（內建單字庫，2026-08-19）---- */
+        const CLOZE_COUNT = 20;              // 一場幾題
+        const CLOZE_BLANK ='______';         // 挖掉的那一格
+        /* 干擾選項優先抓「同字根族群」。族群是從 `rootPrefix` 拆出來的詞素，
+           而詞素裡混著字首（con-、dis-、com-）與真正的字根（capere、fect）。
+           ⚠️ 字首的族群動輒七十幾個字，那種「族群」只代表開頭幾個字母一樣，
+           當干擾選項太鬆。所以族群大小超過這個數的一律不算——
+           這是**用資料本身分辨字首與字根**，不是維護一張停用詞表
+           （維護一張表的話，下次餵新字表進來就會少一批）。 */
+        const CLOZE_FAMILY_MAX = 30;
+        const CLOZE_WRONG_KEEP = 500;        // 錯題只留最近幾個字（下一項艾賓浩斯要吃）
+        const CLOZE_SEEN_KEEP  = 200;        // 最近出過的字，用來避開剛考完又考
+        /* 範圍：Level 3–6 來自 7000 那批（`w.level`），多益／托福來自資料夾的 `set`。
+           ⚠️ 兩者**不能寫成同一個 `w.level` 判斷**：DLC 那 361 個字根本沒有
+           `level` 欄位，混在一起判的話「Level 4 ＋ 多益」會把 DLC 整批濾掉，
+           而且不會報錯——畫面上只是題目變少。 */
+        const CLOZE_SCOPES = [
+            { id:'lv3',   label:'Level 3', set:'az',    level: 3 },
+            { id:'lv4',   label:'Level 4', set:'az',    level: 4 },
+            { id:'lv5',   label:'Level 5', set:'az',    level: 5 },
+            { id:'lv6',   label:'Level 6', set:'az',    level: 6 },
+            { id:'toeic', label:'多益 DLC', set:'toeic' },
+            { id:'toefl', label:'托福 DLC', set:'toefl' }
+        ];
+
         const timeSlots = [
             { id: 1, label:'1', timeStr:'08:10-<br>09:00', start: 8 * 60 + 10, end: 9 * 60 },
             { id: 2, label:'2', timeStr:'09:05-<br>09:55', start: 9 * 60 + 5, end: 9 * 60 + 55 },
@@ -4382,6 +4411,26 @@
                                 weekly:{ key:'', ids:[] }, monthly:{ key:'', ids:[] } };
         let missionsLoaded = false;
         let missionsReady = Promise.resolve();
+
+        /* 克漏字測驗的狀態。★ 宣告在狀態區的理由跟上面幾條一樣：
+           `renderClozeCard()` 是被 `renderVocabBooks()` 叫的，而那支在
+           「進英文分頁」的路徑上就會跑——寫在函式旁邊就是暫時性死區，
+           症狀是一載入整頁全白，而 `node --check` 看不出來（已經踩過六次）。
+           ★ 預設只勾 Level 4：全勾等於第一次按下去要抓 25 份檔案，
+           而使用者還不知道自己按了什麼。 */
+        let clozeScopes = ['lv4'];
+        let clozeBusy = false;             // 正在抓單字檔（擋重複按）
+        let clozeProgress ='';             // 「載入單字 3 / 25」
+        /* 錯題與最近出過的字（雲端，登入才有）。
+           ★ 存在 `settings/vocabWrong`：`settings` 這個集合早就在
+           `firestore.rules` 的私人白名單裡，所以這一項**不必再去主控台推規則**。
+           新開一個集合的話就得推，而那份規則現在正好欠推——
+           漏推的症狀是「按了沒反應」，畫面上什麼都不會說。
+           ★ 跟計劃／讀書紀錄／任務同一條：**讀不到就不要存**
+           （`clozeWrongLoaded` 維持 false），否則一次讀取失敗就把
+           累積的錯題清空，而畫面上完全看不出來。 */
+        let clozeWrong = { words: [], seen: [] };
+        let clozeWrongLoaded = false;
 
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
         /* Google 憑證暫存：信箱已經有密碼帳號時，先把 Google 那份收著，
@@ -5192,6 +5241,23 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-19',
+                title: '內建單字庫可以出克漏字測驗了：從例句挖一個字，每次 20 題，範圍六選',
+                items: [
+                    ['起因', '路線圖短期第一條。上一輪把兩套 DLC 做進來之後，「範圍可選 lv3 4 5 6 多益 托福」這六個選項才真的全部存在。題目素材也是現成的——3,823 個字每一個都有 `example`，克漏字最省事的作法就是把例句裡的那個字挖掉。'],
+                    ['★★ 挖不乾淨的症狀是「題目裡原封不動擺著答案」', '不報錯、不當機，就只是那一題送分。所以挖空不是 `example.includes(english)` 就好：單字欄本身可能是 `achieve(ment)`、`adviser/advisor`（這一類 72 個），例句也可能用變化形（`signatory` 的例句寫 `are signatories to`）。把括號、斜線與常見字形變化都試過之後，3,823 個字裡挖得到 3,816 個——原本估計的「100 個挖不到」剩下 7 個。'],
+                    ['★ 那 7 個挖不到的是對的，不要硬救', '`Snowflakes` 裡的 flake、`notepad` 裡的 pad、不規則變化的 `cling → clung`。硬挖出來會是「Snow______s」，看起來像程式壞了；而那個字根本沒有單獨出現在句子裡，本來就不該拿它出題。'],
+                    ['★★ 範圍複選不能寫成同一個 `w.level` 判斷', 'DLC 那 361 個字**沒有 `level` 欄位**（上一輪刻意不編假級數）。混在一起判的話，「Level 4 ＋ 多益」會把多益整批濾掉——不報錯，畫面上只是題目變少，而少了多少沒有人看得出來。現在按資料夾的 `set` 分開判，測試釘住這個複選。'],
+                    ['★ 干擾選項優先抓同字根族群，而族群大小有上限', '`intend／extend／pretend` 那種才像真的考題。族群是從 `rootPrefix` 拆出來的詞素，但裡面混著字首（`con-`、`dis-`）與真正的字根（`capere`、`fect`）——字首那一族動輒七十幾個字，那只代表開頭幾個字母一樣。所以族群超過 30 個字就不算，**用資料本身分辨字首與字根**，而不是維護一張停用詞表（維護表的話，下次餵新字表進來就會少一批）。湊不滿三個再退同詞性、再退隨機。'],
+                    ['★ 干擾選項也不能出現在題目句子裡', '出現的話那一格填它也讀得通，而使用者只會覺得「明明對的答案算我錯」——畫面上沒有任何線索。'],
+                    ['★ 字根族群那五個資料夾永遠不抓', '`rt-*` 跟 `az-*` 是同一批 3,462 個字的兩種排法。跟著抓的話同一個字會進來兩次，症狀是選項裡出現兩個一樣的字，而點到另一個算你答錯。'],
+                    ['按下開始會先把單字檔抓齊，而且看得到進度', '選「Level 3–6 全部」等於 25 份檔案、約 1.8 MB。沒有進度回報的話那幾秒鐘畫面完全靜止，看起來像按鈕壞了。抓過的資料夾不會再抓一次，卡片上也先說清楚「第一次要先抓幾份」。'],
+                    ['錯題記在 `settings/vocabWrong`，不必再去主控台推規則', '記的是「錯過幾次」與「最後一次錯在什麼時候」——下一項（艾賓浩斯個人化測驗）要的就是這兩個欄位，只記字的話它還得再改一次資料。順便拿它避開剛考完又考。`settings` 早就在規則的白名單裡，新開一個集合就得推規則，而那份現在正好欠推。★ 一樣是「讀不到就不要存」：少了這道，一次讀取失敗就把錯題本清空，而畫面上只會是「錯題本自己空了」。'],
+                    ['順手查出一個資料錯字：`brital`', '在 `az-b.json` 裡，中文、字根、例句都跟 `brutal` 一模一樣（例句寫的是 brutal），只有級數不同。它是唯一一個「例句裡的字跟單字欄不一樣」的字，克漏字剛好把它照出來。**這次沒有改**——改掉等於 7000 那份少一個字，而字數 3462 有測試釘著，那是另一個決定。'],
+                    ['七個故意弄壞全部確認會紅', '含「只挖第一個出現處」「範圍複選寫成同一個 level 判斷」「干擾選項不檢查」「族群沒有上限」。★ 其中一條原本是綠的假象：把「忘了設 `playQuestions`」那段拿掉時，`String.replace` 換到的是**單字擂台**那一段一字不差的程式，於是克漏字的測試當然是綠的——看起來像測試沒抓到，其實是我弄壞了別的地方。'],
+                ]
+            },
             {
                 date: '2026-08-19',
                 title: '內建單字庫多了多益 DLC 與托福 DLC，共 361 個 7000 單字裡沒有的字',
@@ -10504,6 +10570,11 @@
             const grid = $('vocabBookGrid');
             if (!grid) return;
             updateVocabScopeUI();
+            /* 克漏字那張卡跟著這一頁走（它自己判斷該不該出現）。
+               ★ 放在早退之前：下面幾個 return 都是「這一頁沒有東西可顯示」，
+               但卡片該不該收掉是另一回事，漏掉的話切到「我的」還會留著一張
+               屬於內建的卡——不會報錯，只是它屬於另一個範圍。 */
+            renderClozeCard();
 
             const folders = vocabFoldersOf(vocabScope);
             const inFolder = currentVocabFolderId !== null
@@ -10796,6 +10867,350 @@
             $('playKahootModal').classList.add('flex');
             renderPlayQuestion();
         }
+
+        /* ==========================================================
+         * 14.6 克漏字測驗：拿內建單字庫的例句自動出題（2026-08-19）
+         *
+         * 每次 20 題，範圍可複選（Level 3–6／多益 DLC／托福 DLC）。
+         * 題目是「把例句裡的那個字挖掉」，四個選項都是單字本身。
+         *
+         * ★ 為什麼素材只認內建：內建的每個字都有 `example`（3,823 個字全有），
+         *   公有與「我的」沒有這個保證——照樣出題的話會出一堆空白的題目，
+         *   而且不會報錯。
+         *
+         * ★ 三件安靜會壞的事，下面各自有註記：
+         *   1. 挖不乾淨 → 答案原封不動擺在題目裡（`clozeBlankOf` 的字形變化）
+         *   2. 複選被寫成同一個 `w.level` 判斷 → DLC 整批消失（`clozeWordsInScope`）
+         *   3. 干擾選項剛好也出現在題目句子裡 → 那一格填什麼都通（`clozeQuestionOf`）
+         * ========================================================== */
+        /* ---- 克漏字：出題核心（純函式，tests/cloze.mjs 直接抽這一段跑）---- */
+        const clozeEsc = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+
+        /* 單字欄不一定就是句子裡的那個寫法：
+             achieve(ment)    → achievement／achieve 兩種都試
+             adviser/advisor  → 兩個都是同一個字的寫法
+           ⚠️ 不處理這兩種的話，光是括號那一類就有 72 個字挖不到。 */
+        function clozeForms(english) {
+            const out = [];
+            const push = (s) => {
+                s = String(s ||'').trim().toLowerCase();
+                if (s && /^[a-z][a-z' -]*$/.test(s) && !out.includes(s)) out.push(s);
+            };
+            for (const part of String(english ||'').split('/')) {
+                push(part.replace(/[()]/g,''));       // achieve(ment) → achievement
+                push(part.replace(/\([^)]*\)/g,''));  // achieve(ment) → achieve
+            }
+            return out;
+        }
+
+        /* 一個寫法會以哪些字形出現在例句裡（signatory 的例句寫的是 signatories）。
+           ⚠️ 不規則變化（cling → clung）認不得，那種字下面會被整個排除掉——
+           排除是對的：留著的話題目裡會原封不動地擺著答案。 */
+        function clozeVariants(base) {
+            const v = [base];
+            const add = (s) => { if (!v.includes(s)) v.push(s); };
+            const last = base.slice(-1);
+            add(base +'s'); add(base +'es'); add(base +'ed'); add(base +'d'); add(base +'ing');
+            if (last ==='y') { const st = base.slice(0, -1); add(st +'ies'); add(st +'ied'); }
+            if (last ==='e') { const st = base.slice(0, -1); add(st +'ing'); add(st +'ed'); add(st +'ion'); }
+            /* stop → stopped／stopping：短母音結尾的字會雙寫尾子音 */
+            if (/[^aeiou][aeiou][^aeiouwxy]$/.test(base)) { add(base + last +'ed'); add(base + last +'ing'); }
+            return v;
+        }
+
+        /* 把例句裡的那個字挖掉。挖不到就回 null（那個字不出題）。
+           ★ 出現幾次挖幾次：只挖第一個的話，句子後面那個就是答案本人。
+           ★ `\b` 是刻意的：Snowflakes 裡的 flake、notepad 裡的 pad 都不算，
+             那種挖出來是「Snow______s」，看起來像程式壞了。 */
+        function clozeBlankOf(w) {
+            const sent = String(w && w.example ||'').trim();
+            if (!sent) return null;
+            for (const base of clozeForms(w && w.english)) {
+                /* 長的排前面：advise 與 advised 同時命中時要挖掉長的那個 */
+                const vars = clozeVariants(base).sort((a, b) => b.length - a.length);
+                const re = new RegExp(`\\b(?:${vars.map(clozeEsc).join('|')})\\b`,'gi');
+                if (!re.test(sent)) continue;
+                return { sentence: sent.replace(new RegExp(re.source,'gi'), CLOZE_BLANK), answer: base };
+            }
+            return null;
+        }
+
+        /* 字根族群：把 `rootPrefix` 拆成詞素。
+             'ab- (intensify) + brev (short) + -ate' → ['brev']（ab 太短、-ate 是字尾）
+             'ligare (bind) -> liaison'              → ['ligare','liaison']
+           ⚠️ 開頭是 `-` 的一律丟掉：那是字尾（-ation、-able），
+             不丟的話「族群」會變成「字尾一樣」，那不是同字根。 */
+        function clozeRootKeys(rootPrefix) {
+            return [...new Set(String(rootPrefix ||'').replace(/\([^)]*\)/g,' ')
+                .split(/\s*(?:\+|->)\s*/)
+                .map(t => t.trim())
+                .filter(t => t && !t.startsWith('-'))
+                .map(t => t.replace(/[^A-Za-zÀ-ɏ]/g,'').toLowerCase())
+                .filter(t => t.length >= 3))];
+        }
+
+        /* 洗牌。★ 不共用全站那支 `shuffle`：這裡要能餵一個固定的亂數進去，
+           不然測試每跑一次抽到的題目都不一樣，數不準。 */
+        function clozeShuffle(arr, rand) {
+            const a = [...arr];
+            for (let i = a.length - 1; i > 0; i--) {
+                const j = Math.floor(rand() * (i + 1));
+                [a[i], a[j]] = [a[j], a[i]];
+            }
+            return a;
+        }
+
+        /* 一題：正解一個、干擾三個。
+           干擾的優先序是 同字根族群 → 同詞性 → 範圍內隨機，
+           三層都湊不滿三個就回 null（那個字這一輪不出）。 */
+        function clozeQuestionOf(item, items, fam, rand) {
+            const used = new Set([item.answer]);
+            const picks = [];
+            const take = (list) => {
+                for (const c of clozeShuffle(list, rand)) {
+                    if (picks.length >= 3) return;
+                    if (used.has(c.answer)) continue;
+                    /* ★ 干擾選項不能已經出現在題目句子裡。出現的話那一格
+                       填它也讀得通，而畫面上只會像是出題出錯——
+                       沒有任何訊息說明為什麼「明明對的答案算我錯」。 */
+                    if (new RegExp(`\\b${clozeEsc(c.answer)}\\b`,'i').test(item.sentence)) continue;
+                    used.add(c.answer); picks.push(c.answer);
+                }
+            };
+            const family = [];
+            for (const k of clozeRootKeys(item.w.rootPrefix)) {
+                const f = fam.get(k);
+                if (f && f.length >= 2 && f.length <= CLOZE_FAMILY_MAX)
+                    for (const x of f) if (x !== item) family.push(x);
+            }
+            take(family);
+            if (picks.length < 3 && item.w.pos)
+                take(items.filter(x => x !== item && x.w.pos === item.w.pos));
+            if (picks.length < 3) take(items.filter(x => x !== item));
+            if (picks.length < 3) return null;
+            const options = clozeShuffle([item.answer, ...picks], rand);
+            return { q: item.sentence, options, correctIdx: options.indexOf(item.answer),
+                     word: item.w.english, chinese: item.w.chinese ||'', engDef: item.w.engDef ||'' };
+        }
+
+        /* 出一整場。`opts.skip` 是最近出過的字（避開剛考完又考），
+           ★ 但只是「優先避開」：整個範圍都考過的時候不能因此出不了題，
+             所以避開之後不夠 20 題就把避開的再放回去。 */
+        function buildClozeQuiz(words, opts) {
+            const o = opts ||{};
+            const count = o.count || CLOZE_COUNT;
+            const rand = o.rand || Math.random;
+            const skip = new Set((o.skip ||[]).map(s => String(s).toLowerCase()));
+            const items = [];
+            const seen = new Set();
+            for (const w of words ||[]) {
+                const c = clozeBlankOf(w);
+                if (!c || seen.has(c.answer)) continue;
+                seen.add(c.answer);
+                items.push({ w, sentence: c.sentence, answer: c.answer });
+            }
+            if (items.length < 4) return [];
+            const fam = new Map();
+            for (const it of items) for (const k of clozeRootKeys(it.w.rootPrefix)) {
+                if (!fam.has(k)) fam.set(k, []);
+                fam.get(k).push(it);
+            }
+            const shuffled = clozeShuffle(items, rand);
+            const fresh = shuffled.filter(it => !skip.has(it.answer));
+            const order = fresh.length >= count
+                ? fresh : fresh.concat(shuffled.filter(it => skip.has(it.answer)));
+            const qs = [];
+            for (const it of order) {
+                if (qs.length >= count) break;
+                const q = clozeQuestionOf(it, items, fam, rand);
+                if (q) qs.push(q);
+            }
+            return qs;
+        }
+        /* ---- 克漏字：核心結束 ---- */
+
+        /* ---- 克漏字：範圍與載入 ---- */
+        /* 選到的範圍要抓哪幾個資料夾。
+           ★ `root`（字根族群）永遠不抓：那是同一批 3,462 個字的另一種排法，
+             抓了等於同一個字進來兩次，而症狀只是選項裡出現兩個一樣的字。 */
+        function clozeFoldersFor(scopes) {
+            const sets = new Set((scopes ||[]).map(id => {
+                const s = CLOZE_SCOPES.find(x => x.id === id);
+                return s ? s.set : null;
+            }).filter(Boolean));
+            return (state.builtinVocabFolders ||[]).filter(f => sets.has(f.set));
+        }
+
+        /* 範圍內的字。⚠️ 這裡就是那條「不能寫成同一個 `w.level` 判斷」：
+           DLC 沒有 `level` 欄位，跟 Level 3–6 混在一個判斷裡的話，
+           「Level 4 ＋ 多益」會把多益整批濾掉——不報錯，只是題目變少。 */
+        function clozeWordsInScope(scopes) {
+            const picked = CLOZE_SCOPES.filter(s => (scopes ||[]).includes(s.id));
+            const levels = new Set(picked.filter(s => s.level).map(s => s.level));
+            const dlc = new Set(picked.filter(s => !s.level).map(s => s.set));
+            const setOfBook = new Map();
+            for (const b of state.builtinVocabBooks ||[]) {
+                const f = (state.builtinVocabFolders ||[]).find(x => x.id === b.folderId);
+                if (f) setOfBook.set(b.id, f.set);
+            }
+            const out = [], seen = new Set();
+            for (const w of state.builtinVocabWords ||[]) {
+                const set = setOfBook.get(w.bookId);
+                const hit = set ==='az' ? levels.has(Number(w.level)) : dlc.has(set);
+                if (!hit) continue;
+                const key = String(w.english ||'').toLowerCase();
+                if (!key || seen.has(key)) continue;   // 兩套分法都載入過時的保險
+                seen.add(key);
+                out.push(w);
+            }
+            return out;
+        }
+
+        function toggleClozeScope(id) {
+            if (!CLOZE_SCOPES.some(s => s.id === id)) return;
+            clozeScopes = clozeScopes.includes(id)
+                ? clozeScopes.filter(x => x !== id) : [...clozeScopes, id];
+            renderClozeCard();
+        }
+
+        /* 這張卡只在「內建」那一層出現（素材就是內建單字庫）。 */
+        function renderClozeCard() {
+            const box = $('clozeCard');
+            if (!box) return;
+            const show = vocabScope ==='builtin' && currentVocabFolderId === null
+                      && builtinVocabState ==='ready';
+            box.classList.toggle('hidden', !show);
+            if (!show) { box.innerHTML =''; return; }
+
+            const folders = clozeFoldersFor(clozeScopes);
+            /* 字數用索引上的 count 估，不必等單字檔抓下來——
+               這張卡在「還沒抓任何東西」的時候就要說得出範圍有多大。 */
+            const words = folders.reduce((n, f) => n + (f.count || 0), 0);
+            const todo = folders.filter(f => !builtinVocabLoaded.has(f.id)).length;
+            /* ★ `s.id` 也包 escapeHTML：它來自這個檔案裡的常數，不是 Firestore，
+               但資安那支測試釘的是「屬性插值裡的 `.id` 一律要跳脫」——
+               那條規則刻意不分來源，因為「這個欄位現在是安全的」正是
+               課程那三個欄位當年漏掉的理由。 */
+            const chips = CLOZE_SCOPES.map(s => {
+                const on = clozeScopes.includes(s.id);
+                return `<button data-action="toggle-cloze-scope" data-scope="${escapeHTML(s.id)}" aria-pressed="${on}"
+                    class="px-4 py-2 rounded-2xl text-xs font-black transition-all shrink-0 border-2 ${on
+                        ?'bg-emerald-500 text-white border-emerald-500 shadow-md'
+                        :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${escapeHTML(s.label)}</button>`;
+            }).join('');
+            const note = clozeBusy ? escapeHTML(clozeProgress)
+                : !clozeScopes.length ?'先選一個範圍'
+                : todo ? `${words} 字可出題 · 第一次要先抓 ${todo} 份單字檔`
+                       : `${words} 字可出題`;
+            box.innerHTML = `
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-11 h-11 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                            <i data-lucide="pencil-line" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-xl font-black">克漏字測驗</h3>
+                            <p class="text-white/50 text-xs font-bold">從例句挖一個字，每次 ${CLOZE_COUNT} 題</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4">${chips}</div>
+                    <div class="flex flex-wrap items-center gap-3">
+                        <button data-action="start-cloze" ${clozeBusy || !clozeScopes.length ?'disabled' :''}
+                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${clozeBusy || !clozeScopes.length
+                                ?'bg-slate-700 text-slate-400 cursor-not-allowed'
+                                :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                            <i data-lucide="${clozeBusy ?'loader' :'play'}" class="w-4 h-4 pointer-events-none"></i> ${clozeBusy ?'載入中…' :'開始測驗'}
+                        </button>
+                        <span class="text-xs font-bold text-white/50">${note}</span>
+                    </div>
+                </div>`;
+            icons();
+        }
+
+        /* 按下開始：先把選到的資料夾抓齊（抓過的跳過），再出題。
+           ★ 一份一份抓並且回報進度，是因為「Level 3–6 全選」等於 25 份檔案。
+             沒有進度的話那幾秒鐘畫面完全靜止，看起來像按鈕壞了。 */
+        async function startClozeQuiz() {
+            if (clozeBusy) return;
+            if (!clozeScopes.length) return showToast("先選一個範圍");
+            const folders = clozeFoldersFor(clozeScopes);
+            if (!folders.length) return showToast("這個範圍還沒有單字");
+            const todo = folders.filter(f => !builtinVocabLoaded.has(f.id));
+            clozeBusy = true;
+            let failed = 0;
+            for (let i = 0; i < todo.length; i++) {
+                clozeProgress = `載入單字 ${i + 1} / ${todo.length}`;
+                renderClozeCard();
+                if (!(await loadBuiltinVocabFolder(todo[i].id))) failed++;
+            }
+            clozeBusy = false; clozeProgress ='';
+            renderClozeCard();
+            if (failed && failed === todo.length) return showToast("單字載入失敗，請檢查連線");
+
+            const pool = clozeWordsInScope(clozeScopes);
+            const questions = buildClozeQuiz(pool, { skip: clozeWrong.seen ||[] });
+            if (questions.length < 4)
+                return showToast("這個範圍出不了題，換一個範圍或多選幾個");
+
+            /* ★ 作答流程讀的是 playQuestions 這一組狀態，不是 activeKahoot。
+               只設 activeKahoot 的話一按下去直接跳結算、0 分——
+               單字擂台踩過一次，這裡照抄它補齊的那一份清單。 */
+            activeKahoot = { title:'克漏字測驗', questions, cloze: true };
+            playQuestions = questions;
+            playAnswers = [];
+            currentQIndex = 0;
+            currentScore = 0;
+            isKahootTransitioning = false;
+            $('playKahootModal').classList.remove('hidden');
+            $('playKahootModal').classList.add('flex');
+            renderPlayQuestion();
+        }
+
+        /* ---- 克漏字：錯題與最近出過的字（settings/vocabWrong）---- */
+        const clozeWrongPath = () => PU('settings');
+        function normalizeClozeWrong(d) {
+            const words = Array.isArray(d && d.words) ? d.words : [];
+            const seen = Array.isArray(d && d.seen) ? d.seen : [];
+            return {
+                words: words.filter(x => x && typeof x.w ==='string')
+                    .map(x => ({ w: x.w, n: Number(x.n) > 0 ? Math.floor(Number(x.n)) : 1,
+                                 at: Number(x.at) > 0 ? Number(x.at) : 0 }))
+                    .slice(-CLOZE_WRONG_KEEP),
+                seen: seen.filter(x => typeof x ==='string').slice(-CLOZE_SEEN_KEEP)
+            };
+        }
+        async function loadClozeWrong() {
+            const p = clozeWrongPath();
+            if (!p) return null;
+            const snap = await getDoc(doc(db, p,'vocabWrong'));
+            return normalizeClozeWrong(snap.exists() ? (snap.data() ||{}) : {});
+        }
+        async function saveClozeWrong() {
+            const p = clozeWrongPath();
+            if (!p || !clozeWrongLoaded) return;      // 沒登入或沒讀到就不存
+            await setDoc(doc(db, p,'vocabWrong'), { ...clozeWrong, updatedAt: Date.now() });
+        }
+        /* 一場結束後記一次。
+           ★ 錯的字記「錯過幾次」與「最後一次錯在什麼時候」——
+             下一項（艾賓浩斯）要的就是這兩個欄位，只記字的話它還得再改一次資料。
+           ★ 沒登入就只留在這一輪的記憶體裡：不擋人做測驗。 */
+        function recordClozeResult(answers) {
+            const list = (answers ||[]).filter(a => a && a.word);
+            if (!list.length) return;
+            const now = Date.now();
+            const byWord = new Map((clozeWrong.words ||[]).map(x => [x.w, { ...x }]));
+            for (const a of list) if (!a.correct) {
+                const cur = byWord.get(a.word) ||{ w: a.word, n: 0, at: 0 };
+                byWord.set(a.word, { w: a.word, n: cur.n + 1, at: now });
+            }
+            const words = [...byWord.values()].sort((x, y) => (x.at || 0) - (y.at || 0))
+                .slice(-CLOZE_WRONG_KEEP);
+            const seen = [...(clozeWrong.seen ||[]).filter(w => !list.some(a => a.word === w)),
+                          ...list.map(a => a.word)].slice(-CLOZE_SEEN_KEEP);
+            clozeWrong = { words, seen };
+            if (clozeWrongLoaded) saveClozeWrong().catch(e => console.warn('錯題存檔失敗', e));
+        }
+        /* ---- 克漏字：結束 ---- */
 
         /* ==========================================================
          * 15. 挑戰擂台 (Kahoot)
@@ -11157,6 +11572,9 @@
         function showKahootResult() {
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
+            /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
+               ★ 只有克漏字的題目帶 `cloze` 旗標，一般測驗走同一支不受影響。 */
+            if (activeKahoot && activeKahoot.cloze) recordClozeResult(playAnswers);
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
@@ -11176,7 +11594,10 @@
                     <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
                         <p class="font-black text-slate-800 text-sm mb-2 break-words">${escapeHTML(a.q)}</p>
                         <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${escapeHTML(a.options[a.selectedIdx] ??'—')}</span></p>
-                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${escapeHTML(a.options[a.correctIdx] ??'—')}</span></p>
+                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${escapeHTML(a.options[a.correctIdx] ??'—')}</span>${
+                            /* 克漏字才有中文解釋。單字題只給一個英文字當正解的話，
+                               「知道錯了」跟「知道那個字是什麼意思」還差一步。 */
+                            a.chinese ? `　<span class="text-slate-500">${escapeHTML(a.chinese)}</span>` :''}</p>
                     </div>`).join('');
             }
             $('kahootResultModal').classList.remove('hidden');
@@ -12466,6 +12887,15 @@
                     console.warn('讀取任務進度失敗', e);
                     showToast('讀不到任務進度，這次先不記點（避免蓋掉原本的）');
                 });
+                /* 克漏字的錯題。★ 同一條規矩：讀不到就不要開放存檔
+                   （`clozeWrongLoaded` 維持 false），否則做完一場就拿空的
+                   錯題本覆蓋雲端——而畫面上只會是「錯題本自己空了」。 */
+                clozeWrongLoaded = false;
+                clozeWrong = normalizeClozeWrong(null);
+                loadClozeWrong().then(d => {
+                    if (d) clozeWrong = d;
+                    clozeWrongLoaded = true;
+                }).catch(e => console.warn('讀取克漏字錯題失敗', e));
                 countdownsLoaded = false;
                 countdownsReady = loadCountdowns().then(list => {
                     const remote = Array.isArray(list) ? list : [];
@@ -12520,6 +12950,10 @@
                    會看到別人的點數與打過的勾，而畫面上看不出它屬於誰。 */
                 missionProgress = normalizeMissionProgress(null);
                 missionsLoaded = false; missionsReady = Promise.resolve();
+                /* ★ 錯題本也是私人資料：留著的話下一個在同一台裝置登入的人
+                   會看到別人錯過哪些字，而畫面上看不出它屬於誰。 */
+                clozeWrong = normalizeClozeWrong(null);
+                clozeWrongLoaded = false;
                 renderMissions();
                 renderPlans();
                 renderCountdowns();
@@ -12568,6 +13002,8 @@
 'start-kahoot':    (t) => startKahoot(t.dataset.id),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
+'toggle-cloze-scope': (t) => toggleClozeScope(t.dataset.scope),
+'start-cloze':     () => startClozeQuiz(),
 'toggle-shuffle':  () => toggleShuffle(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
