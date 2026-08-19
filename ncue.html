@@ -4000,16 +4000,9 @@
         </div>
     </div>
 
-    <!-- 結算中：最後一題答完到錯題清單出來之間的那一段。
-         克漏字要把錯的字寫進 settings/vocabWrong，那是一次網路來回；
-         沒有這一張的話那幾百毫秒到幾秒是**整片空白**，看起來像按了沒反應。
-         ★ 只有真的等超過一瞬間才會出現（見 withQuizWrapUp），
-         不然每一場結束都閃一下反而更吵。 -->
-    <div id="quizWrapUp" class="fixed inset-0 bg-slate-900 z-50 hidden flex-col items-center justify-center p-4" role="status" aria-live="polite">
-        <i data-lucide="loader" class="w-10 h-10 text-emerald-400 animate-spin mb-4"></i>
-        <p class="text-white font-black text-lg">結算中…</p>
-        <p class="text-white/50 text-sm font-bold mt-1">正在把這一場的錯字記起來</p>
-    </div>
+    <!-- ⚠️ 這裡曾經有一張「結算中」的載入畫面（2026-08-19 加了又拿掉）。
+         拿掉的理由記在 showKahootResult()：那段等待是「等雲端寫完錯題」，
+         而錯題清單根本不需要等它。**沒有東西要載入，就不該有載入畫面。** -->
 
     <!-- 測驗結果 -->
     <div id="kahootResultModal" class="fixed inset-0 bg-slate-900/95 backdrop-blur-md z-50 hidden flex-col items-center justify-center p-4 overflow-y-auto">
@@ -5251,8 +5244,10 @@
                     ['⚠️ 留下來的那幾支彼此有相依，刪的時候差點連坐', '`lookupWord` 用 `wrapWordsForLookup` 把定義本身也切成一個個可點的字（一層層往下查靠的就是這個），而那支又靠 `.lw` 這個 class 與最底下那個委派的 click。三者少任何一環都是「點了沒反應」，不會報錯。'],
                     ['克漏字從「單字庫裡的一張卡」變成自己的子分頁', '英文分頁底下現在是「克漏字 / 單字庫」。卡片內容一行沒搬，只是換了住的地方——搬程式的風險遠高於收益，這條在拆分頁那幾次已經寫過很多遍。'],
                     ['★ 升格之後有一個新的壞法：整頁空白', '那張卡原本有一段「不是內建單字庫就整張收掉」的判斷，因為它借住在別人的頁面上。現在這一頁就只有它，收掉等於切過去什麼都沒有。所以改成一律畫、但索引還沒好時把按鈕停用，右邊那行話分成「載入單字庫索引…」與「載入失敗，重新整理再試」——**「還在載入」與「壞了」不能是同一個畫面**。'],
-                    ['測驗做完到錯題出來之間補了一張「結算中」', '路線圖短期第二條。克漏字結束時要把錯的字寫進 `settings/vocabWrong`，那是一次網路來回，而原本那段等待畫面上完全空白，看起來像按了沒反應。現在等它寫完再畫結果。'],
-                    ['★ 這張載入畫面有兩個門檻，都是刻意的', '**200ms 之後才出現**：存檔通常比這快，秒回還閃一下轉圈比什麼都不做更像壞掉。**等最多 5 秒**：存檔失敗不能把結果整個擋住，錯題清單本來就在記憶體裡，跟雲端存不存得起來無關——不設上限的話症狀會是「測驗做完永遠在轉圈」。'],
+                    ['★★ 測驗做完到錯題出來變快了——作法跟原本想的相反', '路線圖短期第二條寫的是「補一個載入中的畫面」。照著做了：等雲端把錯題寫完再畫結果，中間放一張「結算中」。**結果更慢**，因為那把一段本來看不見的網路來回，變成使用者真的要坐在那裡等。量過之後才知道方向反了——**排那份錯題清單只要 10 毫秒，整段等待都來自那次寫入，而錯題清單本來就在記憶體裡、根本不需要它**。所以載入畫面整張拿掉，改成不等雲端、直接畫結果，存檔在背景跑完。'],
+                    ['★ 順手：存檔失敗以前是靜音的', '原本是 `.catch(console.warn)`，只有開 F12 的人知道。現在失敗會說一句「錯題沒存起來」，但一樣不擋畫面。'],
+                    ['最後一題答對的停留從 0.7 秒縮到 0.3 秒', '那 0.7 秒是留給「看一眼答對了再換下一題」的，而最後一題後面沒有下一題，只有結果畫面。'],
+                    ['★ 教訓寫在這裡：看到「畫面出來得慢」先問它在等什麼', '不要先去替那段等待做一張比較好看的畫面。這一輪加了又拿掉的那張圖就是代價，測試裡留了一條「結果畫面不准 await 存檔」擋著它再長回來。'],
                     ['⚠️ `firestore.rules` 的 articles 那一段沒有動', '程式面已經不讀不寫它了，但規則留著。理由是動規則就要再跑一次主控台，而那份規則本來就還沒推上去（見路線圖「待你動手」）——這一輪不想在那筆待辦上再疊一件事。'],
                 ]
             },
@@ -11035,8 +11030,8 @@
            ★ 錯的字記「錯過幾次」與「最後一次錯在什麼時候」——
              下一項（艾賓浩斯）要的就是這兩個欄位，只記字的話它還得再改一次資料。
            ★ 沒登入就只留在這一輪的記憶體裡：不擋人做測驗。 */
-        /* ★ 回傳存檔那個 Promise：結算畫面要等它（見 withQuizWrapUp）。
-           沒有東西可記、或沒登入的時候回一個已完成的 Promise，
+        /* ★ 回傳存檔那個 Promise，但**呼叫端不會 await 它**（見 showKahootResult），
+           只用來接失敗。沒有東西可記、或沒登入的時候回一個已完成的 Promise，
            讓呼叫端不必分兩種寫法。 */
         function recordClozeResult(answers) {
             const list = (answers ||[]).filter(a => a && a.word);
@@ -11053,7 +11048,10 @@
                           ...list.map(a => a.word)].slice(-CLOZE_SEEN_KEEP);
             clozeWrong = { words, seen };
             if (!clozeWrongLoaded) return Promise.resolve();
-            return saveClozeWrong().catch(e => console.warn('錯題存檔失敗', e));
+            /* ★ 這裡**不要**自己 catch。以前是 `.catch(console.warn)`，
+               於是存檔失敗只有開 F12 的人知道。現在把失敗往上丟，
+               由呼叫端決定要不要說一句——但仍然不擋畫面。 */
+            return saveClozeWrong();
         }
         /* ---- 克漏字：結束 ---- */
 
@@ -11397,8 +11395,12 @@
             $('kahootProgressBar').style.width = `${currentQIndex / playQuestions.length * 100}%`;
 
             if (correct) {
-                // 答對就快快帶過，不打斷節奏
-                setTimeout(() => { renderPlayQuestion(); isKahootTransitioning = false; }, 700);
+                /* 答對就快快帶過，不打斷節奏。
+                   ★ 最後一題再短一點：那 700ms 是留給「看一眼答對了再換下一題」的，
+                   而最後一題後面沒有下一題，只有結果畫面——
+                   它是「測驗結束到錯題出來」那段空白裡唯一還剩下的東西。 */
+                const last = currentQIndex >= playQuestions.length;
+                setTimeout(() => { renderPlayQuestion(); isKahootTransitioning = false; }, last ? 300 : 700);
             } else {
                 // 答錯不自動跳：每個人看懂正解需要的時間不一樣，交給使用者決定
                 $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ?'看結果' :'下一題';
@@ -11414,39 +11416,22 @@
             renderPlayQuestion();
         }
 
-        /* 等一件事做完，期間顯示「結算中」。
-           ★ 兩個門檻都是刻意的：
-             - 200ms 才顯示：存檔通常比這快，秒回的時候閃一下 loading
-               比什麼都不做更像壞掉。
-             - 5 秒就放棄等：存檔失敗不能把結果整個擋住——
-               錯題清單本來就在記憶體裡，跟雲端存不存得起來無關。
-               卡在這裡的症狀會是「測驗做完之後永遠在轉圈」。 */
-        async function withQuizWrapUp(promise) {
-            const box = $('quizWrapUp');
-            let shown = false;
-            const show = setTimeout(() => {
-                shown = true;
-                box.classList.remove('hidden');
-                box.classList.add('flex');
-                icons();
-            }, 200);
-            const timeout = new Promise(r => setTimeout(r, 5000));
-            try { await Promise.race([promise, timeout]); }
-            catch { /* 存檔失敗照樣往下走，錯題清單不依賴它 */ }
-            clearTimeout(show);
-            if (shown) { box.classList.add('hidden'); box.classList.remove('flex'); }
-        }
-
-        async function showKahootResult() {
+        function showKahootResult() {
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
             /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
                ★ 只有克漏字的題目帶 `cloze` 旗標，一般測驗走同一支不受影響。
-               ★ 這裡**等**它寫完再畫結果（原本是丟著不管）。理由不是資料
-               安全——是那段等待原本沒有任何畫面，最後一題答完之後
-               什麼都沒有，然後錯題清單才突然出現。 */
+
+               ⚠️⚠️ **不要 await 它。** 這裡試過一次「等雲端寫完再畫結果，
+               中間放一張『結算中』」——結果是把原本看不見的一次網路來回
+               變成使用者真的要坐在那裡等好幾秒。
+               ★ 教訓：**錯題清單本來就在記憶體裡，跟雲端存不存得起來無關。**
+               看到「畫面出來得慢」先問「它在等什麼」，
+               而不是替那段等待做一張比較好看的畫面——
+               量出來排這份清單只要 10 毫秒，等待全部來自那次寫入。
+               存檔失敗只用一句提示說，不擋畫面。 */
             if (activeKahoot && activeKahoot.cloze)
-                await withQuizWrapUp(recordClozeResult(playAnswers));
+                recordClozeResult(playAnswers).catch(() => showToast("錯題沒存起來，下次登入再試"));
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
