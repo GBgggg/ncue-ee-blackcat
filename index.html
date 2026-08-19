@@ -4291,6 +4291,15 @@
                      style: ROLE_COLORS[currentUserRole] || ROLE_COLORS['見習生'] };
         }
         let userDisplayName ='無名小貓', userSchedule = {};
+        /* ★ 課表跟計劃是同一個坑：存檔是 setDoc 整包 `cells`，不是增量更新。
+           課表沒有「載入空窗」（面板要等 loadPrivateSchedule 回來才顯示），
+           但**讀失敗**那條路一樣會弄丟資料：原本讀不到就回 `{}`，
+           畫面上是一張空課表，使用者填一格就把雲端整學期覆蓋掉了，
+           而且從頭到尾沒有任何訊息。所以「真的沒有」與「讀不到」要分開，
+           只有真的讀回來過才開放存檔。
+           ★ 宣告在狀態區：savePrivateSchedule／applyAuthState 都會碰到它，
+           寫在函式旁邊就是暫時性死區（已踩六次，症狀是整頁全白）。 */
+        let scheduleLoaded = false;
         /* 計劃與倒數。存在 users/{uid}/settings/plans 這一份文件裡（不是各自一列）。
            ★ 選單一份文件而不是新開一個集合，是為了不必動 Firestore 規則——
            規則的私人集合白名單裡已經有 'settings'，新增集合要改規則、
@@ -5028,6 +5037,19 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-19',
+                title: '課表讀不到的時候不再把整個學期覆蓋掉，跨年的日期會寫出年份',
+                items: [
+                    ['起因', '這一輪不是新功能，是把幾條「記著還沒做、但其實是程式問題」的殘項清掉。三件事：課表存檔的整包覆寫、快速新增跨年沒有年份、測試每跑一輪就在資料夾裡留一個暫存檔。'],
+                    ['★★ 讀不到課表的時候，填一格會蓋掉整個學期', '課表的存檔是 `setDoc` 一整包 `cells`。原本雲端讀失敗（離線、權限被拒）時直接回一個空物件，於是**畫面上是一張乾淨的空課表，看起來完全正常**，使用者填一格就把整個學期覆蓋掉了，而且從頭到尾沒有任何訊息。現在「真的沒有課表」與「這次讀不到」是兩個狀態，只有真的讀回來過才開放存檔，讀不到會明講「這次先不存檔（避免蓋掉原本的）」。'],
+                    ['★ 這是計劃那一輪（v61）的同一族，只是觸發條件不同', '計劃當年是**載入空窗**造成的；課表沒有空窗（面板要等讀取回來才顯示），所以一直沒被看見——但**讀失敗**那條路一樣會弄丟資料。修過的坑要回頭找第二個現場，這句話在 v82 記過一次，這次是同一件事的第三次。'],
+                    ['理財那幾個集合查過了：不是同一族', '記帳、持股、交易、觀察清單是「一筆一份文件」（`addDoc`／`updateDoc`／`deleteDoc`）加即時訂閱，沒有任何一次整包寫回去，所以不需要這道閘。測試釘住了這個前提——哪天有人改成整包存，那條會紅。'],
+                    ['★ 快速新增：跨年的日期現在會寫出年份', '十二月打「1/5」被排到明年是刻意的，但預覽只寫「1/5（週日）」的話，唯一的線索是星期幾對不上——那不叫線索，那是要使用者自己察覺一件程式早就知道的事。同一年**刻意不補**年份：每一列都掛著年份只是雜訊，而雜訊看久了會連真的跨年那一列一起被略過。'],
+                    ['測試產生的暫存檔不再留在 `tests/` 裡', '這個專案在 OneDrive 同步的資料夾底下，那個掛載點是「寫得進去、刪不掉」的（`unlink` 回 EPERM），所以每跑一輪就留下一個檔案，清點時累積了 11 個、將近 2 MB。⚠️ 而且這件事 8/13 曾經被宣告修好過——**當時修的是那幾支，後來新增的測試又各自寫回去了**。所以這次不是再改一次那幾支，是把「暫存檔寫去哪裡」收成 `_lib.mjs` 的 `tmpModule()`，讓下一支測試沒有第二種寫法可選。'],
+                    ['十條故意弄壞全部確認會紅', '含「catch 裡也把旗標打開」「新帳號忘了開放存檔」「登出忘了收回」那幾條。★ 其中一條原本是綠的假象：抽 `loadPrivateSchedule` 的 catch 用了 `indexOf`，而那支函式裡**前面還有另一個 catch**，抽到的整段是別的程式。'],
+                ]
+            },
             {
                 date: '2026-08-18',
                 title: '讀書計時改成以「科目」為主：一排科目隨時開始，計劃自動掛在底下',
@@ -6720,10 +6742,21 @@
 
         /* 一段時間怎麼寫成一行字。同一天只寫一次日期——
            「8/12 14:00 – 8/12 16:00」讀起來要多花一秒才知道是同一天。 */
-        function planWhenText(plan) {
+        /* ★ `now` 是「現在是哪一年」的來源，不是拿來算相對時間的。
+           不傳就用系統時間——舊的呼叫點（新增成功的 toast）維持原樣不會壞。 */
+        function planWhenText(plan, now) {
             const at = Number(plan && plan.at), end = planEnd(plan);
             const d1 = new Date(at);
-            const day = (d) => d.toLocaleString('zh-TW', { month:'numeric', day:'numeric', weekday:'short' });
+            /* ★ 跨年才補年份。十二月打「1/5」被排到明年是刻意的，但預覽只寫
+               「1/5（週日）」的話，唯一的線索是星期幾對不上——那不叫線索，
+               那是要使用者自己察覺一件程式已經知道的事。
+               ★ 同年不補是刻意的：九成九的計劃都在今年，每一列都掛著年份只是雜訊，
+               而雜訊看久了就會連真的跨年那一列也一起被略過。 */
+            const nowMs = Number(now);
+            const nowYear = new Date(isFinite(nowMs) ? nowMs : Date.now()).getFullYear();
+            const day = (d) => d.toLocaleString('zh-TW', d.getFullYear() === nowYear
+                ? { month:'numeric', day:'numeric', weekday:'short' }
+                : { year:'numeric', month:'numeric', day:'numeric', weekday:'short' });
             const hm  = (d) => d.toLocaleString('zh-TW', { hour:'2-digit', minute:'2-digit' });
             if (!isFinite(at)) return '時間有誤';
             if (!isFinite(end) || end === at) return `${day(d1)} ${hm(d1)}`;
@@ -7050,7 +7083,7 @@
             if (!String(raw || '').trim()) return QUICK_PLAN_HELP;
             const r = parsePlanText(raw, now);
             if (!r.ok) return '⚠️ ' + (r.reason || '看不懂這一行');
-            const when = planWhenText({ at: r.at, end: r.end });
+            const when = planWhenText({ at: r.at, end: r.end }, now);
             const tail = r.notes.length ? '（' + r.notes.join('、') + '）' : '';
             return '→ ' + when + '　' + r.title + tail;
         }
@@ -7170,7 +7203,7 @@
             const phase = planPhase(p, now);
             const target = phase === 'during' ? planEnd(p) : Number(p.at);
             const c = planCountdown(target, now);
-            const when = planWhenText(p);
+            const when = planWhenText(p, now);
             const prefix = phase === 'during' ?'剩 ' :'';
             /* 子任務一律展開，不做「點進度才打開」。
                ★ 它要回答的問題就是「還有什麼沒做」，收起來等於多按一次才看得到，
@@ -11338,7 +11371,13 @@
                 renderSchedule();
                 syncReminderSubscription();   // 課表變了，提醒清單要跟著更新
                 closeModal('scheduleModal');
-            } catch { showToast("儲存失敗…"); }
+            } catch (e) {
+                /* ★ 兩種失敗要分開講：一種是這次網路不好（再試一次就好），
+                   另一種是這台裝置根本沒讀到雲端的課表——後者再試幾次也一樣，
+                   而且使用者最該知道的是「你的課表還在，只是這次不存」。 */
+                console.warn('課表存檔失敗', e);
+                showToast(scheduleLoaded ?"儲存失敗…" :'讀不到雲端的課表，這次先不存（避免蓋掉原本的）');
+            }
         }
 
         async function saveNewCourse() {
@@ -11616,7 +11655,7 @@
             if (!p) return {};
             try {
                 const snap = await getDoc(doc(db, p,'schedule'));
-                if (snap.exists()) return snap.data().cells || {};
+                if (snap.exists()) { scheduleLoaded = true; return snap.data().cells || {}; }
 
                 // 舊帳號的課表還留在個人資料文件裡 → 搬到私人區，並從舊位置刪掉
                 const legacy = (profileData && profileData.schedule) || null;
@@ -11625,18 +11664,28 @@
                     try {
                         await updateDoc(doc(db, PATHS.users, auth.currentUser.uid), { schedule: deleteField() });
                     } catch (e) { console.warn('舊課表欄位清除失敗（不影響使用）', e); }
+                    scheduleLoaded = true;
                     return legacy;
                 }
+                /* ★ 這裡才是「真的沒有課表」：文件不存在、也沒有舊欄位。
+                   跟下面 catch 那條**不是同一件事**，所以只有這裡開放存檔。 */
+                scheduleLoaded = true;
                 return {};
             } catch (e) {
+                /* ★ 讀不到就不要開放存檔（scheduleLoaded 維持 false）。
+                   回傳值只是「這次畫面上先顯示什麼」，不是可以寫回雲端的東西。 */
                 console.warn('讀取課表失敗', e);
+                showToast('讀不到雲端的課表，這次先不存檔（避免蓋掉原本的）');
                 return (profileData && profileData.schedule) || {};
             }
         }
 
+        /* ★ 整包覆寫。沒讀回來過就寧可存檔失敗（有吐司），
+           也不要拿一張空課表蓋掉使用者整個學期。 */
         async function savePrivateSchedule(cells) {
             const p = schedulePath();
             if (!p) throw new Error('not signed in');
+            if (!scheduleLoaded) throw new Error('schedule not loaded');
             await setDoc(doc(db, p,'schedule'), { cells, updatedAt: Date.now() });
         }
 
@@ -11669,6 +11718,7 @@
                         currentUserTierField = null;      // 新帳號不寫 tier，走後備換算
                         userDisplayName ='無名小貓';
                         userSchedule = {};
+                        scheduleLoaded = true;   // 新帳號本來就沒有課表，不是讀不到
                     } else {
                         const data = userSnap.data();
                         currentUserRole = data.role ||'見習生';
@@ -11677,6 +11727,7 @@
                         // 套用此帳號上次選擇的顯示模式
                         if (data.theme) applyTheme(data.theme);
                         // 課表改從私人區讀取；舊帳號若還留在個人資料裡會在這裡自動搬家
+                        scheduleLoaded = false;
                         userSchedule = await loadPrivateSchedule(data);
                     }
                 } catch (e) {
@@ -11795,6 +11846,9 @@
                 currentUserTierField = null;
                 userDisplayName ="無名小貓";
                 userSchedule = {};
+                /* ★ 跟計劃同一條：留著 true 的話，登出後（或下一個人登入的空窗裡）
+                   任何一次存檔都會拿這張空課表覆蓋雲端。 */
+                scheduleLoaded = false;
 
                 $('home-guest-hero').classList.remove('hidden');
                 $('home-user-hero').classList.add('hidden');
