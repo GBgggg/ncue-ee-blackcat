@@ -10,6 +10,16 @@
    "id": "root",
    "title": "字根族群",
    "description": "同字根的字排在一起，背一個字根帶一串"
+  },
+  {
+   "id": "toeic",
+   "title": "多益 DLC",
+   "description": "商務職場七大情境，7000 單字裡沒有的字"
+  },
+  {
+   "id": "toefl",
+   "title": "托福 DLC",
+   "description": "學術學科五大單元，7000 單字裡沒有的字"
   }
  ],
  "folders": [
@@ -1792,6 +1802,228 @@
      "title": "無特定字根 21",
      "description": "W、Y、Z",
      "count": 15
+    }
+   ]
+  },
+  {
+   "id": "toeic-1",
+   "set": "toeic",
+   "title": "辦公行政與管理",
+   "description": "Office Life, Administration & Management",
+   "count": 27,
+   "file": "toeic-1.json",
+   "books": [
+    {
+     "id": "toeic-1-1",
+     "title": "辦公行政與管理 1",
+     "description": "",
+     "count": 27
+    }
+   ]
+  },
+  {
+   "id": "toeic-2",
+   "set": "toeic",
+   "title": "人力資源與人事管理",
+   "description": "Human Resources & Recruitment",
+   "count": 25,
+   "file": "toeic-2.json",
+   "books": [
+    {
+     "id": "toeic-2-1",
+     "title": "人力資源與人事管理 1",
+     "description": "",
+     "count": 25
+    }
+   ]
+  },
+  {
+   "id": "toeic-3",
+   "set": "toeic",
+   "title": "財務、會計與金融",
+   "description": "Finance, Accounting & Banking",
+   "count": 42,
+   "file": "toeic-3.json",
+   "books": [
+    {
+     "id": "toeic-3-1",
+     "title": "財務、會計與金融 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-3-2",
+     "title": "財務、會計與金融 2",
+     "description": "",
+     "count": 12
+    }
+   ]
+  },
+  {
+   "id": "toeic-4",
+   "set": "toeic",
+   "title": "採購、物流與國際貿易",
+   "description": "Purchasing, Logistics & Trade",
+   "count": 17,
+   "file": "toeic-4.json",
+   "books": [
+    {
+     "id": "toeic-4-1",
+     "title": "採購、物流與國際貿易 1",
+     "description": "",
+     "count": 17
+    }
+   ]
+  },
+  {
+   "id": "toeic-5",
+   "set": "toeic",
+   "title": "商務出差與餐飲招待",
+   "description": "Travel, Accommodation & Hospitality",
+   "count": 12,
+   "file": "toeic-5.json",
+   "books": [
+    {
+     "id": "toeic-5-1",
+     "title": "商務出差與餐飲招待 1",
+     "description": "",
+     "count": 12
+    }
+   ]
+  },
+  {
+   "id": "toeic-6",
+   "set": "toeic",
+   "title": "合約、談判與法律事務",
+   "description": "Contracts, Legal & Negotiations",
+   "count": 24,
+   "file": "toeic-6.json",
+   "books": [
+    {
+     "id": "toeic-6-1",
+     "title": "合約、談判與法律事務 1",
+     "description": "",
+     "count": 24
+    }
+   ]
+  },
+  {
+   "id": "toeic-7",
+   "set": "toeic",
+   "title": "行銷、銷售與公關",
+   "description": "Marketing, Sales & Publicity",
+   "count": 4,
+   "file": "toeic-7.json",
+   "books": [
+    {
+     "id": "toeic-7-1",
+     "title": "行銷、銷售與公關 1",
+     "description": "",
+     "count": 4
+    }
+   ]
+  },
+  {
+   "id": "toefl-1",
+   "set": "toefl",
+   "title": "人類學、考古學與歷史學",
+   "description": "Anthropology, Archaeology & History",
+   "count": 14,
+   "file": "toefl-1.json",
+   "books": [
+    {
+     "id": "toefl-1-1",
+     "title": "人類學、考古學與歷史學 1",
+     "description": "",
+     "count": 14
+    }
+   ]
+  },
+  {
+   "id": "toefl-2",
+   "set": "toefl",
+   "title": "天文學、物理學與化學",
+   "description": "Astronomy, Physics & Chemistry",
+   "count": 21,
+   "file": "toefl-2.json",
+   "books": [
+    {
+     "id": "toefl-2-1",
+     "title": "天文學、物理學與化學 1",
+     "description": "",
+     "count": 21
+    }
+   ]
+  },
+  {
+   "id": "toefl-3",
+   "set": "toefl",
+   "title": "地球科學與地質學",
+   "description": "Earth Science & Geology",
+   "count": 20,
+   "file": "toefl-3.json",
+   "books": [
+    {
+     "id": "toefl-3-1",
+     "title": "地球科學與地質學 1",
+     "description": "",
+     "count": 20
+    }
+   ]
+  },
+  {
+   "id": "toefl-4",
+   "set": "toefl",
+   "title": "一般學術與研究方法論",
+   "description": "General Academic & Methodologies",
+   "count": 131,
+   "file": "toefl-4.json",
+   "books": [
+    {
+     "id": "toefl-4-1",
+     "title": "一般學術與研究方法論 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-4-2",
+     "title": "一般學術與研究方法論 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-4-3",
+     "title": "一般學術與研究方法論 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-4-4",
+     "title": "一般學術與研究方法論 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-4-5",
+     "title": "一般學術與研究方法論 5",
+     "description": "",
+     "count": 11
+    }
+   ]
+  },
+  {
+   "id": "toefl-5",
+   "set": "toefl",
+   "title": "生命科學、動物學與植物學",
+   "description": "Life Science, Zoology & Botany",
+   "count": 24,
+   "file": "toefl-5.json",
+   "books": [
+    {
+     "id": "toefl-5-1",
+     "title": "生命科學、動物學與植物學 1",
+     "description": "",
+     "count": 24
     }
    ]
   }
