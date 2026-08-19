@@ -214,7 +214,8 @@ html.dark .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.5)}
           min-width:232px;border-radius:14px;overflow:hidden;background:var(--paper-raised);
           border:1px solid var(--rule);box-shadow:0 10px 28px rgba(26,24,21,.22)}
 #logoMenu.hidden{display:none}
-.logo-menu-item{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+.logo-menu-item{position:relative;
+                display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
                 width:100%;min-height:50px;padding:9px 15px;font-size:16px;font-weight:700;
                 text-align:left;text-decoration:none;color:var(--ink);background:transparent;
                 border:none;cursor:pointer}
@@ -223,6 +224,18 @@ html.dark .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.5)}
 .logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
 .logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
 .logo-menu-item.is-here:hover{background:transparent}
+/* beta 徽章：絕對定位貼右緣，不排進 flex 流。
+   這個容器是 flex-column，直接塞一個 <span> 進去會自成一列，
+   選單只是無聲地長高一截、不會報錯。
+   四個檔案（publicnew／ncue／blackcatmd／blackcatspice）要一致，
+   tests/logomenu.mjs 會比對——漏改的症狀是「從這一頁看沒有 beta、
+   從主站看有」，畫面上同樣沒有任何異常。 */
+.logo-menu-item.has-beta{padding-right:74px}
+.beta-tag{position:absolute;right:15px;top:50%;transform:translateY(-50%);
+          padding:2px 7px;border-radius:999px;
+          font-size:11.5px;font-weight:900;letter-spacing:.08em;line-height:1.4;
+          text-transform:uppercase;
+          color:var(--accent);background:var(--accent-soft);border:1px solid var(--rule)}
 
 /* ==========================================================
    文件分頁列：同時開好幾篇
@@ -589,9 +602,9 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
       <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
         <a class="logo-menu-item" href="./" role="menuitem">小黑貓<small>主頁、學習、理財</small></a>
         <a class="logo-menu-item" href="ncue.html" role="menuitem">彰師電子小黑貓<small>課程評價、教材、測驗</small></a>
-        <span class="logo-menu-item is-here" role="menuitem" aria-current="page">
-          筆記小黑貓<small>Markdown ＋ 數學公式（目前所在）</small></span>
-        <a class="logo-menu-item" href="blackcatspice.html" role="menuitem">電路小黑貓<small>免安裝，用電腦開</small></a>
+        <span class="logo-menu-item is-here has-beta" role="menuitem" aria-current="page">
+          筆記小黑貓<span class="beta-tag">beta</span><small>Markdown ＋ 數學公式（目前所在）</small></span>
+        <a class="logo-menu-item has-beta" href="blackcatspice.html" role="menuitem">電路小黑貓<span class="beta-tag">beta</span><small>免安裝，用電腦開</small></a>
       </div>
     </div>
     <div class="hbar-right">

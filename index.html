@@ -1858,6 +1858,7 @@
             box-shadow: 0 10px 28px rgba(15, 23, 42, .22);
         }
         .logo-menu-item {
+            position: relative;
             display: flex; flex-direction: column; align-items: flex-start; justify-content: center;
             width: 100%; min-height: 52px; padding: 10px 16px;
             font-size: 14px; font-weight: 700; text-align: left; text-decoration: none;
@@ -1866,6 +1867,25 @@
         }
         .logo-menu-item small {
             font-size: 11.5px; font-weight: 600; color: var(--ink-3); margin-top: 1px;
+        }
+        /* ★ beta 徽章用絕對定位貼在右緣，不是排進 flex 流裡。
+           `.logo-menu-item` 是 flex-column，直接放一個 <span> 進去的話
+           它會自成一列，變成「名稱／beta／說明」三行——而且不會報錯，
+           只是選單突然長高一截。改欄向為橫向再讓 <small> 換行也做得到，
+           但那要動四個檔案裡共用的這條版面規則，代價比收益大。
+           ★ 名稱與徽章之間留 `padding-right`：沒有的話長名稱會壓到徽章底下。
+           ★ 順序也不能換——`tests/logomenu.mjs` 用
+           `<a class="logo-menu-item" href="…">([^<]*)` 抓產品名，
+           徽章排到名字前面的話那一段會抓到空字串，
+           而錯誤訊息會寫成「選單漏了筆記小黑貓」，跟真正的原因差很遠。 */
+        .logo-menu-item.has-beta { padding-right: 74px; }
+        .beta-tag {
+            position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
+            padding: 2px 7px; border-radius: 999px;
+            font-size: 11.5px; font-weight: 900; letter-spacing: .08em; line-height: 1.4;
+            text-transform: uppercase;
+            color: var(--accent); background: var(--accent-soft);
+            border: 1px solid var(--rule);
         }
         .logo-menu-item:hover { background: var(--accent-soft) !important; }
         .logo-menu-item + .logo-menu-item { border-top: 1px solid var(--rule); }
@@ -2556,6 +2576,23 @@
                 </div>
             </div>
 
+            <!-- ======== 任務 ========
+                 ★ 跟兩個 Hero 一樣留在子分頁列**外面**：任務不屬於課表也不屬於倒數，
+                 而且「每天打開站要做什麼」本來就該是第一眼看到的東西。
+                 放進某一個子分頁的話，切到另一個子分頁它就消失了——不會報錯，
+                 只會讓人以為任務被做完了。
+                 ★ 整區沒有任務時自己收起來（renderMissions 會加回 hidden）：
+                 一個空的「任務」標題比沒有這一區更難解釋。 -->
+            <section id="home-missions" class="hidden bg-white rounded-[2rem] p-4 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
+                <div class="flex items-center gap-3 flex-wrap mb-4">
+                    <h3 class="text-lg font-black text-slate-900 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5 text-emerald-500"></i> 任務</h3>
+                    <span id="missionPoints" class="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100">任務點 0</span>
+                    <button id="addMissionBtn" data-action="add-mission" class="hidden ml-auto px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition flex items-center gap-1"><i data-lucide="plus" class="w-3.5 h-3.5 pointer-events-none"></i> 新增任務</button>
+                </div>
+                <p id="missionNeedLogin" class="hidden text-xs font-bold text-amber-600 mb-3">登入之後才能領任務點——沒有帳號的話，進度沒有地方可以記。</p>
+                <div id="missionList" class="space-y-5"></div>
+            </section>
+
             <!-- 主頁的子分頁列（課表／倒數），由 renderStudySubNav() 產生。
                  兩個 Hero 刻意留在外面：那是問候語，不屬於任何一個子分頁。 -->
             <div class="study-sub-row flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1"></div>
@@ -2948,6 +2985,44 @@
                     <p class="text-xs text-slate-400 font-medium mb-4">開啟後：上課前 10 分鐘、計劃開始前、以及你勾了提醒的倒數當天早上 8 點會響。關掉 App 也會響。</p>
                     <button id="classReminderBtn" data-action="toggle-class-reminder" title="上課提醒" class="px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 bg-slate-100 text-slate-500"><i data-lucide="bell" class="w-3.5 h-3.5 pointer-events-none"></i> 提醒</button>
                     <p id="settingsNotifyNeedLogin" class="text-xs font-bold text-amber-600 mt-3 hidden">登入之後才會有課表與計劃可以提醒。</p>
+                </section>
+
+                <!-- 錯誤回報／更新建議：登入就能填，只有管理員讀得到 -->
+                <!-- ★ 說明文案要講「只有管理員看得到」。使用者送出之後**自己也讀不回來**
+                     （規則只開放管理員讀），沒講清楚的話那看起來像「送出失敗、東西不見了」。 -->
+                <section id="settingsFeedbackBox" class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="message-square" class="w-5 h-5 text-emerald-500"></i> 錯誤回報 / 更新建議</h3>
+                    <p class="text-xs text-slate-400 font-medium mb-4">哪裡怪怪的、想多一個什麼功能，都可以寫在這裡。送出後只有管理員看得到，其他人看不到，你自己也不會在這一頁看到送過的內容。</p>
+                    <div id="feedbackForm" class="hidden">
+                        <!-- ★ 這兩顆用 `transition` 這一組。外觀的切換是 JS 換 class
+                             （底色＋文字色＋陰影），`transition-colors` 蓋不到陰影；
+                             而全屬性那一種在 tests/design.mjs 有數量上限，
+                             加兩顆就會紅。`transition` 正好涵蓋顏色與陰影。
+                             ⚠️ 這段註解本身也不要寫出那個類別名——那條檢查是
+                             純字串計數，連註解一起數（它自己的註解裡記過三次）。 -->
+                        <div class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-xs mb-3">
+                            <button data-action="set-feedback-kind" data-kind="bug" class="fb-kind flex-1 py-2 rounded-lg text-xs font-black transition flex items-center justify-center gap-1"><i data-lucide="bug" class="w-3.5 h-3.5 pointer-events-none"></i> 問題回報</button>
+                            <button data-action="set-feedback-kind" data-kind="idea" class="fb-kind flex-1 py-2 rounded-lg text-xs font-black transition flex items-center justify-center gap-1"><i data-lucide="lightbulb" class="w-3.5 h-3.5 pointer-events-none"></i> 更新建議</button>
+                        </div>
+                        <textarea id="feedbackText" rows="4" maxlength="2000" aria-label="回報或建議的內容"
+                            placeholder="盡量寫「在哪一頁、按了什麼、看到什麼」——這三件事寫齊的回報才修得動。"
+                            class="w-full px-4 py-3 bg-slate-50 text-slate-900 rounded-xl border-2 border-slate-100 font-medium text-sm resize-y"></textarea>
+                        <div class="flex items-center justify-between gap-3 mt-3">
+                            <span id="feedbackCount" class="text-xs text-slate-400 font-bold">0 / 2000</span>
+                            <button id="feedbackSubmitBtn" data-action="submit-feedback" class="px-5 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition disabled:opacity-40">送出</button>
+                        </div>
+                    </div>
+                    <div id="feedbackNeedLogin">
+                        <p class="text-sm text-slate-500 font-medium mb-3">登入之後才能回報。要有帳號管理員才回得了話，也才擋得住灌水。</p>
+                        <button data-action="settings-login" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">登入 / 註冊</button>
+                    </div>
+                </section>
+
+                <!-- 收到的回報（只有小黑貓管理員看得到；清單本身也只有管理員讀得到） -->
+                <section id="settingsFeedbackAdminBox" class="hidden bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="inbox" class="w-5 h-5 text-emerald-500"></i> 收到的回報 <span id="feedbackAdminCount" class="text-xs font-bold text-slate-400"></span></h3>
+                    <p class="text-xs text-slate-400 font-medium mb-4">處理完就按「已處理」收起來；不需要留的直接刪掉。</p>
+                    <div id="feedbackAdminList" class="space-y-3"></div>
                 </section>
 
                 <!-- 內容管理（原管理頁的上半部。★ 只有巫醫以上看得到） -->
@@ -3577,6 +3652,55 @@
     </div>
 
     <!-- 自學課程 -->
+    <!-- 任務（管理員編輯）。★ 只有管理員叫得出來，但表單本身仍然驗一次：
+         前端的權限判斷任何人都能在 console 改掉，真正擋住的是 firestore.rules。 -->
+    <!-- ★ 這個遮罩刻意不帶模糊的那個 Tailwind 類別：設計系統早就把它整批
+         關掉了（A5：全螢幕遮罩不做背景模糊），留著只是一個沒有作用的類別。
+         ⚠️ 而且 tests/design.mjs 是**純字串計數**、連註解一起數，
+         所以這段字也不能把那個類別名寫出來（同一個坑今天踩第二次）。 -->
+    <div id="missionModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
+            <h3 id="missionModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增任務</h3>
+            <div class="space-y-4">
+                <input type="hidden" id="editMissionId" value="">
+                <input type="text" id="missionTitle" maxlength="60" placeholder="任務名稱（如：今天讀滿 30 分鐘）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-lg" aria-label="任務名稱">
+                <input type="text" id="missionDesc" maxlength="120" placeholder="補充說明（可留空）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium" aria-label="補充說明">
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="missionPeriod">週期</label>
+                        <select id="missionPeriod" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold appearance-none text-slate-700"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="missionPointsInput">任務點</label>
+                        <input type="number" id="missionPointsInput" min="1" max="100" value="10" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="missionMetric">怎麼算完成</label>
+                        <select id="missionMetric" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold appearance-none text-slate-700"></select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="missionGoal">目標數量</label>
+                        <input type="number" id="missionGoal" min="1" max="100000" value="30" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="missionGo">點下去跳到哪裡</label>
+                    <select id="missionGo" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold appearance-none text-slate-700"></select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="missionOrder">排序（小的在前）</label>
+                    <input type="number" id="missionOrder" min="0" max="999" value="0" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button data-close="missionModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveMission" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-bold shadow-lg shadow-emerald-200">儲存任務</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="ssCourseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-fuchsia-500">
             <h3 id="ssCourseModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學課程</h3>
@@ -4035,7 +4159,14 @@
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
             vocabFolders: P('vocabFolders'),
             news: P('news'),           links: P('quickLinks'),
-            articles: P('articles')
+            articles: P('articles'),
+            /* 🔒 錯誤回報／更新建議：誰都能寫一筆進來，但**只有管理員讀得到**。
+               所以它放在 public/data 底下卻不是「公開」的——規則裡 read 只開給
+               isCatAdmin()。放進私人區（users/{uid}/…）做不到這件事，
+               那裡連管理員都進不去，等於寫了沒人看得到。 */
+            feedback: P('feedback'),
+            /* 任務定義：公開唯讀（訪客也看得到有哪些任務），只有管理員維護。 */
+            missions: P('missions')
         };
 
         const ROLE_LEVELS = {'星族': 5,'巫醫': 4,'族長': 3,'戰士': 2,'見習生': 1,'訪客': 0 };
@@ -4225,8 +4356,31 @@
             builtinVocabFolders: [], builtinVocabBooks: [], builtinVocabWords: [], builtinVocabSets: [],
             // 🔒 私人資料（只有本人讀得到，登出時清空）
             myVocabBooks: [], myVocabWords: [], myVocabFolders: [], myKahoots: [],
-            expenses: [], holdings: [], trades: [], watchlist: []   // 理財（個人私密）
+            expenses: [], holdings: [], trades: [], watchlist: [],   // 理財（個人私密）
+            /* 任務定義（公開唯讀，管理員維護）。★ 使用者自己的進度**不在這裡**，
+               在 settings/missions 那份私人文件裡——混在一起的話，
+               「誰做完了哪一項」會變成公開資料。 */
+            missions: [],
+            // 🔒 錯誤回報：只有管理員訂閱得到，其他人這裡永遠是空陣列
+            feedback: []
         };
+
+        /* 回報表單目前選的是「問題」還是「建議」。
+           ★ 宣告在狀態區，不是寫在 renderFeedback 旁邊——被 updateAdminUI()
+           碰到的狀態一律放這裡，理由是 `CLAUDE.md` 第一件事（暫時性死區，
+           已經踩過六次，症狀是一載入就整頁全白，而 node --check 看不出來）。 */
+        let feedbackKind ='bug';
+
+        /* 任務進度：使用者自己的那一份（`settings/missions`）。
+           ★ 跟計劃與讀書紀錄同一條規矩：**讀不到就不要開放存檔**
+           （`missionsLoaded` 維持 false）。讀失敗時若照樣存，
+           會拿這份歸零的進度覆蓋雲端，而畫面上只會是「任務點自己歸零了」。
+           ★ 宣告在狀態區的理由同前：renderMissions() 會碰到它，
+           而它在載入流程裡就會被叫到（暫時性死區＝整頁全白）。 */
+        let missionProgress = { points: 0, daily:{ key:'', ids:[] },
+                                weekly:{ key:'', ids:[] }, monthly:{ key:'', ids:[] } };
+        let missionsLoaded = false;
+        let missionsReady = Promise.resolve();
 
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
         /* Google 憑證暫存：信箱已經有密碼帳號時，先把 Google 那份收著，
@@ -5037,6 +5191,22 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-19',
+                title: '主頁有任務了（每日／每週／每月），設定頁可以回報問題，筆記與電路標上 beta',
+                items: [
+                    ['起因', '路線圖短期那三條一次做完：切換選單標 beta、設定頁的錯誤回報、主頁的任務系統。三條沒有相依，但都踩到同一類問題——「壞掉但不會叫」。'],
+                    ['主頁多了任務區', '每日／每週／每月三組，做完領任務點，點數留給之後的寵物養成用。**點任務會直接跳到該做那件事的地方**（讀書計時、計劃、單字庫…），不必自己找。任務由管理員維護，可以設點數、判定方式與跳轉目標。'],
+                    ['★ 期間一換就自動歸零，靠的是「存週期鍵」不是排程', '進度存成 `{ key:\'2026-08-19\', ids:[…] }`，鍵對不上就整組當空的。寫成排程的話，那段程式只有在使用者剛好開著站的時候才會跑，而症狀是**昨天的任務今天還打著勾**。'],
+                    ['★ 任務的日界是凌晨四點，跟讀書計時與計劃同一份', '自己再算一套的話，同一個晚上在任務裡算今天、在計時器裡算昨天——不會報錯，只會讓人覺得這個站半夜怪怪的。週鍵也沿用「週一為週首」那一支。'],
+                    ['★ 任務定義是公開的，進度是私人的，兩份分開放', '合成一份的話「誰做完了哪一項」會變成公開資料，而且合起來之後就再也拆不開了。進度住在 `settings/missions`——那個集合名早就在規則的白名單裡，所以這一項**不必再去主控台推一次規則**。「能塞進 settings 就別開新集合」現在是預設作法。'],
+                    ['★ 讀不到進度就不開放存檔', '跟計劃、讀書紀錄同一條。少了這道，一次讀取失敗就會拿歸零的進度覆蓋雲端，而畫面上只會是「任務點自己不見了」。'],
+                    ['設定頁可以回報問題與建議', '登入就能填，分成「問題回報」與「更新建議」，只有管理員讀得到。'],
+                    ['★★ 這一格的形狀是「寫得進去、讀不回來」', '規則只開放管理員讀，連送出的人自己都讀不回自己那一筆。所以這一區**刻意沒有「我送過的回報」清單**——那份清單會永遠是空的，而空清單跟「還沒回報過」長得一模一樣。畫面上改成一句話講清楚。'],
+                    ['筆記小黑貓與電路小黑貓標上 beta', '選單那四項裡有兩項還在 beta。要改**四個檔案**：主站與彰師電子的選單是同一段程式生的，筆記與電路那兩頁的選單是寫死的 HTML。漏改一邊不會報錯，只會變成「從這一頁看有、從那一頁看沒有」。'],
+                    ['★ 兩支測試被自己的註解弄紅了（今天第二、三次）', '設計系統釘著「全屬性過場」與「背景模糊」這兩個類別名的**出現次數**，而那是純字串計數、連註解一起數。在註解裡寫出類別名就會被算進去——這個坑原本的註解裡已經記過三次，今天又踩兩次。'],
+                ]
+            },
             {
                 date: '2026-08-19',
                 title: '課表讀不到的時候不再把整個學期覆蓋掉，跨年的日期會寫出年份',
@@ -5993,13 +6163,25 @@
                 ['md',   '筆記小黑貓',     'blackcatmd.html',    'Markdown ＋ 數學公式'],
                 ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開', true]
             ];
+            /* ★ beta 寫成獨立的一份名單，不是接在上面那張表的第六欄。
+               第五欄 `deskOnly` 只有電路有值，再多一欄的話「筆記」那一列
+               要寫成 `…, false, true]`——為了填一個佔位的 false。
+               而 `tests/logomenu.mjs` 是用 `items.map(([k, name, href, sub]) => …)`
+               解構那張表的，欄位一多就容易對錯位置，錯了也不會報錯。
+               ★ 這份名單是唯一來源，但**只對這支程式生成的兩頁有效**：
+               `blackcatmd.html` 與 `blackcatspice.html` 的選單是寫死的 HTML
+               （它們沒有載入這支程式），四個檔案要一起改。
+               `tests/logomenu.mjs` 會比對四邊是否一致——漏改的症狀是
+               「從電路頁看筆記沒有 beta、從主站看有」，而畫面上不會有任何異常。 */
+            const BETA = new Set(['md', 'spice']);
+            const betaTag = k => BETA.has(k) ?'<span class="beta-tag">beta</span>' :'';
             const el = $('logoMenu');
             if (!el) return;
             el.innerHTML = items.map(([k, name, href, sub, deskOnly]) => k === PRODUCT
                 /* 目前這一個不做成連結——點了跳回自己很莫名，
                    而且使用者需要看得出自己在哪一個產品裡 */
-                ? `<span class="logo-menu-item is-here" role="menuitem" aria-current="page">${name}<small>${sub}（目前所在）</small></span>`
-                : `<a class="logo-menu-item${deskOnly ?' desktop-only' :''}" href="${href}" role="menuitem">${name}<small>${sub}</small></a>`
+                ? `<span class="logo-menu-item is-here${BETA.has(k) ?' has-beta' :''}" role="menuitem" aria-current="page">${name}${betaTag(k)}<small>${sub}（目前所在）</small></span>`
+                : `<a class="logo-menu-item${deskOnly ?' desktop-only' :''}${BETA.has(k) ?' has-beta' :''}" href="${href}" role="menuitem">${name}${betaTag(k)}<small>${sub}</small></a>`
             ).join('') +
                 /* ★ 帳號權限管理跟「關於」是同一類：**不佔分頁列的位置**。
                    分頁列是每天都會點的東西，而指派階位是一個月用一次的工具；
@@ -11000,6 +11182,416 @@
         }
 
         /* ==========================================================
+         * 任務（每日 / 每週 / 每月）（2026-08-19）
+         *
+         * 兩份資料，刻意分開放：
+         *   `public/data/missions` … 任務**定義**（管理員維護，誰都讀得到）
+         *   `settings/missions`    … 使用者**自己的進度**（只有本人讀得到）
+         * 合成一份的話「誰做完了哪一項」會變成公開資料——那是私人資料，
+         * 而且合起來之後就再也拆不開了。
+         *
+         * ★ 進度住在 `settings` 底下不是隨便選的：`firestore.rules` 的私人區
+         * 白名單已經有 `settings`，所以這一項**不需要動規則、也不需要再跑一次
+         * 主控台**。路線圖-技術細節那邊記著的「能塞進 settings 就別開新集合」
+         * 就是這件事。
+         *
+         * ★ 期間一換就自動歸零，靠的是「存週期鍵、不是存時間戳」：
+         * `{ key:'2026-08-19', ids:[…] }`，鍵對不上就整組當空的。
+         * 好處是不必寫任何「跨日要清掉」的排程——那種排程只有在
+         * 使用者剛好開著站的時候才會跑，而症狀是「昨天的任務今天還打著勾」。
+         *
+         * ⚠️ 目前只有兩種判定：`manual`（自己勾）與 `study`（讀書分鐘）。
+         * `manual` 是**自我回報**，按一下就給點——這一點要清楚：
+         * 任務點的意義止於「給寵物養成用的內部貨幣」，不是成就證明。
+         * 想接更多自動判定的話，第一個該接的是「期間內完成的計劃數」，
+         * 但那要先讓一次性計劃在打勾時記下 `doneAt`（現在只有重複計劃的
+         * `doneOn` 有日期），所以留給下一輪。
+         * ========================================================== */
+        const MISSION_PERIODS = { daily:'每日', weekly:'每週', monthly:'每月' };
+        /* 判定方式。★ `unit` 只是畫面上的字，`goal` 的意義由 metric 決定。 */
+        const MISSION_METRICS = {
+            manual: { label:'自己勾（沒有自動判定）', unit:'' },
+            study:  { label:'讀書分鐘數（讀書計時）', unit:'分鐘' }
+        };
+        /* 點下去跳到哪。★ 寫成資料而不是讓管理員自己打字：打錯的話
+           `switchTab` 會丟例外、整頁全白，而那是使用者遇到的，不是打字的人。
+           值的格式是 `分頁` 或 `分頁:子分頁`。 */
+        const MISSION_GO = [
+            ['',                 '不跳轉'],
+            ['home',             '主頁 → 課表'],
+            ['home:countdown',   '主頁 → 倒數'],
+            ['plan',             '計劃'],
+            ['plan:timer',       '計劃 → 讀書計時'],
+            ['self-study',       '學習 → 自學課程'],
+            ['self-study:kahoot','學習 → 我的測驗'],
+            ['english',          '英文 → 英文閱讀'],
+            ['english:vocab',    '英文 → 單字庫'],
+            ['finance',          '理財'],
+            ['settings',         '設定']
+        ];
+        const MISSION_MAX_POINTS = 100;
+
+        /* ---- 純函式：期間鍵與進度判定（tests/mission.mjs 直接餵時間進去跑）---- */
+        /* 這個時間點屬於哪一個「期」。日與週沿用全站共用的那兩支
+           （凌晨四點換日、週一為週首）——自己再算一套的話，
+           同一個晚上在任務裡算今天、在讀書計時裡算昨天，而且不會報錯。 */
+        function missionPeriodKey(period, ts){
+            if (period ==='weekly')  return studyWeekKey(ts);
+            if (period ==='monthly') return dayKeyOf(ts).slice(0, 7);
+            return dayKeyOf(ts);
+        }
+        /* 這一期的那一格。★ 鍵對不上就回空的——這就是「跨期自動歸零」，
+           不需要任何排程。 */
+        function missionSlot(prog, period, ts){
+            const key = missionPeriodKey(period, ts);
+            const cur = (prog && prog[period]) || {};
+            return { key, ids: (cur.key === key && Array.isArray(cur.ids)) ? cur.ids : [] };
+        }
+        function missionDone(prog, m, ts){
+            return !!m && missionSlot(prog, m.period, ts).ids.indexOf(m.id) >= 0;
+        }
+        /* 自動判定的進度。回 null＝這一項是自己勾的，沒有進度可以算。 */
+        function missionMetricOf(m, sessions, ts){
+            if (!m || m.metric !=='study') return null;
+            const goal = Number(m.goal) > 0 ? Number(m.goal) : 1;
+            const key = missionPeriodKey(m.period, ts);
+            let ms = 0;
+            for (const s of (sessions ||[])){
+                if (!s || !(s.ms > 0)) continue;
+                /* 以**開始時間**歸屬，跟 studyTotals 同一條規矩：
+                   23:50 讀到 01:00 是同一個晚上。 */
+                if (missionPeriodKey(m.period, s.s) === key) ms += s.ms;
+            }
+            return { cur: Math.floor(ms / 60000), goal };
+        }
+        /* 讀回來的那一份要洗過一次：欄位缺、型別不對、被人手改過都可能。
+           ★ 不洗的話 `ids.indexOf` 會在 undefined 上炸掉，而那是在
+           renderMissions 裡，症狀是主頁整片空白。 */
+        function normalizeMissionProgress(d){
+            const one = (v) => (v && typeof v ==='object')
+                ? { key: typeof v.key ==='string' ? v.key :'', ids: Array.isArray(v.ids) ? v.ids.filter(x => typeof x ==='string') : [] }
+                : { key:'', ids: [] };
+            const pts = Number(d && d.points);
+            return { points: (pts >= 0 && Number.isFinite(pts)) ? Math.floor(pts) : 0,
+                     daily: one(d && d.daily), weekly: one(d && d.weekly), monthly: one(d && d.monthly) };
+        }
+
+        /* ---- 雲端（使用者自己的進度）---- */
+        const missionPath = () => PU('settings');
+        async function loadMissionProgress(){
+            const p = missionPath();
+            if (!p) return null;
+            const snap = await getDoc(doc(db, p,'missions'));
+            return normalizeMissionProgress(snap.exists() ? (snap.data() ||{}) : {});
+        }
+        async function saveMissionProgress(){
+            const p = missionPath();
+            if (!p) throw new Error('not signed in');
+            /* ★ 讀不到就不存（同計劃／讀書紀錄）。少了這一道，
+               一次讀取失敗就會把累積的任務點清成 0，而且沒有任何訊息。 */
+            if (!missionsLoaded){
+                await missionsReady.catch(() => {});
+                if (!missionsLoaded) throw new Error('missions not loaded');
+            }
+            await setDoc(doc(db, p,'missions'), { ...missionProgress, updatedAt: Date.now() });
+        }
+
+        /* ---- 畫面 ---- */
+        function renderMissions(){
+            const box = $('missionList'), sec = $('home-missions');
+            if (!box || !sec) return;
+            const list = state.missions ||[];
+            /* 一項都沒有就整區收起來：空的「任務」標題比沒有這一區更難解釋。
+               ★ 管理員例外——他要有地方按「新增任務」，不然第一筆永遠建不出來。 */
+            sec.classList.toggle('hidden', !list.length && !isCatAdmin());
+            if ($('addMissionBtn')) $('addMissionBtn').classList.toggle('hidden', !isCatAdmin());
+            const loggedIn = !!(auth.currentUser && !auth.currentUser.isAnonymous);
+            if ($('missionNeedLogin')) $('missionNeedLogin').classList.toggle('hidden', loggedIn || !list.length);
+            if ($('missionPoints')) $('missionPoints').textContent = `任務點 ${missionProgress.points || 0}`;
+
+            if (!list.length){
+                box.innerHTML = emptyState({ text:'還沒有任何任務。', hint:'管理員可以用右上角的「新增任務」建立第一筆。' });
+                return;
+            }
+            const now = Date.now();
+            box.innerHTML = Object.keys(MISSION_PERIODS).map(period => {
+                const items = list.filter(m => m.period === period);
+                if (!items.length) return'';
+                return `<div>
+                    <div class="text-xs font-black text-slate-400 mb-2 tracking-widest">${MISSION_PERIODS[period]}</div>
+                    <div class="space-y-2">${items.map(m => missionRow(m, loggedIn, now)).join('')}</div>
+                </div>`;
+            }).join('');
+            icons();
+        }
+
+        function missionRow(m, loggedIn, now){
+            const done = loggedIn && missionDone(missionProgress, m, now);
+            const met = missionMetricOf(m, studySessions, now);
+            const unit = (MISSION_METRICS[m.metric] || MISSION_METRICS.manual).unit;
+            const ready = !met || met.cur >= met.goal;
+            const pts = missionPoints(m);
+            /* ★ 外層可以點（跳到該做那件事的地方），裡面的按鈕也可以點。
+               事件委派是用 closest('[data-action]') 找的，所以裡面的贏——
+               這是刻意的，不是巧合：把「去做」與「領點」放在同一列，
+               而不是逼使用者在兩個地方之間找。 */
+            const go = m.go ? ` data-action="go-mission" data-go="${escapeHTML(m.go)}"` : '';
+            return `<div class="rounded-2xl border-2 border-slate-100 p-3 flex items-center gap-3 ${m.go ?'cursor-pointer hover:border-emerald-300' :''} ${done ?'opacity-50' :''}"${go}>
+                <div class="flex-1 min-w-0">
+                    <div class="font-bold text-slate-800 truncate ${done ?'line-through' :''}">${escapeHTML(m.title ||'')}</div>
+                    ${m.desc ? `<div class="text-xs text-slate-400 font-medium truncate">${escapeHTML(m.desc)}</div>` :''}
+                    ${met ? `<div class="text-xs font-black mt-1 ${ready ?'text-emerald-600' :'text-slate-400'}">${met.cur} / ${met.goal} ${escapeHTML(unit)}</div>` :''}
+                </div>
+                <span class="shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black bg-emerald-50 text-emerald-600 border border-emerald-100">+${pts}</span>
+                ${done
+                    ? `<span class="shrink-0 text-xs font-black text-emerald-600 flex items-center gap-1"><i data-lucide="check" class="w-4 h-4"></i> 完成</span>`
+                    : `<button data-action="claim-mission" data-id="${escapeHTML(m.id)}" ${(!loggedIn || !ready) ?'aria-disabled="true"' :''}
+                        class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-black transition ${(!loggedIn || !ready) ?'bg-slate-100 text-slate-400' :'bg-emerald-500 text-white hover:bg-emerald-600'}">領取</button>`}
+                ${isCatAdmin() ? `<button data-action="edit-mission" data-id="${escapeHTML(m.id)}" title="編輯任務"
+                        class="shrink-0 p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 transition"><i data-lucide="pencil" class="w-4 h-4 pointer-events-none"></i></button>
+                    <button data-action="delete" data-type="mission" data-id="${escapeHTML(m.id)}" title="刪除任務"
+                        class="shrink-0 p-1.5 rounded-lg text-rose-400 hover:bg-rose-50 transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+            </div>`;
+        }
+
+        /* 點數一律夾在範圍內再用。★ 規則那邊也擋一次——前端這一層只是
+           讓「有人手改過的舊資料」不會在畫面上長出一個 +99999。 */
+        function missionPoints(m){
+            const n = Math.floor(Number(m && m.points));
+            return (n > 0 && n <= MISSION_MAX_POINTS) ? n : 1;
+        }
+
+        function goMission(go){
+            if (!go) return;
+            const [tab, sub] = String(go).split(':');
+            /* ★ 找不到對應的 page-section 就安靜跳過。
+               `switchTab` 裡那個 throw 是為了讓開發時的錯誤別安靜地過去，
+               但這裡的來源是資料（管理員填的），舊任務指到已經改名的分頁時
+               不該讓使用者的主頁整片全白。 */
+            if (!$(`page-${tab}`) && !$(TAB_PAGE[tab] ||'')) return;
+            /* 子分頁要在 switchTab **之前**設好：applyTab 會自己
+               `switchStudySub(記得的那一個)`，在後面補設會被它蓋掉。 */
+            if (sub && (TAB_SUBS[tab] ||[]).includes(sub)) studySub = sub;
+            switchTab(tab);
+            window.scrollTo({ top: 0, behavior:'smooth' });
+        }
+
+        async function claimMission(id){
+            const user = auth.currentUser;
+            if (!user || user.isAnonymous) return showToast('登入之後才能領任務點喔！');
+            const m = (state.missions ||[]).find(x => x.id === id);
+            if (!m) return;
+            if (!missionsLoaded) return showToast('進度還沒讀回來，等一下再按');
+            const now = Date.now();
+            const slot = missionSlot(missionProgress, m.period, now);
+            if (slot.ids.indexOf(id) >= 0) return;
+            const met = missionMetricOf(m, studySessions, now);
+            if (met && met.cur < met.goal){
+                const unit = (MISSION_METRICS[m.metric] || MISSION_METRICS.manual).unit;
+                return showToast(`還差 ${met.goal - met.cur} ${unit}`);
+            }
+            /* 樂觀更新＋失敗還原：跟計劃打勾同一個作法。
+               直接等雲端的話，按下去要愣半秒才有反應。 */
+            const before = missionProgress;
+            missionProgress = { ...missionProgress,
+                                points: (missionProgress.points || 0) + missionPoints(m),
+                                [m.period]: { key: slot.key, ids: [...slot.ids, id] } };
+            renderMissions();
+            try {
+                await saveMissionProgress();
+                showToast(`任務完成，+${missionPoints(m)} 點`);
+            } catch (e){
+                missionProgress = before;
+                renderMissions();
+                console.warn('任務進度存不上去:', e.code || e);
+                showToast('存不起來…請稍後再試');
+            }
+        }
+
+        /* ---- 管理員：新增／編輯 ---- */
+        function buildMissionForm(){
+            const fill = (id, pairs) => { const el = $(id); if (el) el.innerHTML =
+                pairs.map(([v, label]) => `<option value="${escapeHTML(v)}">${escapeHTML(label)}</option>`).join(''); };
+            fill('missionPeriod', Object.entries(MISSION_PERIODS));
+            fill('missionMetric', Object.entries(MISSION_METRICS).map(([k, v]) => [k, v.label]));
+            fill('missionGo', MISSION_GO);
+        }
+
+        function openMissionModal(id){
+            if (!isCatAdmin()) return showToast('只有管理員能編輯任務');
+            buildMissionForm();
+            const m = id ? (state.missions ||[]).find(x => x.id === id) : null;
+            $('missionModalTitle').textContent = m ?'編輯任務' :'新增任務';
+            setVals({ editMissionId: m ? m.id :'',
+                      missionTitle: m ? (m.title ||'') :'',
+                      missionDesc: m ? (m.desc ||'') :'',
+                      missionPeriod: (m && MISSION_PERIODS[m.period]) ? m.period :'daily',
+                      missionPointsInput: m ? missionPoints(m) : 10,
+                      missionMetric: (m && MISSION_METRICS[m.metric]) ? m.metric :'manual',
+                      missionGoal: (m && Number(m.goal) > 0) ? Number(m.goal) : 30,
+                      missionGo: m ? (m.go ||'') :'',
+                      missionOrder: (m && Number.isFinite(Number(m.order))) ? Number(m.order) : 0 });
+            openModal('missionModal');
+        }
+
+        async function saveMission(){
+            if (!isCatAdmin()) return showToast('只有管理員能編輯任務');
+            const id = getVal('editMissionId');
+            const title = getVal('missionTitle');
+            if (!isValidText(title, 60)) return showToast('任務名稱是必填的（60 字以內）');
+            const points = Math.floor(Number(getVal('missionPointsInput')));
+            if (!(points > 0 && points <= MISSION_MAX_POINTS))
+                return showToast(`任務點要在 1～${MISSION_MAX_POINTS} 之間`);
+            const metric = MISSION_METRICS[getVal('missionMetric')] ? getVal('missionMetric') :'manual';
+            /* 自己勾的那種沒有目標數量，一律寫 1——留空的話規則那邊
+               `goal is number` 會不成立，而畫面上只會是「儲存失敗…」。 */
+            const goal = metric ==='manual' ? 1 : Math.floor(Number(getVal('missionGoal')) || 1);
+            const payload = {
+                title,
+                desc: getVal('missionDesc'),
+                period: MISSION_PERIODS[getVal('missionPeriod')] ? getVal('missionPeriod') :'daily',
+                points, metric, goal,
+                go: MISSION_GO.some(([v]) => v === getVal('missionGo')) ? getVal('missionGo') :'',
+                order: Math.floor(Number(getVal('missionOrder')) || 0),
+                updatedAt: Date.now()
+            };
+            try {
+                if (id) await updateDoc(doc(db, PATHS.missions, id), payload);
+                else await setDoc(doc(collection(db, PATHS.missions)), { ...payload, createdAt: Date.now() });
+                closeModal('missionModal');
+                showToast('任務存好了');
+            } catch (e){
+                console.warn('任務存檔失敗:', e.code || e);
+                showToast('儲存失敗…');
+            }
+        }
+
+        /* ==========================================================
+         * 錯誤回報 / 更新建議（2026-08-19）
+         *
+         * 形狀刻意跟站上其他集合都不一樣：**寫得進去、讀不回來**。
+         * `public/data/feedback` 底下任何登入者都能新增一筆，
+         * 但規則只開放 isCatAdmin() 讀——連自己寫的那一筆都讀不回來。
+         *
+         * ★ 所以這一區**不能有「我送過的回報」清單**。做了的話一般使用者
+         *   會看到一份永遠空的清單（onSnapshot 走錯誤回呼、state.feedback 留空），
+         *   而空清單跟「你還沒回報過」長得一模一樣——正是這個專案最常踩的
+         *   那一類：讀不到與真的沒有分不出來。畫面上改成一句話講清楚。
+         *
+         * ★ 為什麼不放進私人區（users/{uid}/…）：那裡連管理員都進不去，
+         *   等於使用者寫了沒有人看得到。「只有本人」與「只有管理員」是
+         *   兩件相反的事，不能共用同一個位置。
+         * ========================================================== */
+        const FEEDBACK_KINDS = { bug:'問題回報', idea:'更新建議' };
+        const FEEDBACK_MIN = 10, FEEDBACK_MAX = 2000;
+
+        function updateFeedbackKindUI() {
+            document.querySelectorAll('.fb-kind').forEach(btn => {
+                const on = btn.dataset.kind === feedbackKind;
+                btn.classList.toggle('bg-white', on);
+                btn.classList.toggle('text-emerald-600', on);
+                btn.classList.toggle('shadow-sm', on);
+                btn.classList.toggle('text-slate-400', !on);
+            });
+        }
+        function setFeedbackKind(kind) {
+            if (!FEEDBACK_KINDS[kind]) return;
+            feedbackKind = kind;
+            updateFeedbackKindUI();
+        }
+        function updateFeedbackCount() {
+            const box = $('feedbackText'), out = $('feedbackCount');
+            if (box && out) out.textContent = `${box.value.trim().length} / ${FEEDBACK_MAX}`;
+        }
+
+        async function submitFeedback() {
+            const user = auth.currentUser;
+            /* 匿名帳號也算沒登入——`request.auth != null` 對匿名成立，
+               但規則的 isMember() 會擋掉，前端先擋是為了給得出理由。 */
+            if (!user || user.isAnonymous) return showToast('登入之後才能回報喔！');
+            const box = $('feedbackText');
+            if (!box) return;
+            const text = box.value.trim();
+            if (!isValidText(text, FEEDBACK_MAX, FEEDBACK_MIN))
+                return showToast(`再多寫幾個字吧——至少 ${FEEDBACK_MIN} 個字才看得出你遇到什麼`);
+            const btn = $('feedbackSubmitBtn');
+            if (btn) btn.disabled = true;
+            try {
+                /* 欄位數要跟規則那條 size() 上限對得起來（目前 9 個，規則給 12）。
+                   ★ `ua` 存的是瀏覽器字串的前 200 字：一半的回報是
+                   「我這裡打不開」，而那句話少了裝置與瀏覽器就查不下去。 */
+                await setDoc(doc(collection(db, PATHS.feedback)), {
+                    kind: feedbackKind,
+                    text,
+                    product: PRODUCT,
+                    uid: user.uid,
+                    email: user.email ||'',
+                    name: userDisplayName ||'',
+                    ua: (navigator.userAgent ||'').slice(0, 200),
+                    done: false,
+                    createdAt: Date.now()
+                });
+                box.value ='';
+                updateFeedbackCount();
+                showToast('收到了，謝謝你！');
+            } catch (e) {
+                /* ★ 一定要有這句。寫失敗（規則擋下、離線）在 Firestore 是靜默的，
+                   沒有這一則吐司的話畫面上就只是「按了沒反應」——
+                   跟 `路線圖.md` 記著的那個症狀同一種。 */
+                console.warn('回報送出失敗:', e.code || e);
+                showToast('送不出去…請檢查網路後再試一次');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        /* 管理員那一份清單。未處理的排前面，同組再照時間新到舊。 */
+        function renderFeedbackAdmin() {
+            const box = $('feedbackAdminList');
+            if (!box) return;
+            const list = [...(state.feedback ||[])]
+                .sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || (b.createdAt || 0) - (a.createdAt || 0));
+            const open = list.filter(f => !f.done).length;
+            if ($('feedbackAdminCount'))
+                $('feedbackAdminCount').textContent = list.length ? `（未處理 ${open}／共 ${list.length}）` :'';
+            if (!list.length) {
+                box.innerHTML = emptyState({ text:'還沒有人回報過。', hint:'使用者在設定頁送出的問題與建議會出現在這裡。' });
+                return;
+            }
+            box.innerHTML = list.map(f => {
+                const kind = FEEDBACK_KINDS[f.kind] ||'回報';
+                const when = f.createdAt ? new Date(f.createdAt).toLocaleString() :'';
+                const who = escapeHTML(f.name ||'無名小貓') + (f.email ? `・${escapeHTML(f.email)}` :'');
+                return `<div class="rounded-2xl border-2 border-slate-100 p-4 ${f.done ?'opacity-50' :''}">
+                    <div class="flex items-center gap-2 flex-wrap mb-2">
+                        <span class="px-2 py-0.5 rounded text-[10px] font-black tracking-widest ${f.kind ==='bug' ?'bg-rose-500' :'bg-emerald-500'} text-white border">${kind}</span>
+                        <span class="text-xs font-bold text-slate-500">${who}</span>
+                        <span class="text-xs text-slate-400">${escapeHTML(when)}</span>
+                        ${f.product ? `<span class="text-xs text-slate-300">${escapeHTML(f.product)}</span>` :''}
+                    </div>
+                    <div class="text-sm font-medium text-slate-700 whitespace-pre-wrap break-words">${escapeHTML(f.text ||'')}</div>
+                    ${f.ua ? `<div class="text-[11px] text-slate-300 mt-2 break-all">${escapeHTML(f.ua)}</div>` :''}
+                    <div class="flex gap-2 mt-3">
+                        <button data-action="feedback-done" data-id="${escapeHTML(f.id)}" data-done="${f.done ?'1' :'0'}"
+                            class="px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">${f.done ?'標回未處理' :'已處理'}</button>
+                        <button data-action="delete" data-type="feedback" data-id="${escapeHTML(f.id)}"
+                            class="px-3 py-1.5 rounded-xl text-xs font-black bg-rose-50 text-rose-500 hover:bg-rose-100 transition">刪除</button>
+                    </div>
+                </div>`;
+            }).join('');
+            icons();
+        }
+
+        async function toggleFeedbackDone(id, next) {
+            try {
+                await updateDoc(doc(db, PATHS.feedback, id), { done: next });
+            } catch (e) {
+                console.warn('更新回報狀態失敗:', e.code || e);
+                showToast('改不動…重新整理再試一次');
+            }
+        }
+
+        /* ==========================================================
          * 16. 權限與管理介面
          * ========================================================== */
         // 注意：openCreateKahootBtn / addVocabBookBtn / addVocabWordBtn 已從這裡移除。
@@ -11082,6 +11674,22 @@
             /* ★ 提醒需要課表與計劃，兩者都要登入。未登入時按鈕留著但講清楚為什麼，
                直接把整區藏起來的話，使用者會以為這個網站沒有通知功能。 */
             if ($('settingsNotifyNeedLogin')) $('settingsNotifyNeedLogin').classList.toggle('hidden', !!loggedIn);
+
+            /* 回報表單：登入才給填（規則也是這樣擋的，前端先擋是為了說得出理由）。
+               ★ 整區不藏起來，只換內容——藏起來的話沒登入的人會以為
+               這個站沒有地方可以回報問題。 */
+            if ($('feedbackForm')) $('feedbackForm').classList.toggle('hidden', !loggedIn);
+            if ($('feedbackNeedLogin')) $('feedbackNeedLogin').classList.toggle('hidden', !!loggedIn);
+            updateFeedbackKindUI();
+            /* 收到的回報：小黑貓管理員才看得到。★ 這裡跟規則用的是同一條階梯
+               （tier，不是貓族階級）——兩邊用不同階梯的話，會出現
+               「看得到清單但一筆都讀不出來」或反過來，兩種都不會報錯。 */
+            if ($('settingsFeedbackAdminBox')) $('settingsFeedbackAdminBox').classList.toggle('hidden', !isCatAdmin());
+            /* 任務那一區的「新增任務」與每一列的編輯鈕也跟著身分變。
+               ★ 這裡要重畫整塊而不是只 toggle 那顆按鈕：編輯與刪除鈕是
+               畫在每一列裡的，只動外面那顆的話，管理員會看到「新增」
+               但每一列都沒有編輯鈕——而且不會報錯。 */
+            renderMissions();
 
             // 星族 (Lv5) 專屬：名冊訂閱與 logo 選單裡的「帳號權限管理」
             if ($('logoAccountAdmin')) $('logoAccountAdmin').classList.toggle('hidden', !isAdmin);
@@ -11203,7 +11811,13 @@
             review: PATHS.reviews, kahoot: PATHS.kahoots,
             matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
-            news: PATHS.news, quickLink: PATHS.links, article: PATHS.articles
+            news: PATHS.news, quickLink: PATHS.links, article: PATHS.articles,
+            /* 回報沒有子資料，所以走這條簡單刪除。
+               漏掉這一行的症狀是按了刪除跳出「失敗…」——
+               因為 SIMPLE_DELETE_PATHS[type] 會是 undefined，
+               而 doc(db, undefined, id) 丟出來的錯跟權限不足長得一樣。 */
+            feedback: PATHS.feedback,
+            mission: PATHS.missions
         };
 
         function confirmDeleteUI(type, id) {
@@ -11823,6 +12437,19 @@
                     console.warn('讀取讀書紀錄失敗', e);
                     showToast('讀不到雲端的讀書紀錄，這次先不存檔（避免蓋掉原本的）');
                 });
+                /* 任務進度。★ 跟計劃／讀書紀錄同一條：讀不到就不要開放存檔
+                   （`missionsLoaded` 維持 false），否則下一次領取會拿歸零的
+                   進度覆蓋雲端——症狀是「任務點自己不見了」。 */
+                missionsLoaded = false;
+                missionProgress = normalizeMissionProgress(null);
+                missionsReady = loadMissionProgress().then(p => {
+                    if (p) missionProgress = p;
+                    missionsLoaded = true;
+                    renderMissions();
+                }).catch(e => {
+                    console.warn('讀取任務進度失敗', e);
+                    showToast('讀不到任務進度，這次先不記點（避免蓋掉原本的）');
+                });
                 countdownsLoaded = false;
                 countdownsReady = loadCountdowns().then(list => {
                     const remote = Array.isArray(list) ? list : [];
@@ -11873,6 +12500,11 @@
                    登入的空窗裡）的任何一次存檔，都會拿這份空清單覆蓋雲端。 */
                 plansLoaded = false;    plansReady = Promise.resolve();
                 countdownsLoaded = false; countdownsReady = Promise.resolve();
+                /* ★ 任務點也是私人資料：留著的話下一個在同一台裝置登入的人
+                   會看到別人的點數與打過的勾，而畫面上看不出它屬於誰。 */
+                missionProgress = normalizeMissionProgress(null);
+                missionsLoaded = false; missionsReady = Promise.resolve();
+                renderMissions();
                 renderPlans();
                 renderCountdowns();
                 renderStudy();
@@ -11961,6 +12593,13 @@
                 }
             },
 'submit-wizard-review': () => submitWizardReview(),
+'go-mission':        (t) => goMission(t.dataset.go),
+'claim-mission':     (t) => claimMission(t.dataset.id),
+'add-mission':       () => openMissionModal(),
+'edit-mission':      (t) => openMissionModal(t.dataset.id),
+'set-feedback-kind': (t) => setFeedbackKind(t.dataset.kind),
+'submit-feedback':   () => submitFeedback(),
+'feedback-done':     (t) => toggleFeedbackDone(t.dataset.id, t.dataset.done !=='1'),
 'news-tab': (t) => {
                 document.querySelectorAll('.news-tab-btn').forEach(btn => {
                     btn.classList.remove('bg-slate-800','text-white');
@@ -12409,10 +13048,14 @@
             bind('kahootNextBtn', kahootNext);
             bind('closeResultBtn', () => { $('kahootResultModal').classList.add('hidden'); $('kahootResultModal').classList.remove('flex'); });
 
+            // 回報字數。用 input 而不是 keyup：貼上與注音選字都涵蓋得到
+            if ($('feedbackText')) $('feedbackText').addEventListener('input', updateFeedbackCount);
+
             // 邊打邊篩。input 事件才涵蓋得到「按 × 清空」與貼上
             if ($('starclanSearch')) $('starclanSearch').addEventListener('input', renderStarclanPanel);
             /* 資料頁有自己的搜尋框（刻意不共用課程評價那一個，見該頁的註解）。 */
             if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
+            bind('confirmSaveMission', saveMission);
             bind('confirmDelete', executeDelete);
 
             $('searchInput').addEventListener('input', (e) => $('searchClear').classList.toggle('hidden', !e.target.value));
@@ -12447,6 +13090,16 @@
             { key:'vocabBooks', path: PATHS.vocabBooks, sort: byOldest, render: () => renderVocabBooks() },
             { key:'vocabWords', path: PATHS.vocabWords, sort: byNewest, render: () => { if (currentViewVocabBookId) renderVocabWords(); } },
             { key:'articles',   path: PATHS.articles,   sort: byNewest, render: () => { if (studySub ==='reading') renderReadingList(); } },
+            /* 🔒 回報：只有小黑貓管理員讀得到，所以要有 minTier。
+               沒有這個門檻的話，每個打開設定頁的人都會發一個註定被規則拒絕的
+               listener——不會有畫面上的症狀，只是白白多一次失敗的請求，
+               而且 console 會一直印 permission-denied，把真的有問題的訊息淹掉。 */
+            { key:'feedback',   path: PATHS.feedback,   sort: byNewest, minTier: 3, render: () => renderFeedbackAdmin() },
+            /* 任務定義：公開唯讀，訪客也看得到（看得到但領不了，那是刻意的——
+               把任務藏起來的話，沒登入的人不知道登入之後有什麼）。 */
+            { key:'missions',   path: PATHS.missions,
+              sort: (a, b) => (Number(a.order) || 0) - (Number(b.order) || 0) || (a.createdAt || 0) - (b.createdAt || 0),
+              render: () => renderMissions() },
 
             // 🔒 私人資料：路徑要等登入後才算得出來，所以 path 用函式；
             //    未登入不訂閱，登出時 resyncScopedSubs() 會清空。只有本人讀得到。
@@ -12486,7 +13139,7 @@
         setTimeout(hideSplash, 6000);
 
         const TAB_DATA = {
-'home':       ['courses'],          // 課表要對到課程名稱
+'home':       ['courses','missions'],   // 課表要對到課程名稱；任務也在主頁
             /* ★ 計劃不需要課程清單（那是課表用來對課名的）。
                順手抄一份 home 的設定會讓每個開計劃的人多讀五十幾筆。 */
 'plan':       [],
@@ -12499,8 +13152,9 @@
                就不該再掛在課程評價底下——留著的話每個看評價的人都白讀兩份。 */
 'evaluation': ['courses','reviews'],
 'data':       ['matWarrior','matLeader'],
-            /* 設定頁本身不需要任何集合；內容管理要的 courses 由 switchTab 按權限補訂。 */
-'settings':   [],
+            /* 設定頁：內容管理要的 courses 由 switchTab 按權限補訂。
+               `feedback` 對非管理員會被 minTier 擋掉，所以列在這裡是安全的。 */
+'settings':   ['feedback'],
             /* 名冊是 updateAdminUI 依星族身分自己訂閱的，不走 ensureLoaded。 */
 'account-admin': [],
             /* 學習＝自學課程＋自己出的測驗（管理表單會關聯「學校課程」，故需要 courses）。
@@ -12525,12 +13179,17 @@
             if (keys.length) lastLoadedKeys = keys;
             keys.forEach(key => {
                 if (activeSubs[key] || !SUB_MAP[key]) return;
-                const { path, sort, render, minLevel, private: isPrivate } = SUB_MAP[key];
+                const { path, sort, render, minLevel, minTier, private: isPrivate } = SUB_MAP[key];
                 /* 階級不足就別訂閱：規則會拒絕，硬訂閱只會讓整個 listener 報錯。
                    目前有 minLevel 的三個集合（分級教材 ×2、測驗）都屬於彰師電子，
                    所以這裡看的是貓族階級。日後若有通用集合要設門檻，
                    要另外開一個 minTier 欄位，不要把兩套混進同一個判斷。 */
                 if (minLevel && currentUserLevel < minLevel) return;
+                /* ★ 2026-08-19 那個「日後」到了：回報清單只有小黑貓管理員讀得到，
+                   走的是 tier 這條階梯。兩套刻意分成兩個欄位而不是共用一個
+                   數字——共用的話，一個 tier 是「一般」的星族會通過門檻、
+                   然後被規則擋在外面，而畫面上只會是一份空清單。 */
+                if (minTier && currentUserTier < minTier) return;
                 // 私人資料要登入才有路徑（匿名帳號也不算）
                 if (isPrivate && !(auth.currentUser && !auth.currentUser.isAnonymous)) return;
                 const resolvedPath = (typeof path ==='function') ? path() : path;
@@ -12574,7 +13233,11 @@
         // 登入／登出後階級與身分都會變：關掉所有「有階級門檻」或「私人」的訂閱，
         //    依新身分重新評估。登出時私人資料一定要清空，不能留在畫面上給下一個人看到。
         function resyncScopedSubs() {
-            SUBSCRIPTIONS.filter(s => s.minLevel || s.private).forEach(({ key }) => {
+            /* ★ minTier 也要列進來。漏掉的話，開站時還沒讀到 tier（＝0）
+               的那一瞬間 feedback 被跳過，之後身分到位也不會再評估一次——
+               症狀是管理員每次都要重新整理才看得到回報清單，
+               而重新整理有時剛好會成功，所以看起來像「時好時壞」。 */
+            SUBSCRIPTIONS.filter(s => s.minLevel || s.minTier || s.private).forEach(({ key }) => {
                 if (activeSubs[key]) { activeSubs[key](); delete activeSubs[key]; }
                 state[key] = [];
             });
@@ -12582,6 +13245,7 @@
             renderMaterials();
             renderKahoots();
             renderVocabBooks();
+            renderFeedbackAdmin();
         }
 
         /* ★ 這一行存在的理由是 `tests/mainsmoke.mjs`：模組裡的函式不會自動掛到
