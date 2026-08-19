@@ -97,8 +97,8 @@
    "id": "az-b",
    "set": "az",
    "title": "字母 B",
-   "description": "B 開頭，共 169 字",
-   "count": 169,
+   "description": "B 開頭，共 168 字",
+   "count": 168,
    "file": "az-b.json",
    "books": [
     {
@@ -135,7 +135,7 @@
      "id": "az-b-6",
      "title": "B－6",
      "description": "",
-     "count": 19
+     "count": 18
     }
    ]
   },
@@ -1294,7 +1294,7 @@
    "set": "root",
    "title": "成對字根",
    "description": "同一個字根剛好兩個單字",
-   "count": 552,
+   "count": 550,
    "file": "rt-pair.json",
    "books": [
     {
@@ -1306,110 +1306,110 @@
     {
      "id": "rt-pair-2",
      "title": "成對字根 2",
-     "description": "aster、bank、love、bell、biddan、bio、body、book、box、brac、brute、by、camera、camp-、cant",
+     "description": "aster、bank、love、bell、biddan、bio、body、book、box、brac、by、camera、camp-、cant、capt",
      "count": 30
     },
     {
      "id": "rt-pair-3",
      "title": "成對字根 3",
-     "description": "capt、care、carry、cause、caut、celebr、character、charity、chef、chole、chorus、cit、civ-、claim、class",
+     "description": "care、carry、cause、caut、celebr、character、charity、chef、chole、chorus、cit、civ-、claim、class、claud/claus",
      "count": 30
     },
     {
      "id": "rt-pair-4",
      "title": "成對字根 4",
-     "description": "claud/claus、clin、clin-、col-、comment、common、communicate、compose、comprehend、conserve、consider、construct、consult、consume、continue",
+     "description": "clin、clin-、col-、comment、common、communicate、compose、comprehend、conserve、consider、construct、consult、consume、continue、contra-",
      "count": 30
     },
     {
      "id": "rt-pair-5",
      "title": "成對字根 5",
-     "description": "contra-、cooperate、correspond、court、cover、crack、crudus、crux、currere、curvare、dare、different、dign、diverse、do",
+     "description": "cooperate、correspond、court、cover、crack、crudus、crux、currere、curvare、dare、different、dign、diverse、do、doubt",
      "count": 30
     },
     {
      "id": "rt-pair-6",
      "title": "成對字根 6",
-     "description": "doubt、doxa、drag、dress、drive、du/o、element、equ-、esse、ethos、fable、family、fascinate、flash、foedus",
+     "description": "doxa、drag、dress、drive、du/o、element、equ-、esse、ethos、fable、family、fascinate、flash、foedus、fragrant",
      "count": 30
     },
     {
      "id": "rt-pair-7",
      "title": "成對字根 7",
-     "description": "fragrant、frame、freeze、frequent、frustrate、fug、fury、gage、gelus、globe、gnos、god、good、grad、grass",
+     "description": "frame、freeze、frequent、frustrate、fug、fury、gage、gelus、globe、gnos、god、good、grad、grass、grease",
      "count": 30
     },
     {
      "id": "rt-pair-8",
      "title": "成對字根 8",
-     "description": "grease、gress、guide、harm、haste、hate、heir、hero、hibit、history、hold、honest、honor、horror、hostis",
+     "description": "gress、guide、harm、haste、hate、heir、hero、hibit、history、hold、honest、honor、horror、hostis、humidus",
      "count": 30
     },
     {
      "id": "rt-pair-9",
      "title": "成對字根 9",
-     "description": "humidus、humor、i、imperare、in odio、in、industry、joy、jud、just、juven、lab、labor、large、trans-",
+     "description": "humor、i、imperare、in odio、in、industry、joy、jud、just、juven、lab、labor、large、trans-、latus",
      "count": 30
     },
     {
      "id": "rt-pair-10",
      "title": "成對字根 10",
-     "description": "latus、learn、length、lev、licere、like、loc、lock、loqu、magn-、main、manere、mature、mens、merg",
+     "description": "learn、length、lev、licere、like、loc、lock、loqu、magn-、main、manere、mature、mens、merg、metr",
      "count": 30
     },
     {
      "id": "rt-pair-11",
      "title": "成對字根 11",
-     "description": "metr、mid、million、miser、monstr、moral、mot、mother、mourn、munis、mutare、nation、nominate、norma、nov",
+     "description": "mid、million、miser、monstr、moral、mot、mother、mourn、munis、mutare、nation、nominate、norma、nov、obey",
      "count": 30
     },
     {
      "id": "rt-pair-12",
      "title": "成對字根 12",
-     "description": "obey、observe、off、offend、onym、opt-、opus、order、ordinare、orient、oriri、pand、parere、pater、ped-",
+     "description": "observe、off、offend、onym、opt-、opus、order、ordinare、orient、oriri、pand、parere、pater、ped-、pel",
      "count": 30
     },
     {
      "id": "rt-pair-13",
      "title": "成對字根 13",
-     "description": "pel、perform、peri、pessimus、phant-、phys-、physics、place、plant、plor、plumbum、prehend、present、president、pret",
+     "description": "perform、peri、pessimus、phant-、phys-、physics、place、plant、plor、plumbum、prehend、present、president、pret、prob",
      "count": 30
     },
     {
      "id": "rt-pair-14",
      "title": "成對字根 14",
-     "description": "prob、put、putare、quot、radere、regard、represent、reserve、reside、rig、rivus、rob、rot、rota、rough",
+     "description": "put、putare、quot、radere、regard、represent、reserve、reside、rig、rivus、rob、rot、rota、rough、rust",
      "count": 30
     },
     {
      "id": "rt-pair-15",
      "title": "成對字根 15",
-     "description": "rust、sacr、sci、scire、scope、sculpere、sedere、sen、serere、serve、set、severus、shame、shave、shield",
+     "description": "sacr、sci、scire、scope、sculpere、sedere、sen、serere、serve、set、severus、shame、shave、shield、sight",
      "count": 30
     },
     {
      "id": "rt-pair-16",
      "title": "成對字根 16",
-     "description": "sight、simpl、sistere、socius、solv、solvere、space、sper、stat、suadere、tangere、tempor-、tempt、tend/tens、thea",
+     "description": "simpl、sistere、socius、solv、solvere、space、sper、stat、suadere、tangere、tempor-、tempt、tend/tens、thea、there",
      "count": 30
     },
     {
      "id": "rt-pair-17",
      "title": "成對字根 17",
-     "description": "there、tom、tour、tract-、trade、trahere、trope、trud、turb、urge、use、util-、van、vanus、vas",
+     "description": "tom、tour、tract-、trade、trahere、trope、trud、turb、urge、use、util-、van、vanus、vas、vert",
      "count": 30
     },
     {
      "id": "rt-pair-18",
      "title": "成對字根 18",
-     "description": "vert、vibr-、vice、videre、vig-、villa、vit-、viv-、voc、vol-、vot、wake、wed、week、weigh",
+     "description": "vibr-、vice、videre、vig-、villa、vit-、viv-、voc、vol-、vot、wake、wed、week、weigh、who",
      "count": 30
     },
     {
      "id": "rt-pair-19",
      "title": "成對字根 19",
-     "description": "who、whole、wild、wind、wit、zelos",
-     "count": 12
+     "description": "whole、wild、wind、wit、zelos",
+     "count": 10
     }
    ]
   },
@@ -1418,7 +1418,7 @@
    "set": "root",
    "title": "獨立字根",
    "description": "字根只出現過一次的單字，依字母排",
-   "count": 1218,
+   "count": 1219,
    "file": "rt-solo.json",
    "books": [
     {
@@ -1550,7 +1550,7 @@
     {
      "id": "rt-solo-22",
      "title": "獨立字根 22",
-     "description": "J、K、L",
+     "description": "I、J、K、L",
      "count": 30
     },
     {
@@ -1574,7 +1574,7 @@
     {
      "id": "rt-solo-26",
      "title": "獨立字根 26",
-     "description": "N、O",
+     "description": "N",
      "count": 30
     },
     {
@@ -1665,7 +1665,7 @@
      "id": "rt-solo-41",
      "title": "獨立字根 41",
      "description": "W、Y、Z",
-     "count": 18
+     "count": 19
     }
    ]
   },
