@@ -1459,6 +1459,23 @@
             button:active, [data-action]:active, [data-tab]:active, .logo-menu-item:active { transform: none; }
         }
 
+        /* ---- 讀書計時的科目列：hover 的回饋收在那顆播放鈕上 ----
+           原本整列是 `hover:bg-slate-50`：指到列上的任何一個角落都是同一片灰，
+           而那片灰說不出「按下去會發生什麼」。這一列真正的動作只有一個
+           ——開始計時——那件事屬於左邊那顆播放鈕，回饋就該長在它身上。
+           ★ 只動 transform 與 box-shadow，**不動背景色**：`.bg-amber-500`
+             被主題整批改成墨彩而且帶 `!important`（見下面的階級徽章那幾條），
+             在這裡改顏色就得跟著寫 `!important`，等於把主題的規則抄第二份，
+             主題改色的那天這裡不會報錯，只會變成兩個顏色。
+           ★ `:focus-visible` 一起吃：鍵盤走到這一列時要看得出停在哪。 */
+        .subj-play { transition: transform var(--dur-fast) var(--ease), box-shadow var(--dur-fast) var(--ease); }
+        .subj-start:hover .subj-play,
+        .subj-start:focus-visible .subj-play { transform: scale(1.08); box-shadow: 0 6px 14px -4px rgba(0,0,0,.45); }
+        @media (prefers-reduced-motion: reduce) {
+            .subj-start:hover .subj-play,
+            .subj-start:focus-visible .subj-play { transform: none; }
+        }
+
 
         /* 標題改用明體，內文維持黑體以確保小字可讀 */
         h1, h2, h3, h4, .serif {
@@ -2551,6 +2568,17 @@
         <!-- ======================== 首頁 ======================== -->
         <div id="page-home" class="page-section page-enter">
 
+            <!-- ======== 問候語（兩個 Hero）========
+                 ★ 2026-08-20 外面多包一層 `#home-hero-wrap`：`#page-home` 同時
+                 也是「計劃」那個大分頁的容器（見 TAB_PAGE），所以這句「歡迎回來」
+                 原本連在計劃表上面也會佔掉第一屏——去看計劃的人不是來被打招呼的。
+                 ★ 為什麼是**外面多包一層**，而不是直接 toggle 那兩個 Hero 的 `hidden`：
+                 那兩個的 `hidden` 是登入狀態在管的（見 onAuthStateChanged 那兩處）。
+                 同一個 class 兩個地方管的話，「先切到計劃再登入」與「先登入再切」
+                 會得到不一樣的結果，而且不會報錯。外層歸路由、內層歸登入狀態，
+                 跟 #home-sub-missions 同一個作法。 -->
+            <div id="home-hero-wrap">
+
             <!-- Hero：未登入 -->
             <div id="home-guest-hero" class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800 block">
                 <div class="relative z-10">
@@ -2575,6 +2603,8 @@
                     </div>
                 </div>
             </div>
+
+            </div><!-- /#home-hero-wrap -->
 
             <!-- 主頁的子分頁列（課表／任務／倒數），由 renderStudySubNav() 產生。
                  兩個 Hero 刻意留在外面：那是問候語，不屬於任何一個子分頁。 -->
@@ -4247,6 +4277,17 @@
         };
         /* 同一件事的字串版，格式跟 todayStr 一樣，所以可以直接餵給 countdownDays。 */
         const dayKeyOf = (ts) => dayKeyOfDate(dayBaseOf(ts));
+        /* 反向：日鍵 → 那一天的時間戳，用來把「存下來的日鍵」再餵回
+           `missionPeriodKey`（一筆日鍵屬於哪一週／哪一個月）。
+           ★★ 回的是**中午十二點**，不是零點：日界在凌晨四點，
+           拿零點換回去會被 `dayBaseOf` 算成前一天，而症狀是
+           「每個月一號做的那一場算進上個月」——畫面上什麼都不會說。
+           ★ 格式不對回 NaN，呼叫端自己擋；硬湊一個日期出來的話，
+             一筆壞資料會變成一次莫名其妙的任務進度。 */
+        function dayKeyTime(k){
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(k ||''));
+            return m ? new Date(+m[1], +m[2] - 1, +m[3], 12, 0, 0, 0).getTime() : NaN;
+        }
 
         /* ★ 這個檔案是**兩個產品的共同原始碼**。
            `tools/mkpages.mjs` 只換掉下面這一行，就產生出 `ncue.html`。
@@ -4357,6 +4398,10 @@
         const SRS_STEPS = [1, 3, 7, 14, 30];   // 第 1～5 階各自隔幾天
         const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題
         const SRS_KEEP = 800;                  // 排程最多記幾個字（一份文件裝得下）
+        /* 完成日最多記幾天。★ 只有任務判定在用（每月任務最遠要回頭看 31 天），
+           留 120 天是為了「上個月的每月任務也還查得到」，不是為了做統計——
+           要做學習曲線的話那是另一份資料，不要偷偷把這一份養大。 */
+        const SRS_DAYS_KEEP = 120;
         /* 快刷最多幾輪。★ 不是「直到全對」的字面實作：同一個字連錯五輪的人
            再刷下去只是挫折，而那個字明天本來就會被排出來（答錯＝掉回第一階）。 */
         const SRS_DRILL_MAX = 5;
@@ -4471,7 +4516,7 @@
            ★ 跟錯題本同一條：**讀不到就不要存**（`srsLoaded` 維持 false），
            否則一次讀取失敗就把整份複習排程清空，而畫面上只會是
            「今天沒有到期的字」——看起來完全正常。 */
-        let srsSched = { words: [], last:'' };
+        let srsSched = { words: [], days: [], last:'' };
         let srsLoaded = false;
         let srsBusy = false;               // 正在抓單字檔（擋重複按）
         let srsProgress ='';
@@ -5327,6 +5372,20 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-20',
+                title: '任務接上第三種自動判定（每日測驗）；問候語不再壓在計劃表上面；科目列的 hover 收到播放鈕上',
+                items: [
+                    ['做了什麼', '三件小事：一、任務多一種自動判定「每日測驗完成天數」，管理員可以出「這週做三天今日測驗」這種任務。二、切到「計劃」時，那句「歡迎回來，○○○」會收起來。三、讀書計時科目那一列，滑鼠移上去不再整列變灰，改成左邊那顆播放鈕放大一點點。'],
+                    ['★★ 判定的成本不在判定，在「那個功能有沒有留下查得到的紀錄」', '每日測驗原本只記 `last`（最後完成的那一天），那回答得了「今天做過沒有」，回答不了「這一週做了幾天」。所以先在排程裡多記一份完成日清單 `days`，判定那幾行反而只有十行。⚠️ 同一天再刷第二場**不記第二筆**：這一份的意思是「哪幾天做過」，不是「做過幾場」，多記的話「每週做三天」一天就刷完了。'],
+                    ['★★ 舊資料一律不回填', '已經在用每日測驗的人沒有 `days`，那些天一律當成沒做過。拿 `last` 回填看起來很體貼，實際的後果是上線那天所有人的每週任務突然各自完成一天——而那不是他們今天做的，畫面上也不會說明為什麼。'],
+                    ['★★ 日鍵換回時間戳要落在那一天的中午', '「這個日鍵屬於哪一週／哪一個月」是拿 `missionPeriodKey` 算的，所以得先把 `2026-09-01` 換回一個時間戳。換成**零點**的話，`dayBaseOf` 會因為日界在凌晨四點而把它算成前一天——症狀是「每個月一號做的那一場算進上個月」，不會報錯。所以 `dayKeyTime()` 回的是中午十二點。'],
+                    ['★ 判定維持純函式：排程從第四個參數餵進去', '`missionMetricOf` 沒有去抓外面的 `srsSched`。`tests/mission.mjs` 是把這一支整段抽出來餵資料跑的，混進外部狀態的話那一整組檢查就抽不出來了。★ 兩個呼叫點都要記得餵——漏一個的症狀是「畫面上顯示達標，按下領取卻說還差幾天」。'],
+                    ['★ 不必去主控台推規則', '完成日記在 `settings/vocabSrs` 裡（排程本來就住那），任務定義那一格的 `metric` 是 `optStr(...,20)`，`srs` 直接過。「能塞進 settings 就別開新集合」這條又省下一次推規則。'],
+                    ['★★ 問候語收的是外層，不是那兩個 Hero 自己', '`#page-home` 同時也是「計劃」那個大分頁的容器（見 TAB_PAGE），所以「歡迎回來」連在計劃表上面也佔掉第一屏。但那兩個 Hero 自己的 `hidden` 是**登入狀態**在管的，路由再去 toggle 同一個 class 的話，「先切到計劃再登入」與「先登入再切」會得到不一樣的結果，而且完全不會報錯。所以外面包一層 `#home-hero-wrap`：外層歸路由、內層歸登入狀態，跟 `#home-sub-missions` 同一個作法。'],
+                    ['★ hover 的問題不是難看，是它說不出按下去會發生什麼', '整列 `hover:bg-slate-50` 指到哪裡都是同一片灰。這一列唯一的動作是「開始計時」，那件事屬於左邊那顆播放鈕，所以回饋改成它放大 8%＋一點陰影。★ 只動 transform 與 box-shadow，**不動背景色**：`.bg-amber-500` 被主題整批改成墨彩而且帶 `!important`，在這裡改顏色就得跟著寫一次 `!important`，主題改色的那天不會報錯，只會變成兩個顏色。'],
+                ]
+            },
             {
                 date: '2026-08-20',
                 title: '讀書計時換成看板式版面；任務改成主頁的一個子分頁',
@@ -6514,6 +6573,12 @@
             if (tab ==='home') highlightCurrentClass();
             updatePlanTicker();
             updateStudyTicker();
+            /* ★ 問候語只屬於主頁。`#page-home` 同時也是計劃的容器（見 TAB_PAGE），
+               不收的話「歡迎回來，○○○」會壓在計劃表上面佔掉第一屏。
+               ★ 收的是外層 `#home-hero-wrap`，裡面那兩個 Hero 的 `hidden`
+               歸登入狀態管——見那一段 HTML 上的說明。 */
+            const heroWrap = $('home-hero-wrap');
+            if (heroWrap) heroWrap.classList.toggle('hidden', tab ==='plan');
             /* ★ 進「帳號權限管理」先把搜尋清掉。留著上次的關鍵字的話，
                下次進來會看到一份被過濾過的名冊，而畫面上沒有任何東西
                提示「你正在搜尋中」——看起來就像有人不見了。
@@ -9142,8 +9207,8 @@
                 <div class="rounded-2xl border ${on ?'border-amber-200 bg-amber-50/40' :'border-slate-100'} p-2">
                     <div class="flex items-center gap-2">
                         <button data-action="study-sub-start" data-sub="${escapeHTML(r.sub)}"
-                                class="tap-44 flex-1 min-w-0 text-left px-2 py-1.5 rounded-xl flex items-center gap-3 hover:bg-slate-50">
-                            <span class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center pointer-events-none bg-amber-500 text-white">
+                                class="subj-start tap-44 flex-1 min-w-0 text-left px-2 py-1.5 rounded-xl flex items-center gap-3">
+                            <span class="subj-play shrink-0 w-10 h-10 rounded-full flex items-center justify-center pointer-events-none bg-amber-500 text-white">
                                 <i data-lucide="${live ?'timer' : on ?'pause' :'play'}" class="w-5 h-5 pointer-events-none"></i>
                             </span>
                             <span class="flex-1 min-w-0 pointer-events-none">
@@ -11413,7 +11478,14 @@
                     at: Number(x.at) > 0 ? Number(x.at) : 0
                 });
             }
+            /* 完成日清單。★ 格式不對的直接濾掉、同一天只留一筆、由舊到新排好——
+               任務判定（`missionMetricOf` 的 `srs`）是一天一筆在數的，
+               留兩筆重複的就會讓「每週做三天」變成做兩天就達標，
+               而畫面上只是一個提早出現的勾。 */
+            const days = [...new Set((Array.isArray(d && d.days) ? d.days : [])
+                            .filter(k => typeof k ==='string' && /^\d{4}-\d{2}-\d{2}$/.test(k)))].sort();
             return { words: out.slice(-SRS_KEEP),
+                     days: days.slice(-SRS_DAYS_KEEP),
                      last: /^\d{4}-\d{2}-\d{2}$/.test(d && d.last) ? d.last :'' };
         }
 
@@ -11712,8 +11784,23 @@
             if (!list.length) return Promise.resolve();
             const now = Date.now();
             srsSched = srsApplyResult(srsSched, list, builtinFolderIndex(), now);
-            srsSched.last = dayKeyOf(now);
+            const today = dayKeyOf(now);
+            srsSched.last = today;
+            /* ★ 完成日另外記一份（`last` 只留得住最後一天，
+               而「這一週做了幾天」是任務判定要問的問題）。
+               ⚠️ 同一天再刷一場**不要**多記一筆：這一份是「哪幾天做過」，
+               不是「做過幾場」。多記的話每週任務會提早達標。
+               ⚠️ 舊資料沒有 `days`，所以上線之前做過的那些一律不算——
+               這是刻意的：拿 `last` 回填的話，上線那天所有人的每週任務
+               會突然各自完成一天，而那不是他們今天做的。 */
+            const days = srsSched.days ||[];
+            if (days[days.length - 1] !== today)
+                srsSched.days = [...days.filter(d => d !== today), today].slice(-SRS_DAYS_KEEP);
             renderSrsCard();
+            /* 任務那一區也要跟著重畫：不畫的話「今天的克漏字任務」要等到
+               切分頁回來才看得出來已經達標，而使用者剛剛就是在做那件事。
+               ★ 任務可能還沒訂閱回來（renderMissions 自己會擋），所以不必判斷。 */
+            renderMissions();
             if (!srsLoaded) return Promise.resolve();
             return saveSrs();
         }
@@ -12246,18 +12333,27 @@
          * 好處是不必寫任何「跨日要清掉」的排程——那種排程只有在
          * 使用者剛好開著站的時候才會跑，而症狀是「昨天的任務今天還打著勾」。
          *
-         * ⚠️ 目前只有兩種判定：`manual`（自己勾）與 `study`（讀書分鐘）。
+         * ⚠️ 目前有三種判定：`manual`（自己勾）、`study`（讀書分鐘，從
+         * `studySessions` 算）與 `srs`（每日測驗做了幾天，從 `srsSched.days` 算）。
          * `manual` 是**自我回報**，按一下就給點——這一點要清楚：
          * 任務點的意義止於「給寵物養成用的內部貨幣」，不是成就證明。
-         * 想接更多自動判定的話，第一個該接的是「期間內完成的計劃數」，
-         * 但那要先讓一次性計劃在打勾時記下 `doneAt`（現在只有重複計劃的
-         * `doneOn` 有日期），所以留給下一輪。
+         *
+         * ★ 每接一種自動判定，成本都不在判定本身，而在**那個功能有沒有留下
+         * 查得到的紀錄**。`srs` 這一種是先在排程裡多記一個完成日清單
+         * （`days`）才做得起來的，判定那幾行反而只有十行。
+         * 下一個該接的是「期間內完成的計劃數」，卡點一樣：一次性計劃
+         * 打勾時沒有時間戳（只有 `done` 這個布林值），要先讓 `togglePlan`
+         * 記下 `doneAt` 才算得出來。
          * ========================================================== */
         const MISSION_PERIODS = { daily:'每日', weekly:'每週', monthly:'每月' };
         /* 判定方式。★ `unit` 只是畫面上的字，`goal` 的意義由 metric 決定。 */
         const MISSION_METRICS = {
             manual: { label:'自己勾（沒有自動判定）', unit:'' },
-            study:  { label:'讀書分鐘數（讀書計時）', unit:'分鐘' }
+            study:  { label:'讀書分鐘數（讀書計時）', unit:'分鐘' },
+            /* ★ 單位是「天」不是「場」：排程一天只記一格（見 `srsSched.days`），
+               同一天再刷第二場不會多算——`goal:3` 的每週任務是「三天」，
+               不是「三場」。寫成「場」的話那是一句會騙人的文案。 */
+            srs:    { label:'每日測驗完成天數（克漏字）', unit:'天' }
         };
         /* 點下去跳到哪。★ 寫成資料而不是讓管理員自己打字：打錯的話
            `switchTab` 會丟例外、整頁全白，而那是使用者遇到的，不是打字的人。
@@ -12296,11 +12392,27 @@
         function missionDone(prog, m, ts){
             return !!m && missionSlot(prog, m.period, ts).ids.indexOf(m.id) >= 0;
         }
-        /* 自動判定的進度。回 null＝這一項是自己勾的，沒有進度可以算。 */
-        function missionMetricOf(m, sessions, ts){
-            if (!m || m.metric !=='study') return null;
+        /* 自動判定的進度。回 null＝這一項是自己勾的，沒有進度可以算。
+           ★ `srs`（每日測驗）那一份是第四個參數，**不是**從外面的
+             `srsSched` 直接抓：這一支要維持純函式，`tests/mission.mjs`
+             是把它整段抽出來餵資料進去跑的（混進外部狀態就抽不出來了）。 */
+        function missionMetricOf(m, sessions, ts, srs){
+            if (!m) return null;
             const goal = Number(m.goal) > 0 ? Number(m.goal) : 1;
             const key = missionPeriodKey(m.period, ts);
+            if (m.metric ==='srs'){
+                /* 存的是日鍵，所以「這一期做了幾天」就是把每一個日鍵換回
+                   時間戳、再算它屬於哪一期。★ 用 `missionPeriodKey` 換算而不是
+                   自己比字串前綴：週的邊界（週一為週首、週一凌晨三點還算上一週）
+                   只有那一支知道，自己比一次就是把規則抄第二份。 */
+                let n = 0;
+                for (const d of ((srs && srs.days) ||[])){
+                    const t = dayKeyTime(d);
+                    if (Number.isFinite(t) && missionPeriodKey(m.period, t) === key) n++;
+                }
+                return { cur: n, goal };
+            }
+            if (m.metric !=='study') return null;
             let ms = 0;
             for (const s of (sessions ||[])){
                 if (!s || !(s.ms > 0)) continue;
@@ -12378,7 +12490,7 @@
 
         function missionRow(m, loggedIn, now){
             const done = loggedIn && missionDone(missionProgress, m, now);
-            const met = missionMetricOf(m, studySessions, now);
+            const met = missionMetricOf(m, studySessions, now, srsSched);
             const unit = (MISSION_METRICS[m.metric] || MISSION_METRICS.manual).unit;
             const ready = !met || met.cur >= met.goal;
             const pts = missionPoints(m);
@@ -12436,7 +12548,7 @@
             const now = Date.now();
             const slot = missionSlot(missionProgress, m.period, now);
             if (slot.ids.indexOf(id) >= 0) return;
-            const met = missionMetricOf(m, studySessions, now);
+            const met = missionMetricOf(m, studySessions, now, srsSched);
             if (met && met.cur < met.goal){
                 const unit = (MISSION_METRICS[m.metric] || MISSION_METRICS.manual).unit;
                 return showToast(`還差 ${met.goal - met.cur} ${unit}`);
