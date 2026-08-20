@@ -4411,9 +4411,6 @@
            症狀是一載入整頁全白，而 `node --check` 看不出來（已經踩過六次）。
            ★ 預設只勾 Level 4：全勾等於第一次按下去要抓 25 份檔案，
            而使用者還不知道自己按了什麼。 */
-        /* ⚠️ 暫時的：量「測驗結束 → 錯題出現」到底卡在哪。查完就刪。
-           宣告在狀態區的理由同上（被 showKahootResult 碰到）。 */
-        let quizEndAt = 0;
         let clozeScopes = ['lv4'];
         let clozeBusy = false;             // 正在抓單字檔（擋重複按）
         let clozeProgress ='';             // 「載入單字 3 / 25」
@@ -4859,12 +4856,6 @@
                 el.dataset.vgSky = '1'; el.dataset.vgIn = '1';   /* 先當成看得見，IO 會馬上修正 */
                 io.observe(el);
             });
-            /* ⚠️ 暫時的（查完就刪）：?nosky=1 連這一層（CSS 那片天空的省電開關）
-               也一起跳過，讓那次測試真的是「完全沒有天空」。 */
-            if (location.search.includes('nosky')) {
-                document.querySelectorAll(SEL).forEach(el => el.classList.add('vg-sky-off'));
-                return;
-            }
             scan();
             /* Hero 卡有些是切分頁之後才畫出來的，所以要再掃。
                ★ 用 MutationObserver 而不是在每一個 render 函式裡呼叫——
@@ -5135,17 +5126,6 @@
             }
             const scan = () => document.querySelectorAll(SEL).forEach(mount);
 
-            /* ⚠️ 暫時的（查完就刪）：網址加 ?nosky=1 就完全不掛天空。
-               這是在查「按了看結果之後畫面二十秒不更新」——已知那段時間
-               JS 沒有長任務、handler 只跑 20ms，所以卡的是繪製那一側，
-               而這片天空是全站唯一每一格都在做 GPU→2D 讀回的東西。
-               ★ 用網址參數而不是叫使用者去改系統的「減少動態」：
-               後者會一次關掉一堆別的動畫，測出來分不清是哪一個。 */
-            if (location.search.includes('nosky')) {
-                console.info('[克漏字計時] ?nosky=1：這一次完全不掛天空');
-                return;
-            }
-
             scan();
             /* 分頁切換之後才畫出來的卡也要掛上。★ 用 MutationObserver 而不是
                在每一個 render 函式裡呼叫——漏掉其中一個不會報錯，
@@ -5305,7 +5285,9 @@
                     ['★★ 錯題檢討：四個選項全部列出來，每一個都附中文', '路線圖短期第二條。原本只給「你選了 X／正解 Y（中文）」，但使用者當下看到的是**四個都不認得的英文字**——只講正解的話，另外三個仍然是下一次還會再選錯的那三個。'],
                     ['★★ 選錯的那個字也直接記進錯題本', '路線圖短期第三條的前半。他不只是「選錯」，是把那個字填進了一個讀不通的位置，等於那個字也不熟。⚠️ 記的是選項背後的**單字**（`abandon`），不是選項的字面（例句裡的字形 `abandoned`）——字面回推不到單字，所以出題時就把 `optionWords` 一起帶著走。'],
                     ['★ 剩下那兩個問一句「還有不會的嗎」', '後半。正解與選錯的那個已經自動記了，另外兩個站在旁邊，勾起來就一起進錯題本；再按一次是「我會了」，連同它原本累積的錯誤次數一起拿掉——留著的話下一項（艾賓浩斯）還是會一直把它排出來，而畫面上看不出原因。存檔在背景跑，跟結算那次同一個道理。'],
-                    ['一般測驗維持原樣', '單字擂台的題目沒有 `optionWords`，那時退回舊的兩行版。硬畫勾選鈕的話，選項不是單字，勾了也不知道要記什麼。']
+                    ['一般測驗維持原樣', '單字擂台的題目沒有 `optionWords`，那時退回舊的兩行版。硬畫勾選鈕的話，選項不是單字，勾了也不知道要記什麼。'],
+                    ['★★ 上面那條字數「修好了卻沒有生效」，隔一輪才發現', '算法改對了、測試也綠了，畫面上還是 3,461。原因在 `loadBuiltinVocabIndex()`：它把索引搬進 `state` 時是**一個一個挑欄位**寫的，`levels` 沒被挑到。而 `clozeFolderCount()` 看到沒有 `levels` 就走「舊快取退路」退回整夾 count——**於是修好與沒修好的畫面一模一樣**。⚠️ 教訓有兩層：(甲) **挑欄位的搬運寫法，漏一個不會報錯**；(乙) **為相容性留的退路會把新的錯誤一起吞掉**，所以退路旁邊要有一條測試從真資料一路跑到底。現在 `tests/cloze.mjs` 會真的跑一次 `loadBuiltinVocabIndex()`。'],
+                    ['計時器與 `?nosky=1` 全部拿掉了', '上一輪查「結算慢」時埋的那一整套：`quizEndAt`、結果頁的 25 秒畫格心跳、兩個 `PerformanceObserver`、兩處 `?nosky=1` 的天空跳過。留著的話每做完一場測驗就有一個 rAF 迴圈空轉 25 秒，那是實打實的耗電。查到的結論已經寫在 `架構.md` 與這份紀錄裡，程式不必再留著。']
                 ]
             },
             {
@@ -10350,9 +10332,14 @@
                 const res = await fetch(VOCAB_BUILTIN_BASE +'index.json');
                 if (!res.ok) throw new Error(res.status);
                 const idx = await res.json();
+                /* ⚠️⚠️ **`levels` 一定要跟著搬進來。** 這一段是「挑欄位」的寫法，
+                   漏掉一個不會報錯，只會讓吃它的人拿到 `undefined` 然後**默默走退路**——
+                   克漏字的字數就是這樣：`clozeFolderCount()` 看到沒有 `levels`
+                   就退回整夾 count（那條退路是為了舊快取留的），於是修好的算法
+                   照樣回答 3,461。**一次修好、一次被這裡吃掉，而兩次的畫面一模一樣。** */
                 state.builtinVocabFolders = idx.folders.map(f => ({
                     id: f.id, title: f.title, description: f.description,
-                    set: f.set, count: f.count, bookCount: f.books.length
+                    set: f.set, count: f.count, levels: f.levels, bookCount: f.books.length
                 }));
                 state.builtinVocabBooks = idx.folders.flatMap(f => f.books.map(b => ({
                     id: b.id, folderId: f.id, title: b.title, description: b.description, count: b.count
@@ -11523,9 +11510,6 @@
             const qData = playQuestions[currentQIndex];
             if (!qData || selectedIdx >= (qData.options || []).length) return;
             isKahootTransitioning = true;
-            /* ⚠️ 暫時的計時器（查完就刪）：最後一題按下去的那一刻 */
-            if (currentQIndex === playQuestions.length - 1) quizEndAt = performance.now();
-
             const correct = selectedIdx === qData.correctIdx;
             if (correct) currentScore++;
             playAnswers.push({ ...qData, selectedIdx, correct });
@@ -11565,8 +11549,6 @@
 
         // 答錯後按「下一題」才繼續
         function kahootNext() {
-            /* ⚠️ 暫時的計時器（查完就刪）：按「看結果」的那一刻 */
-            if (currentQIndex >= playQuestions.length) quizEndAt = performance.now();
             $('kahootNextWrap').classList.add('hidden');
             isKahootTransitioning = false;
             renderPlayQuestion();
@@ -11619,7 +11601,6 @@
         }
 
         function showKahootResult() {
-            const tIn = performance.now();          // ⚠️ 暫時的計時器（查完就刪）
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
             /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
@@ -11633,13 +11614,9 @@
                而不是替那段等待做一張比較好看的畫面——
                量出來排這份清單只要 10 毫秒，等待全部來自那次寫入。
                存檔失敗只用一句提示說，不擋畫面。 */
-            if (activeKahoot && activeKahoot.cloze) {
-                const tSave = performance.now();    // ⚠️ 暫時的計時器（查完就刪）
+            if (activeKahoot && activeKahoot.cloze)
                 recordClozeResult(playAnswers)
-                    .then(() => console.info('[克漏字計時] 背景存錯題花了', Math.round(performance.now() - tSave), 'ms'))
-                    .catch((e) => { console.info('[克漏字計時] 背景存錯題失敗', Math.round(performance.now() - tSave), 'ms', e);
-                                    showToast("錯題沒存起來，下次登入再試"); });
-            }
+                    .catch(() => showToast("錯題沒存起來，下次登入再試"));
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
@@ -11651,47 +11628,10 @@
                 pct >= 50 ?'還有進步空間，下面這幾題再看一次' :
 '先把下面錯的弄懂，再挑戰一次';
 
-            const wrong = playAnswers.filter(a => !a.correct);
             renderKahootWrongList();
             $('kahootResultModal').classList.remove('hidden');
             $('kahootResultModal').classList.add('flex');
-            const tBuilt = performance.now();       // ⚠️ 暫時的計時器（查完就刪）
             icons();
-            const tIcons = performance.now();
-            /* 兩層 rAF 之後才是「畫面真的更新完」——只量 JS 的話，
-               版面重算與繪製那一段完全看不到。 */
-            /* ⚠️ 暫時的（查完就刪）：結果出來之後盯 25 秒的畫格。
-               主執行緒沒有長任務、畫面卻二十秒不更新，只有兩種可能：
-                 (甲) rAF 本身停了 → 整個算繪流程被停掉（分頁被節流、GPU 卡住）
-                 (乙) rAF 照常 60fps → JS 都在跑，卡的是「畫出來」那一段
-               這個心跳就是用來分辨甲乙的，順便看天空的宿主數量有沒有暴增。 */
-            {
-                let prev = performance.now(), n = 0;
-                const beat = () => {
-                    const now = performance.now(), gap = now - prev;
-                    prev = now;
-                    if (gap > 400)
-                        console.info('[克漏字計時] 畫格中斷', Math.round(gap), 'ms',
-                            '| 分頁', document.visibilityState,
-                            '| 有焦點', document.hasFocus(),
-                            '| 天空宿主', document.querySelectorAll('.vg-sky-host').length,
-                            '| 天空畫布', document.querySelectorAll('canvas.vg-sky-gl').length);
-                    if (++n < 2000 && now - tIn < 25000) requestAnimationFrame(beat);
-                    else console.info('[克漏字計時] 心跳結束，這 25 秒共', n, '格',
-                            '（60fps 應該是 1500 格上下；只有幾十格＝算繪幾乎停住）');
-                };
-                requestAnimationFrame(beat);
-            }
-            requestAnimationFrame(() => requestAnimationFrame(() => {
-                console.info('[克漏字計時] v93-probe1',
-                    '| 按下去→進 showKahootResult', Math.round(tIn - quizEndAt), 'ms',
-                    '| 排版', Math.round(tBuilt - tIn), 'ms',
-                    '| icons()', Math.round(tIcons - tBuilt), 'ms',
-                    '| 到畫面真的更新', Math.round(performance.now() - tIn), 'ms',
-                    '| 錯', wrong.length, '題',
-                    '| 待轉圖示', document.querySelectorAll('[data-lucide]').length,
-                    '| DOM 節點', document.getElementsByTagName('*').length);
-            }));
         }
 
         // 答到一半離開要確認，避免手滑點掉整場成績
@@ -13489,29 +13429,6 @@
             });
 
             bind('backToTopBtn', scrollTopSmooth);
-
-            /* ⚠️⚠️ 暫時的：找「按了看結果之後卡十幾秒」到底是誰卡住的。查完就刪。
-               longtask  = 主執行緒被單一一件事佔住超過 50ms（真正的凍結）
-               event     = 那一次點擊：等了多久才輪到它、以及處理它花了多久
-               兩個分開看：等很久＝別的東西在忙；處理很久＝我們自己的 handler 慢。 */
-            try {
-                new PerformanceObserver((list) => {
-                    for (const e of list.getEntries())
-                        if (e.duration >= 150)
-                            console.info('[克漏字計時] 主執行緒被佔住', Math.round(e.duration), 'ms',
-                                '（從', Math.round(e.startTime), 'ms 開始）',
-                                (e.attribution || []).map(a => a.name).join(',') || '');
-                }).observe({ type: 'longtask', buffered: true });
-            } catch {}
-            try {
-                new PerformanceObserver((list) => {
-                    for (const e of list.getEntries())
-                        console.info('[克漏字計時] 慢的互動', e.name,
-                            '| 等了', Math.round(e.processingStart - e.startTime), 'ms 才輪到它',
-                            '| handler 跑了', Math.round(e.processingEnd - e.processingStart), 'ms',
-                            '| 到畫面更新總共', Math.round(e.duration), 'ms');
-                }).observe({ type: 'event', durationThreshold: 200, buffered: true });
-            } catch {}
 
             // 點任一單字彈出英英小卡（可堆疊）；點小卡外關閉全部、Esc 關閉最上面那張
             document.addEventListener('click', (e) => {
