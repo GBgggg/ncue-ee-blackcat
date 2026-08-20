@@ -4820,8 +4820,22 @@
          * ★ 也擋 document.hidden。切到別的分頁時 IO 不會觸發（元素還在
          *   視窗裡，只是視窗看不到），瀏覽器多半會自己降頻但不保證停。
          *
-         * ★ 黑幕不必進來：它們平常掛著 `hidden`，根本沒有算繪。
+         * ⚠️⚠️ **原本這裡寫著「黑幕不必進來：它們平常掛著 `hidden`，根本沒有算繪」。
+         * 那句話只對了一半，而漏掉的那一半是這一整節最貴的東西。**
+         * 黑幕自己確實不花錢，但**黑幕蓋住的時候，底下那十幾片天空還在全速跑**——
+         * `IntersectionObserver` 只知道「有沒有進視窗」，它**看不出「被蓋住」**。
+         * 實測首頁有 14 個宿主、14 張 WebGL 畫布；答一場克漏字的那幾分鐘，
+         * 全螢幕的作答畫面底下那 14 片天空一格都沒有少畫。
+         * 症狀完全不像效能問題：JS 沒有長任務、handler 只跑十幾毫秒，
+         * 但畫面就是十幾秒不更新——因為塞住的是合成器，不是主執行緒。
+         * 所以下面多一個條件：**只要有全螢幕遮罩開著，天空一律停。**
          * ========================================================== */
+        /* 有沒有全螢幕遮罩開著。站上每一個 `.fixed.inset-0` 平常都掛著 `hidden`
+           （查過，25 個全部是），所以這個選擇器就等於「現在有東西蓋住整頁」。
+           ★ 兩片天空（CSS 那層與 WebGL 那層）共用這一支，
+           各寫一份的話兩邊的判斷遲早會不一樣，而那不會報錯。 */
+        const skyCovered = () => !!document.querySelector('.fixed.inset-0:not(.hidden)');
+
         (() => {
             const SEL = '.bg-slate-900.relative.overflow-hidden';
             /* 舊瀏覽器沒有 IO 就整個不做——後果只是「沒有省到電」，
@@ -4833,7 +4847,8 @@
                切回分頁時會把**捲出畫面的**卡也一起恢復成在動。
                所以把 IO 的結果記在 dataset 上，只有 sync() 能碰 class。 */
             const sync = (el) => el.classList.toggle('vg-sky-off',
-                document.hidden || el.dataset.vgIn !== '1');
+                document.hidden || el.dataset.vgIn !== '1' || skyCovered());
+            const syncAll = () => document.querySelectorAll(SEL).forEach(sync);
 
             const io = new IntersectionObserver((es) => {
                 for (const e of es) { e.target.dataset.vgIn = e.isIntersecting ? '1' : '0'; sync(e.target); }
@@ -4844,13 +4859,27 @@
                 el.dataset.vgSky = '1'; el.dataset.vgIn = '1';   /* 先當成看得見，IO 會馬上修正 */
                 io.observe(el);
             });
+            /* ⚠️ 暫時的（查完就刪）：?nosky=1 連這一層（CSS 那片天空的省電開關）
+               也一起跳過，讓那次測試真的是「完全沒有天空」。 */
+            if (location.search.includes('nosky')) {
+                document.querySelectorAll(SEL).forEach(el => el.classList.add('vg-sky-off'));
+                return;
+            }
             scan();
             /* Hero 卡有些是切分頁之後才畫出來的，所以要再掃。
                ★ 用 MutationObserver 而不是在每一個 render 函式裡呼叫——
                  漏掉其中一個不會報錯，只會有一張卡永遠不省電。 */
             new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
-            document.addEventListener('visibilitychange',
-                () => document.querySelectorAll(SEL).forEach(sync));
+            document.addEventListener('visibilitychange', syncAll);
+            /* 遮罩開關就是 class 換一下，沒有事件可以聽，所以只能盯 class。
+               ★ 用 rAF 併批：作答時選項按鈕的 class 一直在變，
+               每一次都重算一遍 querySelectorAll 是把省下來的又花回去。 */
+            let pending = false;
+            new MutationObserver(() => {
+                if (pending) return;
+                pending = true;
+                requestAnimationFrame(() => { pending = false; syncAll(); });
+            }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
         })();
 
         /* ==========================================================
@@ -5049,16 +5078,23 @@
                 h.ctx.drawImage(glCanvas, sx, sy, sw, sh, 0, 0, cw, ch);
             }
 
-            const visible = (el, h) => h.on && !document.hidden;
+            /* ⚠️ `skyCovered()` 是 2026-08-19 加的，理由在 5.15 那一節的開頭。
+               每一格每一個宿主都要做一次 `drawImage(glCanvas → 2D canvas)`，
+               那是一次 GPU 讀回；14 個宿主就是一格 14 次。
+               全螢幕遮罩蓋著的時候這些**一格都看不到**，但原本照做不誤。 */
+            const visible = (el, h, covered) => h.on && !document.hidden && !covered;
 
             const t0 = performance.now();
             function frame() {
                 if (dead) { running = false; return; }
                 /* 照底色分組。看得見的宿主幾乎永遠共用同一個底色，
                    所以這個迴圈通常只跑一輪（開站畫面疊在卡片上那一瞬間是兩輪）。 */
+                /* ★ 一格只問一次「有沒有被蓋住」。寫進 visible() 裡的話
+                   會變成每個宿主問一次，14 個宿主就是一格 14 次 querySelector。 */
+                const covered = skyCovered();
                 const groups = new Map();
                 for (const [el, h] of hosts) {
-                    if (!visible(el, h)) continue;
+                    if (!visible(el, h, covered)) continue;
                     const k = h.base.join(',');
                     (groups.get(k) || groups.set(k, []).get(k)).push([el, h]);
                 }
@@ -5099,6 +5135,17 @@
             }
             const scan = () => document.querySelectorAll(SEL).forEach(mount);
 
+            /* ⚠️ 暫時的（查完就刪）：網址加 ?nosky=1 就完全不掛天空。
+               這是在查「按了看結果之後畫面二十秒不更新」——已知那段時間
+               JS 沒有長任務、handler 只跑 20ms，所以卡的是繪製那一側，
+               而這片天空是全站唯一每一格都在做 GPU→2D 讀回的東西。
+               ★ 用網址參數而不是叫使用者去改系統的「減少動態」：
+               後者會一次關掉一堆別的動畫，測出來分不清是哪一個。 */
+            if (location.search.includes('nosky')) {
+                console.info('[克漏字計時] ?nosky=1：這一次完全不掛天空');
+                return;
+            }
+
             scan();
             /* 分頁切換之後才畫出來的卡也要掛上。★ 用 MutationObserver 而不是
                在每一個 render 函式裡呼叫——漏掉其中一個不會報錯，
@@ -5106,6 +5153,16 @@
             new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
             document.addEventListener('visibilitychange', kick);
             addEventListener('resize', kick);
+            /* ⚠️ 遮罩關掉之後要把天空叫回來。frame() 在「全部看不見」時會
+               把 running 設成 false 真的停掉（那是刻意的，不是空轉），
+               所以沒有這一條的話症狀是**關掉視窗之後天空從此不動了**——
+               而一片凍住的天空看起來只像「今天比較不明顯」。 */
+            let pendingKick = false;
+            new MutationObserver(() => {
+                if (pendingKick) return;
+                pendingKick = true;
+                requestAnimationFrame(() => { pendingKick = false; kick(); });
+            }).observe(document.body, { attributes: true, attributeFilter: ['class'], subtree: true });
             /* 換主題要重新量底色（見 refreshBase）。 */
             new MutationObserver(refreshBase).observe(document.documentElement,
                 { attributes: true, attributeFilter: ['class'] });
@@ -11477,6 +11534,28 @@
             const tIcons = performance.now();
             /* 兩層 rAF 之後才是「畫面真的更新完」——只量 JS 的話，
                版面重算與繪製那一段完全看不到。 */
+            /* ⚠️ 暫時的（查完就刪）：結果出來之後盯 25 秒的畫格。
+               主執行緒沒有長任務、畫面卻二十秒不更新，只有兩種可能：
+                 (甲) rAF 本身停了 → 整個算繪流程被停掉（分頁被節流、GPU 卡住）
+                 (乙) rAF 照常 60fps → JS 都在跑，卡的是「畫出來」那一段
+               這個心跳就是用來分辨甲乙的，順便看天空的宿主數量有沒有暴增。 */
+            {
+                let prev = performance.now(), n = 0;
+                const beat = () => {
+                    const now = performance.now(), gap = now - prev;
+                    prev = now;
+                    if (gap > 400)
+                        console.info('[克漏字計時] 畫格中斷', Math.round(gap), 'ms',
+                            '| 分頁', document.visibilityState,
+                            '| 有焦點', document.hasFocus(),
+                            '| 天空宿主', document.querySelectorAll('.vg-sky-host').length,
+                            '| 天空畫布', document.querySelectorAll('canvas.vg-sky-gl').length);
+                    if (++n < 2000 && now - tIn < 25000) requestAnimationFrame(beat);
+                    else console.info('[克漏字計時] 心跳結束，這 25 秒共', n, '格',
+                            '（60fps 應該是 1500 格上下；只有幾十格＝算繪幾乎停住）');
+                };
+                requestAnimationFrame(beat);
+            }
             requestAnimationFrame(() => requestAnimationFrame(() => {
                 console.info('[克漏字計時] v93-probe1',
                     '| 按下去→進 showKahootResult', Math.round(tIn - quizEndAt), 'ms',
