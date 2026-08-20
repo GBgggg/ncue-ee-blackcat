@@ -3107,9 +3107,12 @@
                 <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <div class="relative z-10">
                         <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">克漏字 <span class="animate-bounce">✏️</span></h2>
-                        <p class="text-slate-400 text-sm mt-2">從內建單字庫的例句挖一個字，選好範圍就開始。錯的字會記起來，之後拿來排複習。</p>
+                        <p class="text-slate-400 text-sm mt-2">從內建單字庫的例句挖一個字，選好範圍就開始。錯的字會排進今日測驗，照遺忘曲線再考你一次。</p>
                     </div>
                 </div>
+                <!-- 今日測驗（艾賓浩斯排程）排在克漏字前面：它才是每天要按的那一顆。
+                     卡片本體由 renderSrsCard() 填。 -->
+                <div id="srsCard" class="mb-5"></div>
                 <div id="clozeCard" class="mb-5"></div>
             </div>
         </div>
@@ -4219,12 +4222,15 @@
             d.setHours(0, 0, 0, 0);
             return d;
         };
-        /* 同一件事的字串版，格式跟 todayStr 一樣，所以可以直接餵給 countdownDays。 */
-        const dayKeyOf = (ts) => {
-            const d = dayBaseOf(ts);
+        /* 一個 Date 的日鍵。★ 拆出來是因為排程要算「今天往後推 7 天」——
+           那必須是**日曆運算**（`setDate`），不能寫成 `dayKeyOf(now + 7*86400000)`：
+           加毫秒碰到換日邊界會差一天，而症狀只是「複習日莫名早一天或晚一天」。 */
+        const dayKeyOfDate = (d) => {
             const p = (n) => String(n).padStart(2,'0');
             return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`;
         };
+        /* 同一件事的字串版，格式跟 todayStr 一樣，所以可以直接餵給 countdownDays。 */
+        const dayKeyOf = (ts) => dayKeyOfDate(dayBaseOf(ts));
 
         /* ★ 這個檔案是**兩個產品的共同原始碼**。
            `tools/mkpages.mjs` 只換掉下面這一行，就產生出 `ncue.html`。
@@ -4322,6 +4328,22 @@
             { id:'toeic', label:'多益 DLC', set:'toeic' },
             { id:'toefl', label:'托福 DLC', set:'toefl' }
         ];
+
+        /* ---- 每日測驗：艾賓浩斯排程（2026-08-20）----
+           五階擴張間隔。答對升一階、答錯掉回第一階（Leitner 盒子）。
+           ★ 查過才選這一套，不是圖方便：擴張間隔在實驗裡贏等距間隔
+             （同樣的總複習次數，八週後的遺忘顯著較少）；而 SM-2／FSRS
+             吃的是使用者自評的四級評分，這裡只有「選對／選錯」，
+             餵進去等於把它們最主要的輸入抽掉。理由全文在 `路線圖-技術細節.md`。
+           ⚠️ 改這串數字會改變所有人的下一次複習日，但**不會動到已經排好的
+             `due`**（那是存下來的日期，不是每次重算的）——所以改完之後
+             舊的到期日會照舊，新的才用新間隔。 */
+        const SRS_STEPS = [1, 3, 7, 14, 30];   // 第 1～5 階各自隔幾天
+        const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題
+        const SRS_KEEP = 800;                  // 排程最多記幾個字（一份文件裝得下）
+        /* 快刷最多幾輪。★ 不是「直到全對」的字面實作：同一個字連錯五輪的人
+           再刷下去只是挫折，而那個字明天本來就會被排出來（答錯＝掉回第一階）。 */
+        const SRS_DRILL_MAX = 5;
 
         const timeSlots = [
             { id: 1, label:'1', timeStr:'08:10-<br>09:00', start: 8 * 60 + 10, end: 9 * 60 },
@@ -4424,6 +4446,21 @@
            累積的錯題清空，而畫面上完全看不出來。 */
         let clozeWrong = { words: [], seen: [] };
         let clozeWrongLoaded = false;
+
+        /* 每日測驗（艾賓浩斯排程）的狀態。★ 宣告在狀態區的理由跟克漏字一樣：
+           `renderSrsCard()` 被 `switchStudySub()`、`loadBuiltinVocabIndex()`
+           與登入流程碰到，寫在函式旁邊就是暫時性死區，症狀是一載入整頁全白。
+           ★ 存在 `settings/vocabSrs`：`settings` 早就在私人白名單裡，
+           所以這一項**不必再去主控台推規則**（那份規則現在正好欠推）。
+           ★ 跟錯題本同一條：**讀不到就不要存**（`srsLoaded` 維持 false），
+           否則一次讀取失敗就把整份複習排程清空，而畫面上只會是
+           「今天沒有到期的字」——看起來完全正常。 */
+        let srsSched = { words: [], last:'' };
+        let srsLoaded = false;
+        let srsBusy = false;               // 正在抓單字檔（擋重複按）
+        let srsProgress ='';
+        /* 快刷：第一輪的成績與作答收在這裡，後面幾輪只是練（見 maybeDrillAgain）。 */
+        let srsDrill = null;
 
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
         /* Google 憑證暫存：信箱已經有密碼帳號時，先把 Google 那份收著，
@@ -5274,6 +5311,22 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-20',
+                title: '今日測驗：照遺忘曲線排複習，答錯的字當場再刷一輪',
+                items: [
+                    ['做了什麼', '克漏字那一頁最上面多一張「今日測驗」。它照間隔重複排今天該複習哪些字：到期的優先，不夠一場（20 題）就用還沒考過的新字補滿。答錯的字在**同一場裡**重洗選項再考一次，全對才看得到成績。'],
+                    ['★★ 為什麼是 1／3／7／14／30 的五階，不是 SM-2 或 FSRS', '查過才決定的。SM-2 與 FSRS 吃的是使用者自評的四級評分（Again／Hard／Good／Easy），而這裡只有「選對／選錯」，餵進去等於把它們最主要的輸入抽掉；FSRS 另外還要**針對每個人跑一次最佳化**才會贏（它自己的 benchmark 裡，未最佳化的預設參數明顯較差），那需要上千筆複習紀錄與一支 optimizer，純前端、一天 20 題拿不到那個資料量。而「間隔要愈拉愈長」這件事本身是有實驗撐的：同樣的複習次數，擴張間隔組在八週後的遺忘顯著少於等距組。所以用二元對錯 ＋ 擴張階梯，也就是 Leitner 盒子：**答對升一階、答錯掉回第一階**。'],
+                    ['★★ 快刷的成績不算數', '這是這一項最容易做錯的地方：快刷保證最後全對，如果拿它算升階，每個字都會一路升到第五階，然後排程從此每天都說「今天沒有到期的字」——完全不會報錯，只是功能靜靜地死掉。所以第一輪結束就把成績與作答收起來，後面幾輪只是練，結果畫面、錯題清單、排程吃的都是第一輪。'],
+                    ['★ 快刷有上限（5 輪）', '「直到全對」的字面實作會把連錯五輪的人關在裡面。而那個字明天本來就會被排出來（答錯＝掉回第一階），所以刷到上限就放它走。'],
+                    ['★ 排程記得每個字住在哪個資料夾', '只記字串的話，到期那天抓不到例句，那個字就從此不再出現——而畫面上只是「今天沒有到期的字」，看起來完全正常。所以每一筆排程都存 `f`（資料夾 id），到期時只抓真正需要的那幾份單字檔，不是全部 25 份。'],
+                    ['★ 到期的字就算不在目前範圍裡也考得到', '換過範圍之後，之前錯的字還是要還。所以出題的池子是「今天要考的字 ＋ 目前範圍」——前者決定考什麼，後者是給干擾選項用的。只餵前者的話，四個選項會湊不齊或變成四個不相干的字（用刪去法就能猜對，題目還在但難度沒了）。'],
+                    ['★★ 「今天往後推 7 天」要用日曆算，不能加毫秒', '`dayKeyOf(now + 7*86400000)` 在台灣永遠是對的，所以在這裡怎麼寫都測不出差別。但那是加**毫秒**不是加**天**：有日光節約時間的時區會在換日邊界上差一天。改成 `dayBaseOf` 再 `setDate`，測試也真的切到那種時區跑一次。'],
+                    ['★ 沒登入直接擋下來', '跟克漏字不一樣（那個沒登入照樣能玩）。排程沒地方存的話，做完一場等於什麼都沒發生，而「每日」這件事本身就靠存得起來。⚠️ 但卡片不藏起來，改成畫一顆登入鈕——整張收掉的話，沒登入的人根本不知道有這個功能。'],
+                    ['★ 取消勾「不會」會連排程一起清', '上一輪就寫在註解裡的那條，這輪兌現。只清錯題本的話，那個字還留在排程裡，明天照樣被排出來——而使用者剛剛才說過「我會了」。'],
+                    ['資料放哪', '`settings/vocabSrs`（私人）。`settings` 這個集合早就在規則白名單裡，所以這一項**不必再去主控台推規則**——那份規則現在正好欠推，能不動就不動。跟錯題本、計劃、讀書紀錄同一條規矩：**讀不到就不要存**，否則一次讀取失敗就把整份複習進度清空，而畫面上只會是「今天沒有到期的字」。']
+                ]
+            },
             {
                 date: '2026-08-20',
                 title: '克漏字的字數不再說謊；錯題檢討四個選項都給中文，還可以自己勾「不會」',
@@ -9765,6 +9818,7 @@
                    ⚠️ 抓過就不會重抓，所以這行不是每次切分頁都發一次請求。 */
                 loadBuiltinVocabIndex();
                 renderClozeCard();
+                renderSrsCard();
             } else if (studySub ==='vocab') {
                 closeModalView('page-vocabulary-details','page-vocabulary-main');
                 currentViewVocabBookId = null;
@@ -10352,6 +10406,8 @@
                全部從它算）。漏掉這一行的症狀是那一頁永遠停在「載入單字庫索引…」，
                而且不會報錯——索引其實已經好了，只是沒有人叫它重畫。 */
             renderClozeCard();
+            /* 今日測驗那張卡也吃這份索引（沒有索引就出不了題，按鈕要停用）。 */
+            renderSrsCard();
         }
 
         /* ---- 內建單字庫：抓某個資料夾的單字 ---- */
@@ -10893,12 +10949,18 @@
 
         /* 出一整場。`opts.skip` 是最近出過的字（避開剛考完又考），
            ★ 但只是「優先避開」：整個範圍都考過的時候不能因此出不了題，
-             所以避開之後不夠 20 題就把避開的再放回去。 */
+             所以避開之後不夠 20 題就把避開的再放回去。
+
+           `opts.ask` 是「只出這幾個字的題」（每日測驗排程挑好的那一批）。
+           ★★ 干擾選項仍然從**整池**挑，這是重點：只把那 20 個字餵進來的話，
+             同字根的干擾選項幾乎一定湊不到，四個選項會變成四個不相干的字，
+             而那種題目用刪去法就能猜對——**題目還在，難度沒了，不會報錯**。 */
         function buildClozeQuiz(words, opts) {
             const o = opts ||{};
             const count = o.count || CLOZE_COUNT;
             const rand = o.rand || Math.random;
             const skip = new Set((o.skip ||[]).map(s => String(s).toLowerCase()));
+            const ask = o.ask ? new Set([...o.ask].map(s => String(s ||'').trim().toLowerCase())) : null;
             const items = [];
             const seen = new Set();
             for (const w of words ||[]) {
@@ -10914,9 +10976,14 @@
                 fam.get(k).push(it);
             }
             const shuffled = clozeShuffle(items, rand);
-            const fresh = shuffled.filter(it => !skip.has(it.answer));
+            /* ★ 過濾的是「要出哪幾題」，不是 `items`——`items` 要留著整池，
+               上面那個 `fam` 與下面的干擾選項都吃它。 */
+            const wanted = ask
+                ? shuffled.filter(it => ask.has(String(it.w.english ||'').trim().toLowerCase()))
+                : shuffled;
+            const fresh = wanted.filter(it => !skip.has(it.answer));
             const order = fresh.length >= count
-                ? fresh : fresh.concat(shuffled.filter(it => skip.has(it.answer)));
+                ? fresh : fresh.concat(wanted.filter(it => skip.has(it.answer)));
             const qs = [];
             for (const it of order) {
                 if (qs.length >= count) break;
@@ -11189,10 +11256,409 @@
             if (on) words.push({ w, n: 1, at: Date.now() });
             clozeWrong = { ...clozeWrong, words: words.slice(-CLOZE_WRONG_KEEP) };
             renderKahootWrongList();
+            /* ★★ 取消勾選要**連複習排程一起清掉**。只清錯題本的話，
+               那個字還留在 `settings/vocabSrs` 裡，明天照樣被排出來——
+               而使用者剛剛才說過「我會了」，畫面上完全看不出原因。
+               （這條在做克漏字那一輪就先寫進註解了，這裡是把它兌現。） */
+            if (!on) srsForgetWord(w);
             if (!clozeWrongLoaded) return;      // 沒登入或沒讀到就只留在這一輪
             saveClozeWrong().catch(() => showToast("錯題沒存起來，下次登入再試"));
         }
         /* ---- 克漏字：結束 ---- */
+
+        /* ==========================================================
+         * 14.7 每日測驗：艾賓浩斯排程 ＋ 同一場的快刷（2026-08-20）
+         *
+         * 排程是**五階擴張間隔**（1／3／7／14／30 天），答對升一階、
+         * 答錯掉回第一階——也就是 Leitner 盒子。
+         *
+         * ★ 為什麼不是 SM-2／FSRS（查過資料才決定的）：
+         *   那兩套吃的是使用者自評的四級評分（Again／Hard／Good／Easy），
+         *   這裡只有「選對／選錯」，餵進去等於把它們最主要的輸入抽掉。
+         *   FSRS 還要針對每個人跑一次最佳化才會贏（官方 benchmark 裡
+         *   未最佳化的預設參數明顯較差），那需要上千筆複習紀錄與一支
+         *   optimizer——純前端、一天 20 題拿不到那個資料量。
+         *   擴張間隔本身則是有實驗撐的：同樣的複習次數，八週後的遺忘較少。
+         *
+         * ★ 三件安靜會壞的事，下面各自有註記：
+         *   1. 拿快刷的結果算升階 → 每個字都會一路升到第五階，
+         *      排程從此排不出任何東西（`maybeDrillAgain` 的 `graded`）
+         *   2. 排程只記字串、記不得它住在哪個資料夾 → 到期那天抓不到例句，
+         *      那個字從此不再出現，而畫面上只是「今天沒有到期的字」（`f` 欄位）
+         *   3. 加毫秒當成加天 → 換日邊界上複習日差一天（`srsDayKeyAfter`）
+         * ========================================================== */
+        /* ---- 每日測驗：排程核心（純函式，tests/cloze.mjs 直接抽這一段跑）---- */
+        const srsKey = (w) => String(w ||'').trim().toLowerCase();
+
+        /* 從「現在」往後推幾天的日鍵（日界跟全站一樣是凌晨四點）。 */
+        function srsDayKeyAfter(days, now) {
+            const d = dayBaseOf(now);
+            d.setDate(d.getDate() + (Number(days) || 0));
+            return dayKeyOfDate(d);
+        }
+
+        /* 一筆排程：{ w 單字, f 它住在哪個資料夾, box 第幾階, due 下次到期日, at 上次複習 }
+           ⚠️ `due` 空字串代表「立刻到期」，不是「沒有到期日」：舊資料或壞掉的
+             日期留在那裡不動的話，那個字會變成永遠排不出來的孤兒，
+             而畫面上完全看不出來。寧可讓它今天就冒出來。 */
+        function normalizeSrs(d) {
+            const words = Array.isArray(d && d.words) ? d.words : [];
+            const out = [], seen = new Set();
+            for (const x of words) {
+                if (!x || typeof x.w !=='string') continue;
+                const k = srsKey(x.w);
+                if (!k || seen.has(k)) continue;          // 同一個字只留一筆
+                seen.add(k);
+                out.push({
+                    w: x.w,
+                    f: typeof x.f ==='string' ? x.f :'',
+                    box: Math.min(SRS_STEPS.length, Math.max(1, Math.floor(Number(x.box)) || 1)),
+                    due: /^\d{4}-\d{2}-\d{2}$/.test(x.due) ? x.due :'',
+                    at: Number(x.at) > 0 ? Number(x.at) : 0
+                });
+            }
+            return { words: out.slice(-SRS_KEEP),
+                     last: /^\d{4}-\d{2}-\d{2}$/.test(d && d.last) ? d.last :'' };
+        }
+
+        /* 答對升一階、答錯掉回第一階。 */
+        function srsNext(entry, correct, now) {
+            const box = correct
+                ? Math.min(SRS_STEPS.length, (Number(entry.box) || 1) + 1) : 1;
+            return { ...entry, box, due: srsDayKeyAfter(SRS_STEPS[box - 1], now), at: now };
+        }
+
+        /* 今天要複習哪些：到期的排前面，欠最久的先，同一天到期的低階先。 */
+        function srsDueList(sched, todayKey) {
+            return ((sched && sched.words) ||[])
+                .filter(x => !x.due || x.due <= todayKey)
+                .sort((a, b) => String(a.due ||'').localeCompare(String(b.due ||''))
+                             || a.box - b.box || (a.at || 0) - (b.at || 0));
+        }
+
+        /* 排程裡最近的下一個到期日（今天沒有到期的字時，卡片要說得出
+           「下一批在哪天」——只寫「今天沒有」的話，看不出排程有沒有在跑）。 */
+        function srsNextDue(sched, todayKey) {
+            return ((sched && sched.words) ||[])
+                .map(x => x.due).filter(d => d && d > todayKey).sort()[0] ||'';
+        }
+
+        /* 錯題本 → 排程。★ 兩份分開存，所以要有人把新的錯字搬過來。
+           ★ 搬進來的到期日是**明天**（第一階），不是今天：剛考完的字
+             今天再考一次量到的是短期記憶，那正是間隔重複要避開的東西。
+           ★ 順便補上已經在排程裡、但當初不知道住哪的字的 `f`——
+             那時候單字檔還沒載入，查不到。 */
+        function srsSeed(sched, wrong, folderOf, now) {
+            const words = ((sched && sched.words) ||[]).map(x => ({ ...x }));
+            const at = new Map(words.map(x => [srsKey(x.w), x]));
+            let changed = false;
+            for (const x of words) if (!x.f) {
+                const f = folderOf(x.w);
+                if (f) { x.f = f; changed = true; }
+            }
+            for (const x of ((wrong && wrong.words) ||[])) {
+                const k = srsKey(x && x.w);
+                if (!k || at.has(k)) continue;
+                const e = { w: x.w, f: folderOf(x.w) ||'', box: 1,
+                            due: srsDayKeyAfter(SRS_STEPS[0], now), at: 0 };
+                at.set(k, e); words.push(e); changed = true;
+            }
+            return changed ? { ...sched, words: words.slice(-SRS_KEEP) } : sched;
+        }
+
+        /* 今天這一場考哪些字。到期的優先，不夠再用「沒排過的新字」補滿。
+           ★ 到期的字要從**所有已載入的字**裡找，不是只從目前範圍找：
+             它可能是換範圍之前錯的，只照範圍挑的話那個字永遠排不出來。
+           ★ 回傳的是單字物件（要例句才出得了題），不是字串。 */
+        function srsPickWords(sched, allWords, scopeWords, todayKey, opts) {
+            const o = opts ||{};
+            const count = o.count || SRS_DAILY_COUNT;
+            const rand = o.rand || Math.random;
+            const byKey = new Map();
+            for (const w of allWords ||[]) {
+                const k = srsKey(w && w.english);
+                if (k && !byKey.has(k)) byKey.set(k, w);
+            }
+            const used = new Set(), due = [];
+            for (const e of srsDueList(sched, todayKey)) {
+                if (due.length >= count) break;
+                const k = srsKey(e.w);
+                const w = byKey.get(k);
+                /* ⚠️ 抓不到單字本體就跳過（那個資料夾這次沒載到）。
+                   跳過是對的，但**不要順手把它從排程刪掉**——
+                   刪了的話換一次範圍就會把舊的複習進度整批清空。 */
+                if (!w || used.has(k)) continue;
+                used.add(k); due.push(w);
+            }
+            const picked = [...due];
+            if (picked.length < count) {
+                const known = new Set(((sched && sched.words) ||[]).map(x => srsKey(x.w)));
+                const fresh = (scopeWords ||[]).filter(w => {
+                    const k = srsKey(w && w.english);
+                    return k && !known.has(k) && !used.has(k);
+                });
+                for (const w of clozeShuffle(fresh, rand)) {
+                    if (picked.length >= count) break;
+                    const k = srsKey(w.english);
+                    if (used.has(k)) continue;
+                    used.add(k); picked.push(w);
+                }
+            }
+            return { words: picked, due: due.length, fresh: picked.length - due.length };
+        }
+
+        /* 一場結束後把排程往前推。
+           ⚠️⚠️ 餵進來的只能是**第一輪**的作答。快刷輪保證最後全對，
+             拿它算升階的話每個字都會一路升到第五階，而症狀是
+             「排程從此每天都說沒有到期的字」——完全不會報錯。 */
+        function srsApplyResult(sched, answers, folderOf, now) {
+            const at = new Map(((sched && sched.words) ||[]).map(x => [srsKey(x.w), { ...x }]));
+            for (const a of answers ||[]) {
+                const k = srsKey(a && a.word);
+                if (!k) continue;
+                const cur = at.get(k) ||{ w: a.word, f:'', box: 1, due:'', at: 0 };
+                at.set(k, srsNext({ ...cur, f: cur.f || folderOf(a.word) ||'' }, !!a.correct, now));
+            }
+            return { ...sched, words: [...at.values()].slice(-SRS_KEEP) };
+        }
+
+        /* 使用者說「我會了」的時候把那個字整筆拿掉（連累積的階數一起）。 */
+        function srsForget(sched, word) {
+            const k = srsKey(word);
+            const words = ((sched && sched.words) ||[]).filter(x => srsKey(x.w) !== k);
+            return words.length === (((sched && sched.words) ||[]).length)
+                ? sched : { ...sched, words };
+        }
+
+        /* 快刷：這一輪答錯的題目（同一個字只留一次，去掉作答結果只留題目）。 */
+        function srsDrillWrong(answers) {
+            const out = [], seen = new Set();
+            for (const a of answers ||[]) {
+                if (!a || a.correct) continue;
+                const k = srsKey(a.word) || String(a.q ||'');
+                if (!k || seen.has(k)) continue;
+                seen.add(k);
+                const { selectedIdx, correct, ...q } = a;   // 只留題目本身
+                out.push(q);
+            }
+            return out;
+        }
+
+        /* 同一題再考一次要把選項重洗，不然第二輪記住的是「按第三顆」。
+           ⚠️ `options`／`optionWords`／`optionChinese` 與 `correctIdx` 是同一個
+             順序的四份資料，**四份要一起洗**：只洗 options 的話正解會指到別的字，
+             而畫面上看起來只是「答對的算我錯」。 */
+        function srsReshuffle(q, rand) {
+            const idx = clozeShuffle((q.options ||[]).map((_, i) => i), rand || Math.random);
+            const pick = (arr) => Array.isArray(arr) ? idx.map(i => arr[i]) : arr;
+            return { ...q, options: pick(q.options),
+                     optionWords: pick(q.optionWords), optionChinese: pick(q.optionChinese),
+                     correctIdx: idx.indexOf(q.correctIdx) };
+        }
+        /* ---- 每日測驗：排程核心結束 ---- */
+
+        /* ---- 每日測驗：資料、畫面與流程 ---- */
+        const srsPath = () => PU('settings');
+        async function loadSrs() {
+            const p = srsPath();
+            if (!p) return null;
+            const snap = await getDoc(doc(db, p,'vocabSrs'));
+            return normalizeSrs(snap.exists() ? (snap.data() ||{}) : {});
+        }
+        async function saveSrs() {
+            const p = srsPath();
+            if (!p || !srsLoaded) return;             // 沒登入或沒讀到就不存
+            await setDoc(doc(db, p,'vocabSrs'), { ...srsSched, updatedAt: Date.now() });
+        }
+
+        /* 單字 → 它住在哪個資料夾。查得到才存得進排程的 `f`，
+           而 `f` 決定到期那天要抓哪一份單字檔。 */
+        function builtinFolderIndex() {
+            const folderOfBook = new Map();
+            for (const b of state.builtinVocabBooks ||[]) folderOfBook.set(b.id, b.folderId);
+            const m = new Map();
+            for (const w of state.builtinVocabWords ||[]) {
+                const k = srsKey(w && w.english);
+                if (k && !m.has(k)) m.set(k, folderOfBook.get(w.bookId) ||'');
+            }
+            return (word) => m.get(srsKey(word)) ||'';
+        }
+
+        /* 錯題本裡有、排程裡沒有的字搬過來。兩邊都讀到了才做。 */
+        function srsSyncFromWrong() {
+            if (!srsLoaded || !clozeWrongLoaded) return Promise.resolve();
+            const next = srsSeed(srsSched, clozeWrong, builtinFolderIndex(), Date.now());
+            if (next === srsSched) return Promise.resolve();
+            srsSched = next;
+            renderSrsCard();
+            return saveSrs();
+        }
+
+        /* 使用者在錯題檢討裡取消勾「不會」時叫的（見 toggleClozeUnknown）。 */
+        function srsForgetWord(word) {
+            const next = srsForget(srsSched, word);
+            if (next === srsSched) return;
+            srsSched = next;
+            renderSrsCard();
+            if (srsLoaded) saveSrs().catch(() => {});
+        }
+
+        /* 今日測驗那張卡。
+           ★ 沒登入直接擋下來（跟克漏字不一樣）：排程沒地方存，
+             做完一場等於什麼都沒發生，而「每日」這件事本身就靠存得起來。
+             ⚠️ 但不要整張藏起來——藏起來的話沒登入的人不知道有這個功能。 */
+        function renderSrsCard() {
+            const box = $('srsCard');
+            if (!box) return;
+            const signedIn = isSignedInMember();
+            const today = dayKeyOf(Date.now());
+            const due = signedIn && srsLoaded ? srsDueList(srsSched, today).length : 0;
+            const total = signedIn && srsLoaded ? (srsSched.words ||[]).length : 0;
+            const doneToday = signedIn && srsLoaded && srsSched.last === today;
+            const next = signedIn && srsLoaded ? srsNextDue(srsSched, today) :'';
+            const nextTxt = next ? `${Number(next.slice(5, 7))}/${Number(next.slice(8, 10))}` :'';
+
+            const note = !signedIn ?'排程存在你自己的帳號底下，登入才排得起來'
+                : !srsLoaded ?'讀取排程…'
+                : srsBusy ? srsProgress
+                : builtinVocabState !=='ready' ?'載入單字庫索引…'
+                : doneToday && !due ? `今天的排程做完了${nextTxt ? ` · 下一批在 ${nextTxt}` :''}`
+                : due ? `今天有 ${due} 個字到期${due < SRS_DAILY_COUNT ?'，不夠的用沒考過的新字補滿' :''}`
+                : nextTxt ? `今天沒有到期的字 · 下一批在 ${nextTxt}（也可以直接練新字）`
+                          : `排程還是空的 · 先練一場，錯的字就會排進來`;
+            const canStart = signedIn && srsLoaded && !srsBusy && builtinVocabState ==='ready';
+            box.innerHTML = `
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-11 h-11 bg-amber-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                            <i data-lucide="calendar-check" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-xl font-black">今日測驗</h3>
+                            <p class="text-white/50 text-xs font-bold">照遺忘曲線排的複習 · 答錯的當場再刷一輪${
+                                total ? ` · 排程裡有 ${total} 個字` :''}</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-3">${signedIn ? `
+                        <button data-action="start-srs" ${canStart ?'' :'disabled'}
+                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${canStart
+                                ?'bg-amber-500 text-white hover:bg-amber-400'
+                                :'bg-slate-700 text-slate-400 cursor-not-allowed'}">
+                            <i data-lucide="${srsBusy ?'loader' :'play'}" class="w-4 h-4 pointer-events-none"></i> ${
+                                srsBusy ?'載入中…' : doneToday && !due ?'再來一場' :'開始今日測驗'}
+                        </button>` : `
+                        <button data-action="settings-login"
+                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 bg-amber-500 text-white hover:bg-amber-400 transition-colors">
+                            <i data-lucide="log-in" class="w-4 h-4 pointer-events-none"></i> 登入 / 註冊
+                        </button>`}
+                        <span class="text-xs font-bold text-white/50">${escapeHTML(note)}</span>
+                    </div>
+                </div>`;
+            icons();
+        }
+
+        /* 按下開始：先把要用到的單字檔抓齊，再照排程出題。
+           ★ 抓哪幾份是算出來的，不是「全抓」：到期的字自己記得住在哪個資料夾
+             （`f`），只有在到期不滿一場、要補新字的時候才需要範圍那幾份。 */
+        async function startSrsQuiz() {
+            if (srsBusy || clozeBusy) return;
+            if (!isSignedInMember()) return showToast("每日測驗要先登入");
+            if (!srsLoaded) return showToast("排程還沒讀到，等一下再試");
+            if (builtinVocabState !=='ready') return showToast("單字庫索引還沒好，等一下再試");
+            const today = dayKeyOf(Date.now());
+            const dueList = srsDueList(srsSched, today);
+            const need = new Set();
+            for (const e of dueList.slice(0, SRS_DAILY_COUNT)) if (e.f) need.add(e.f);
+            if (dueList.length < SRS_DAILY_COUNT || !need.size)
+                for (const f of clozeFoldersFor(clozeScopes)) need.add(f.id);
+            const todo = [...need].filter(id => !builtinVocabLoaded.has(id));
+
+            srsBusy = true;
+            let failed = 0;
+            for (let i = 0; i < todo.length; i++) {
+                srsProgress = `載入單字 ${i + 1} / ${todo.length}`;
+                renderSrsCard();
+                if (!(await loadBuiltinVocabFolder(todo[i]))) failed++;
+            }
+            srsBusy = false; srsProgress ='';
+            renderSrsCard();
+            if (failed && failed === todo.length) return showToast("單字載入失敗，請檢查連線");
+
+            const scopeWords = clozeWordsInScope(clozeScopes);
+            const pick = srsPickWords(srsSched, state.builtinVocabWords ||[], scopeWords, today);
+            if (!pick.words.length) return showToast("目前的範圍出不了題，換一個範圍再試");
+            /* ★ 出題的池子是「今天要考的字 ＋ 整個範圍」：前面那批決定考什麼
+               （`ask`），整個範圍是給干擾選項用的。只餵前面那批的話，
+               四個選項會變成四個不相干的字（見 buildClozeQuiz 的註記）。 */
+            const questions = buildClozeQuiz([...pick.words, ...scopeWords], {
+                count: SRS_DAILY_COUNT, ask: pick.words.map(w => w.english) });
+            if (questions.length < 4) return showToast("今天排出來的字出不了題，換個範圍再試");
+
+            /* ★ 跟克漏字同一份清單（只設 activeKahoot 會直接跳結算、0 分）。
+               `cloze` 讓錯題照樣記進錯題本，`srs` 讓結算寫回排程，
+               `drill` 打開同一場的快刷。 */
+            activeKahoot = { title:'今日測驗', questions, cloze: true, srs: true, drill: true };
+            playQuestions = questions;
+            playAnswers = [];
+            currentQIndex = 0;
+            currentScore = 0;
+            isKahootTransitioning = false;
+            srsDrill = null;
+            $('playKahootModal').classList.remove('hidden');
+            $('playKahootModal').classList.add('flex');
+            renderPlayQuestion();
+            if (pick.due) showToast(`今天要複習 ${pick.due} 個字${pick.fresh ? `，另外 ${pick.fresh} 個是新的` :''}`);
+        }
+
+        /* 一場結束後寫回排程。★ 跟錯題本同一條：**呼叫端不 await**。 */
+        function recordSrsResult(answers) {
+            const list = (answers ||[]).filter(a => a && a.word);
+            if (!list.length) return Promise.resolve();
+            const now = Date.now();
+            srsSched = srsApplyResult(srsSched, list, builtinFolderIndex(), now);
+            srsSched.last = dayKeyOf(now);
+            renderSrsCard();
+            if (!srsLoaded) return Promise.resolve();
+            return saveSrs();
+        }
+
+        /* 快刷：這一輪還有錯的就再開一輪，全對（或刷滿上限）才讓結果出來。
+           ★ 第一輪的成績與作答在這裡收起來，後面幾輪只是練——
+             結果畫面、錯題清單、排程看的都是第一輪。 */
+        function maybeDrillAgain() {
+            if (!activeKahoot || !activeKahoot.drill) return false;
+            if (!srsDrill) srsDrill = { round: 1, graded: playAnswers.slice(),
+                                        score: currentScore, questions: playQuestions.slice() };
+            const wrong = srsDrillWrong(playAnswers);
+            if (!wrong.length || srsDrill.round >= SRS_DRILL_MAX) return false;
+            srsDrill.round++;
+            playQuestions = clozeShuffle(wrong.map(q => srsReshuffle(q)), Math.random);
+            playAnswers = [];
+            currentQIndex = 0;
+            currentScore = 0;
+            isKahootTransitioning = false;
+            renderPlayQuestion();
+            showToast(`還有 ${wrong.length} 個字不熟，再刷一輪`);
+            return true;
+        }
+        /* 快刷結束：把第一輪的東西放回去，結果畫面才看得到真正的成績。
+           ★ 順手把 `drill` 關掉，不然 `showKahootResult()` 會再問一次
+             「要不要開下一輪」——而那時候 `playAnswers` 已經是第一輪的了，
+             錯的字會被重刷第二遍。 */
+        function endDrill() {
+            if (activeKahoot) activeKahoot.drill = false;
+            if (!srsDrill) return;
+            playAnswers = srsDrill.graded;
+            playQuestions = srsDrill.questions;
+            currentScore = srsDrill.score;
+            srsDrill = null;
+        }
+        /* 計分欄的字。快刷輪不記分（那一輪保證最後全對），所以改成顯示第幾輪——
+           留著「分數 0」的話，使用者會以為剛才那一場的分數被清掉了。 */
+        function kahootScoreText() {
+            return srsDrill && srsDrill.round > 1 ? `快刷 第 ${srsDrill.round} 輪` : `分數 ${currentScore}`;
+        }
+        /* ---- 每日測驗：結束 ---- */
 
         /* ==========================================================
          * 15. 挑戰擂台 (Kahoot)
@@ -11499,7 +11965,7 @@
             // 進度條量的是「答完幾題」，所以第一題在 0%——填到 1/N 的話
             // 還沒作答就先給了一格，最後一題又會滿格，兩端都在說謊。
             $('kahootProgressBar').style.width = `${total ? currentQIndex / total * 100 : 0}%`;
-            $('kahootScoreDisplay').textContent = `分數 ${currentScore}`;
+            $('kahootScoreDisplay').textContent = kahootScoreText();
             $('kahootQNum').textContent = currentQIndex + 1;
             $('kahootQuestionDisplay').textContent = qData.q;
             renderPlayOptions(qData);
@@ -11524,7 +11990,7 @@
                     i === qData.correctIdx ?'is-correct' :
                     i === selectedIdx      ?'is-wrong' :'is-muted');
             });
-            $('kahootScoreDisplay').textContent = `分數 ${currentScore}`;
+            $('kahootScoreDisplay').textContent = kahootScoreText();
             showToast(correct ?"答對了" : `答錯了，正解是「${qData.options[qData.correctIdx]}」`);
 
             currentQIndex++;
@@ -11601,6 +12067,12 @@
         }
 
         function showKahootResult() {
+            /* ★ 每日測驗的快刷：第一輪答錯的字當場再考一次，全對了才看得到結果。
+               ⚠️ 這一段要在**畫面還沒動之前**——先關掉答題視窗再開下一輪的話，
+                 中間會閃一下白，看起來像測驗結束了又被拉回去。
+               ★ 其他測驗（單字擂台、克漏字）沒有 `drill`，這裡直接回 false。 */
+            if (maybeDrillAgain()) return;
+            endDrill();
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
             /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
@@ -11616,7 +12088,15 @@
                存檔失敗只用一句提示說，不擋畫面。 */
             if (activeKahoot && activeKahoot.cloze)
                 recordClozeResult(playAnswers)
+                    .then(() => activeKahoot && activeKahoot.srs ? null : srsSyncFromWrong())
                     .catch(() => showToast("錯題沒存起來，下次登入再試"));
+            /* 每日測驗：把**第一輪**的結果寫回排程（答對升一階、答錯回第一階）。
+               ★ 同樣不 await：排程是背景的事，結果畫面不必等它。
+               ★ 一般克漏字走上面那條 `srsSyncFromWrong()`——它只是把新的錯字
+                 搬進排程，不動任何人的階數（那一場不是照排程考的，不算複習）。 */
+            if (activeKahoot && activeKahoot.srs)
+                recordSrsResult(playAnswers)
+                    .catch(() => showToast("複習排程沒存起來，下次登入再試"));
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
@@ -11636,6 +12116,10 @@
 
         // 答到一半離開要確認，避免手滑點掉整場成績
         function quitKahoot() {
+            /* ★★ 快刷中途離開：第一輪已經考完了，成績與排程要照樣算。
+               直接關掉的話，剛才那 20 題連同排程一起消失，
+               而使用者只會覺得「我明明做完了，怎麼什麼都沒記到」。 */
+            if (srsDrill) { endDrill(); return showKahootResult(); }
             const answered = playAnswers.length;
             const total = playQuestions.length;
             if (answered > 0 && currentQIndex < total) {
@@ -12924,7 +13408,22 @@
                 loadClozeWrong().then(d => {
                     if (d) clozeWrong = d;
                     clozeWrongLoaded = true;
+                    /* 錯題本讀進來之後，把還沒排程的錯字搬進排程。
+                       ★ 兩份是分開讀的，誰先到不一定——所以**兩邊都要叫一次**，
+                         `srsSyncFromWrong()` 自己會等到兩份都讀到才動手。 */
+                    srsSyncFromWrong().catch(e => console.warn('排程補錯題失敗', e));
                 }).catch(e => console.warn('讀取克漏字錯題失敗', e));
+                /* 複習排程。★ 同一條規矩：讀不到就不要開放存檔
+                   （`srsLoaded` 維持 false），否則做完一場就拿空的排程覆蓋雲端，
+                   而症狀是「複習進度自己歸零」——畫面上看起來只是「今天沒有到期的字」。 */
+                srsLoaded = false;
+                srsSched = normalizeSrs(null);
+                loadSrs().then(d => {
+                    if (d) srsSched = d;
+                    srsLoaded = true;
+                    renderSrsCard();
+                    return srsSyncFromWrong();
+                }).catch(e => console.warn('讀取複習排程失敗', e));
                 countdownsLoaded = false;
                 countdownsReady = loadCountdowns().then(list => {
                     const remote = Array.isArray(list) ? list : [];
@@ -12983,6 +13482,13 @@
                    會看到別人錯過哪些字，而畫面上看不出它屬於誰。 */
                 clozeWrong = normalizeClozeWrong(null);
                 clozeWrongLoaded = false;
+                /* ★ 複習排程也是私人資料（「他哪些字不熟」），登出一起清。
+                   留著的話下一個在同一台裝置登入的人會看到別人的排程，
+                   而畫面上看不出它屬於誰。 */
+                srsSched = normalizeSrs(null);
+                srsLoaded = false;
+                srsDrill = null;
+                renderSrsCard();
                 renderMissions();
                 renderPlans();
                 renderCountdowns();
@@ -13034,6 +13540,7 @@
 'toggle-cloze-scope': (t) => toggleClozeScope(t.dataset.scope),
 'toggle-cloze-unknown': (t) => toggleClozeUnknown(t.dataset.word),
 'start-cloze':     () => startClozeQuiz(),
+'start-srs':       () => startSrsQuiz(),
 'toggle-shuffle':  () => toggleShuffle(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
