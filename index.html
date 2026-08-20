@@ -2576,14 +2576,23 @@
                 </div>
             </div>
 
+            <!-- 主頁的子分頁列（課表／任務／倒數），由 renderStudySubNav() 產生。
+                 兩個 Hero 刻意留在外面：那是問候語，不屬於任何一個子分頁。 -->
+            <div class="study-sub-row flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1"></div>
+
             <!-- ======== 任務 ========
-                 ★ 跟兩個 Hero 一樣留在子分頁列**外面**：任務不屬於課表也不屬於倒數，
-                 而且「每天打開站要做什麼」本來就該是第一眼看到的東西。
-                 放進某一個子分頁的話，切到另一個子分頁它就消失了——不會報錯，
-                 只會讓人以為任務被做完了。
-                 ★ 整區沒有任務時自己收起來（renderMissions 會加回 hidden）：
-                 一個空的「任務」標題比沒有這一區更難解釋。 -->
-            <section id="home-missions" class="hidden bg-white rounded-[2rem] p-4 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
+                 ★ 2026-08-20 搬進子分頁列**裡面**（原本壓在整個 #page-home 的最上面）。
+                 原本的理由是「任務該是第一眼看到的東西」，實際的後果是：
+                 `#page-home` 同時也是「計劃」那個大分頁的容器（見 TAB_PAGE），
+                 所以那一區**壓在計劃的上面**——去看計劃的人不是來領任務的，
+                 而它每次都佔掉第一屏。
+                 ★ 搬進來之後，原本的擔憂（切到別的子分頁就消失、看起來像做完了）
+                 由子分頁列本身回答：那一列上永遠有一顆「任務」。
+                 ★ 而且**沒有任務時不再自己收起來**：空的分頁至少說得出「還沒有任務」，
+                 收起來的分頁跟「壞掉了」長得一模一樣。
+                 ★ 外層是子分頁容器、內層才是那張白卡，理由同 #home-sub-schedule。 -->
+            <div id="home-sub-missions" class="hidden">
+            <section id="home-missions" class="bg-white rounded-[2rem] p-4 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
                 <div class="flex items-center gap-3 flex-wrap mb-4">
                     <h3 class="text-lg font-black text-slate-900 flex items-center gap-2"><i data-lucide="target" class="w-5 h-5 text-emerald-500"></i> 任務</h3>
                     <span id="missionPoints" class="px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100">任務點 0</span>
@@ -2592,10 +2601,7 @@
                 <p id="missionNeedLogin" class="hidden text-xs font-bold text-amber-600 mb-3">登入之後才能領任務點——沒有帳號的話，進度沒有地方可以記。</p>
                 <div id="missionList" class="space-y-5"></div>
             </section>
-
-            <!-- 主頁的子分頁列（課表／倒數），由 renderStudySubNav() 產生。
-                 兩個 Hero 刻意留在外面：那是問候語，不屬於任何一個子分頁。 -->
-            <div class="study-sub-row flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1"></div>
+            </div><!-- /#home-sub-missions -->
 
             <!-- ★ 外層是子分頁的容器，內層才是「登入才顯示」的那一塊。
                  兩件事分開的原因：登入狀態與子分頁都要控制顯示，
@@ -2673,51 +2679,61 @@
                  （計劃表那邊也列著番茄鐘，做成兩個是這裡最容易犯的錯）。
                  ★ 畫面上的秒數是算出來的不是累加的，所以關掉分頁、鎖屏都不影響。 -->
             <div id="home-sub-timer" class="hidden">
-            <div id="home-user-study" class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8 hidden">
-                <div class="flex flex-wrap justify-between items-center gap-3 mb-5">
-                    <h3 class="text-xl font-black text-slate-800 flex items-center gap-2">
-                        <i data-lucide="timer" class="w-5 h-5 text-amber-500"></i> 讀書計時
-                    </h3>
-                </div>
-                <div class="rounded-2xl bg-slate-50 px-4 py-5 mb-5 text-center">
-                    <!-- ★ tabular-nums：不等寬的話秒數每跳一次整串數字都在左右晃 -->
-                    <div id="studyClock" class="text-4xl md:text-5xl font-black text-slate-800 tabular-nums">00:00:00</div>
-                    <p id="studyRunNote" class="text-xs font-bold text-slate-400 mt-2 min-h-[1rem]"></p>
-                </div>
-                <div class="flex flex-col sm:flex-row gap-2 mb-3">
-                    <!-- 科目只是**建議**不是選單：課表上的課名會出現在建議裡，
-                         但使用者要打別的（自習、重補修、考古題）一樣可以。 -->
-                    <input type="text" id="studySubject" list="studySubjectList" maxlength="40"
-                           placeholder="讀什麼？（例：電路學）"
-                           class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold"
-                           aria-label="讀書科目">
-                    <datalist id="studySubjectList"></datalist>
-                    <div class="flex gap-2">
-                        <button id="studyStartBtn" data-action="study-start"
-                                class="flex-1 sm:flex-none px-5 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow hover:bg-amber-600 transition text-sm flex items-center justify-center gap-2">
-                            <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> 開始
-                        </button>
-                        <button id="studyPauseBtn" data-action="study-pause"
-                                class="hidden flex-1 sm:flex-none px-5 py-3 bg-slate-200 text-slate-700 rounded-2xl font-bold hover:bg-slate-300 transition text-sm flex items-center justify-center gap-2">
-                            <i data-lucide="pause" class="w-4 h-4 pointer-events-none"></i> 暫停
-                        </button>
-                        <button id="studyResumeBtn" data-action="study-resume"
-                                class="hidden flex-1 sm:flex-none px-5 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow hover:bg-amber-600 transition text-sm flex items-center justify-center gap-2">
-                            <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> 繼續
-                        </button>
-                        <button id="studyStopBtn" data-action="study-stop"
-                                class="hidden flex-1 sm:flex-none px-5 py-3 bg-slate-800 text-white rounded-2xl font-bold hover:bg-slate-900 transition text-sm flex items-center justify-center gap-2">
-                            <i data-lucide="square" class="w-4 h-4 pointer-events-none"></i> 停止
-                        </button>
+            <div id="home-user-study" class="hidden">
+                <!-- ==== 看板（2026-08-20 改版，照 `計時器.jpg` 那一種排法）====
+                     ★ 最上面那串大數字是「**今天**總共讀了多久」，不是「這一段」。
+                     每天想知道的本來就是今天的總量；這一段的秒數退到底下那行小字
+                     與正在跑的那一列科目上，兩個數字同時看得到，不必猜大的是哪一種。
+                     ★ 這一塊一定要同時有 `relative overflow-hidden`：墨塊上的字色
+                     由 `.bg-slate-900.relative.overflow-hidden:not(#mainHeader)` 那幾條
+                     接管（見檔案上方「墨塊上的字要走亮的那一組」）。少了它，
+                     text-slate-400 會拿到給白紙算的深色，對比 1.07——
+                     那不是「有點難讀」，是整行看不見，而且畫面上不會有任何異狀。 -->
+                <div class="bg-slate-900 relative overflow-hidden rounded-[2rem] p-5 md:p-8 mb-6 text-white shadow-2xl border-4 border-slate-800">
+                    <div class="relative z-10">
+                        <div class="flex items-center justify-between gap-3">
+                            <span id="studyTodayLabel" class="text-xs font-black text-slate-400">今天</span>
+                            <span id="studyWeekSum" class="text-xs font-black text-slate-400"></span>
+                        </div>
+                        <div class="text-center pt-4 pb-1">
+                            <!-- ★ tabular-nums：不等寬的話秒數每跳一次整串數字都在左右晃 -->
+                            <div id="studyClock" class="text-5xl md:text-6xl font-black tabular-nums leading-none">00:00:00</div>
+                            <p class="text-xs font-bold text-slate-400 mt-3 min-h-[1rem] flex items-center justify-center gap-1.5 flex-wrap">
+                                <span id="studyRunNote"></span>
+                                <span id="studySegClock" class="tabular-nums font-black text-emerald-400"></span>
+                            </p>
+                        </div>
+                        <!-- 控制項只有「跑起來之後」才有意義，所以**開始**不在這裡：
+                             開始計時整站只有一個入口，就是底下科目清單那一排
+                             （見 renderSubjectBank 的說明）。 -->
+                        <div class="flex gap-2 justify-center mt-4">
+                            <button id="studyPauseBtn" data-action="study-pause"
+                                    class="hidden tap-44 px-5 py-3 bg-white/10 text-white rounded-2xl font-bold hover:bg-white/20 transition text-sm flex items-center justify-center gap-2">
+                                <i data-lucide="pause" class="w-4 h-4 pointer-events-none"></i> 暫停
+                            </button>
+                            <button id="studyResumeBtn" data-action="study-resume"
+                                    class="hidden tap-44 px-5 py-3 bg-amber-500 text-white rounded-2xl font-bold shadow hover:bg-amber-600 transition text-sm flex items-center justify-center gap-2">
+                                <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> 繼續
+                            </button>
+                            <button id="studyStopBtn" data-action="study-stop"
+                                    class="hidden tap-44 px-5 py-3 bg-white/10 text-white rounded-2xl font-bold hover:bg-white/20 transition text-sm flex items-center justify-center gap-2">
+                                <i data-lucide="square" class="w-4 h-4 pointer-events-none"></i> 停止
+                            </button>
+                        </div>
                     </div>
                 </div>
 
-                <p class="text-xs font-bold text-slate-400 mb-5">關掉分頁或鎖屏都不會停——秒數是用開始時間算的，不是一秒一秒加上去的。</p>
-                <!-- 科目與掛在底下的計劃。整塊由 renderSubjectBank() 填，
-                     因為它的內容同時受課表、計劃、與使用者自訂的清單影響——
-                     寫死在 HTML 的話三者任何一個變了都不會跟著動。 -->
-                <div id="studySubjectBank" class="mb-6"></div>
-                <div id="studyBody"></div>
+                <div class="bg-white rounded-[2rem] p-4 md:p-8 shadow-xl border-4 border-slate-100 mb-8">
+                    <!-- 科目與掛在底下的計劃。整塊由 renderSubjectBank() 填，
+                         因為它的內容同時受課表、計劃、與使用者自訂的清單影響——
+                         寫死在 HTML 的話三者任何一個變了都不會跟著動。
+                         ★ 那個「打字輸入科目」的欄位收進「編輯科目」裡了：
+                         主畫面上點一下科目就開始，整頁只有那一種開始方式。 -->
+                    <datalist id="studySubjectList"></datalist>
+                    <div id="studySubjectBank" class="mb-6"></div>
+                    <p class="text-xs font-bold text-slate-400 mb-5">關掉分頁或鎖屏都不會停——秒數是用開始時間算的，不是一秒一秒加上去的。</p>
+                    <div id="studyBody"></div>
+                </div>
             </div>
             </div><!-- /#home-sub-timer -->
 
@@ -5311,6 +5327,21 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-20',
+                title: '讀書計時換成看板式版面；任務改成主頁的一個子分頁',
+                items: [
+                    ['做了什麼', '讀書計時那一頁重排：最上面一塊深色看板，中間那串大數字是**今天總共讀了多久**，底下一行小字是「正在讀：電路學」加這一段的秒數。看板底下是科目清單，每一列左邊一顆圓形播放鈕、右邊是那一科今天的時數。任務那一區從「壓在整個主頁最上面」搬進子分頁列，變成主頁的課表／任務／倒數三選一。'],
+                    ['★ 為什麼大數字改成「今天」而不是「這一段」', '參考的那個 App 就是這樣排的，而每天真正想知道的本來就是今天的總量——「這一段跑了幾秒」在按下開始的三分鐘之後就不重要了。兩個數字現在同時看得到（一段的秒數退到底下那行小字與正在跑的那一列科目上），所以不必猜大的那個是哪一種。'],
+                    ['★★ 今天的總計要含還在跑的那一段，但 `studyTotals` 不准跟著改', '看板走新的 `studyLiveTotals`。直接改 `studyTotals` 的話，任務判定（`missionMetricOf`）也會跟著把還沒結束的那一段算進去——那一段隨時可能被截斷、或不到一分鐘就被丟掉，症狀是任務先打了勾、按下停止之後又自己退回去，而畫面上不會有任何說明。反過來說，不含進行中那一段的話，按下開始之後看板整段時間動也不動，看起來像沒有在記。'],
+                    ['★★ 開始計時只剩一個入口：點科目那一列', '主畫面上那個「讀什麼？」的輸入框與「開始」按鈕拿掉了，打字新增科目收進「編輯科目」裡（建議清單跟著搬過去，所以臨時要讀課表上沒有的東西還是打得進去）。兩個入口不會報錯，只會讓「要不要帶科目、要不要帶計劃 id」這種規則在兩邊各寫一次，遲早只有一邊是對的。'],
+                    ['★ 拿掉「今天各科」那一塊，但數字沒有消失', '每一科的今日時數現在長在科目那一排的右邊。⚠️ 少一步的話會出事：今天讀過、然後把那個科目從清單裡刪掉（或是舊紀錄裡的科目）會從畫面上整個消失，而看板的總計裡還算著它。所以 `studyBoard` 多吃一份「今天有讀到的科目名」，補成一列標「不在課表上」。'],
+                    ['★★ 看板一定要帶 `relative overflow-hidden`', '墨塊上的字色是靠 `.bg-slate-900.relative.overflow-hidden` 那組選擇器接管的。少了它不會報錯、版面也不會歪，只有 text-slate-400 那幾行會拿到給白紙算的深色（對比 1.07）——那不是難讀，是整行看不見。測試現在釘住這兩個 class。'],
+                    ['★ 每秒只改三個文字節點，不重畫整塊', '科目那一排裡有計劃、有按鈕，整塊 innerHTML 重畫的話焦點會掉、長按選字會被打斷。所以每秒那一支只改看板的大數字、這一段的秒數、正在跑的那一列——三個都要改，漏掉任何一個的症狀都是「有一個數字卡住不動」。'],
+                    ['★★ 任務搬進子分頁的真正理由', '原本刻意放在子分頁列外面，理由是「任務該是第一眼看到的」。但 `#page-home` 同時也是「計劃」那個大分頁的容器，所以那一區**同時壓在計劃上面**——來看計劃的人不是來領任務的，卻每次都得先捲過它。原本擔心的「切到別的子分頁就消失、看起來像做完了」由分頁列上那顆按鈕回答。'],
+                    ['★ 沒有任務時不再自己把整區收起來', '搬成子分頁之後這條規則要反過來：分頁列上有按鈕、點進去卻一片空白，跟「這個功能壞了」長得一模一樣。現在會顯示「還沒有任何任務」。'],
+                ]
+            },
             {
                 date: '2026-08-20',
                 title: '今日測驗：照遺忘曲線排複習，答錯的字當場再刷一輪',
@@ -8697,6 +8728,28 @@
             return { day, week, ran, bySub: [...bySub.entries()].sort((a,b) => b[1] - a[1]) };
         }
 
+        /* 「即時」的當日／當週統計：把**還在跑的那一段**也算進去。
+           ★ 為什麼不直接改 studyTotals：那一支的意思是「已經收成紀錄的時數」，
+           而任務判定（missionMetricOf）吃的正是那個意思。兩個意思擠進同一支的話，
+           一段還沒結束、隨時可能被截斷或不到一分鐘就丟掉的時間會讓任務先打勾，
+           然後在停止的時候又自己退回去——而畫面上不會有任何說明。
+           ★ 歸屬照 closeStudyRun 的規矩走：看**開始時間**落在哪一天／哪一週，
+           所以 23:50 開始讀到 01:00 整段都算前一天（日界在凌晨四點）。 */
+        function studyLiveTotals(sessions, run, now){
+            const t = studyTotals(sessions, now);
+            const ms = studyElapsed(run, now);
+            if (!(ms > 0) || !run || !run.start) return t;
+            if (studyWeekKey(run.start) === studyWeekKey(now)) t.week += ms;
+            if (dayKeyOf(run.start) === dayKeyOf(now)){
+                t.day += ms;
+                const map = new Map(t.bySub);
+                const n = run.sub || '未分類';
+                map.set(n, (map.get(n) || 0) + ms);
+                t.bySub = [...map.entries()].sort((a,b) => b[1] - a[1]);
+            }
+            return t;
+        }
+
 
 
         /* 課表裡出現過的課名，去重、照課表的順序。
@@ -8717,25 +8770,31 @@
            ★ 填了科目、但那個科目不在清單裡的，會自己長出一列並標成 `extra`。
            不這樣做的話，使用者把某個科目從清單裡刪掉之後，掛在它底下的計劃
            就一起從這一頁消失了——而計劃表那邊還好好地列著，兩頁對不起來。
+           ★ 第三個參數 `timed` 是「今天有讀到、但不在清單裡」的科目名
+           （2026-08-20 加）。改版之後每一科的今日時數就長在這一排上，
+           原本那個「今天各科」的區塊拿掉了——不補這一條的話，
+           今天讀過、然後把科目從清單裡刪掉（或是舊紀錄裡的科目）的時間
+           會從畫面上整個消失，而總計裡還算著它，兩個數字對不起來。
            ★ `ran` 是給測試看的：零筆資料的迴圈跟「分對了」長得一模一樣。 */
-        function studyBoard(subjects, plans){
+        function studyBoard(subjects, plans, timed){
             const rows = [], byName = new Map(), loose = [];
             let ran = 0;
-            for (const s of (subjects || [])){
-                const name = String(s || '').trim();
-                if (!name || byName.has(name)) continue;
-                const row = { sub: name, extra: false, plans: [] };
-                byName.set(name, row); rows.push(row);
-            }
+            const add = (name, extra) => {
+                const n = String(name || '').trim();
+                if (!n || byName.has(n)) return byName.get(n) || null;
+                const row = { sub: n, extra: !!extra, plans: [] };
+                byName.set(n, row); rows.push(row);
+                return row;
+            };
+            for (const s of (subjects || [])) add(s, false);
             for (const p of (plans || [])){
                 if (!p || p.done) continue;
                 ran++;
                 const name = String(p.subject || '').trim();
                 if (!name){ loose.push(p); continue; }
-                let row = byName.get(name);
-                if (!row){ row = { sub: name, extra: true, plans: [] }; byName.set(name, row); rows.push(row); }
-                row.plans.push(p);
+                (byName.get(name) || add(name, true)).plans.push(p);
             }
+            for (const s of (timed || [])) add(s, true);
             return { rows, loose, ran };
         }
 
@@ -8915,15 +8974,17 @@
            記到另一個科目上，而畫面上只會看到科目那幾個字變了。 */
         function startStudy(opts){
             if (studyRun) return showToast('已經有一段在跑了，先按停止');
-            const el = $('studySubject');
-            const sub = (opts && opts.sub) || (el ? el.value.trim() : '');
+            /* ★ 2026-08-20：原本這裡還會去讀主畫面上那個自由輸入的科目欄位。
+               那個欄位收進「編輯科目」了（新增一個科目，再點它開始），
+               所以科目一律由呼叫端帶進來——畫面上沒有第二個地方能開始計時。 */
+            const sub = (opts && opts.sub) || '';
             studyRun = { start: Date.now(), sub: String(sub || '').slice(0, 40),
                          pausedMs: 0, pausedAt: 0, pauses: 0, beat: Date.now() };
             if (opts && opts.pid) studyRun.pid = opts.pid;
             persistStudyLocal();
             renderStudy(); renderPlans(); updateStudyTicker(); updateStudyBeat();
             beatStudy(true);
-            if (opts && opts.pid) showToast(`開始計時：${studyRun.sub || '（沒有標題）'}`);
+            showToast(`開始計時：${studyRun.sub || '（沒填科目）'}`);
         }
         /* 計劃那一列上的「計時」。★ 科目直接用計劃的標題，不另外問——
            讓使用者按一顆按鈕再打一次字，等於這顆按鈕沒有省到任何事。 */
@@ -9011,9 +9072,25 @@
             if (visible && !studyTicker) studyTicker = setInterval(tickStudyClock, 1000);
             if (!visible && studyTicker){ clearInterval(studyTicker); studyTicker = null; }
         }
+        /* ★ 每秒只改**三個文字節點**，不重畫任何一塊 innerHTML：
+           科目那一排裡有計劃、有按鈕，整塊重畫的話焦點會掉、
+           長按選字會被打斷，而且每秒重排一次整頁。
+           ★ 三個都要改，缺一個的症狀都是「有一個數字卡住不動」：
+           看板上的今日總計、旁邊那一段的秒數、正在跑的那一列科目。 */
         function tickStudyClock(){
-            const el = $('studyClock');
-            if (el && studyRun) el.textContent = studyClock(studyElapsed(studyRun, Date.now()));
+            if (!studyRun) return;
+            const seg = studyElapsed(studyRun, Date.now());
+            const t = studyLiveTotals(studySessions, studyRun, Date.now());
+            const put = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+            put('studyClock', studyClock(t.day));
+            put('studySegClock', studyClock(seg));
+            put('studyRunSubMs', studyClock(studySubMs(t, studyRun.sub)));
+        }
+        /* 這一科今天讀了多久（從即時統計裡查，含還在跑的那一段）。 */
+        function studySubMs(totals, sub){
+            const n = String(sub || '').trim() || '未分類';
+            for (const [k, ms] of ((totals && totals.bySub) || [])) if (k === n) return ms;
+            return 0;
         }
 
 
@@ -9026,7 +9103,9 @@
             const box = $('studySubjectBank');
             if (!box) return;
             const now = Date.now();
-            const board = studyBoard(effectiveSubjects(), userPlans);
+            const t = studyLiveTotals(studySessions, studyRun, now);
+            /* 今天有讀到、但不在清單裡的科目也要長出一列——見 studyBoard 的說明。 */
+            const board = studyBoard(effectiveSubjects(), userPlans, t.bySub.map(([n]) => n));
             const edit = subjectBankEdit;
             const PLAN_CAP = 6;
 
@@ -9049,31 +9128,47 @@
                     ${arr.length > PLAN_CAP ? `<div class="text-[10px] font-bold text-slate-300 pl-1">還有 ${arr.length - PLAN_CAP} 筆沒列出來，去「計劃」那一頁看</div>` :''}
                 </div>`;
 
-            const rowHTML = (r) => `
-                <div class="rounded-2xl border border-slate-100 p-2">
+            /* 一列科目：左邊一顆圓形播放鈕、中間科目名、右邊今天讀了多久。
+               ★ 右邊那個數字一律用 `studyClock`（00:12:33）而不是「12 分鐘」：
+               正在跑的那一列每秒會跳，兩種寫法混在同一欄裡會變成
+               「有的在跳、有的是一句話」，而且跳的那一格寬度每分鐘變一次。
+               ★ 正在跑的那一列掛 `id="studyRunSubMs"`，讓每秒那一支找得到它——
+               整塊 innerHTML 重畫太貴（見 tickStudyClock 的說明）。 */
+            const rowHTML = (r) => {
+                const on = !!(studyRun && studyRun.sub === r.sub);
+                const live = on && !studyRun.pausedAt;
+                const ms = studySubMs(t, r.sub);
+                return `
+                <div class="rounded-2xl border ${on ?'border-amber-200 bg-amber-50/40' :'border-slate-100'} p-2">
                     <div class="flex items-center gap-2">
                         <button data-action="study-sub-start" data-sub="${escapeHTML(r.sub)}"
-                                class="tap-44 flex-1 min-w-0 text-left px-3 py-2 rounded-xl text-sm font-black flex items-center gap-2 ${(studyRun && !studyRun.pid && studyRun.sub === r.sub) ?'bg-amber-500 text-white' :'bg-slate-50 text-slate-700 hover:bg-amber-50'}">
-                            <i data-lucide="play" class="w-4 h-4 shrink-0 pointer-events-none"></i>
-                            <span class="truncate">${escapeHTML(r.sub)}</span>
-                            ${r.extra ? `<span class="shrink-0 text-[10px] font-bold text-slate-400">課表外</span>` :''}
+                                class="tap-44 flex-1 min-w-0 text-left px-2 py-1.5 rounded-xl flex items-center gap-3 hover:bg-slate-50">
+                            <span class="shrink-0 w-10 h-10 rounded-full flex items-center justify-center pointer-events-none bg-amber-500 text-white">
+                                <i data-lucide="${live ?'timer' : on ?'pause' :'play'}" class="w-5 h-5 pointer-events-none"></i>
+                            </span>
+                            <span class="flex-1 min-w-0 pointer-events-none">
+                                <span class="block truncate text-sm font-black text-slate-700">${escapeHTML(r.sub)}</span>
+                                ${(r.extra || on) ? `<span class="block text-[10px] font-bold ${on ?'text-amber-600' :'text-slate-400'}">${on ? (live ?'計時中' :'已暫停') :'不在課表上'}</span>` :''}
+                            </span>
+                            <span ${on ? 'id="studyRunSubMs" ' :''}class="shrink-0 text-sm font-black tabular-nums pointer-events-none ${ms ?'text-slate-500' :'text-slate-300'}">${escapeHTML(studyClock(ms))}</span>
                         </button>
                         ${edit ? `<button data-action="study-sub-del" data-sub="${escapeHTML(r.sub)}" aria-label="刪除科目 ${escapeHTML(r.sub)}"
                                 class="tap-44 shrink-0 p-2 rounded-xl text-slate-300 hover:text-red-500 hover:bg-slate-50"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>` :''}
                     </div>
                     ${planList(r.plans)}
                 </div>`;
+            };
 
             const empty = !board.rows.length && !board.loose.length;
             box.innerHTML = `
                 <div class="flex items-center justify-between gap-2 mb-2">
                     <div class="text-xs font-bold text-slate-400">科目（點一下就開始，計劃會掛在底下）</div>
                     <button data-action="study-sub-edit"
-                            class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black ${edit ?'bg-slate-800 text-white' :'bg-slate-100 text-slate-500'}">${edit ?'完成' :'編輯'}</button>
+                            class="shrink-0 px-2.5 py-1 rounded-lg text-[10px] font-black ${edit ?'bg-slate-800 text-white' :'bg-slate-100 text-slate-500'}">${edit ?'完成' :'編輯科目'}</button>
                 </div>
                 ${empty ? `<div class="rounded-2xl border border-slate-100 px-4 py-6 text-center">
                     <div class="text-sm font-bold text-slate-400">還沒有科目</div>
-                    <div class="text-xs font-medium text-slate-300 mt-1">科目預設從課表帶進來。課表還沒排的話，按「編輯」自己新增一個</div>
+                    <div class="text-xs font-medium text-slate-300 mt-1">科目預設從課表帶進來。課表還沒排的話，按「編輯科目」自己新增一個</div>
                 </div>` : `<div class="space-y-2">
                     ${board.rows.map(rowHTML).join('')}
                     ${board.loose.length ? `<div class="rounded-2xl border border-dashed border-slate-200 p-2">
@@ -9081,13 +9176,19 @@
                         ${planList(board.loose)}
                     </div>` :''}
                 </div>`}
-                ${edit ? `<div class="mt-3 flex flex-col sm:flex-row gap-2">
-                    <input type="text" id="studySubNew" maxlength="40" placeholder="新增一個科目"
-                           class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-sm" aria-label="新增一個科目">
-                    <div class="flex gap-2">
-                        <button data-action="study-sub-add" class="shrink-0 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-sm">新增</button>
-                        <button data-action="study-sub-sync" class="shrink-0 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm">從課表補</button>
+                ${edit ? `<div class="mt-3">
+                    <div class="flex flex-col sm:flex-row gap-2">
+                        <!-- ★ 這個欄位就是原本主畫面上那個「讀什麼？」。
+                             建議清單（課表的課名、還沒打勾的計劃標題）跟著搬過來，
+                             所以臨時要讀一個課表上沒有的東西，在這裡打完再點它。 -->
+                        <input type="text" id="studySubNew" list="studySubjectList" maxlength="40" placeholder="新增一個科目（例：電路學、重補修、考古題）"
+                               class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-sm" aria-label="新增一個科目">
+                        <div class="flex gap-2">
+                            <button data-action="study-sub-add" class="shrink-0 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-sm">新增</button>
+                            <button data-action="study-sub-sync" class="shrink-0 px-4 py-2.5 bg-slate-100 text-slate-600 rounded-2xl font-bold text-sm">從課表補</button>
+                        </div>
                     </div>
+                    <p class="text-xs font-bold text-slate-400 mt-2">新增完按「完成」，回到清單點那一科就開始計時。</p>
                 </div>` :''}`;
             icons();
         }
@@ -9098,33 +9199,37 @@
             if (!list) return;
             const now = Date.now();
             const running = !!studyRun, paused = !!(studyRun && studyRun.pausedAt);
-            const t = studyTotals(studySessions, now);
+            /* ★ 看板上的大數字是**今天**的總計，而且含還在跑的那一段（studyLiveTotals）。
+               只算已收成的紀錄的話，按下開始之後那個數字整段時間動也不動，
+               看起來就像沒有在記——而它其實記得好好的。 */
+            const t = studyLiveTotals(studySessions, studyRun, now);
 
-            const clockEl = $('studyClock');
-            if (clockEl) clockEl.textContent = studyClock(studyElapsed(studyRun, now));
-            const subEl = $('studySubject');
-            if (subEl){
-                subEl.disabled = running;
-                if (running) subEl.value = studyRun.sub || '';
-            }
+            const put = (id, txt) => { const el = $(id); if (el) el.textContent = txt; };
+            put('studyClock', studyClock(t.day));
+            put('studySegClock', running ? studyClock(studyElapsed(studyRun, now)) : '');
+            /* 日期那一行照 YPT 的排法：知道「今天」是哪一天，
+               凌晨兩點看到的才不會是一個對不上日曆的數字（日界在凌晨四點）。 */
+            const dk = dayKeyOf(now), dd = new Date(dk + 'T12:00:00');
+            put('studyTodayLabel', `${dd.getMonth() + 1}/${dd.getDate()}（週${WEEKDAY_NAMES[dd.getDay()]}）`);
+            put('studyWeekSum', `本週 ${fmtStudyDur(t.week)}`);
+
             const dl = $('studySubjectList');
             if (dl) dl.innerHTML = studySubjectOptions()
                 .map(s => `<option value="${escapeHTML(s)}"></option>`).join('');
 
-            /* 三顆按鈕的顯示規則：沒在跑只有「開始」；跑著有「暫停／繼續」與「停止」。 */
+            /* 按鈕的顯示規則：沒在跑就一顆都沒有（開始的入口只有底下的科目清單）；
+               跑著有「暫停／繼續」與「停止」。 */
             const show = (id, on) => { const el = $(id); if (el) el.classList.toggle('hidden', !on); };
-            show('studyStartBtn',  !running);
             show('studyPauseBtn',  running && !paused);
             show('studyResumeBtn', running && paused);
             show('studyStopBtn',   running);
-            const note = $('studyRunNote');
 
             /* ★ 從計劃開始的那一段要講出來，不然使用者看到的只是一個科目名，
                不知道這段時間會不會算到那筆計劃頭上。 */
             const fromPlan = (running && studyRun.pid) ? '（算在同名的計劃上）' : '';
-            if (note) note.textContent = !running ? ''
+            put('studyRunNote', !running ? '點下面的科目就開始計時'
                 : paused ? `已暫停（這一段暫停過 ${studyRun.pauses} 次）`
-                         : (studyRun.sub ? `正在讀：${studyRun.sub}${fromPlan}` : '正在讀（沒填科目）');
+                         : (studyRun.sub ? `正在讀：${studyRun.sub}${fromPlan}` : '正在讀（沒填科目）'));
 
             /* 今天／本週 ＋ 今天各科 ＋ 最近幾筆。
                ★ 最近幾筆要看得到「暫停過幾次」與「截斷過」，
@@ -9132,24 +9237,11 @@
             const recent = studySessions.slice(-8).reverse();
             const hhmm = (ts) => { const d = new Date(ts); const p = (n) => String(n).padStart(2,'0');
                                    return `${p(d.getHours())}:${p(d.getMinutes())}`; };
+            /* ★ 2026-08-20：這裡原本還有「今天／本週」兩張統計卡與「今天各科」。
+               三塊都拿掉了，但**數字沒有消失**：今天在看板的大數字上、
+               本週在看板右上角、各科長在科目那一排的右邊。
+               留著的話同一個數字會在同一頁出現兩次，而兩份遲早會有一份是舊的。 */
             list.innerHTML = `
-                <div class="grid grid-cols-2 gap-3 mb-5">
-                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                        <div class="text-xs font-bold text-slate-400">今天</div>
-                        <div class="text-lg font-black text-slate-700">${escapeHTML(fmtStudyDur(t.day))}</div>
-                    </div>
-                    <div class="rounded-2xl bg-slate-50 px-4 py-3">
-                        <div class="text-xs font-bold text-slate-400">本週（從週一起）</div>
-                        <div class="text-lg font-black text-slate-700">${escapeHTML(fmtStudyDur(t.week))}</div>
-                    </div>
-                </div>
-                ${t.bySub.length ? `<div class="mb-5">
-                    <div class="text-xs font-bold text-slate-400 mb-2">今天各科</div>
-                    <div class="space-y-1.5">${t.bySub.map(([n, ms]) => `
-                        <div class="flex items-center justify-between text-sm font-bold text-slate-600">
-                            <span class="truncate pr-3">${escapeHTML(n)}</span>
-                            <span class="shrink-0 text-slate-400">${escapeHTML(fmtStudyDur(ms))}</span>
-                        </div>`).join('')}</div></div>` : ''}
                 ${recent.length ? `<div>
                     <div class="text-xs font-bold text-slate-400 mb-2">最近的紀錄</div>
                     <div class="space-y-2">${recent.map(s => `
@@ -9170,8 +9262,8 @@
                                 </button>
                             </div>
                         </div>`).join('')}</div></div>`
-                  : emptyState({ text:'還沒有讀書紀錄', hint:'填一個科目、按開始就會開始算；關掉分頁也不會停',
-                                 clickId:'studyStartBtn', label:'開始計時' })}
+                  : emptyState({ text:'還沒有讀書紀錄',
+                                 hint:'點上面任何一個科目就開始算；關掉分頁或鎖屏都不會停' })}
             `;
             icons();
         }
@@ -9707,7 +9799,7 @@
            STUDY_SUBS 就成了第二份答案——留著不會報錯，只會在下次有人改其中一份時
            安靜地分岔，所以直接刪掉。ALL_STUDY_SUBS 留著是另一個用途：
            它是 switchStudySub 的白名單（認不得的參數退回預設）。 */
-        const ALL_STUDY_SUBS = ['schedule','plan','timer','countdown','course','cloze','kahoot','vocab'];
+        const ALL_STUDY_SUBS = ['schedule','missions','plan','timer','countdown','course','cloze','kahoot','vocab'];
 
         /* ★ 每一個子分頁住在哪個 page-section、哪個區塊。
            這張表取代原本那串寫死的 toggle——六個子分頁散在三個 page-section，
@@ -9719,6 +9811,7 @@
            搬錯不報錯只會有某頁打不開），所以維持原狀、由這張表對起來。 */
         const SUB_PLACE = {
 'schedule':  { section:'page-home',       block:'home-sub-schedule'  },
+'missions':  { section:'page-home',       block:'home-sub-missions'  },
 'plan':      { section:'page-home',       block:'home-sub-plan'      },
 'timer':     { section:'page-home',       block:'home-sub-timer'     },
 'countdown': { section:'page-home',       block:'home-sub-countdown' },
@@ -9736,6 +9829,7 @@
            這張表描述的是**使用者看到的分組**，不是 HTML 的實際位置。 */
         const SUB_META = {
 'schedule':  { label:'課表',     icon:'calendar-days'  },
+'missions':  { label:'任務',     icon:'target'         },
 'plan':      { label:'計劃',     icon:'calendar-clock' },
 'timer':     { label:'讀書計時', icon:'timer'          },
 'countdown': { label:'倒數',     icon:'hourglass'      },
@@ -9745,7 +9839,7 @@
 'kahoot':    { label:'測驗',     icon:'gamepad-2'  }
         };
         const TAB_SUBS = {
-'home':       ['schedule','countdown'],  // 主頁＝課表＋倒數（計劃已升格成大分頁）
+'home':       ['schedule','missions','countdown'], // 主頁＝課表＋任務＋倒數（任務 2026-08-20 從「壓在計劃上面」搬進來）
 'plan':       ['plan','timer'],          // 計劃＋讀書計時（★ 計時器整站只能有一個，就是這一個）
 'self-study': ['course','kahoot'],       // 學習＝自學課程＋（自己出的）測驗
 'english':    ['cloze','vocab'],         // 英文＝克漏字＋單字庫
@@ -9829,6 +9923,8 @@
                 renderVocabBooks();
             } else if (studySub ==='schedule') {
                 highlightCurrentClass();
+            } else if (studySub ==='missions') {
+                renderMissions();
             } else if (studySub ==='plan') {
                 renderPlans();
             } else if (studySub ==='timer') {
@@ -12251,9 +12347,14 @@
             const box = $('missionList'), sec = $('home-missions');
             if (!box || !sec) return;
             const list = state.missions ||[];
-            /* 一項都沒有就整區收起來：空的「任務」標題比沒有這一區更難解釋。
-               ★ 管理員例外——他要有地方按「新增任務」，不然第一筆永遠建不出來。 */
-            sec.classList.toggle('hidden', !list.length && !isCatAdmin());
+            /* ★ 2026-08-20：這裡原本是「一項都沒有就整區收起來」。
+               任務搬成子分頁之後那條規則要拿掉——分頁列上永遠有一顆「任務」，
+               點進去卻是一片空白的話，跟「這個功能壞了」長得一模一樣。
+               沒有任務時底下那個空狀態會說「還沒有任何任務」，那句話才是答案。
+               ★ `hidden` 由 switchStudySub() 管（它 toggle 的是外層 #home-sub-missions），
+               這一支不要再碰它——兩個地方管同一個 class 的話，
+               切過來時誰後跑誰說了算，而症狀是「有時候點進去是空的」。 */
+            sec.classList.remove('hidden');
             if ($('addMissionBtn')) $('addMissionBtn').classList.toggle('hidden', !isCatAdmin());
             const loggedIn = !!(auth.currentUser && !auth.currentUser.isAnonymous);
             if ($('missionNeedLogin')) $('missionNeedLogin').classList.toggle('hidden', loggedIn || !list.length);
@@ -13655,8 +13756,9 @@
 'add-plan-sub': () => addPlanSub(),
 'del-plan-sub': (t) => delPlanSub(t.dataset.i),
 
-'study-start':  () => startStudy(),
-
+/* ★ 'study-start'（主畫面上那顆「開始」）2026-08-20 拿掉了：
+   開始計時只剩科目那一排這一個入口，多一顆按鈕就是多一條會分岔的規則
+   （要不要帶科目、要不要帶計劃 id，兩邊各寫一次遲早只有一邊是對的）。 */
 'study-plan':     (t) => startStudyFromPlan(t.dataset.id),
 'study-sub-start':(t) => startStudy({ sub: t.dataset.sub }),
 'study-sub-edit': () => { subjectBankEdit = !subjectBankEdit; renderSubjectBank(); },
