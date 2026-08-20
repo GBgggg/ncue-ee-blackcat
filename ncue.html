@@ -5295,6 +5295,20 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-08-20',
+                title: '克漏字的字數不再說謊；錯題檢討四個選項都給中文，還可以自己勾「不會」',
+                items: [
+                    ['★★ 只勾 Level 4，卡片卻說 3,461 字（實際 836）', '路線圖短期第一條要查的就是這個。**篩選一直是對的**——Level 3–6 與 DLC 分開判、複選也正常——錯的是進去前那一行字數：它拿「整個資料夾的 count」加總，而資料夾是**字母**（az-a…az-z），Level 3–6 混在同一夾裡。所以不管勾哪幾級，答案永遠是整批 3,461。差四倍，而且不會報錯：題目照樣出得出來，只是使用者以為自己在考 3,461 個字。'],
+                    ['作法：字數在產檔的時候就數好', '`tools/vocab7000.mjs` 現在把各級字數寫進 `index.json`（`levels: {3:54, 4:81, …}`）。**不能在網頁端數**——那要先把 25 份單字檔全部抓下來，而這張卡的重點正是「還沒抓任何東西就要說得出範圍有多大」。順帶一提，這也讓「這個範圍一個字都沒有」的資料夾不必再抓（例如 az-z 沒有 Level 4）。'],
+                    ['★ 舊索引要留退路', '快取裡的 `index.json` 可能還是沒有 `levels` 的舊版。那時退回整夾 count（高估），而不是算成 0——「0 字可出題、按鈕按不下去」看起來就是壞了，寧可數字大一點。'],
+                    ['★ 順手撿回兩個永遠考不到的字', '整批字裡有兩個 Level 2 的字（`participate`、`patient`），而範圍只有 Level 3–6，於是它們**永遠不會被出到題**，畫面上只會是「總字數比單字庫少兩個」。現在勾 Level 3 會連 Level 1、2 一起收，六個範圍全勾＝ 3,822 字，跟單字庫的總數對得起來。'],
+                    ['★★ 錯題檢討：四個選項全部列出來，每一個都附中文', '路線圖短期第二條。原本只給「你選了 X／正解 Y（中文）」，但使用者當下看到的是**四個都不認得的英文字**——只講正解的話，另外三個仍然是下一次還會再選錯的那三個。'],
+                    ['★★ 選錯的那個字也直接記進錯題本', '路線圖短期第三條的前半。他不只是「選錯」，是把那個字填進了一個讀不通的位置，等於那個字也不熟。⚠️ 記的是選項背後的**單字**（`abandon`），不是選項的字面（例句裡的字形 `abandoned`）——字面回推不到單字，所以出題時就把 `optionWords` 一起帶著走。'],
+                    ['★ 剩下那兩個問一句「還有不會的嗎」', '後半。正解與選錯的那個已經自動記了，另外兩個站在旁邊，勾起來就一起進錯題本；再按一次是「我會了」，連同它原本累積的錯誤次數一起拿掉——留著的話下一項（艾賓浩斯）還是會一直把它排出來，而畫面上看不出原因。存檔在背景跑，跟結算那次同一個道理。'],
+                    ['一般測驗維持原樣', '單字擂台的題目沒有 `optionWords`，那時退回舊的兩行版。硬畫勾選鈕的話，選項不是單字，勾了也不知道要記什麼。']
+                ]
+            },
+            {
                 date: '2026-08-19',
                 title: '英文閱讀收掉，克漏字獨立成一個分頁；查字典留下來搬到單字庫',
                 items: [
@@ -10863,7 +10877,7 @@
                        填它也讀得通，而畫面上只會像是出題出錯——
                        沒有任何訊息說明為什麼「明明對的答案算我錯」。 */
                     if (new RegExp(`\\b${clozeEsc(c.answer)}\\b`,'i').test(item.sentence)) continue;
-                    used.add(c.answer); picks.push(c.answer);
+                    used.add(c.answer); picks.push(c);
                 }
             };
             const family = [];
@@ -10877,8 +10891,16 @@
                 take(items.filter(x => x !== item && x.w.pos === item.w.pos));
             if (picks.length < 3) take(items.filter(x => x !== item));
             if (picks.length < 3) return null;
-            const options = clozeShuffle([item.answer, ...picks], rand);
-            return { q: item.sentence, options, correctIdx: options.indexOf(item.answer),
+            /* 每個選項都連著它自己的單字與中文。
+               ★ 選項的字面是**例句裡的那個字形**（`abandoned`），跟單字欄
+                 （`abandon`）不一定一樣，所以錯題本要記的字不能從選項字面回推。
+               ★ 中文四個都帶著，是因為錯題檢討時「另外那兩個字是什麼意思」
+                 跟正解一樣重要——不然那兩個選項只是四個不認得的英文字之一。 */
+            const cards = clozeShuffle([item, ...picks], rand);
+            const options = cards.map(c => c.answer);
+            return { q: item.sentence, options, correctIdx: cards.indexOf(item),
+                     optionWords:   cards.map(c => (c.w && c.w.english) ||''),
+                     optionChinese: cards.map(c => (c.w && c.w.chinese) ||''),
                      word: item.w.english, chinese: item.w.chinese ||'', engDef: item.w.engDef ||'' };
         }
 
@@ -10919,24 +10941,59 @@
         /* ---- 克漏字：核心結束 ---- */
 
         /* ---- 克漏字：範圍與載入 ---- */
+        /* 選到的範圍拆成「要哪幾個 level」與「要哪幾套 DLC」。
+           ★ 選 Level 3 的時候連 Level 1、2 一起收：整批字裡有兩個 Level 2 的字
+             （`participate`、`patient`），不收的話它們**永遠不會被出到題**，
+             而畫面上只會是「總字數比單字庫少兩個」——沒有人會發現。 */
+        function clozeScopePick(scopes) {
+            const picked = CLOZE_SCOPES.filter(s => (scopes ||[]).includes(s.id));
+            const levels = new Set(picked.filter(s => s.level).map(s => s.level));
+            if (levels.has(3)) { levels.add(1); levels.add(2); }
+            return { levels, dlc: new Set(picked.filter(s => !s.level).map(s => s.set)) };
+        }
+
+        /* 一個資料夾在這個範圍裡有幾個字。
+           ⚠️⚠️ **字母序的資料夾不能直接拿 `f.count`。** 資料夾是「字母」，
+           Level 3–6 混在同一夾裡，拿 count 等於不管勾了哪幾個 level 都回答
+           「3,461 字」——只選 Level 4 的人看到的數字比實際多四倍，
+           而且不報錯（這就是路線圖短期第一條查出來的那個症狀）。
+           ★ `f.levels` 是 `tools/vocab7000.mjs` 寫進 index.json 的各級字數。
+             舊的索引沒有這一欄（快取還沒換掉時會遇到）——那時退回 `f.count`，
+             寧可高估也不要變成「0 字可出題」而按不下去。 */
+        function clozeFolderCount(f, levels, dlc) {
+            if (!f) return 0;
+            if (f.set !=='az') return dlc.has(f.set) ? (f.count || 0) : 0;
+            if (!f.levels) return f.count || 0;
+            let n = 0;
+            for (const lv of levels) n += Number(f.levels[lv]) || 0;
+            return n;
+        }
+
         /* 選到的範圍要抓哪幾個資料夾。
            ★ `root`（字根族群）永遠不抓：那是同一批 3,461 個字的另一種排法，
-             抓了等於同一個字進來兩次，而症狀只是選項裡出現兩個一樣的字。 */
+             抓了等於同一個字進來兩次，而症狀只是選項裡出現兩個一樣的字。
+           ★ 這個範圍裡一個字都沒有的資料夾也不抓：只選 Level 3 的時候
+             `az-i` 只有 9 個字、有些字母是 0，抓下來是白花一次網路來回。 */
         function clozeFoldersFor(scopes) {
-            const sets = new Set((scopes ||[]).map(id => {
-                const s = CLOZE_SCOPES.find(x => x.id === id);
-                return s ? s.set : null;
-            }).filter(Boolean));
-            return (state.builtinVocabFolders ||[]).filter(f => sets.has(f.set));
+            const { levels, dlc } = clozeScopePick(scopes);
+            const sets = new Set([...dlc]);
+            if (levels.size) sets.add('az');
+            return (state.builtinVocabFolders ||[])
+                .filter(f => sets.has(f.set) && clozeFolderCount(f, levels, dlc) > 0);
+        }
+
+        /* 範圍內有幾個字（不必等單字檔抓下來，索引上就算得出來）。 */
+        function clozeCountInScope(scopes) {
+            const { levels, dlc } = clozeScopePick(scopes);
+            return clozeFoldersFor(scopes)
+                .reduce((n, f) => n + clozeFolderCount(f, levels, dlc), 0);
         }
 
         /* 範圍內的字。⚠️ 這裡就是那條「不能寫成同一個 `w.level` 判斷」：
            DLC 沒有 `level` 欄位，跟 Level 3–6 混在一個判斷裡的話，
            「Level 4 ＋ 多益」會把多益整批濾掉——不報錯，只是題目變少。 */
         function clozeWordsInScope(scopes) {
-            const picked = CLOZE_SCOPES.filter(s => (scopes ||[]).includes(s.id));
-            const levels = new Set(picked.filter(s => s.level).map(s => s.level));
-            const dlc = new Set(picked.filter(s => !s.level).map(s => s.set));
+            const { levels, dlc } = clozeScopePick(scopes);
             const setOfBook = new Map();
             for (const b of state.builtinVocabBooks ||[]) {
                 const f = (state.builtinVocabFolders ||[]).find(x => x.id === b.folderId);
@@ -10976,9 +11033,11 @@
             const ready = builtinVocabState ==='ready';
 
             const folders = ready ? clozeFoldersFor(clozeScopes) : [];
-            /* 字數用索引上的 count 估，不必等單字檔抓下來——
-               這張卡在「還沒抓任何東西」的時候就要說得出範圍有多大。 */
-            const words = folders.reduce((n, f) => n + (f.count || 0), 0);
+            /* 字數從索引上的各級字數算，不必等單字檔抓下來——
+               這張卡在「還沒抓任何東西」的時候就要說得出範圍有多大。
+               ⚠️ 以前這裡是「整個資料夾的 count 加總」，於是只勾 Level 4
+               也回答 3,461 字（實際 836）：資料夾是字母，不是級數。 */
+            const words = ready ? clozeCountInScope(clozeScopes) : 0;
             const todo = folders.filter(f => !builtinVocabLoaded.has(f.id)).length;
             /* ★ `s.id` 也包 escapeHTML：它來自這個檔案裡的常數，不是 Firestore，
                但資安那支測試釘的是「屬性插值裡的 `.id` 一律要跳脫」——
@@ -11098,9 +11157,19 @@
             if (!list.length) return Promise.resolve();
             const now = Date.now();
             const byWord = new Map((clozeWrong.words ||[]).map(x => [x.w, { ...x }]));
+            const bump = (w) => {
+                if (!w) return;
+                const cur = byWord.get(w) ||{ w, n: 0, at: 0 };
+                byWord.set(w, { w, n: cur.n + 1, at: now });
+            };
             for (const a of list) if (!a.correct) {
-                const cur = byWord.get(a.word) ||{ w: a.word, n: 0, at: 0 };
-                byWord.set(a.word, { w: a.word, n: cur.n + 1, at: now });
+                bump(a.word);
+                /* ★ 他**選錯的那個字也記進來**。那不只是「選錯」——
+                   他把那個字填進了一個它讀不通的位置，等於那個字也不熟。
+                   ⚠️ 記的是 `optionWords` 裡的單字（`abandon`），不是選項的字面
+                   （例句裡的字形 `abandoned`）：字面回推不到單字。 */
+                const picked = (a.optionWords ||[])[a.selectedIdx];
+                if (picked && picked !== a.word) bump(picked);
             }
             const words = [...byWord.values()].sort((x, y) => (x.at || 0) - (y.at || 0))
                 .slice(-CLOZE_WRONG_KEEP);
@@ -11112,6 +11181,29 @@
                於是存檔失敗只有開 F12 的人知道。現在把失敗往上丟，
                由呼叫端決定要不要說一句——但仍然不擋畫面。 */
             return saveClozeWrong();
+        }
+
+        /* 結果頁那一句「還有不會的嗎」。
+           ★ 勾起來就是一筆錯題（`n: 1`），再按一次拿掉——**連同它原本累積的
+             次數一起拿掉**。這是故意的：那一格的意思是「這個字我到底會不會」，
+             按下去說「我會了」卻還留著三次錯誤紀錄的話，下一項（艾賓浩斯）
+             還是會一直把它排出來，而畫面上完全看不出原因。
+           ★ 存檔在背景跑、不擋畫面，跟結算那一次同一個道理。 */
+        function clozeIsUnknown(word) {
+            const key = String(word ||'').toLowerCase();
+            return !!key && (clozeWrong.words ||[]).some(x => String(x.w).toLowerCase() === key);
+        }
+        function toggleClozeUnknown(word) {
+            const w = String(word ||'');
+            if (!w) return;
+            const key = w.toLowerCase();
+            const on = !clozeIsUnknown(w);
+            const words = (clozeWrong.words ||[]).filter(x => String(x.w).toLowerCase() !== key);
+            if (on) words.push({ w, n: 1, at: Date.now() });
+            clozeWrong = { ...clozeWrong, words: words.slice(-CLOZE_WRONG_KEEP) };
+            renderKahootWrongList();
+            if (!clozeWrongLoaded) return;      // 沒登入或沒讀到就只留在這一輪
+            saveClozeWrong().catch(() => showToast("錯題沒存起來，下次登入再試"));
         }
         /* ---- 克漏字：結束 ---- */
 
@@ -11480,6 +11572,52 @@
             renderPlayQuestion();
         }
 
+        /* 錯題檢討清單。
+           ★ 四個選項全部列出來、而且每一個都附中文，理由是使用者原本看到的是
+             四個都不認得的英文字：只講「正解是 A」的話，另外三個仍然是四選一裡
+             下一次還會再選錯的那三個。
+           ★ 正解與「你選了」的那個字**兩個都直接記進錯題本**（見 recordClozeResult）：
+             填錯位置代表那個字也不熟。剩下那兩個站在旁邊，所以問一句
+             「還有不會的嗎」讓他自己勾——勾了就一起進錯題本。
+           ⚠️ 一般測驗（單字擂台）的題目沒有 `optionWords`，那時退回舊的兩行版，
+             不能硬畫勾選鈕：那種題目的選項不是單字，勾了也不知道要記什麼。 */
+        function renderKahootWrongList() {
+            const wrap = $('resultWrongWrap');
+            const wrong = (playAnswers ||[]).filter(a => !a.correct);
+            wrap.classList.toggle('hidden', wrong.length === 0);
+            if (!wrong.length) return;
+            const row = (a, i) => {
+                const txt = escapeHTML(a.options[i] ??'—');
+                const cn  = (a.optionChinese ||[])[i] ||'';
+                const body = `<span class="font-black text-slate-800">${txt}</span>${
+                    cn ? `<span class="text-slate-500 font-bold">${escapeHTML(cn)}</span>` :''}`;
+                const line ='flex flex-wrap items-center gap-x-2 gap-y-0.5 rounded-xl px-3 py-2 text-xs border';
+                if (i === a.correctIdx)
+                    return `<div class="${line} bg-emerald-50 border-emerald-200"><span class="font-black text-emerald-600 shrink-0">正解</span>${body}</div>`;
+                if (i === a.selectedIdx)
+                    return `<div class="${line} bg-rose-50 border-rose-200"><span class="font-black text-rose-500 shrink-0">你選了</span>${body}</div>`;
+                const w = (a.optionWords ||[])[i] ||'';
+                const on = clozeIsUnknown(w);
+                return `<button data-action="toggle-cloze-unknown" data-word="${escapeHTML(w)}" aria-pressed="${on}"
+                    class="${line} w-full text-left transition-colors ${on
+                        ?'bg-amber-50 border-amber-300' :'bg-white border-slate-200 hover:border-slate-300'}">
+                    <span class="font-black shrink-0 pointer-events-none ${on ?'text-amber-600' :'text-slate-400'}">${on ?'✓ 不會' :'＋ 不會'}</span>
+                    <span class="pointer-events-none">${body}</span></button>`;
+            };
+            $('resultWrongList').innerHTML = wrong.map(a => {
+                const full = Array.isArray(a.optionWords) && a.optionWords.some(Boolean);
+                return `
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${escapeHTML(a.q)}</p>${full ? `
+                        <div class="space-y-1.5">${(a.options ||[]).map((_, i) => row(a, i)).join('')}</div>
+                        <p class="text-[11px] font-bold text-slate-400 mt-2">還有不會的嗎？勾起來一起記進錯題本</p>` : `
+                        <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${escapeHTML(a.options[a.selectedIdx] ??'—')}</span></p>
+                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${escapeHTML(a.options[a.correctIdx] ??'—')}</span>${
+                            a.chinese ? `　<span class="text-slate-500">${escapeHTML(a.chinese)}</span>` :''}</p>`}
+                    </div>`;
+            }).join('');
+        }
+
         function showKahootResult() {
             const tIn = performance.now();          // ⚠️ 暫時的計時器（查完就刪）
             $('playKahootModal').classList.add('hidden');
@@ -11514,19 +11652,7 @@
 '先把下面錯的弄懂，再挑戰一次';
 
             const wrong = playAnswers.filter(a => !a.correct);
-            const wrap = $('resultWrongWrap');
-            wrap.classList.toggle('hidden', wrong.length === 0);
-            if (wrong.length) {
-                $('resultWrongList').innerHTML = wrong.map(a => `
-                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${escapeHTML(a.q)}</p>
-                        <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${escapeHTML(a.options[a.selectedIdx] ??'—')}</span></p>
-                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${escapeHTML(a.options[a.correctIdx] ??'—')}</span>${
-                            /* 克漏字才有中文解釋。單字題只給一個英文字當正解的話，
-                               「知道錯了」跟「知道那個字是什麼意思」還差一步。 */
-                            a.chinese ? `　<span class="text-slate-500">${escapeHTML(a.chinese)}</span>` :''}</p>
-                    </div>`).join('');
-            }
+            renderKahootWrongList();
             $('kahootResultModal').classList.remove('hidden');
             $('kahootResultModal').classList.add('flex');
             const tBuilt = performance.now();       // ⚠️ 暫時的計時器（查完就刪）
@@ -12966,6 +13092,7 @@
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
 'toggle-cloze-scope': (t) => toggleClozeScope(t.dataset.scope),
+'toggle-cloze-unknown': (t) => toggleClozeUnknown(t.dataset.word),
 'start-cloze':     () => startClozeQuiz(),
 'toggle-shuffle':  () => toggleShuffle(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
