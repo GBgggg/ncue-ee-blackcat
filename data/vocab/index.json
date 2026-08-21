@@ -14,17 +14,12 @@
   {
    "id": "toeic",
    "title": "多益 DLC",
-   "description": "商務職場七大情境，7000 單字裡沒有的字"
+   "description": "商務職場十五個情境，7000 單字裡沒有的字"
   },
   {
    "id": "toefl",
    "title": "托福 DLC",
    "description": "學術學科五大單元，7000 單字裡沒有的字"
-  },
-  {
-   "id": "toeictw",
-   "title": "多益字庫 DLC",
-   "description": "完整多益字庫十五個情境，前面三套都沒有的字"
   }
  ],
  "folders": [
@@ -1993,30 +1988,720 @@
   {
    "id": "toeic-1",
    "set": "toeic",
-   "title": "辦公行政與管理",
-   "description": "Office Life, Administration & Management",
-   "count": 27,
+   "title": "辦公日常",
+   "description": "Office Life & Daily Routines",
+   "count": 2437,
    "file": "toeic-1.json",
    "books": [
     {
      "id": "toeic-1-1",
-     "title": "辦公行政與管理 1",
+     "title": "辦公日常 1",
      "description": "",
-     "count": 27
+     "count": 30
+    },
+    {
+     "id": "toeic-1-2",
+     "title": "辦公日常 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-3",
+     "title": "辦公日常 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-4",
+     "title": "辦公日常 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-5",
+     "title": "辦公日常 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-6",
+     "title": "辦公日常 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-7",
+     "title": "辦公日常 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-8",
+     "title": "辦公日常 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-9",
+     "title": "辦公日常 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-10",
+     "title": "辦公日常 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-11",
+     "title": "辦公日常 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-12",
+     "title": "辦公日常 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-13",
+     "title": "辦公日常 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-14",
+     "title": "辦公日常 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-15",
+     "title": "辦公日常 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-16",
+     "title": "辦公日常 16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-17",
+     "title": "辦公日常 17",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-18",
+     "title": "辦公日常 18",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-19",
+     "title": "辦公日常 19",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-20",
+     "title": "辦公日常 20",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-21",
+     "title": "辦公日常 21",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-22",
+     "title": "辦公日常 22",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-23",
+     "title": "辦公日常 23",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-24",
+     "title": "辦公日常 24",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-25",
+     "title": "辦公日常 25",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-26",
+     "title": "辦公日常 26",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-27",
+     "title": "辦公日常 27",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-28",
+     "title": "辦公日常 28",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-29",
+     "title": "辦公日常 29",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-30",
+     "title": "辦公日常 30",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-31",
+     "title": "辦公日常 31",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-32",
+     "title": "辦公日常 32",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-33",
+     "title": "辦公日常 33",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-34",
+     "title": "辦公日常 34",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-35",
+     "title": "辦公日常 35",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-36",
+     "title": "辦公日常 36",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-37",
+     "title": "辦公日常 37",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-38",
+     "title": "辦公日常 38",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-39",
+     "title": "辦公日常 39",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-40",
+     "title": "辦公日常 40",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-41",
+     "title": "辦公日常 41",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-42",
+     "title": "辦公日常 42",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-43",
+     "title": "辦公日常 43",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-44",
+     "title": "辦公日常 44",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-45",
+     "title": "辦公日常 45",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-46",
+     "title": "辦公日常 46",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-47",
+     "title": "辦公日常 47",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-48",
+     "title": "辦公日常 48",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-49",
+     "title": "辦公日常 49",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-50",
+     "title": "辦公日常 50",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-51",
+     "title": "辦公日常 51",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-52",
+     "title": "辦公日常 52",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-53",
+     "title": "辦公日常 53",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-54",
+     "title": "辦公日常 54",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-55",
+     "title": "辦公日常 55",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-56",
+     "title": "辦公日常 56",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-57",
+     "title": "辦公日常 57",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-58",
+     "title": "辦公日常 58",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-59",
+     "title": "辦公日常 59",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-60",
+     "title": "辦公日常 60",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-61",
+     "title": "辦公日常 61",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-62",
+     "title": "辦公日常 62",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-63",
+     "title": "辦公日常 63",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-64",
+     "title": "辦公日常 64",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-65",
+     "title": "辦公日常 65",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-66",
+     "title": "辦公日常 66",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-67",
+     "title": "辦公日常 67",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-68",
+     "title": "辦公日常 68",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-69",
+     "title": "辦公日常 69",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-70",
+     "title": "辦公日常 70",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-71",
+     "title": "辦公日常 71",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-72",
+     "title": "辦公日常 72",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-73",
+     "title": "辦公日常 73",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-74",
+     "title": "辦公日常 74",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-75",
+     "title": "辦公日常 75",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-76",
+     "title": "辦公日常 76",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-77",
+     "title": "辦公日常 77",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-78",
+     "title": "辦公日常 78",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-79",
+     "title": "辦公日常 79",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-80",
+     "title": "辦公日常 80",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-81",
+     "title": "辦公日常 81",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-1-82",
+     "title": "辦公日常 82",
+     "description": "",
+     "count": 7
     }
    ]
   },
   {
    "id": "toeic-2",
    "set": "toeic",
-   "title": "人力資源與人事管理",
-   "description": "Human Resources & Recruitment",
-   "count": 25,
+   "title": "溝通互動",
+   "description": "Communication & Interaction",
+   "count": 1045,
    "file": "toeic-2.json",
    "books": [
     {
      "id": "toeic-2-1",
-     "title": "人力資源與人事管理 1",
+     "title": "溝通互動 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-2",
+     "title": "溝通互動 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-3",
+     "title": "溝通互動 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-4",
+     "title": "溝通互動 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-5",
+     "title": "溝通互動 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-6",
+     "title": "溝通互動 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-7",
+     "title": "溝通互動 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-8",
+     "title": "溝通互動 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-9",
+     "title": "溝通互動 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-10",
+     "title": "溝通互動 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-11",
+     "title": "溝通互動 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-12",
+     "title": "溝通互動 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-13",
+     "title": "溝通互動 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-14",
+     "title": "溝通互動 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-15",
+     "title": "溝通互動 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-16",
+     "title": "溝通互動 16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-17",
+     "title": "溝通互動 17",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-18",
+     "title": "溝通互動 18",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-19",
+     "title": "溝通互動 19",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-20",
+     "title": "溝通互動 20",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-21",
+     "title": "溝通互動 21",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-22",
+     "title": "溝通互動 22",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-23",
+     "title": "溝通互動 23",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-24",
+     "title": "溝通互動 24",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-25",
+     "title": "溝通互動 25",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-26",
+     "title": "溝通互動 26",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-27",
+     "title": "溝通互動 27",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-28",
+     "title": "溝通互動 28",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-29",
+     "title": "溝通互動 29",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-30",
+     "title": "溝通互動 30",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-31",
+     "title": "溝通互動 31",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-32",
+     "title": "溝通互動 32",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-33",
+     "title": "溝通互動 33",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-34",
+     "title": "溝通互動 34",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-2-35",
+     "title": "溝通互動 35",
      "description": "",
      "count": 25
     }
@@ -2025,86 +2710,1204 @@
   {
    "id": "toeic-3",
    "set": "toeic",
-   "title": "財務、會計與金融",
-   "description": "Finance, Accounting & Banking",
-   "count": 42,
+   "title": "會議與簡報",
+   "description": "Meetings & Presentations",
+   "count": 59,
    "file": "toeic-3.json",
    "books": [
     {
      "id": "toeic-3-1",
-     "title": "財務、會計與金融 1",
+     "title": "會議與簡報 1",
      "description": "",
      "count": 30
     },
     {
      "id": "toeic-3-2",
-     "title": "財務、會計與金融 2",
+     "title": "會議與簡報 2",
      "description": "",
-     "count": 12
+     "count": 29
     }
    ]
   },
   {
    "id": "toeic-4",
    "set": "toeic",
-   "title": "採購、物流與國際貿易",
-   "description": "Purchasing, Logistics & Trade",
-   "count": 17,
+   "title": "營運管理",
+   "description": "Operations & Management",
+   "count": 1058,
    "file": "toeic-4.json",
    "books": [
     {
      "id": "toeic-4-1",
-     "title": "採購、物流與國際貿易 1",
+     "title": "營運管理 1",
      "description": "",
-     "count": 17
+     "count": 30
+    },
+    {
+     "id": "toeic-4-2",
+     "title": "營運管理 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-3",
+     "title": "營運管理 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-4",
+     "title": "營運管理 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-5",
+     "title": "營運管理 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-6",
+     "title": "營運管理 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-7",
+     "title": "營運管理 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-8",
+     "title": "營運管理 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-9",
+     "title": "營運管理 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-10",
+     "title": "營運管理 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-11",
+     "title": "營運管理 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-12",
+     "title": "營運管理 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-13",
+     "title": "營運管理 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-14",
+     "title": "營運管理 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-15",
+     "title": "營運管理 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-16",
+     "title": "營運管理 16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-17",
+     "title": "營運管理 17",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-18",
+     "title": "營運管理 18",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-19",
+     "title": "營運管理 19",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-20",
+     "title": "營運管理 20",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-21",
+     "title": "營運管理 21",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-22",
+     "title": "營運管理 22",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-23",
+     "title": "營運管理 23",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-24",
+     "title": "營運管理 24",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-25",
+     "title": "營運管理 25",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-26",
+     "title": "營運管理 26",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-27",
+     "title": "營運管理 27",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-28",
+     "title": "營運管理 28",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-29",
+     "title": "營運管理 29",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-30",
+     "title": "營運管理 30",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-31",
+     "title": "營運管理 31",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-32",
+     "title": "營運管理 32",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-33",
+     "title": "營運管理 33",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-34",
+     "title": "營運管理 34",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-35",
+     "title": "營運管理 35",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-4-36",
+     "title": "營運管理 36",
+     "description": "",
+     "count": 8
     }
    ]
   },
   {
    "id": "toeic-5",
    "set": "toeic",
-   "title": "商務出差與餐飲招待",
-   "description": "Travel, Accommodation & Hospitality",
-   "count": 12,
+   "title": "人力資源",
+   "description": "Human Resources",
+   "count": 545,
    "file": "toeic-5.json",
    "books": [
     {
      "id": "toeic-5-1",
-     "title": "商務出差與餐飲招待 1",
+     "title": "人力資源 1",
      "description": "",
-     "count": 12
+     "count": 30
+    },
+    {
+     "id": "toeic-5-2",
+     "title": "人力資源 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-3",
+     "title": "人力資源 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-4",
+     "title": "人力資源 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-5",
+     "title": "人力資源 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-6",
+     "title": "人力資源 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-7",
+     "title": "人力資源 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-8",
+     "title": "人力資源 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-9",
+     "title": "人力資源 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-10",
+     "title": "人力資源 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-11",
+     "title": "人力資源 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-12",
+     "title": "人力資源 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-13",
+     "title": "人力資源 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-14",
+     "title": "人力資源 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-15",
+     "title": "人力資源 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-16",
+     "title": "人力資源 16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-17",
+     "title": "人力資源 17",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-18",
+     "title": "人力資源 18",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-5-19",
+     "title": "人力資源 19",
+     "description": "",
+     "count": 5
     }
    ]
   },
   {
    "id": "toeic-6",
    "set": "toeic",
-   "title": "合約、談判與法律事務",
-   "description": "Contracts, Legal & Negotiations",
-   "count": 24,
+   "title": "金融與會計",
+   "description": "Finance & Accounting",
+   "count": 385,
    "file": "toeic-6.json",
    "books": [
     {
      "id": "toeic-6-1",
-     "title": "合約、談判與法律事務 1",
+     "title": "金融與會計 1",
      "description": "",
-     "count": 24
+     "count": 30
+    },
+    {
+     "id": "toeic-6-2",
+     "title": "金融與會計 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-3",
+     "title": "金融與會計 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-4",
+     "title": "金融與會計 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-5",
+     "title": "金融與會計 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-6",
+     "title": "金融與會計 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-7",
+     "title": "金融與會計 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-8",
+     "title": "金融與會計 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-9",
+     "title": "金融與會計 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-10",
+     "title": "金融與會計 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-11",
+     "title": "金融與會計 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-12",
+     "title": "金融與會計 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-6-13",
+     "title": "金融與會計 13",
+     "description": "",
+     "count": 25
     }
    ]
   },
   {
    "id": "toeic-7",
    "set": "toeic",
-   "title": "行銷、銷售與公關",
-   "description": "Marketing, Sales & Publicity",
-   "count": 4,
+   "title": "採購與物流",
+   "description": "Purchasing & Logistics",
+   "count": 380,
    "file": "toeic-7.json",
    "books": [
     {
      "id": "toeic-7-1",
-     "title": "行銷、銷售與公關 1",
+     "title": "採購與物流 1",
      "description": "",
-     "count": 4
+     "count": 30
+    },
+    {
+     "id": "toeic-7-2",
+     "title": "採購與物流 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-3",
+     "title": "採購與物流 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-4",
+     "title": "採購與物流 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-5",
+     "title": "採購與物流 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-6",
+     "title": "採購與物流 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-7",
+     "title": "採購與物流 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-8",
+     "title": "採購與物流 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-9",
+     "title": "採購與物流 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-10",
+     "title": "採購與物流 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-11",
+     "title": "採購與物流 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-12",
+     "title": "採購與物流 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-7-13",
+     "title": "採購與物流 13",
+     "description": "",
+     "count": 20
+    }
+   ]
+  },
+  {
+   "id": "toeic-8",
+   "set": "toeic",
+   "title": "行銷與銷售",
+   "description": "Marketing & Sales",
+   "count": 436,
+   "file": "toeic-8.json",
+   "books": [
+    {
+     "id": "toeic-8-1",
+     "title": "行銷與銷售 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-2",
+     "title": "行銷與銷售 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-3",
+     "title": "行銷與銷售 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-4",
+     "title": "行銷與銷售 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-5",
+     "title": "行銷與銷售 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-6",
+     "title": "行銷與銷售 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-7",
+     "title": "行銷與銷售 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-8",
+     "title": "行銷與銷售 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-9",
+     "title": "行銷與銷售 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-10",
+     "title": "行銷與銷售 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-11",
+     "title": "行銷與銷售 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-12",
+     "title": "行銷與銷售 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-13",
+     "title": "行銷與銷售 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-14",
+     "title": "行銷與銷售 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-8-15",
+     "title": "行銷與銷售 15",
+     "description": "",
+     "count": 16
+    }
+   ]
+  },
+  {
+   "id": "toeic-9",
+   "set": "toeic",
+   "title": "客戶服務",
+   "description": "Customer Service",
+   "count": 52,
+   "file": "toeic-9.json",
+   "books": [
+    {
+     "id": "toeic-9-1",
+     "title": "客戶服務 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-9-2",
+     "title": "客戶服務 2",
+     "description": "",
+     "count": 22
+    }
+   ]
+  },
+  {
+   "id": "toeic-10",
+   "set": "toeic",
+   "title": "法務合規與安全",
+   "description": "Legal, Compliance & Safety",
+   "count": 183,
+   "file": "toeic-10.json",
+   "books": [
+    {
+     "id": "toeic-10-1",
+     "title": "法務合規與安全 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-10-2",
+     "title": "法務合規與安全 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-10-3",
+     "title": "法務合規與安全 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-10-4",
+     "title": "法務合規與安全 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-10-5",
+     "title": "法務合規與安全 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-10-6",
+     "title": "法務合規與安全 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-10-7",
+     "title": "法務合規與安全 7",
+     "description": "",
+     "count": 3
+    }
+   ]
+  },
+  {
+   "id": "toeic-11",
+   "set": "toeic",
+   "title": "科技與技術支援",
+   "description": "Technology & Technical Support",
+   "count": 464,
+   "file": "toeic-11.json",
+   "books": [
+    {
+     "id": "toeic-11-1",
+     "title": "科技與技術支援 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-2",
+     "title": "科技與技術支援 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-3",
+     "title": "科技與技術支援 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-4",
+     "title": "科技與技術支援 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-5",
+     "title": "科技與技術支援 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-6",
+     "title": "科技與技術支援 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-7",
+     "title": "科技與技術支援 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-8",
+     "title": "科技與技術支援 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-9",
+     "title": "科技與技術支援 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-10",
+     "title": "科技與技術支援 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-11",
+     "title": "科技與技術支援 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-12",
+     "title": "科技與技術支援 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-13",
+     "title": "科技與技術支援 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-14",
+     "title": "科技與技術支援 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-15",
+     "title": "科技與技術支援 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-11-16",
+     "title": "科技與技術支援 16",
+     "description": "",
+     "count": 14
+    }
+   ]
+  },
+  {
+   "id": "toeic-12",
+   "set": "toeic",
+   "title": "旅遊與交通",
+   "description": "Travel & Transportation",
+   "count": 498,
+   "file": "toeic-12.json",
+   "books": [
+    {
+     "id": "toeic-12-1",
+     "title": "旅遊與交通 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-2",
+     "title": "旅遊與交通 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-3",
+     "title": "旅遊與交通 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-4",
+     "title": "旅遊與交通 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-5",
+     "title": "旅遊與交通 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-6",
+     "title": "旅遊與交通 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-7",
+     "title": "旅遊與交通 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-8",
+     "title": "旅遊與交通 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-9",
+     "title": "旅遊與交通 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-10",
+     "title": "旅遊與交通 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-11",
+     "title": "旅遊與交通 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-12",
+     "title": "旅遊與交通 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-13",
+     "title": "旅遊與交通 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-14",
+     "title": "旅遊與交通 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-15",
+     "title": "旅遊與交通 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-16",
+     "title": "旅遊與交通 16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-12-17",
+     "title": "旅遊與交通 17",
+     "description": "",
+     "count": 18
+    }
+   ]
+  },
+  {
+   "id": "toeic-13",
+   "set": "toeic",
+   "title": "住宿與餐飲",
+   "description": "Accommodation & Dining",
+   "count": 329,
+   "file": "toeic-13.json",
+   "books": [
+    {
+     "id": "toeic-13-1",
+     "title": "住宿與餐飲 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-2",
+     "title": "住宿與餐飲 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-3",
+     "title": "住宿與餐飲 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-4",
+     "title": "住宿與餐飲 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-5",
+     "title": "住宿與餐飲 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-6",
+     "title": "住宿與餐飲 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-7",
+     "title": "住宿與餐飲 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-8",
+     "title": "住宿與餐飲 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-9",
+     "title": "住宿與餐飲 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-10",
+     "title": "住宿與餐飲 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-13-11",
+     "title": "住宿與餐飲 11",
+     "description": "",
+     "count": 29
+    }
+   ]
+  },
+  {
+   "id": "toeic-14",
+   "set": "toeic",
+   "title": "物業與不動產",
+   "description": "Property & Real Estate",
+   "count": 110,
+   "file": "toeic-14.json",
+   "books": [
+    {
+     "id": "toeic-14-1",
+     "title": "物業與不動產 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-14-2",
+     "title": "物業與不動產 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-14-3",
+     "title": "物業與不動產 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-14-4",
+     "title": "物業與不動產 4",
+     "description": "",
+     "count": 20
+    }
+   ]
+  },
+  {
+   "id": "toeic-15",
+   "set": "toeic",
+   "title": "一般專業",
+   "description": "General Professional",
+   "count": 716,
+   "file": "toeic-15.json",
+   "books": [
+    {
+     "id": "toeic-15-1",
+     "title": "一般專業 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-2",
+     "title": "一般專業 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-3",
+     "title": "一般專業 3",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-4",
+     "title": "一般專業 4",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-5",
+     "title": "一般專業 5",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-6",
+     "title": "一般專業 6",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-7",
+     "title": "一般專業 7",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-8",
+     "title": "一般專業 8",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-9",
+     "title": "一般專業 9",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-10",
+     "title": "一般專業 10",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-11",
+     "title": "一般專業 11",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-12",
+     "title": "一般專業 12",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-13",
+     "title": "一般專業 13",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-14",
+     "title": "一般專業 14",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-15",
+     "title": "一般專業 15",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-16",
+     "title": "一般專業 16",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-17",
+     "title": "一般專業 17",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-18",
+     "title": "一般專業 18",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-19",
+     "title": "一般專業 19",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-20",
+     "title": "一般專業 20",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-21",
+     "title": "一般專業 21",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-22",
+     "title": "一般專業 22",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-23",
+     "title": "一般專業 23",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toeic-15-24",
+     "title": "一般專業 24",
+     "description": "",
+     "count": 26
     }
    ]
   },
@@ -2209,1908 +4012,6 @@
      "title": "生命科學、動物學與植物學 1",
      "description": "",
      "count": 24
-    }
-   ]
-  },
-  {
-   "id": "twv-1",
-   "set": "toeictw",
-   "title": "辦公日常",
-   "description": "Office Life & Daily Routines",
-   "count": 2410,
-   "file": "twv-1.json",
-   "books": [
-    {
-     "id": "twv-1-1",
-     "title": "辦公日常 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-2",
-     "title": "辦公日常 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-3",
-     "title": "辦公日常 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-4",
-     "title": "辦公日常 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-5",
-     "title": "辦公日常 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-6",
-     "title": "辦公日常 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-7",
-     "title": "辦公日常 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-8",
-     "title": "辦公日常 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-9",
-     "title": "辦公日常 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-10",
-     "title": "辦公日常 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-11",
-     "title": "辦公日常 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-12",
-     "title": "辦公日常 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-13",
-     "title": "辦公日常 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-14",
-     "title": "辦公日常 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-15",
-     "title": "辦公日常 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-16",
-     "title": "辦公日常 16",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-17",
-     "title": "辦公日常 17",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-18",
-     "title": "辦公日常 18",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-19",
-     "title": "辦公日常 19",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-20",
-     "title": "辦公日常 20",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-21",
-     "title": "辦公日常 21",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-22",
-     "title": "辦公日常 22",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-23",
-     "title": "辦公日常 23",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-24",
-     "title": "辦公日常 24",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-25",
-     "title": "辦公日常 25",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-26",
-     "title": "辦公日常 26",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-27",
-     "title": "辦公日常 27",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-28",
-     "title": "辦公日常 28",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-29",
-     "title": "辦公日常 29",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-30",
-     "title": "辦公日常 30",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-31",
-     "title": "辦公日常 31",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-32",
-     "title": "辦公日常 32",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-33",
-     "title": "辦公日常 33",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-34",
-     "title": "辦公日常 34",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-35",
-     "title": "辦公日常 35",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-36",
-     "title": "辦公日常 36",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-37",
-     "title": "辦公日常 37",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-38",
-     "title": "辦公日常 38",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-39",
-     "title": "辦公日常 39",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-40",
-     "title": "辦公日常 40",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-41",
-     "title": "辦公日常 41",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-42",
-     "title": "辦公日常 42",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-43",
-     "title": "辦公日常 43",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-44",
-     "title": "辦公日常 44",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-45",
-     "title": "辦公日常 45",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-46",
-     "title": "辦公日常 46",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-47",
-     "title": "辦公日常 47",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-48",
-     "title": "辦公日常 48",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-49",
-     "title": "辦公日常 49",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-50",
-     "title": "辦公日常 50",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-51",
-     "title": "辦公日常 51",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-52",
-     "title": "辦公日常 52",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-53",
-     "title": "辦公日常 53",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-54",
-     "title": "辦公日常 54",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-55",
-     "title": "辦公日常 55",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-56",
-     "title": "辦公日常 56",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-57",
-     "title": "辦公日常 57",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-58",
-     "title": "辦公日常 58",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-59",
-     "title": "辦公日常 59",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-60",
-     "title": "辦公日常 60",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-61",
-     "title": "辦公日常 61",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-62",
-     "title": "辦公日常 62",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-63",
-     "title": "辦公日常 63",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-64",
-     "title": "辦公日常 64",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-65",
-     "title": "辦公日常 65",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-66",
-     "title": "辦公日常 66",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-67",
-     "title": "辦公日常 67",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-68",
-     "title": "辦公日常 68",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-69",
-     "title": "辦公日常 69",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-70",
-     "title": "辦公日常 70",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-71",
-     "title": "辦公日常 71",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-72",
-     "title": "辦公日常 72",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-73",
-     "title": "辦公日常 73",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-74",
-     "title": "辦公日常 74",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-75",
-     "title": "辦公日常 75",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-76",
-     "title": "辦公日常 76",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-77",
-     "title": "辦公日常 77",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-78",
-     "title": "辦公日常 78",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-79",
-     "title": "辦公日常 79",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-80",
-     "title": "辦公日常 80",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-1-81",
-     "title": "辦公日常 81",
-     "description": "",
-     "count": 10
-    }
-   ]
-  },
-  {
-   "id": "twv-2",
-   "set": "toeictw",
-   "title": "溝通互動",
-   "description": "Communication & Interaction",
-   "count": 1045,
-   "file": "twv-2.json",
-   "books": [
-    {
-     "id": "twv-2-1",
-     "title": "溝通互動 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-2",
-     "title": "溝通互動 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-3",
-     "title": "溝通互動 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-4",
-     "title": "溝通互動 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-5",
-     "title": "溝通互動 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-6",
-     "title": "溝通互動 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-7",
-     "title": "溝通互動 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-8",
-     "title": "溝通互動 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-9",
-     "title": "溝通互動 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-10",
-     "title": "溝通互動 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-11",
-     "title": "溝通互動 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-12",
-     "title": "溝通互動 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-13",
-     "title": "溝通互動 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-14",
-     "title": "溝通互動 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-15",
-     "title": "溝通互動 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-16",
-     "title": "溝通互動 16",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-17",
-     "title": "溝通互動 17",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-18",
-     "title": "溝通互動 18",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-19",
-     "title": "溝通互動 19",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-20",
-     "title": "溝通互動 20",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-21",
-     "title": "溝通互動 21",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-22",
-     "title": "溝通互動 22",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-23",
-     "title": "溝通互動 23",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-24",
-     "title": "溝通互動 24",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-25",
-     "title": "溝通互動 25",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-26",
-     "title": "溝通互動 26",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-27",
-     "title": "溝通互動 27",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-28",
-     "title": "溝通互動 28",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-29",
-     "title": "溝通互動 29",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-30",
-     "title": "溝通互動 30",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-31",
-     "title": "溝通互動 31",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-32",
-     "title": "溝通互動 32",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-33",
-     "title": "溝通互動 33",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-34",
-     "title": "溝通互動 34",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-2-35",
-     "title": "溝通互動 35",
-     "description": "",
-     "count": 25
-    }
-   ]
-  },
-  {
-   "id": "twv-3",
-   "set": "toeictw",
-   "title": "會議與簡報",
-   "description": "Meetings & Presentations",
-   "count": 59,
-   "file": "twv-3.json",
-   "books": [
-    {
-     "id": "twv-3-1",
-     "title": "會議與簡報 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-3-2",
-     "title": "會議與簡報 2",
-     "description": "",
-     "count": 29
-    }
-   ]
-  },
-  {
-   "id": "twv-4",
-   "set": "toeictw",
-   "title": "營運管理",
-   "description": "Operations & Management",
-   "count": 1058,
-   "file": "twv-4.json",
-   "books": [
-    {
-     "id": "twv-4-1",
-     "title": "營運管理 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-2",
-     "title": "營運管理 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-3",
-     "title": "營運管理 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-4",
-     "title": "營運管理 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-5",
-     "title": "營運管理 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-6",
-     "title": "營運管理 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-7",
-     "title": "營運管理 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-8",
-     "title": "營運管理 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-9",
-     "title": "營運管理 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-10",
-     "title": "營運管理 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-11",
-     "title": "營運管理 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-12",
-     "title": "營運管理 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-13",
-     "title": "營運管理 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-14",
-     "title": "營運管理 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-15",
-     "title": "營運管理 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-16",
-     "title": "營運管理 16",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-17",
-     "title": "營運管理 17",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-18",
-     "title": "營運管理 18",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-19",
-     "title": "營運管理 19",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-20",
-     "title": "營運管理 20",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-21",
-     "title": "營運管理 21",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-22",
-     "title": "營運管理 22",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-23",
-     "title": "營運管理 23",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-24",
-     "title": "營運管理 24",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-25",
-     "title": "營運管理 25",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-26",
-     "title": "營運管理 26",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-27",
-     "title": "營運管理 27",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-28",
-     "title": "營運管理 28",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-29",
-     "title": "營運管理 29",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-30",
-     "title": "營運管理 30",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-31",
-     "title": "營運管理 31",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-32",
-     "title": "營運管理 32",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-33",
-     "title": "營運管理 33",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-34",
-     "title": "營運管理 34",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-35",
-     "title": "營運管理 35",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-4-36",
-     "title": "營運管理 36",
-     "description": "",
-     "count": 8
-    }
-   ]
-  },
-  {
-   "id": "twv-5",
-   "set": "toeictw",
-   "title": "人力資源",
-   "description": "Human Resources",
-   "count": 520,
-   "file": "twv-5.json",
-   "books": [
-    {
-     "id": "twv-5-1",
-     "title": "人力資源 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-2",
-     "title": "人力資源 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-3",
-     "title": "人力資源 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-4",
-     "title": "人力資源 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-5",
-     "title": "人力資源 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-6",
-     "title": "人力資源 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-7",
-     "title": "人力資源 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-8",
-     "title": "人力資源 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-9",
-     "title": "人力資源 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-10",
-     "title": "人力資源 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-11",
-     "title": "人力資源 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-12",
-     "title": "人力資源 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-13",
-     "title": "人力資源 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-14",
-     "title": "人力資源 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-15",
-     "title": "人力資源 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-16",
-     "title": "人力資源 16",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-17",
-     "title": "人力資源 17",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-5-18",
-     "title": "人力資源 18",
-     "description": "",
-     "count": 10
-    }
-   ]
-  },
-  {
-   "id": "twv-6",
-   "set": "toeictw",
-   "title": "金融與會計",
-   "description": "Finance & Accounting",
-   "count": 343,
-   "file": "twv-6.json",
-   "books": [
-    {
-     "id": "twv-6-1",
-     "title": "金融與會計 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-2",
-     "title": "金融與會計 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-3",
-     "title": "金融與會計 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-4",
-     "title": "金融與會計 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-5",
-     "title": "金融與會計 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-6",
-     "title": "金融與會計 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-7",
-     "title": "金融與會計 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-8",
-     "title": "金融與會計 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-9",
-     "title": "金融與會計 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-10",
-     "title": "金融與會計 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-11",
-     "title": "金融與會計 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-6-12",
-     "title": "金融與會計 12",
-     "description": "",
-     "count": 13
-    }
-   ]
-  },
-  {
-   "id": "twv-7",
-   "set": "toeictw",
-   "title": "採購與物流",
-   "description": "Purchasing & Logistics",
-   "count": 363,
-   "file": "twv-7.json",
-   "books": [
-    {
-     "id": "twv-7-1",
-     "title": "採購與物流 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-2",
-     "title": "採購與物流 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-3",
-     "title": "採購與物流 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-4",
-     "title": "採購與物流 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-5",
-     "title": "採購與物流 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-6",
-     "title": "採購與物流 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-7",
-     "title": "採購與物流 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-8",
-     "title": "採購與物流 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-9",
-     "title": "採購與物流 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-10",
-     "title": "採購與物流 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-11",
-     "title": "採購與物流 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-12",
-     "title": "採購與物流 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-7-13",
-     "title": "採購與物流 13",
-     "description": "",
-     "count": 3
-    }
-   ]
-  },
-  {
-   "id": "twv-8",
-   "set": "toeictw",
-   "title": "行銷與銷售",
-   "description": "Marketing & Sales",
-   "count": 432,
-   "file": "twv-8.json",
-   "books": [
-    {
-     "id": "twv-8-1",
-     "title": "行銷與銷售 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-2",
-     "title": "行銷與銷售 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-3",
-     "title": "行銷與銷售 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-4",
-     "title": "行銷與銷售 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-5",
-     "title": "行銷與銷售 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-6",
-     "title": "行銷與銷售 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-7",
-     "title": "行銷與銷售 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-8",
-     "title": "行銷與銷售 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-9",
-     "title": "行銷與銷售 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-10",
-     "title": "行銷與銷售 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-11",
-     "title": "行銷與銷售 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-12",
-     "title": "行銷與銷售 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-13",
-     "title": "行銷與銷售 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-14",
-     "title": "行銷與銷售 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-8-15",
-     "title": "行銷與銷售 15",
-     "description": "",
-     "count": 12
-    }
-   ]
-  },
-  {
-   "id": "twv-9",
-   "set": "toeictw",
-   "title": "客戶服務",
-   "description": "Customer Service",
-   "count": 52,
-   "file": "twv-9.json",
-   "books": [
-    {
-     "id": "twv-9-1",
-     "title": "客戶服務 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-9-2",
-     "title": "客戶服務 2",
-     "description": "",
-     "count": 22
-    }
-   ]
-  },
-  {
-   "id": "twv-10",
-   "set": "toeictw",
-   "title": "法務合規與安全",
-   "description": "Legal, Compliance & Safety",
-   "count": 159,
-   "file": "twv-10.json",
-   "books": [
-    {
-     "id": "twv-10-1",
-     "title": "法務合規與安全 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-10-2",
-     "title": "法務合規與安全 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-10-3",
-     "title": "法務合規與安全 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-10-4",
-     "title": "法務合規與安全 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-10-5",
-     "title": "法務合規與安全 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-10-6",
-     "title": "法務合規與安全 6",
-     "description": "",
-     "count": 9
-    }
-   ]
-  },
-  {
-   "id": "twv-11",
-   "set": "toeictw",
-   "title": "科技與技術支援",
-   "description": "Technology & Technical Support",
-   "count": 464,
-   "file": "twv-11.json",
-   "books": [
-    {
-     "id": "twv-11-1",
-     "title": "科技與技術支援 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-2",
-     "title": "科技與技術支援 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-3",
-     "title": "科技與技術支援 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-4",
-     "title": "科技與技術支援 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-5",
-     "title": "科技與技術支援 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-6",
-     "title": "科技與技術支援 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-7",
-     "title": "科技與技術支援 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-8",
-     "title": "科技與技術支援 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-9",
-     "title": "科技與技術支援 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-10",
-     "title": "科技與技術支援 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-11",
-     "title": "科技與技術支援 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-12",
-     "title": "科技與技術支援 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-13",
-     "title": "科技與技術支援 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-14",
-     "title": "科技與技術支援 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-15",
-     "title": "科技與技術支援 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-11-16",
-     "title": "科技與技術支援 16",
-     "description": "",
-     "count": 14
-    }
-   ]
-  },
-  {
-   "id": "twv-12",
-   "set": "toeictw",
-   "title": "旅遊與交通",
-   "description": "Travel & Transportation",
-   "count": 486,
-   "file": "twv-12.json",
-   "books": [
-    {
-     "id": "twv-12-1",
-     "title": "旅遊與交通 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-2",
-     "title": "旅遊與交通 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-3",
-     "title": "旅遊與交通 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-4",
-     "title": "旅遊與交通 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-5",
-     "title": "旅遊與交通 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-6",
-     "title": "旅遊與交通 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-7",
-     "title": "旅遊與交通 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-8",
-     "title": "旅遊與交通 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-9",
-     "title": "旅遊與交通 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-10",
-     "title": "旅遊與交通 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-11",
-     "title": "旅遊與交通 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-12",
-     "title": "旅遊與交通 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-13",
-     "title": "旅遊與交通 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-14",
-     "title": "旅遊與交通 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-15",
-     "title": "旅遊與交通 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-16",
-     "title": "旅遊與交通 16",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-12-17",
-     "title": "旅遊與交通 17",
-     "description": "",
-     "count": 6
-    }
-   ]
-  },
-  {
-   "id": "twv-13",
-   "set": "toeictw",
-   "title": "住宿與餐飲",
-   "description": "Accommodation & Dining",
-   "count": 329,
-   "file": "twv-13.json",
-   "books": [
-    {
-     "id": "twv-13-1",
-     "title": "住宿與餐飲 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-2",
-     "title": "住宿與餐飲 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-3",
-     "title": "住宿與餐飲 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-4",
-     "title": "住宿與餐飲 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-5",
-     "title": "住宿與餐飲 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-6",
-     "title": "住宿與餐飲 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-7",
-     "title": "住宿與餐飲 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-8",
-     "title": "住宿與餐飲 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-9",
-     "title": "住宿與餐飲 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-10",
-     "title": "住宿與餐飲 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-13-11",
-     "title": "住宿與餐飲 11",
-     "description": "",
-     "count": 29
-    }
-   ]
-  },
-  {
-   "id": "twv-14",
-   "set": "toeictw",
-   "title": "物業與不動產",
-   "description": "Property & Real Estate",
-   "count": 110,
-   "file": "twv-14.json",
-   "books": [
-    {
-     "id": "twv-14-1",
-     "title": "物業與不動產 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-14-2",
-     "title": "物業與不動產 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-14-3",
-     "title": "物業與不動產 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-14-4",
-     "title": "物業與不動產 4",
-     "description": "",
-     "count": 20
-    }
-   ]
-  },
-  {
-   "id": "twv-15",
-   "set": "toeictw",
-   "title": "一般專業",
-   "description": "General Professional",
-   "count": 716,
-   "file": "twv-15.json",
-   "books": [
-    {
-     "id": "twv-15-1",
-     "title": "一般專業 1",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-2",
-     "title": "一般專業 2",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-3",
-     "title": "一般專業 3",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-4",
-     "title": "一般專業 4",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-5",
-     "title": "一般專業 5",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-6",
-     "title": "一般專業 6",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-7",
-     "title": "一般專業 7",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-8",
-     "title": "一般專業 8",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-9",
-     "title": "一般專業 9",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-10",
-     "title": "一般專業 10",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-11",
-     "title": "一般專業 11",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-12",
-     "title": "一般專業 12",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-13",
-     "title": "一般專業 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-14",
-     "title": "一般專業 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-15",
-     "title": "一般專業 15",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-16",
-     "title": "一般專業 16",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-17",
-     "title": "一般專業 17",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-18",
-     "title": "一般專業 18",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-19",
-     "title": "一般專業 19",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-20",
-     "title": "一般專業 20",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-21",
-     "title": "一般專業 21",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-22",
-     "title": "一般專業 22",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-23",
-     "title": "一般專業 23",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "twv-15-24",
-     "title": "一般專業 24",
-     "description": "",
-     "count": 26
     }
    ]
   }
