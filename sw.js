@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v97';
+const CACHE = 'blackcat-v98';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -71,7 +71,7 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
                  （切過去的瞬間背景會空一拍）。 */
               './brightcomputer.jpg', './brightphone.jpg',
               './nightcomputer.jpg',  './nightphone.jpg'];
-/* ★ 內建單字庫（./data/vocab/*.json，約 1.8MB）**故意不放進 CORE**：
+/* ★ 內建單字庫（./data/vocab/*.json，約 3.8MB）**故意不放進 CORE**：
    放進去等於每個人安裝時都先下載整套，而多數人只會翻其中幾個資料夾。
    它走下面「靜態資源快取優先」那條路——開過的資料夾自然會留在快取裡，
    之後離線也打得開；沒開過的就沒有，這是想要的行為。 */
