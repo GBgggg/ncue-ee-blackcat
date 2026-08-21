@@ -4396,8 +4396,16 @@
              `due`**（那是存下來的日期，不是每次重算的）——所以改完之後
              舊的到期日會照舊，新的才用新間隔。 */
         const SRS_STEPS = [1, 3, 7, 14, 30];   // 第 1～5 階各自隔幾天
-        const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題
+        const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題（預設值，使用者可改）
+        const SRS_DAILY_CHOICES = [20, 50, 100];
         const SRS_KEEP = 800;                  // 排程最多記幾個字（一份文件裝得下）
+        /* 已學會的字最多記幾個。★ 只存字串，一個字約 12 bytes，
+           整個內建單字庫 12,368 個字也才 150KB 上下，離 Firestore 的
+           單份文件 1MB 還很遠——所以這個數字設得比單字總數大，
+           實際上等於「不會滿」。⚠️ 設小的話會出現最難查的那種錯：
+           已經學會的字被擠出清單，於是又被當成新字重教一次，
+           而畫面上完全正常。 */
+        const SRS_DONE_KEEP = 20000;
         /* 完成日最多記幾天。★ 只有任務判定在用（每月任務最遠要回頭看 31 天），
            留 120 天是為了「上個月的每月任務也還查得到」，不是為了做統計——
            要做學習曲線的話那是另一份資料，不要偷偷把這一份養大。 */
@@ -4405,6 +4413,24 @@
         /* 快刷最多幾輪。★ 不是「直到全對」的字面實作：同一個字連錯五輪的人
            再刷下去只是挫折，而那個字明天本來就會被排出來（答錯＝掉回第一階）。 */
         const SRS_DRILL_MAX = 5;
+        /* 每日測驗自己的範圍，跟克漏字那六顆 chip **分開**。
+           ★ 為什麼不共用：克漏字是「隨便練一場」，換範圍是隨手的事；
+             每日測驗是「長期排程」，換一次範圍等於換掉往後幾個月要背的東西。
+             共用一份的話，使用者為了練多益隨手點一下，隔天的排程就跟著變了，
+             而畫面上不會有任何提示。
+           ★ 這裡是**預設組合**不是新的級數：`scopes` 裡的 id 一律要在
+             `CLOZE_SCOPES` 裡找得到（`srsScopeIds` 只是攤平成那幾個 id，
+             範圍與載入還是走克漏字那一套）。
+           ⚠️ 打錯一個 id 不會報錯，只會變成「那個範圍出不了題」——
+             `tests/cloze.mjs` 有一條在釘這件事。
+           `group` 相同的兩顆互斥：7000 的「全部」與「不含 Lv6」同時亮著的話，
+           後者等於沒有意義，而兩顆都是亮的看起來像設定生效了。 */
+        const SRS_SCOPES = [
+            { id:'az',    label:'7000 全部',      group:'az', scopes: ['lv3','lv4','lv5','lv6'] },
+            { id:'az5',   label:'7000 不含 Lv6',  group:'az', scopes: ['lv3','lv4','lv5'] },
+            { id:'toeic', label:'多益 DLC',                   scopes: ['toeic'] },
+            { id:'toefl', label:'托福 DLC',                   scopes: ['toefl'] }
+        ];
 
         const timeSlots = [
             { id: 1, label:'1', timeStr:'08:10-<br>09:00', start: 8 * 60 + 10, end: 9 * 60 },
@@ -5372,6 +5398,21 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-21',
+                title: '每日測驗現在真的走得完：字學會了會畢業，範圍與題數可以自己選',
+                items: [
+                    ['做了什麼', '今日測驗那張卡多了兩排按鈕：**範圍**（7000 全部／7000 不含 Level 6／多益 DLC／托福 DLC，跟克漏字分開設）與**一場幾題**（20／50／100）。字在最後一階又答對就「畢業」——移出排程、記進「已學會」，卡片上會顯示已學會幾個字。之後那個字在克漏字裡又錯了，會自動被拉回來重排。'],
+                    ['★★ 起因是把演算法跑了五年，發現「學完」在數學上不存在', '原本第 5 階不是終點，是「每 30 天回來一次」的無限迴圈：字只進不出。第 5 階的字每天佔掉 1/30 個題目格，各階混算下來一個字平均每 20 天回來一次，所以**可長期維持的字數大約就是「每日題數 × 20」**——20 題／天的天花板是 400 個字，而站上有 12,368 個。模擬跑五年，20 題／天停在 415 個字、大約第 290 天新字就完全進不來了，而畫面上只會寫「今天有 20 個字到期」，看起來一切正常。試算全文在 `記憶曲線試算.md`。'],
+                    ['★★ 畢業判斷要用「答題前」的階數', '`srsNext` 在最後一階答對會回傳同樣的階數，拿它判的話「第 4 階升上來」的那一次就直接畢業，等於少考 30 天那一關——而那一關才是「真的記得住」的證據。'],
+                    ['★★ `SRS_KEEP` 原本是按進場順序淘汰，那是反的', '`slice(-800)` 丟掉的是**最早進排程**的字，而最早進來的通常正好是階數最高的那些，等於專挑學得最好的丟，每天都在錯的反而留著。這件事沒有任何徵兆：卡片上永遠寫「排程裡有 800 個字」，使用者只會覺得「以前明明背過的字怎麼又冒出來了」。跑模擬才看得出來——每日題數拉到 200 的時候，五年下來升到第五階的字是 **0**，因為每個字都在爬到第三階之前就被擠出去，然後又被當成新字重抽回來。現在 `srsTrim()` 先丟第 1 階、同階丟 `at` 最舊的。'],
+                    ['★★ 「已學會」與「排程」不能同時有同一個字', '兩邊都有的話它照樣每天被排出來，而使用者已經看到「已學會 N 字」把它算進去了。`normalizeSrs` 會把排程裡已經畢業的那些濾掉，`srsPickWords` 補新字時也把已學會的排除——不排除的話字一畢業就馬上被當成新字重教一次，畫面上只是「今天有 20 個新字」。'],
+                    ['★ 「我會了」不算畢業', '錯題檢討取消勾「不會」走的是 `srsForget`，那句話的意思是「我剛才其實會」，不是「這個字我學完了」。寫進已學會的話，按錯一下就永遠不會再考到那個字，而使用者根本不知道發生過這件事。'],
+                    ['★★ 每日測驗的範圍跟克漏字**分開**', '克漏字是「隨便練一場」，換範圍是隨手的事；每日測驗是「長期排程」，換一次範圍等於換掉往後幾個月要背的東西。共用一份的話，去克漏字隨手點一下多益，隔天的排程就跟著換了，而畫面上沒有任何提示。⚠️ 範圍與題數都存在 `settings/vocabSrs`（排程本來就住那），**沒有另開一個模組層的變數**：那會變成兩個真相來源，不同步的時候兩邊都不報錯，使用者只覺得「沒存到」。'],
+                    ['★ 7000 的「全部」與「不含 Level 6」互斥', '兩顆同時亮著的話後者等於沒有意義，而畫面上兩顆都是亮的，看起來像設定生效了。多益／托福則可以跟 7000 並存。⚠️ 也不能一個都不選：空的範圍會變成「今天排不出任何字」而且沒有錯誤訊息。'],
+                    ['★ 測試多 38 條，照慣例故意弄壞九次確認會紅', '含「拿掉畢業出口」「畢業判斷改用答題後的階數」「淘汰改回 slice」「補新字不排除已學會的」「每日測驗改吃 clozeScopes」「題數沒接到出題那一段」「範圍不互斥」「已學會的字沒從排程濾掉」「範圍全壞掉時留空」——九條全部紅。'],
+                ]
+            },
             {
                 date: '2026-08-21',
                 title: '完整多益字庫接進單字庫，兩份多益 md 併成同一套 DLC（內建單字 3,822 → 12,368）',
@@ -11474,17 +11515,71 @@
             return dayKeyOfDate(d);
         }
 
+        /* 超過 `SRS_KEEP` 的時候該丟誰。
+           ⚠️⚠️ 這裡原本是 `slice(-SRS_KEEP)`，也就是**按進場順序**丟掉最早進來的。
+             那是反的：最早進排程的字通常正好是階數最高的那些，等於專挑
+             學得最好的丟掉，而學得最差、每天都在錯的字反而留著。
+             這個壞法沒有任何徵兆——卡片上永遠寫「排程裡有 800 個字」，
+             使用者只會覺得「以前明明背過的字怎麼又冒出來了」。
+             跑模擬才看得出來（`記憶曲線試算.md`：每日題數拉到 200 的時候，
+             五年下來升到第五階的字是 **0**，因為每個字都在爬到第三階之前
+             就被擠出去，接著又被當成新字重抽回來）。
+           改成先丟第 1 階、同階丟 `at` 最舊的（沒複習過的 `at=0` 最先走）。
+           ★ 活下來的維持原本的順序，不要順手排序：`words` 的順序在別的地方
+             沒有意義，但「淘汰一次就整份重排」會讓 diff 與除錯都變難。 */
+        function srsTrim(words) {
+            const list = Array.isArray(words) ? words : [];
+            if (list.length <= SRS_KEEP) return list;
+            const order = list.map((x, i) => ({ x, i })).sort((a, b) =>
+                   ((Number(a.x.box) || 1) - (Number(b.x.box) || 1))
+                || ((Number(a.x.at) || 0) - (Number(b.x.at) || 0))
+                || (a.i - b.i));
+            const drop = new Set(order.slice(0, list.length - SRS_KEEP).map(o => o.i));
+            return list.filter((_, i) => !drop.has(i));
+        }
+
+        /* 一場幾題。★ 存在排程那份文件裡，不是設定頁：它跟排程是同一件事，
+           分兩份存的話會出現「設定說 100、排程照 20 排」而且兩邊都不報錯。
+           ⚠️ 只認 `SRS_DAILY_CHOICES` 裡的數字——舊資料、手改的資料或
+             未來拿掉某個選項的時候，統統退回預設值。 */
+        function srsDailyCount(sched) {
+            const n = Math.floor(Number(sched && sched.count));
+            return SRS_DAILY_CHOICES.includes(n) ? n : SRS_DAILY_COUNT;
+        }
+
+        /* 每日測驗的範圍（`SRS_SCOPES` 的 id）攤平成克漏字那六個 id。
+           ★ 攤平之後才餵給 `clozeFoldersFor` / `clozeWordsInScope`——
+             範圍與載入只有那一套，不要在這裡再寫一份。 */
+        function srsScopeIds(scopes) {
+            const out = [];
+            for (const p of SRS_SCOPES) {
+                if (!(scopes ||[]).includes(p.id)) continue;
+                for (const s of p.scopes ||[]) if (!out.includes(s)) out.push(s);
+            }
+            return out;
+        }
+
         /* 一筆排程：{ w 單字, f 它住在哪個資料夾, box 第幾階, due 下次到期日, at 上次複習 }
            ⚠️ `due` 空字串代表「立刻到期」，不是「沒有到期日」：舊資料或壞掉的
              日期留在那裡不動的話，那個字會變成永遠排不出來的孤兒，
              而畫面上完全看不出來。寧可讓它今天就冒出來。 */
         function normalizeSrs(d) {
             const words = Array.isArray(d && d.words) ? d.words : [];
+            /* 已學會的字（畢業出口）。★ 先算，因為 `words` 要拿它來濾：
+               同一個字不能同時在「排程裡」和「已學會」——兩邊都有的話，
+               它會照樣每天被排出來，而使用者已經看到「已學會 N 字」把它算進去了。 */
+            const done = [], dseen = new Set();
+            for (const x of (Array.isArray(d && d.done) ? d.done : [])) {
+                if (typeof x !=='string') continue;
+                const k = srsKey(x);
+                if (!k || dseen.has(k)) continue;
+                dseen.add(k); done.push(x);
+            }
             const out = [], seen = new Set();
             for (const x of words) {
                 if (!x || typeof x.w !=='string') continue;
                 const k = srsKey(x.w);
-                if (!k || seen.has(k)) continue;          // 同一個字只留一筆
+                if (!k || seen.has(k) || dseen.has(k)) continue;   // 同一個字只留一筆；已學會的不排
                 seen.add(k);
                 out.push({
                     w: x.w,
@@ -11500,7 +11595,14 @@
                而畫面上只是一個提早出現的勾。 */
             const days = [...new Set((Array.isArray(d && d.days) ? d.days : [])
                             .filter(k => typeof k ==='string' && /^\d{4}-\d{2}-\d{2}$/.test(k)))].sort();
-            return { words: out.slice(-SRS_KEEP),
+            /* 範圍：只認得的留下來；一個都不剩就退回第一個預設組合。
+               ⚠️ 空陣列不能留：那會變成「今天排不出任何字」而且沒有錯誤訊息。 */
+            const scopes = [...new Set((Array.isArray(d && d.scopes) ? d.scopes : [])
+                             .filter(x => SRS_SCOPES.some(s => s.id === x)))];
+            return { words: srsTrim(out),
+                     done: done.slice(-SRS_DONE_KEEP),
+                     count: srsDailyCount(d),
+                     scopes: scopes.length ? scopes : [SRS_SCOPES[0].id],
                      days: days.slice(-SRS_DAYS_KEEP),
                      last: /^\d{4}-\d{2}-\d{2}$/.test(d && d.last) ? d.last :'' };
         }
@@ -11540,14 +11642,23 @@
                 const f = folderOf(x.w);
                 if (f) { x.f = f; changed = true; }
             }
+            /* ★ 已經畢業的字在克漏字裡又錯了，就把它從「已學會」拉回排程。
+               那是使用者親手量出來的證據，比三十天前的一次答對新。
+               ⚠️ 只在這裡拉回來（真的答錯），不要在 `srsPickWords` 裡順手
+                 把畢業的字重新排進去——那等於沒有畢業出口。 */
+            const done = [...((sched && sched.done) ||[])];
+            const dkeys = new Set(done.map(srsKey));
             for (const x of ((wrong && wrong.words) ||[])) {
                 const k = srsKey(x && x.w);
                 if (!k || at.has(k)) continue;
                 const e = { w: x.w, f: folderOf(x.w) ||'', box: 1,
                             due: srsDayKeyAfter(SRS_STEPS[0], now), at: 0 };
                 at.set(k, e); words.push(e); changed = true;
+                if (dkeys.has(k)) dkeys.delete(k);
             }
-            return changed ? { ...sched, words: words.slice(-SRS_KEEP) } : sched;
+            const nextDone = done.filter(w => dkeys.has(srsKey(w)));
+            if (nextDone.length !== done.length) changed = true;
+            return changed ? { ...sched, words: srsTrim(words), done: nextDone } : sched;
         }
 
         /* 今天這一場考哪些字。到期的優先，不夠再用「沒排過的新字」補滿。
@@ -11576,7 +11687,12 @@
             }
             const picked = [...due];
             if (picked.length < count) {
-                const known = new Set(((sched && sched.words) ||[]).map(x => srsKey(x.w)));
+                /* ★ 補新字的時候「已學會」的那些也算數過了——不排除的話
+                   畢業出口等於白做：字一畢業就馬上被當成新字重教一次，
+                   而畫面上只是「今天有 20 個新字」，看起來完全正常。 */
+                const known = new Set([
+                    ...((sched && sched.words) ||[]).map(x => srsKey(x.w)),
+                    ...((sched && sched.done)  ||[]).map(srsKey)]);
                 const fresh = (scopeWords ||[]).filter(w => {
                     const k = srsKey(w && w.english);
                     return k && !known.has(k) && !used.has(k);
@@ -11597,16 +11713,43 @@
              「排程從此每天都說沒有到期的字」——完全不會報錯。 */
         function srsApplyResult(sched, answers, folderOf, now) {
             const at = new Map(((sched && sched.words) ||[]).map(x => [srsKey(x.w), { ...x }]));
+            /* ★ 「已學會」用 Map 存（key 是正規化過的字），不是陣列＋Set：
+                 陣列的話「先拿掉再放回去」會留下兩筆一模一樣的字，
+                 而畫面上只是「已學會」的數字比實際多一個。 */
+            const done = new Map(((sched && sched.done) ||[])
+                            .filter(w => srsKey(w)).map(w => [srsKey(w), w]));
             for (const a of answers ||[]) {
                 const k = srsKey(a && a.word);
                 if (!k) continue;
+                /* 已經畢業的字又被考到（使用者自己再開一場練），
+                   那就當它重新進場：從「已學會」拿掉，照第一階重排。 */
+                done.delete(k);
                 const cur = at.get(k) ||{ w: a.word, f:'', box: 1, due:'', at: 0 };
+                /* ★★ 畢業出口：已經在最後一階、這次又答對 → 移出排程，記進「已學會」。
+                     ⚠️ 沒有這一條的話第 5 階不是終點，是「每 30 天回來一次」的
+                       無限迴圈：字只進不出，排程很快被到期的字塞滿，新字再也
+                       進不來，而卡片上只會寫「今天有 20 個字到期」。
+                       **「學完」在數學上不存在**，題數加到多少都一樣
+                       （試算在 `記憶曲線試算.md`：20 題／天的天花板是 415 個字）。
+                     ★ 判斷用的是**答題前**的階數（`cur.box`），不是 `srsNext` 之後的：
+                       `srsNext` 在第 5 階答對會回傳同樣的 5，拿它判的話
+                       第 4 階升上來的那一次就會直接畢業，等於少考 30 天那一關。 */
+                if (a.correct && (Number(cur.box) || 1) >= SRS_STEPS.length) {
+                    at.delete(k);
+                    done.set(k, cur.w || a.word);
+                    continue;
+                }
                 at.set(k, srsNext({ ...cur, f: cur.f || folderOf(a.word) ||'' }, !!a.correct, now));
             }
-            return { ...sched, words: [...at.values()].slice(-SRS_KEEP) };
+            return { ...sched, words: srsTrim([...at.values()]),
+                     done: [...done.values()].slice(-SRS_DONE_KEEP) };
         }
 
-        /* 使用者說「我會了」的時候把那個字整筆拿掉（連累積的階數一起）。 */
+        /* 使用者說「我會了」的時候把那個字整筆拿掉（連累積的階數一起）。
+           ★ **不寫進「已學會」**：這一支是從錯題檢討取消勾「不會」進來的，
+             那是「我剛才其實會」，不是「這個字我學完了」。寫進去的話按錯一下
+             就永遠不會再考到那個字，而使用者根本不知道發生過這件事。
+             留在外面的話它還是新字，之後照樣排得到。 */
         function srsForget(sched, word) {
             const k = srsKey(word);
             const words = ((sched && sched.words) ||[]).filter(x => srsKey(x.w) !== k);
@@ -11687,6 +11830,38 @@
             if (srsLoaded) saveSrs().catch(() => {});
         }
 
+        /* 範圍與題數都住在 `srsSched` 裡，**沒有另一份模組層的變數**。
+           ★ 這是刻意的：`clozeScopes` 那種寫法在這裡會變成兩個真相來源
+             （畫面讀變數、存檔讀文件），而不同步的時候兩邊都不報錯——
+             使用者換了範圍、重新整理之後又變回去，只覺得「沒存到」。 */
+        function toggleSrsScope(id) {
+            const p = SRS_SCOPES.find(s => s.id === id);
+            if (!p) return;
+            const cur = (srsSched.scopes ||[]).slice();
+            const next = cur.includes(id)
+                ? cur.filter(x => x !== id)
+                /* 同一 `group` 互斥（7000 的「全部」與「不含 Lv6」）。 */
+                : [...cur.filter(x => {
+                       const o = SRS_SCOPES.find(s => s.id === x);
+                       return !(p.group && o && o.group === p.group);
+                   }), id];
+            /* ⚠️ 一個都不留會變成「今天排不出任何字」而且沒有錯誤訊息，
+               所以擋在這裡，不是讓它空著。 */
+            if (!next.length) return showToast("至少要留一個範圍");
+            srsSched = { ...srsSched, scopes: next };
+            renderSrsCard();
+            if (srsLoaded) saveSrs().catch(() => {});
+        }
+
+        function setSrsCount(n) {
+            const v = Math.floor(Number(n));
+            if (!SRS_DAILY_CHOICES.includes(v)) return;
+            if (srsDailyCount(srsSched) === v) return;
+            srsSched = { ...srsSched, count: v };
+            renderSrsCard();
+            if (srsLoaded) saveSrs().catch(() => {});
+        }
+
         /* 今日測驗那張卡。
            ★ 沒登入直接擋下來（跟克漏字不一樣）：排程沒地方存，
              做完一場等於什麼都沒發生，而「每日」這件事本身就靠存得起來。
@@ -11701,16 +11876,39 @@
             const doneToday = signedIn && srsLoaded && srsSched.last === today;
             const next = signedIn && srsLoaded ? srsNextDue(srsSched, today) :'';
             const nextTxt = next ? `${Number(next.slice(5, 7))}/${Number(next.slice(8, 10))}` :'';
+            const learned = (srsSched.done ||[]).length;
+            const count = srsDailyCount(srsSched);
+            const scopeIds = srsScopeIds(srsSched.scopes);
+            /* 範圍有多大：跟克漏字那張卡同一支（從索引上的各級字數算，
+               不必等單字檔抓下來）。⚠️ 索引還沒好的時候不要叫，會拿到 0
+               而那個 0 看起來像「這個範圍沒有字」。 */
+            const pool = builtinVocabState ==='ready' ? clozeCountInScope(scopeIds) : 0;
 
             const note = !signedIn ?'排程存在你自己的帳號底下，登入才排得起來'
                 : !srsLoaded ?'讀取排程…'
                 : srsBusy ? srsProgress
                 : builtinVocabState !=='ready' ?'載入單字庫索引…'
                 : doneToday && !due ? `今天的排程做完了${nextTxt ? ` · 下一批在 ${nextTxt}` :''}`
-                : due ? `今天有 ${due} 個字到期${due < SRS_DAILY_COUNT ?'，不夠的用沒考過的新字補滿' :''}`
+                : due ? `今天有 ${due} 個字到期${due < count ?'，不夠的用沒考過的新字補滿' :''}`
                 : nextTxt ? `今天沒有到期的字 · 下一批在 ${nextTxt}（也可以直接練新字）`
                           : `排程還是空的 · 先練一場，錯的字就會排進來`;
             const canStart = signedIn && srsLoaded && !srsBusy && builtinVocabState ==='ready';
+            /* ★ `s.id` 也包 escapeHTML：來源是這個檔案裡的常數，但資安那支
+               測試釘的是「屬性插值裡的 `.id` 一律要跳脫」，刻意不分來源。 */
+            const scopeChips = SRS_SCOPES.map(s => {
+                const on = (srsSched.scopes ||[]).includes(s.id);
+                return `<button data-action="toggle-srs-scope" data-scope="${escapeHTML(s.id)}" aria-pressed="${on}"
+                    class="px-3 py-1.5 rounded-xl text-xs font-black transition-colors shrink-0 border-2 ${on
+                        ?'bg-amber-500 text-white border-amber-500 shadow'
+                        :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${escapeHTML(s.label)}</button>`;
+            }).join('');
+            const countChips = SRS_DAILY_CHOICES.map(n => {
+                const on = n === count;
+                return `<button data-action="set-srs-count" data-count="${n}" aria-pressed="${on}"
+                    class="px-3 py-1.5 rounded-xl text-xs font-black transition-colors shrink-0 border-2 ${on
+                        ?'bg-amber-500 text-white border-amber-500 shadow'
+                        :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${n} 題</button>`;
+            }).join('');
             box.innerHTML = `
                 <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800">
                     <div class="flex items-start gap-3 mb-4">
@@ -11720,9 +11918,19 @@
                         <div class="min-w-0">
                             <h3 class="text-xl font-black">今日測驗</h3>
                             <p class="text-white/50 text-xs font-bold">照遺忘曲線排的複習 · 答錯的當場再刷一輪${
-                                total ? ` · 排程裡有 ${total} 個字` :''}</p>
+                                total ? ` · 排程裡有 ${total} 個字` :''}${
+                                learned ? ` · 已學會 ${learned} 個` :''}</p>
                         </div>
-                    </div>
+                    </div>${signedIn ? `
+                    <div class="mb-4 space-y-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-[11px] font-black text-white/40 shrink-0">範圍</span>${scopeChips}
+                            <span class="text-[11px] font-bold text-white/40">${pool ? `${pool} 字可排` :''}</span>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-2">
+                            <span class="text-[11px] font-black text-white/40 shrink-0">一場</span>${countChips}
+                        </div>
+                    </div>` :''}
                     <div class="flex flex-wrap items-center gap-3">${signedIn ? `
                         <button data-action="start-srs" ${canStart ?'' :'disabled'}
                             class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${canStart
@@ -11750,11 +11958,16 @@
             if (!srsLoaded) return showToast("排程還沒讀到，等一下再試");
             if (builtinVocabState !=='ready') return showToast("單字庫索引還沒好，等一下再試");
             const today = dayKeyOf(Date.now());
+            const count = srsDailyCount(srsSched);
+            /* ★ 每日測驗吃自己那份範圍（`srsSched.scopes`），不是克漏字的
+               `clozeScopes`——共用的話「去克漏字隨手點一下多益」就會把
+               隔天的排程一起換掉，而畫面上沒有任何提示。 */
+            const scopeIds = srsScopeIds(srsSched.scopes);
             const dueList = srsDueList(srsSched, today);
             const need = new Set();
-            for (const e of dueList.slice(0, SRS_DAILY_COUNT)) if (e.f) need.add(e.f);
-            if (dueList.length < SRS_DAILY_COUNT || !need.size)
-                for (const f of clozeFoldersFor(clozeScopes)) need.add(f.id);
+            for (const e of dueList.slice(0, count)) if (e.f) need.add(e.f);
+            if (dueList.length < count || !need.size)
+                for (const f of clozeFoldersFor(scopeIds)) need.add(f.id);
             const todo = [...need].filter(id => !builtinVocabLoaded.has(id));
 
             srsBusy = true;
@@ -11768,14 +11981,14 @@
             renderSrsCard();
             if (failed && failed === todo.length) return showToast("單字載入失敗，請檢查連線");
 
-            const scopeWords = clozeWordsInScope(clozeScopes);
-            const pick = srsPickWords(srsSched, state.builtinVocabWords ||[], scopeWords, today);
+            const scopeWords = clozeWordsInScope(scopeIds);
+            const pick = srsPickWords(srsSched, state.builtinVocabWords ||[], scopeWords, today, { count });
             if (!pick.words.length) return showToast("目前的範圍出不了題，換一個範圍再試");
             /* ★ 出題的池子是「今天要考的字 ＋ 整個範圍」：前面那批決定考什麼
                （`ask`），整個範圍是給干擾選項用的。只餵前面那批的話，
                四個選項會變成四個不相干的字（見 buildClozeQuiz 的註記）。 */
             const questions = buildClozeQuiz([...pick.words, ...scopeWords], {
-                count: SRS_DAILY_COUNT, ask: pick.words.map(w => w.english) });
+                count, ask: pick.words.map(w => w.english) });
             if (questions.length < 4) return showToast("今天排出來的字出不了題，換個範圍再試");
 
             /* ★ 跟克漏字同一份清單（只設 activeKahoot 會直接跳結算、0 分）。
@@ -13770,6 +13983,8 @@
 'toggle-cloze-unknown': (t) => toggleClozeUnknown(t.dataset.word),
 'start-cloze':     () => startClozeQuiz(),
 'start-srs':       () => startSrsQuiz(),
+'toggle-srs-scope': (t) => toggleSrsScope(t.dataset.scope),
+'set-srs-count':   (t) => setSrsCount(t.dataset.count),
 'toggle-shuffle':  () => toggleShuffle(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
