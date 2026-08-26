@@ -846,7 +846,17 @@
         /* ★ 圖層順序：星在天空**上面**（星是畫在天空上的，不是透出來的）。
            兩層的 background-size 都給 cover，兩張圖的 preserveAspectRatio
            又一樣，所以星永遠對齊在它該在的漩渦眼上。 */
-        .bg-slate-900:not(#mainHeader), .bg-slate-800,
+        /* ★ 2026-08-26 多了一個 `.vg-plain` 的排除：今日測驗與克漏字那兩張卡
+           要的是**純黑背板**，不是墨塊上再鋪一層星空（使用者說那是舊版本的
+           美術殘留）。那兩張卡上面壓的是密密麻麻的範圍按鈕與說明字，
+           星點正好落在字的後面。
+           ★ 為什麼是在**這條規則本身**排除，不是另外寫一條蓋回去：
+             這條的特異性是 (1,1,0)（`:not()` 裡的 id 算進去），
+             蓋回去要贏只能靠 `!important`，而那會讓下一次衝突更難查。
+             排除寫在這裡，也等於這條規則自己說得出「誰有天空」。
+           ★ 背景**色**不受影響：那是 1501 行 `.bg-slate-900 { #171512 }` 給的，
+             所以拿掉圖層之後就是乾淨的墨黑，不會變成透明。 */
+        .bg-slate-900:not(#mainHeader):not(.vg-plain), .bg-slate-800:not(.vg-plain),
         .bg-slate-900\/95, .bg-slate-900\/90 {
             background-image: var(--vg-stars), var(--vg-swirl);
             background-size: cover, cover;
@@ -3230,7 +3240,7 @@
                 </div>
                 <!-- 資料夾麵包屑：在資料夾裡才顯示 -->
                 <div id="vocabFolderBar" class="hidden flex flex-wrap items-center gap-2 mb-5">
-                    <button data-action="back-to-vocab-folders" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 所有資料夾</button>
+                    <button data-action="back-to-vocab-folders" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 上一層</button>
                     <span id="vocabFolderCrumb" class="px-4 py-2 rounded-2xl text-xs font-black bg-blue-50 text-blue-600 flex items-center gap-2"></span>
                 </div>
                 <div id="vocabBookGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -3415,10 +3425,13 @@
                 <input type="hidden" id="editScheduleCellId">
                 <input type="hidden" id="editScheduleCourseId">
                 <div class="relative">
-                    <input type="text" id="editScheduleCourse" maxlength="20" placeholder="課程名稱（可搜尋課程庫）" autocomplete="off" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-lg text-center" aria-label="課程名稱（可搜尋課程庫）">
+                    <input type="text" id="editScheduleCourse" maxlength="20" placeholder="課程名稱（打字可搜尋）" autocomplete="off" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-lg text-center" aria-label="課程名稱（打字可搜尋）">
                     <div id="editScheduleCourseResults" class="hidden absolute z-10 left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-white rounded-2xl shadow-xl border-2 border-teal-100 text-left"></div>
                 </div>
-                <input type="text" id="editScheduleLocation" maxlength="20" placeholder="上課地點" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500" aria-label="上課地點">
+                <div class="grid grid-cols-2 gap-3">
+                    <input type="text" id="editScheduleBuilding" maxlength="20" placeholder="大樓" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500" aria-label="上課大樓">
+                    <input type="text" id="editScheduleRoom" maxlength="20" placeholder="教室" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500" aria-label="教室">
+                </div>
                 <select id="editScheduleDuration" aria-label="這堂課連續幾節" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-600 appearance-none outline-none">
                     <option value="1">連上 1 節</option>
                 </select>
@@ -3573,7 +3586,7 @@
             <h3 id="vocabBookModalTitle" class="text-2xl font-bold mb-6 text-slate-900">創建單字冊</h3>
             <div class="space-y-4">
                 <input type="hidden" id="editVocabBookId" value="">
-                <input type="text" id="vocabBookTitle" maxlength="80" placeholder="單字冊名稱 (如: 專業電子學字彙)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg" aria-label="單字冊名稱 (如: 專業電子學字彙)">
+                <input type="text" id="vocabBookTitle" maxlength="80" placeholder="單字冊名稱 (如: 這學期的必背單字)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg" aria-label="單字冊名稱 (如: 這學期的必背單字)">
                 <textarea id="vocabBookDescription" maxlength="200" placeholder="簡單描述這本單字冊..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium resize-none min-h-[100px]" aria-label="簡單描述這本單字冊..."></textarea>
                 <div>
                     <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabBookFolder">放在哪個資料夾</label>
@@ -3615,21 +3628,21 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英文單字 <span class="text-red-400">*</span></label>
-                        <input type="text" id="vocabWordEnglish" maxlength="100" placeholder="例如: Impedance" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg text-blue-700" aria-label="例如: Impedance">
+                        <input type="text" id="vocabWordEnglish" maxlength="100" placeholder="例如: Fluent" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-lg text-blue-700" aria-label="例如: Fluent">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1">英譯英 (定義) <span class="text-red-400">*</span></label>
-                        <input type="text" id="vocabWordEngDef" maxlength="200" placeholder="The effective resistance of an electric circuit..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium" aria-label="The effective resistance of an electric circuit...">
+                        <input type="text" id="vocabWordEngDef" maxlength="200" placeholder="Able to speak or write a language smoothly..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium" aria-label="Able to speak or write a language smoothly...">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordChinese">中文解釋 (選填)</label>
-                        <input type="text" id="vocabWordChinese" maxlength="100" placeholder="例如: 阻抗" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
+                        <input type="text" id="vocabWordChinese" maxlength="100" placeholder="例如: 流利的" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="vocabWordRootPrefix">字根 / 字首 / 字尾 (選填)</label>
-                        <input type="text" id="vocabWordRootPrefix" maxlength="100" placeholder="例如: im- (in) + ped (foot)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-fuchsia-600">
+                        <input type="text" id="vocabWordRootPrefix" maxlength="100" placeholder="例如: flu- (flow) + -ent (形容詞字尾)" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-fuchsia-600">
                     </div>
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -3858,7 +3871,7 @@
             <input type="hidden" id="editPlanId" value="">
             <div class="space-y-4">
 
-                <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：電路學期中考）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg" aria-label="要做什麼（如：電路學期中考）">
+                <input type="text" id="planTitle" maxlength="60" placeholder="要做什麼（如：讀完第三章）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-lg" aria-label="要做什麼（如：讀完第三章）">
                 <!-- 科目：選填。★ 建議清單來自課表，但**不是下拉選單**——
                      用 datalist 才能「有就挑、沒有就自己打」。做成 <select> 的話，
                      課表還沒排的人會看到一個空的選單，而且打不了字。
@@ -3996,7 +4009,7 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div>
                     <label class="text-xs font-black text-slate-400 uppercase mb-1 block" for="kahootTitle">測驗主題</label>
-                    <input type="text" id="kahootTitle" maxlength="50" placeholder="例如：微積分期中考大挑戰" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
+                    <input type="text" id="kahootTitle" maxlength="50" placeholder="例如：這一課的單字大挑戰" class="w-full px-4 py-3 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-emerald-500 font-bold">
                 </div>
                 <div>
                     <label class="text-xs font-black text-slate-400 uppercase mb-1 block">關聯課程 <span class="text-slate-300 normal-case">（選填）</span></label>
@@ -4393,7 +4406,7 @@
         const CLOZE_WRONG_KEEP = 500;        // 錯題只留最近幾個字（下一項艾賓浩斯要吃）
         const CLOZE_SEEN_KEEP  = 200;        // 最近出過的字，用來避開剛考完又考
         /* 範圍：Level 3–6 來自 7000 那批（`w.level`），多益／托福來自資料夾的 `set`。
-           ⚠️ 兩者**不能寫成同一個 `w.level` 判斷**：DLC 那 8,907 個字根本沒有
+           ⚠️ 兩者**不能寫成同一個 `w.level` 判斷**：DLC 那 7,135 個字根本沒有
            `level` 欄位，混在一起判的話「Level 4 ＋ 多益」會把 DLC 整批濾掉，
            而且不會報錯——畫面上只是題目變少。 */
         const CLOZE_SCOPES = [
@@ -4401,8 +4414,10 @@
             { id:'lv4',   label:'Level 4', set:'az',    level: 4 },
             { id:'lv5',   label:'Level 5', set:'az',    level: 5 },
             { id:'lv6',   label:'Level 6', set:'az',    level: 6 },
-            { id:'toeic', label:'多益 DLC', set:'toeic' },
-            { id:'toefl', label:'托福 DLC', set:'toefl' }
+            /* ★ 這裡原本寫「多益 DLC」。DLC 是遊戲用語，畫面上的字要讓
+               沒碰過那個詞的人也看得懂，所以只留「多益」「托福」。 */
+            { id:'toeic', label:'多益', set:'toeic' },
+            { id:'toefl', label:'托福', set:'toefl' }
         ];
 
         /* ---- 每日測驗：艾賓浩斯排程（2026-08-20）----
@@ -4419,7 +4434,7 @@
         const SRS_DAILY_CHOICES = [20, 50, 100];
         const SRS_KEEP = 800;                  // 排程最多記幾個字（一份文件裝得下）
         /* 已學會的字最多記幾個。★ 只存字串，一個字約 12 bytes，
-           整個內建單字庫 12,368 個字也才 150KB 上下，離 Firestore 的
+           整個內建單字庫 10,596 個字也才 130KB 上下，離 Firestore 的
            單份文件 1MB 還很遠——所以這個數字設得比單字總數大，
            實際上等於「不會滿」。⚠️ 設小的話會出現最難查的那種錯：
            已經學會的字被擠出清單，於是又被當成新字重教一次，
@@ -4447,8 +4462,8 @@
         const SRS_SCOPES = [
             { id:'az',    label:'7000 全部',      group:'az', scopes: ['lv3','lv4','lv5','lv6'] },
             { id:'az5',   label:'7000 不含 Lv6',  group:'az', scopes: ['lv3','lv4','lv5'] },
-            { id:'toeic', label:'多益 DLC',                   scopes: ['toeic'] },
-            { id:'toefl', label:'托福 DLC',                   scopes: ['toefl'] }
+            { id:'toeic', label:'多益',                       scopes: ['toeic'] },
+            { id:'toefl', label:'托福',                       scopes: ['toefl'] }
         ];
 
         /* 節次時間
@@ -4533,13 +4548,13 @@
             courses: [], reviews: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [],
-            /* 內建單字庫（7000 單字＋多益／托福 DLC，共 3,822 字）：
+            /* 內建單字庫（7000 單字 3,461 ＋多益 6,925 ＋托福 210，共 10,596 字）：
                唯讀的靜態 JSON，不是 Firestore。
                為什麼不進資料庫：vocabWords 是整個集合全量訂閱，三千多筆灌進去
                等於每個打開英文分頁的人一次讀三千多筆，免費額度七次瀏覽就見底，
                而且不會報錯，只會默默超額。folders/books 從 index.json 一次拿齊，
                words 等使用者真的打開某個資料夾才抓那一份。 */
-            builtinVocabFolders: [], builtinVocabBooks: [], builtinVocabWords: [], builtinVocabSets: [],
+            builtinVocabFolders: [], builtinVocabBooks: [], builtinVocabWords: [],
             // 🔒 私人資料（只有本人讀得到，登出時清空）
             myVocabBooks: [], myVocabWords: [], myVocabFolders: [], myKahoots: [],
             expenses: [], holdings: [], trades: [], watchlist: [],   // 理財（個人私密）
@@ -5460,6 +5475,26 @@
         const CHANGELOG = [
             {
                 date: '2026-08-26',
+                title: '單字庫變成四個大資料夾，資料夾裡還能再放資料夾；多益字表拿掉國中就學過的字',
+                items: [
+                    ['最外面只剩四個資料夾', '打開內建單字庫，看到的是「7000 單字・字母排序」「7000 單字・字根排序」「多益單字」「托福單字」四個，點進去才是細分的那些。以前是五十個資料夾一次全攤在畫面上，光是捲到底就很久。'],
+                    ['資料夾裡可以再開資料夾', '自己建的單字冊也一樣：站在一個資料夾裡按「新增資料夾」，建出來的就在它底下。上面會寫你現在走到哪一層，返回鍵是回上一層而不是直接跳回最外面。'],
+                    ['多益字表拿掉 1,772 個基礎字', '像 add、bank、apple 這種國中就學過的字，以前也被收在多益字表裡。現在拿大考中心的《高中英文參考詞彙表》比對，屬於第一、二級的全部剔掉。內建單字從 12,368 個變成 10,596 個——變少是對的，少掉的是本來就會的字。'],
+                    ['範圍按鈕不再寫「DLC」', '克漏字與今日測驗選範圍的地方原本寫「多益 DLC」。DLC 是遊戲用語，改成「多益」「托福」就好。'],
+                ]
+            },
+            {
+                date: '2026-08-26',
+                title: '上課地點分成「大樓」和「教室」兩欄；測驗那兩張卡改成乾淨的黑底',
+                items: [
+                    ['上課地點變成兩欄', '編輯課表的時候，地點從一個欄位變成「大樓」和「教室」兩格，分開填比較好對，之後也才好做「下一節在哪一棟」這種提醒。'],
+                    ['以前填的地點不用重填', '舊的地點會自動拆好放進兩格（第一個空白之前當大樓），拆不出來的就整串放在教室那格。存回去還是原來那一串，不會被改掉。'],
+                    ['提示文字不再預設你是電子系的', '輸入框裡那些淡淡的例子（像是「要做什麼（如：電路學期中考）」）以前都拿電子系的科目當範例。這個網站不是只有電子系的人在用，所以全部換成任何科系都用得上的例子。'],
+                    ['今日測驗與克漏字改成乾淨的黑底', '那兩張卡的底以前鋪著一層像星星的花紋，是早期畫風留下來的。它正好壓在密密麻麻的範圍按鈕後面，看起來很雜，現在拿掉了。'],
+                ]
+            },
+            {
+                date: '2026-08-26',
                 title: '更新紀錄改成白話版：以前那七十六筆全部重寫成一般人看得懂的樣子',
                 items: [
                     ['做了什麼', '這一頁以前有七十六筆更新紀錄，寫的幾乎都是給工程師看的東西——程式檔名、錯誤訊息、當時怎麼修的。現在整份重寫：依主題分成幾大類，用一般人聽得懂的話講「這個網站有哪些東西、各自做到什麼程度」。往後每一筆新的更新也都照這個寫法。'],
@@ -5902,14 +5937,32 @@
             });
         }
 
+        /* 上課地點分成「大樓」與「教室」兩欄（2026-08-26）。
+           ★ 舊資料只有一個 location 字串，而它的格式就是「工學院 E404教室」
+             （COURSE_LOCATIONS 整份都長這樣：第一個空白之前是大樓）。
+             所以拆的規則就是第一個空白；拆不出來的整串當教室，大樓留空——
+             這樣是無損的，使用者沒去動它的話合回去還是原來那一串。
+           ★ location **沒有拿掉**，仍然由兩欄合出來一起存。
+             提醒清單、現在／下一堂、連堂合併判斷都在讀它，
+             而且還沒更新到新版的那台手機也只看得懂它。
+             改成每個地方各自合併一次，只會多出好幾個合法但不一致的版本。 */
+        const splitLocation = (s) => {
+            const t = String(s ||'').trim();
+            const i = t.search(/\s/);
+            return i < 0 ? { building:'', room: t } : { building: t.slice(0, i), room: t.slice(i + 1).trim() };
+        };
+        const joinLocation = (b, r) => [String(b ||'').trim(), String(r ||'').trim()].filter(Boolean).join(' ');
+        /* 一格課表要顯示的地點：有拆好的兩欄就用兩欄，沒有才回頭用舊字串。 */
+        const cellLocation = (c) => c ? (joinLocation(c.building, c.room) || String(c.location ||'').trim()) :'';
+
         // 兩節是否為「同一堂課」（用來自動連動合併）
-        const sameScheduleEntry = (a, b) => a && b && (a.courseName || a.location) &&
-            a.courseName === b.courseName && (a.location ||'') === (b.location ||'') && (a.courseId ||'') === (b.courseId ||'');
+        const sameScheduleEntry = (a, b) => a && b && (a.courseName || cellLocation(a)) &&
+            a.courseName === b.courseName && cellLocation(a) === cellLocation(b) && (a.courseId ||'') === (b.courseId ||'');
 
         // 從第 p 節往下算連續同一堂課的節數（不跨越中午：1~4 與 5~9 分開）
         function scheduleSpanLength(day, p) {
             const base = userSchedule[`${day}-${p}`];
-            if (!base || (!base.courseName && !base.location)) return 1;
+            if (!base || (!base.courseName && !cellLocation(base))) return 1;
             let len = 1;
             while (p + len <= 9) {
                 if (p <= 4 && (p + len) >= 5) break; // 不跨中午
@@ -5950,14 +6003,14 @@
                     const cellId = `${day}-${p.id}`;
                     if (covered.has(cellId)) return''; // 已被上方合併格涵蓋
                     const cell = userSchedule[cellId] || { courseName:'', location:'' };
-                    const hasContent = cell.courseName || cell.location;
+                    const hasContent = cell.courseName || cellLocation(cell);
                     let span = 1;
                     if (hasContent) {
                         span = scheduleSpanLength(day, p.id);
                         for (let i = 1; i < span; i++) covered.add(`${day}-${p.id + i}`);
                     }
                     // 地點：優先用手動填的，否則從連動課程的教室對照表自動帶入
-                    let loc = cell.location ||'';
+                    let loc = cellLocation(cell);
                     if (!loc && cell.courseId) {
                         const linked = state.courses.find(x => x.id === cell.courseId);
                         if (linked) loc = courseLocation(linked);
@@ -6033,7 +6086,7 @@
             const curCourse = cur ? named(cur.id) : null;
             const next = teaching.find(s => s.start > mins && named(s.id));
             const nextCourse = next ? named(next.id) : null;
-            const fmt = (c) => `${escapeHTML(c.courseName)}${c.location ? ` <span class="text-slate-400">@ ${escapeHTML(c.location)}</span>` :''}`;
+            const fmt = (c) => { const l = cellLocation(c); return `${escapeHTML(c.courseName)}${l ? ` <span class="text-slate-400">@ ${escapeHTML(l)}</span>` :''}`; };
             let html;
             if (curCourse) {
                 html = `<i data-lucide="radio" class="w-4 h-4 text-emerald-500"></i> 現在：<span class="text-slate-900">${fmt(curCourse)}</span>`;
@@ -6164,7 +6217,7 @@
                     const cell = s.id ==='noon' ? null : userSchedule[`${day}-${s.id}`];
                     if (!cell || !cell.courseName) { prev = null; continue; }
 
-                    let loc = cell.location ||'';
+                    let loc = cellLocation(cell);
                     if (!loc && cell.courseId) {
                         const c = state.courses.find(x => x.id === cell.courseId);
                         if (c) loc = courseLocation(c) ||'';
@@ -8552,7 +8605,7 @@
                         <!-- ★ 這個欄位就是原本主畫面上那個「讀什麼？」。
                              建議清單（課表的課名、還沒打勾的計劃標題）跟著搬過來，
                              所以臨時要讀一個課表上沒有的東西，在這裡打完再點它。 -->
-                        <input type="text" id="studySubNew" list="studySubjectList" maxlength="40" placeholder="新增一個科目（例：電路學、重補修、考古題）"
+                        <input type="text" id="studySubNew" list="studySubjectList" maxlength="40" placeholder="新增一個科目（例：國文、數學、重補修）"
                                class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-500 font-bold text-sm" aria-label="新增一個科目">
                         <div class="flex gap-2">
                             <button data-action="study-sub-add" class="shrink-0 px-4 py-2.5 bg-slate-800 text-white rounded-2xl font-bold text-sm">新增</button>
@@ -9846,6 +9899,44 @@
         const vocabBookPath   = (scope) => pickScoped(scope, PU('vocabBooks'),   null, PATHS.vocabBooks);
         const vocabWordPath   = (scope) => pickScoped(scope, PU('vocabWords'),   null, PATHS.vocabWords);
         const vocabFolderPath = (scope) => pickScoped(scope, PU('vocabFolders'), null, PATHS.vocabFolders);
+        /* ---- 資料夾裡可以有資料夾（2026-08-26）----
+           ★ 只有「新增的時候決定上層」，沒有「把資料夾搬去別的資料夾」。
+             所以不可能出現 A 的上層是 B、B 的上層又是 A 的迴圈——
+             省掉一整套迴圈偵測。要補搬家功能的話，**第一件事是先加迴圈檢查**，
+             不然 vocabFolderPathOf 會轉不完，症狀是整頁卡死。
+           ★ 上層不見了（被刪掉、或內建索引換版）就當它在最上層。
+             孤兒資料夾如果不顯示，使用者的東西會整批「消失」而且不報錯——
+             這跟「沒有 folderId 的舊冊子留在最上層」是同一個判斷。 */
+        const folderParent = (f) => (f && f.parentId) ||'';
+        const vocabChildFolders = (scope, parentId) => {
+            const all = vocabFoldersOf(scope);
+            const has = (id) => all.some(f => f.id === id);
+            return all.filter(f => {
+                const par = folderParent(f);
+                return parentId === null ? (!par || !has(par)) : par === parentId;
+            });
+        };
+        /* 從最上層走到這一夾的路徑（麵包屑用）。上限 10 層是保險絲，見上面。 */
+        const vocabFolderPathOf = (scope, id) => {
+            const all = vocabFoldersOf(scope);
+            const out = [];
+            let cur = all.find(f => f.id === id), n = 0;
+            while (cur && n++ < 10) {
+                out.unshift(cur);
+                const par = folderParent(cur);
+                cur = par ? all.find(f => f.id === par) : null;
+            }
+            return out;
+        };
+        /* 整棵樹攤平成「深度 ＋ 資料夾」（下拉選單用，前序走訪）。 */
+        const vocabFolderTree = (scope, parentId = null, depth = 0, out = []) => {
+            for (const f of vocabChildFolders(scope, parentId)) {
+                out.push({ folder: f, depth });
+                if (depth < 9) vocabFolderTree(scope, f.id, depth + 1, out);
+            }
+            return out;
+        };
+
         // 自己的東西自己全權管理；公有的要巫醫以上；內建的誰都不能改（要改是改檔案再發布）
         // 小黑貓：單字庫是通用功能。自己的冊子誰都能建，公有的要管理員
         const canEditVocab = (scope) => scope ==='builtin' ? false : scope ==='mine' ? isSignedInMember() : isCatAdmin();
@@ -9863,14 +9954,31 @@
                    克漏字的字數就是這樣：`clozeFolderCount()` 看到沒有 `levels`
                    就退回整夾 count（那條退路是為了舊快取留的），於是修好的算法
                    照樣回答 3,461。**一次修好、一次被這裡吃掉，而兩次的畫面一模一樣。** */
-                state.builtinVocabFolders = idx.folders.map(f => ({
+                /* ★ 四大類（7000 字母排序／7000 字根排序／多益／托福）在畫面上是
+                   **真的資料夾**（2026-08-26），不再是資料夾上面的一排分組標題。
+                   索引檔沒有變：這一層是從 idx.sets 合出來的，每個真資料夾掛一個
+                   parentId 指回去。
+                   ★★ 合出來的這四個**刻意不帶 `set` 欄位**。克漏字與今日測驗是用
+                     `f.set` 挑資料夾算字數的（clozeFoldersFor），帶了的話同一批字
+                     會被算兩次——不報錯，只是「幾字可出題」變成兩倍。 */
+                const real = idx.folders.map(f => ({
                     id: f.id, title: f.title, description: f.description,
-                    set: f.set, count: f.count, levels: f.levels, bookCount: f.books.length
+                    set: f.set, count: f.count, levels: f.levels,
+                    bookCount: f.books.length, parentId: `set-${f.set}`
                 }));
+                const setFolders = (idx.sets ||[]).map(sx => {
+                    const kids = real.filter(f => f.set === sx.id);
+                    return {
+                        id: `set-${sx.id}`, title: sx.title, description: sx.description,
+                        parentId: null, isSet: true, folderCount: kids.length,
+                        bookCount: kids.reduce((n, f) => n + f.bookCount, 0),
+                        count: kids.reduce((n, f) => n + (f.count || 0), 0)
+                    };
+                }).filter(sx => sx.folderCount > 0);
+                state.builtinVocabFolders = setFolders.concat(real);
                 state.builtinVocabBooks = idx.folders.flatMap(f => f.books.map(b => ({
                     id: b.id, folderId: f.id, title: b.title, description: b.description, count: b.count
                 })));
-                state.builtinVocabSets = idx.sets || [];
                 builtinVocabState ='ready';
             } catch { builtinVocabState ='error'; }
             if (vocabScope ==='builtin') renderVocabBooks();
@@ -9914,8 +10022,10 @@
             const addBtn = $('addVocabBookBtn');
             if (addBtn) addBtn.classList.toggle('hidden', !editable);
             const folderBtn = $('addVocabFolderBtn');
-            // 資料夾只在最上層才能新增（在資料夾裡按會讓人以為是建子資料夾）
-            if (folderBtn) folderBtn.classList.toggle('hidden', !editable || currentVocabFolderId !== null);
+            /* ★ 2026-08-26 起資料夾裡也能按新增，建出來的就掛在目前這一夾底下。
+               （以前這裡擋掉，理由是「在資料夾裡按會讓人以為是建子資料夾」——
+                現在它真的就是建子資料夾。） */
+            if (folderBtn) folderBtn.classList.toggle('hidden', !editable);
         }
 
         function switchVocabScope(scope) {
@@ -9927,15 +10037,21 @@
             renderVocabBooks();
         }
 
+        /* 回上一層，不是一路回到最上層。★ 有子資料夾之後，
+           一次跳回最上層等於把使用者剛剛走的那幾步整段丟掉。 */
         function backToVocabFolders() {
-            currentVocabFolderId = null;
+            const all = vocabFoldersOf(vocabScope);
+            const par = folderParent(all.find(f => f.id === currentVocabFolderId));
+            currentVocabFolderId = (par && all.some(f => f.id === par)) ? par : null;
             renderVocabBooks();
         }
 
         async function openVocabFolder(id) {
             const f = vocabFoldersOf(vocabScope).find(x => x.id === id);
             if (!f) return;
-            if (vocabScope ==='builtin' && !builtinVocabLoaded.has(id)) {
+            /* ★ 四大類那一層沒有自己的 JSON 檔（它是合出來的），
+               照抓一定 404，畫面會停在「單字載入失敗」。 */
+            if (vocabScope ==='builtin' && !f.isSet && !builtinVocabLoaded.has(id)) {
                 const grid = $('vocabBookGrid');
                 if (grid) grid.innerHTML ='<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入單字中…</div>';
                 const ok = await loadBuiltinVocabFolder(id);
@@ -9951,6 +10067,12 @@
 
         function vocabFolderCard(f, editable) {
             const n = f.bookCount != null ? f.bookCount : vocabBooksOf(vocabScope).filter(b => b.folderId === f.id).length;
+            /* ★ 有子資料夾的話一定要寫出來，不然一個「0 冊」的資料夾看起來像空的，
+               而它裡面其實有二十五個資料夾、三千多個字。 */
+            const kids = f.folderCount != null ? f.folderCount
+                       : vocabFoldersOf(vocabScope).filter(x => folderParent(x) === f.id).length;
+            const meta = [kids ? `${kids} 個資料夾` :'', n ? `${n} 冊` :'', f.count ? `${f.count} 字` :'']
+                .filter(Boolean).join(' · ') ||'還是空的';
             return `
                 <div data-action="open-vocab-folder" data-id="${escapeHTML(f.id)}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-slate-400 transition-colors flex flex-col group relative">
                     <div class="w-12 h-12 bg-slate-100 text-slate-600 rounded-2xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -9958,7 +10080,7 @@
                     </div>
                     <h3 class="text-xl font-black text-slate-900 mb-2 truncate pr-16">${escapeHTML(f.title)}</h3>
                     <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(f.description ||'無描述')}</p>
-                    <span class="text-[10px] font-black tracking-widest uppercase text-slate-400">${n} 冊${f.count ? ` · ${f.count} 字` :''}</span>
+                    <span class="text-[10px] font-black tracking-widest uppercase text-slate-400">${meta}</span>
                     ${editable ? `
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button data-action="edit-vocab-folder" data-id="${escapeHTML(f.id)}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
@@ -10004,8 +10126,11 @@
                 bar.classList.toggle('hidden', !inFolder);
                 bar.classList.toggle('flex', inFolder);
                 if (inFolder) {
-                    const f = folders.find(x => x.id === currentVocabFolderId);
-                    $('vocabFolderCrumb').innerHTML = `<i data-lucide="folder-open" class="w-3.5 h-3.5"></i> ${escapeHTML(f.title)}`;
+                    /* 整條路徑都寫出來（字母排序 › 字母 A），不是只寫目前這一夾——
+                       只寫一層的話，兩層底下同名的資料夾看起來一模一樣。 */
+                    const trail = vocabFolderPathOf(vocabScope, currentVocabFolderId)
+                        .map(x => escapeHTML(x.title)).join(' <span class="opacity-40">›</span> ');
+                    $('vocabFolderCrumb').innerHTML = `<i data-lucide="folder-open" class="w-3.5 h-3.5"></i> ${trail}`;
                 }
             }
 
@@ -10027,27 +10152,22 @@
             let html ='';
 
             if (inFolder) {
+                /* 子資料夾排在前面、這一夾自己的冊子排在後面——
+                   跟最上層的順序一致（資料夾在前、冊子在後）。 */
+                const subs = vocabChildFolders(vocabScope, currentVocabFolderId)
+                    .filter(f => matchesSearch(f.title, f.description));
                 const list = books.filter(b => b.folderId === currentVocabFolderId && matchesSearch(b.title, b.description));
-                html = list.length ? list.map(b => vocabBookCard(b, editable)).join('')
-                                   : vocabEmptyCard('這個資料夾還沒有單字冊');
+                html = subs.map(f => vocabFolderCard(f, editable)).join('')
+                     + list.map(b => vocabBookCard(b, editable)).join('');
+                if (!html) html = vocabEmptyCard('這個資料夾還是空的');
             } else {
-                /* 最上層：資料夾在前、沒分資料夾的冊子在後。
-                   內建那邊還多一層分組標題（字母序／字根族群／多益 DLC／托福 DLC）。
-                   ★ 分組是照 index.json 的 sets 走的，資料夾的 set 對不上就整批不印——
-                   要加一套新的字表，改資料檔就好，這裡不必動。 */
-                const fs = folders.filter(f => matchesSearch(f.title, f.description));
-                const sets = (state.builtinVocabSets || []);
-                if (vocabScope ==='builtin' && sets.length) {
-                    html += sets.map(s => {
-                        const mine = fs.filter(f => f.set === s.id);
-                        if (!mine.length) return'';
-                        return `<div class="col-span-full pt-2"><h3 class="text-lg font-black text-slate-800">${escapeHTML(s.title)}</h3>`
-                            + `<p class="text-xs font-bold text-slate-400">${escapeHTML(s.description ||'')}</p></div>`
-                            + mine.map(f => vocabFolderCard(f, editable)).join('');
-                    }).join('');
-                } else {
-                    html += fs.map(f => vocabFolderCard(f, editable)).join('');
-                }
+                /* 最上層：只列**沒有上層**的資料夾，再列沒分資料夾的冊子。
+                   ★ 這裡原本有一段「照 index.json 的 sets 印分組標題」的程式。
+                     四大類 2026-08-26 變成真的資料夾之後那段就重複了——
+                     留著的話最上層會同時出現四張資料夾卡與四個標題。 */
+                const fs = vocabChildFolders(vocabScope, null)
+                    .filter(f => matchesSearch(f.title, f.description));
+                html += fs.map(f => vocabFolderCard(f, editable)).join('');
                 const loose = books.filter(b => !b.folderId && matchesSearch(b.title, b.description));
                 if (loose.length) {
                     if (fs.length) html +='<div class="col-span-full pt-2"><h3 class="text-lg font-black text-slate-800">未分類</h3></div>';
@@ -10083,7 +10203,10 @@
             if (!p) return showToast("請先登入");
             try {
                 if (id) await updateDoc(doc(db, p, id), { title, description });
-                else await setDoc(doc(collection(db, p)), { title, description, createdAt: Date.now() });
+                /* ★ 上層是「按下新增的當下人在哪一夾」，不是另外給一個下拉。
+                   選單要列出整棵樹才選得準，而那棵樹正是使用者剛剛走過來的路。 */
+                else await setDoc(doc(collection(db, p)), {
+                    title, description, parentId: currentVocabFolderId ||'', createdAt: Date.now() });
                 showToast(id ?"資料夾更新成功" :"資料夾建立成功");
                 closeModal('vocabFolderModal');
             } catch { showToast("儲存失敗…"); }
@@ -10103,7 +10226,7 @@
             /* 學測考過的年份。★ 只有 7000 那 3461 個字裡的 535 個有 `exam`，
                使用者自己建的、公有單字冊的、多益／托福 DLC 的都沒有——
                所以這裡一定要能承受它不存在，而且不能拿它當「這個字沒考過」
-               （沒有欄位＝不知道）。DLC 那 8,907 個字連 `level` 都沒有，同理。
+               （沒有欄位＝不知道）。DLC 那 7,135 個字連 `level` 都沒有，同理。
                ★ 形狀是 [[年, 次數], …]，圈裡寫的是年數（陣列長度）。
                換算刻意留在前端：資料檔存原始的年份與次數，之後要改成顯示
                次數不必重跑 tools/vocab7000.mjs 也不必重新發布那 3.8MB。 */
@@ -10174,9 +10297,11 @@
                建出來的東西就在眼前，不會掉到最上層讓人以為沒建成功。 */
             const sel = $('vocabBookFolder');
             if (sel) {
-                const folders = vocabFoldersOf(vocabScope);
+                /* ★ 要列出整棵樹並且縮排。只列最上層的話，建在子資料夾裡的冊子
+                   一被編輯就會掉到別的地方，而畫面上只是「它不見了」。 */
                 sel.innerHTML = `<option value="">未分類</option>` +
-                    folders.map(f => `<option value="${escapeHTML(f.id)}">${escapeHTML(f.title)}</option>`).join('');
+                    vocabFolderTree(vocabScope).map(({ folder: f, depth }) =>
+                        `<option value="${escapeHTML(f.id)}">${'　'.repeat(depth)}${escapeHTML(f.title)}</option>`).join('');
                 sel.value = b ? (b.folderId ||'') : (currentVocabFolderId ||'');
             }
             setVals({ editVocabBookId: b ? b.id :'', vocabBookTitle: b ? b.title :'', vocabBookDescription: b ? (b.description ||'') :'' });
@@ -10289,10 +10414,10 @@
         /* ==========================================================
          * 14.6 克漏字測驗：拿內建單字庫的例句自動出題（2026-08-19）
          *
-         * 每次 20 題，範圍可複選（Level 3–6／多益 DLC／托福 DLC）。
+         * 每次 20 題，範圍可複選（Level 3–6／多益／托福）。
          * 題目是「把例句裡的那個字挖掉」，四個選項都是單字本身。
          *
-         * ★ 為什麼素材只認內建：內建的每個字都有 `example`（3,822 個字全有），
+         * ★ 為什麼素材只認內建：內建的每個字都有 `example`（10,596 個字全有），
          *   公有與「我的」沒有這個保證——照樣出題的話會出一堆空白的題目，
          *   而且不會報錯。
          *
@@ -10584,7 +10709,7 @@
                        : `${words} 字可出題`;
             const canStart = ready && !clozeBusy && clozeScopes.length > 0;
             box.innerHTML = `
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
                     <div class="flex items-start gap-3 mb-4">
                         <div class="w-11 h-11 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0">
                             <i data-lucide="pencil-line" class="w-5 h-5"></i>
@@ -11164,7 +11289,7 @@
                         :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${n} 題</button>`;
             }).join('');
             box.innerHTML = `
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
                     <div class="flex items-start gap-3 mb-4">
                         <div class="w-11 h-11 bg-amber-500 text-white rounded-2xl flex items-center justify-center shrink-0">
                             <i data-lucide="calendar-check" class="w-5 h-5"></i>
@@ -12517,6 +12642,11 @@
                     const batch = writeBatch(db);
                     vocabBooksOf(vocabScope).filter(b => b.folderId === id)
                         .forEach(b => batch.update(doc(db, vocabBookPath(vocabScope), b.id), { folderId:'' }));
+                    /* ★ 子資料夾同理，掛回最上層。
+                       不清的話會留下一個指向已刪資料夾的 parentId——畫面上還看得到
+                       （渲染時當孤兒處理），但那是「壞掉還能動」，不是對的資料。 */
+                    vocabFoldersOf(vocabScope).filter(f => (f.parentId ||'') === id)
+                        .forEach(f => batch.update(doc(db, vocabFolderPath(vocabScope), f.id), { parentId:'' }));
                     batch.delete(doc(db, vocabFolderPath(vocabScope), id));
                     await batch.commit();
                     if (currentVocabFolderId === id) currentVocabFolderId = null;
@@ -12587,7 +12717,12 @@
             $('editScheduleCourseResults').classList.add('hidden');
             // 自動偵測既有連堂節數，開啟時整段一起編輯
             const existingSpan = isNaN(p) ? 1 : Math.min(scheduleSpanLength(day, p), maxDur);
-            setVals({ editScheduleCellId: cellId, editScheduleCourseId: data.courseId ||'', editScheduleCourse: data.courseName, editScheduleLocation: data.location, editScheduleDuration: String(existingSpan) });
+            /* 舊資料沒有 building／room，用 splitLocation 拆一次給它填。 */
+            const where = (data.building || data.room)
+                ? { building: data.building ||'', room: data.room ||'' }
+                : splitLocation(data.location);
+            setVals({ editScheduleCellId: cellId, editScheduleCourseId: data.courseId ||'', editScheduleCourse: data.courseName,
+                      editScheduleBuilding: where.building, editScheduleRoom: where.room, editScheduleDuration: String(existingSpan) });
             openModal('scheduleModal');
         }
 
@@ -12613,7 +12748,9 @@
             const [day, pStr] = cellId.split('-');
             const p = parseInt(pStr);
             const dur = parseInt(getVal('editScheduleDuration')) || 1;
-            const entry = { courseName: getVal('editScheduleCourse'), location: getVal('editScheduleLocation'), courseId: getVal('editScheduleCourseId') ||'' };
+            const building = getVal('editScheduleBuilding').trim(), room = getVal('editScheduleRoom').trim();
+            const entry = { courseName: getVal('editScheduleCourse'), building, room,
+                            location: joinLocation(building, room), courseId: getVal('editScheduleCourseId') ||'' };
             const isEmpty = !entry.courseName && !entry.location;
             const newSchedule = { ...userSchedule };
             if (!isNaN(p)) {
@@ -13238,9 +13375,13 @@
                 const c = state.courses.find(x => x.id === t.dataset.id);
                 if (!c) return;
                 const vals = { editScheduleCourse: c.name, editScheduleCourseId: c.id };
-                // 自動帶入爬取到的上課地點（若對照表有、且地點欄目前為空）
+                // 自動帶入爬取到的上課地點（若對照表有、且兩欄目前都還是空的）
                 const loc = courseLocation(c);
-                if (loc && !getVal('editScheduleLocation')) vals.editScheduleLocation = loc;
+                if (loc && !getVal('editScheduleBuilding') && !getVal('editScheduleRoom')){
+                    const w = splitLocation(loc);
+                    vals.editScheduleBuilding = w.building;
+                    vals.editScheduleRoom = w.room;
+                }
                 setVals(vals);
                 $('editScheduleCourseResults').classList.add('hidden');
             },
@@ -13722,7 +13863,7 @@
             bind('confirmSaveCountdown', saveCountdownFromModal);
             bind('confirmSaveSlotTimes', saveSlotTimes);
             bind('resetSlotTimes', () => { $('slotTimeRows').innerHTML = slotRowsHTML(buildTimeSlots(null)); showToast('已填回預設時間，記得按儲存'); });
-            bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleLocation:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
+            bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleBuilding:'', editScheduleRoom:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
             // 課名可搜尋課程庫：聚焦/輸入時顯示過濾結果，手動打字則解除連動
             $('editScheduleCourse').addEventListener('focus', (e) => renderScheduleCourseResults(e.target.value));
             $('editScheduleCourse').addEventListener('input', (e) => { $('editScheduleCourseId').value =''; renderScheduleCourseResults(e.target.value); });
