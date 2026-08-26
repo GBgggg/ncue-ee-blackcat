@@ -1806,7 +1806,7 @@
            ⚠️ 手機沒有 hover。標記掛 `tabindex="0"`，這裡連 `:focus-visible`
            一起吃——只寫 `:hover` 的話這個提示在手機上等於不存在，
            而畫面上還是有一個看起來可以點的圈。 */
-        .vocab-exam {
+        .vocab-exam, .vocab-srs {
             position: relative;
             display: inline-flex; align-items: center; justify-content: center;
             width: 20px; height: 20px; border-radius: 999px;
@@ -1816,7 +1816,7 @@
             font-size: 11px; font-weight: 900; line-height: 1;
             cursor: help;
         }
-        .vocab-exam::after {
+        .vocab-exam::after, .vocab-srs::after {
             content: attr(data-tip);
             position: absolute; bottom: calc(100% + 6px); left: 0;
             /* ★ 不置中對齊。這個圈是標籤列的第一個，置中的話提示會往左溢出卡片，
@@ -1830,9 +1830,27 @@
             transition: opacity var(--dur-fast) var(--ease);
             z-index: 5;
         }
-        .vocab-exam:hover::after, .vocab-exam:focus-visible::after { opacity: 1; }
+        .vocab-exam:hover::after, .vocab-exam:focus-visible::after,
+        .vocab-srs:hover::after,  .vocab-srs:focus-visible::after { opacity: 1; }
         @media (prefers-reduced-motion: reduce) {
-            .vocab-exam::after { transition: none; }
+            .vocab-exam::after, .vocab-srs::after { transition: none; }
+        }
+
+        /* 記憶曲線的階數圈（2026-08-26）。
+           ★ 跟學測那顆金圈刻意不同色：金圈講的是「這個字考過幾年」
+             （外面的事實），這一顆講的是「我背到哪了」（你自己的進度）。
+             兩顆同色的話，一排圈看起來就是同一種東西的兩個數字。
+           ★ 用 --ink 配 --paper-sunk：那是全站內文本來的配對，
+             深淺兩邊都已經量過，不用再重新招一組顏色。 */
+        .vocab-srs {
+            border-color: var(--rule);
+            background: var(--paper-sunk);
+            color: var(--ink);
+        }
+        .vocab-srs.is-done {
+            border-color: var(--accent);
+            background: var(--accent-soft);
+            color: var(--accent);
         }
 
         /* 金額的正負：依台股慣例，紅漲綠跌。
@@ -3258,7 +3276,7 @@
                             <h2 id="vocabDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                             <p id="vocabDetailsSubtitle" class="text-blue-400 font-bold text-sm flex items-center gap-2 mb-4"></p>
                             <button id="startVocabQuizBtn" class="px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg flex items-center gap-2">
-                                <i data-lucide="gamepad-2" class="w-5 h-5"></i> 進入單字擂台挑戰
+                                <i data-lucide="gamepad-2" class="w-5 h-5"></i> 進入單字測驗
                             </button>
                         </div>
                         <button id="addVocabWordBtn" class="hidden px-6 py-3 font-bold bg-blue-500 text-white rounded-2xl hover:bg-blue-400 transition-colors shadow-lg flex items-center gap-2">
@@ -4793,8 +4811,8 @@
         let draftQuestions = [], editingDraftQIndex = null;
         let activeKahoot = null, currentQIndex = 0, currentScore = 0, isKahootTransitioning = false;
         /* ★ 作答流程真正讀的是這兩個（activeKahoot 只拿來顯示標題）。
-           原本宣告在「作答流程」那一節裡，離單字擂台一千多行遠，
-           於是單字擂台漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
+           原本宣告在「作答流程」那一節裡，離單字測驗（那時候叫「單字擂台」）
+           一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
            下次再多一種出題來源時比較不會漏。 */
         let playQuestions = [], playAnswers = [];
         // 題目亂序（記在本機，下次進來沿用）
@@ -9992,7 +10010,7 @@
 
         /* ---- 內建單字庫：抓某個資料夾的單字 ---- */
         /* 單字沒有真的 id（靜態檔沒有文件 id），這裡自己編一個穩定的：冊子 id + 序號。
-           編號要穩定是因為擂台與 render 都用 id 當 key。 */
+           編號要穩定是因為單字測驗與 render 都用 id 當 key。 */
         async function loadBuiltinVocabFolder(folderId) {
             if (builtinVocabLoaded.has(folderId)) return true;
             try {
@@ -10220,7 +10238,7 @@
             3:'bg-emerald-50 text-emerald-600', 4:'bg-blue-50 text-blue-600',
             5:'bg-amber-50 text-amber-600',     6:'bg-rose-50 text-rose-600'
         };
-        function vocabTagRow(w) {
+        function vocabTagRow(w, stage) {
             const lv = Number(w.level);
             const tags = [];
             /* 學測考過的年份。★ 只有 7000 那 3461 個字裡的 535 個有 `exam`，
@@ -10239,6 +10257,21 @@
             }
             if (lv >= 3 && lv <= 6)
                 tags.push(`<span class="px-2 py-0.5 rounded-lg text-[10px] font-black ${VOCAB_LEVEL_COLORS[lv]}">Level ${lv}</span>`);
+            /* 記憶曲線走到第幾階（2026-08-26）。圈裡寫的是**階數**不是答對次數：
+               階數決定的是下一次什麼時候再考（1／3／7／14／30 天），
+               那才是使用者真正想知道的「這個字我還要不要再看」。
+               ★ 還沒排進去的字**不顯示**，不是顯示 0——沒有圈代表「還沒開始背」，
+                 印一個 0 看起來像「背了但一次都沒對」。
+               ★ 階數從 `srsSched` 現查，不存進單字本身：單字檔是唯讀的靜態檔，
+                 而進度是個人的私有資料，兩者不能混在同一份東西裡。 */
+            if (stage === 'done')
+                tags.push(`<span class="vocab-srs is-done" tabindex="0" role="img"
+                        aria-label="記憶曲線：已學會"
+                        data-tip="已學會 — 不再排進複習">✓</span>`);
+            else if (Number(stage) >= 1)
+                tags.push(`<span class="vocab-srs" tabindex="0" role="img"
+                        aria-label="記憶曲線：第 ${stage} 階"
+                        data-tip="記憶曲線第 ${stage} 階 — 每 ${SRS_STEPS[stage - 1]} 天回來一次">${stage}</span>`);
             if (w.pos)
                 tags.push(`<span class="px-2 py-0.5 rounded-lg text-[10px] font-black bg-slate-100 text-slate-500">${escapeHTML(w.pos)}</span>`);
             /* ★ items-center：圈是 20px、Level 與詞性那兩個矮一截，
@@ -10255,6 +10288,10 @@
                 $('vocabWordList').innerHTML = `<div class="oil-empty col-span-full text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${currentViewVocabScope ==='mine' ?'這本還是空的，按上方「新增單字」，或用上面的「查字典」查完直接加進來' :'這個單字冊還是空的，等巫醫來補充'}</div>`;
                 return;
             }
+            /* ★ 階數查一次做成索引再逐字問，不要每個字各掃一次排程：
+               「已學會」最多兩萬筆字串，一本三十個字各掃一遍就是六十萬次比對，
+               而畫面上只會是「這一頁開起來有點頓」，不會有任何錯誤訊息。 */
+            const stageOf = srsStageIndex();
             $('vocabWordList').innerHTML = words.map(w => `
                 <div class="bg-white rounded-2xl p-6 shadow-sm border-2 border-slate-100 hover:shadow-md transition-all relative flex flex-col justify-center">
                     ${canEditVocab(currentViewVocabScope) ? `
@@ -10263,7 +10300,7 @@
                         <button data-action="delete" data-type="vocabWord" data-id="${escapeHTML(w.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                     <h4 class="text-2xl font-black text-blue-700 mb-1 pr-14 break-words">${escapeHTML(w.english)}</h4>
-                    ${vocabTagRow(w)}
+                    ${vocabTagRow(w, stageOf(w.english))}
                     <p class="text-slate-700 font-bold mb-3 text-sm leading-relaxed">${escapeHTML(w.engDef)}</p>
                     ${w.chinese ? `<p class="text-sm text-slate-600 mb-1"><span class="font-bold mr-2 text-slate-400">中文</span>${escapeHTML(w.chinese)}</p>` :''}
                     ${w.rootPrefix ? `<p class="text-sm text-slate-600 mb-1"><span class="font-bold mr-2 text-slate-400">字首根</span><span class="text-fuchsia-600 font-bold">${escapeHTML(w.rootPrefix)}</span></p>` :''}
@@ -10378,29 +10415,74 @@
             } catch { showToast("儲存失敗…"); }
         }
 
-        /* 單字擂台：由目前單字冊自動出題 (題目為英文單字，選出正確定義) */
-        function startVocabQuiz() {
-            const words = vocabWordsOf(currentViewVocabScope).filter(w => w.bookId === currentViewVocabBookId);
+        /* 單字測驗：由這一本單字冊自動出題（看英文字，選出正確的英英定義）。
+
+           ★ 2026-08-26 改名，本來叫「單字擂台」。換掉是因為「擂台」聽起來像
+             跟別人比分數，而它從頭到尾都是一個人在練自己的單字冊。
+           ⚠️ 站上另外有一個叫「測驗」的子分頁（Kahoot 那個），兩者不同：
+             那邊是別人出好的題目，這邊是**這一本單字冊當場長出來的題目**。 */
+
+        /* 出題的字（這一本的）與干擾選項的來源（整個資料夾的）。
+
+           ★ 干擾選項為什麼要跨冊：每個字母的最後一冊常常只有一兩個字
+             （`C－17` 只有 1 個、`J－2` 2 個），只從本冊抽的話那幾本永遠湊不滿
+             四個選項，而畫面上只有一句「至少要有 4 個…」——看起來像壞了，
+             其實是冊子太小。同一個資料夾的字本來就一次全載進來了
+             （內建是一個資料夾一份 JSON），跨冊抽不會多一次網路來回。
+           ★ 沒有英英定義的字不出題。多益那 6,774 個字目前就是空的
+             （來源 HuggingFace 那份沒有這一欄），硬拿中文頂上的話，
+             同一題裡會混著中英兩種選項——那不是題目，是提示。 */
+        function vocabQuizPool(scope, bookId) {
+            const books = vocabBooksOf(scope);
+            const fid = (books.find(b => b.id === bookId) ||{}).folderId ||'';
+            const inFolder = new Set(books.filter(b => (b.folderId ||'') === fid).map(b => b.id));
+            const has = (w) => !!(w && typeof w.engDef ==='string' && w.engDef.trim());
             /* 干擾選項要跟正解「不同字義」。同一本裡有兩個字的定義一字不差時，
                照抄會出現兩個看起來一模一樣的選項，點到另一個算你答錯——
                畫面上完全看不出為什麼。所以按定義去重之後再抽。 */
-            const byDef = new Map();
-            for (const w of words) if (w.engDef && !byDef.has(w.engDef)) byDef.set(w.engDef, w);
-            const pool = [...byDef.values()];
-            if (pool.length < 4) return showToast("至少要有 4 個不同定義的單字才能開始擂台挑戰喔！");
+            const uniq = (list) => {
+                const m = new Map();
+                for (const w of list) if (!m.has(w.engDef)) m.set(w.engDef, w);
+                return [...m.values()];
+            };
+            const all = vocabWordsOf(scope).filter(has);
+            return { ask:  uniq(all.filter(w => w.bookId === bookId)),
+                     pool: uniq(all.filter(w => inFolder.has(w.bookId))) };
+        }
 
-            const questions = shuffle(pool).map(w => {
-                const wrong = shuffle(pool.filter(x => x.id !== w.id)).slice(0, 3).map(x => x.engDef);
-                const options = shuffle([w.engDef, ...wrong]);
-                return { q: w.english, options, correctIdx: options.indexOf(w.engDef) };
+        function startVocabQuiz() {
+            const { ask, pool } = vocabQuizPool(currentViewVocabScope, currentViewVocabBookId);
+            /* 兩句話分開講：一句是「這本沒有可以出題的字」，一句是
+               「這一夾湊不出四個選項」。合成一句的話，多益那種
+               「有 30 個字但一個定義都沒有」會被說成「字太少」，那是錯的。 */
+            if (!ask.length) return showToast("這本單字冊還沒有英英定義，出不了題");
+            if (pool.length < 4) return showToast("這個資料夾裡不到 4 個有英英定義的單字，湊不出四個選項");
+
+            const questions = shuffle(ask).map(w => {
+                const wrong = shuffle(pool.filter(x => x.engDef !== w.engDef)).slice(0, 3);
+                const picks = shuffle([w, ...wrong]);
+                /* ★ 選項與正解的位置是同一份資料算出來的（`picks.indexOf`），
+                   不是先洗字串再回頭找——先洗再找的話，兩個定義剛好相同時
+                   會指到前面那一個，而畫面上只是「答對的算我錯」。 */
+                return { q: w.english, word: w.english, chinese: w.chinese ||'',
+                         options: picks.map(x => x.engDef),
+                         correctIdx: picks.indexOf(w) };
             });
 
             /* ★ 這裡原本只設 activeKahoot 就叫 renderPlayQuestion()，
                但作答流程讀的是 playQuestions（「題目亂序」那一輪才拆出來的），
-               單字擂台沒跟著改。症狀是一按下去直接跳結算畫面、0 分——
+               這一支沒跟著改。症狀是一按下去直接跳結算畫面、0 分——
                或者更難看懂：上一場測驗的題目又跑出來一次。
-               只要作答流程用到的狀態，這裡就得一起給齊。 */
-            activeKahoot = { title:'單字擂台', questions };
+               只要作答流程用到的狀態，這裡就得一起給齊。
+             ★ `vocabSrs`：這一場的結果要寫回記憶曲線，跟每日測驗**共用同一份排程**
+               （同一個字不管在哪裡考到都算同一筆）。
+               ⚠️ 不是 `srs`：那個旗標會連完成日一起記（`days`／`last`），
+                 而那是「今天做過每日測驗」的證據，任務判定在數它。
+                 單字冊隨手練一場也記一筆的話，每週任務會在沒做每日測驗的日子
+                 提早達標，而畫面上只是一個提早出現的勾。
+               ⚠️ 也**不要順手加 `drill`**（快刷）：快刷保證最後全對，
+                 拿它算升階的話每個字都會一路升到第五階。 */
+            activeKahoot = { title:'單字測驗', questions, vocabSrs: true };
             playQuestions = questions;
             playAnswers = [];
             currentQIndex = 0;
@@ -10760,7 +10842,7 @@
 
             /* ★ 作答流程讀的是 playQuestions 這一組狀態，不是 activeKahoot。
                只設 activeKahoot 的話一按下去直接跳結算、0 分——
-               單字擂台踩過一次，這裡照抄它補齊的那一份清單。 */
+               單字測驗踩過一次，這裡照抄它補齊的那一份清單。 */
             activeKahoot = { title:'克漏字測驗', questions, cloze: true };
             playQuestions = questions;
             playAnswers = [];
@@ -11161,6 +11243,29 @@
                      optionWords: pick(q.optionWords), optionChinese: pick(q.optionChinese),
                      correctIdx: idx.indexOf(q.correctIdx) };
         }
+        /* 從單字冊開的那一場，哪幾題算得上一次「複習」（2026-08-26）。
+
+           ⚠️⚠️ **沒有這一條的話，同一本連按五次就能把整本推到第五階畢業**，
+             那些字從此不再排進複習，而畫面上完全正常——剛看完定義馬上再選一次
+             量到的是短期記憶，那正是間隔重複要避開的東西。
+           規則兩句話：
+             1. 答錯一律算數。那是「真的忘了」的證據，不管到不到期。
+             2. 答對只有在**到期**（或這個字還沒排進去）的時候算升階。
+           ★ 已經畢業的字答對 → 不動它。不擋的話 `srsApplyResult` 會把它
+             從「已學會」拿掉、當成重新進場（那一條是為「使用者自己再開一場練」
+             寫的），於是每在單字冊裡練一次，畢業名單就少一個。 */
+        function srsGradable(sched, answers, todayKey) {
+            const at = new Map(((sched && sched.words) ||[]).map(x => [srsKey(x.w), x]));
+            const done = new Set(((sched && sched.done) ||[]).map(srsKey));
+            return (answers ||[]).filter(a => {
+                const k = srsKey(a && a.word);
+                if (!k) return false;
+                if (!a.correct) return true;
+                if (done.has(k)) return false;
+                const e = at.get(k);
+                return !e || !e.due || e.due <= todayKey;
+            });
+        }
         /* ---- 每日測驗：排程核心結束 ---- */
 
         /* ---- 每日測驗：資料、畫面與流程 ---- */
@@ -11411,6 +11516,44 @@
             renderMissions();
             if (!srsLoaded) return Promise.resolve();
             return saveSrs();
+        }
+
+        /* 單字冊那一場的結果寫回排程（2026-08-26）。跟每日測驗共用同一份紀錄，
+           所以同一個字不管在哪裡考到，階數都是同一筆。
+
+           ⚠️ **不記完成日**（`days`／`last`）：那兩欄是「今天做過每日測驗」的證據，
+             任務判定在數它。單字冊隨手練一場也記一筆的話，每週任務會在
+             沒做每日測驗的日子提早達標，而畫面上只是一個提早出現的勾。
+           ⚠️ 非內建的單字冊（自己的／公有的）查不到 `f`（那是「這個字住在哪一夾」，
+             只有內建單字庫查得到）。那種字**照樣記階數**，只是每日測驗排到它的時候
+             找不到本體會跳過——階數圈還是看得到，而排程滿了的時候
+             `srsTrim` 本來就先丟第一階最舊的，所以不會愈積愈多。 */
+        function recordVocabSrsResult(answers) {
+            const now = Date.now();
+            const list = srsGradable(srsSched, answers, dayKeyOf(now));
+            if (!list.length) return Promise.resolve();
+            srsSched = srsApplyResult(srsSched, list, builtinFolderIndex(), now);
+            renderSrsCard();
+            /* 單字冊那一頁還開著，圈裡的階數要當場換掉——
+               不重畫的話要切出去再切回來才看得到，看起來像沒記到。 */
+            renderVocabWords();
+            if (!srsLoaded) return Promise.resolve();
+            return saveSrs();
+        }
+
+        /* 「這個字現在第幾階」的查詢表：0＝還沒排進去、1–5＝第幾階、
+           'done'＝已學會。單字卡上那顆圈用它。
+           ★ 回傳一支查詢函式而不是每個字各掃一次陣列，理由寫在 renderVocabWords。 */
+        function srsStageIndex() {
+            const box = new Map();
+            for (const x of (srsSched && srsSched.words) ||[])
+                box.set(srsKey(x.w), Math.max(1, Math.floor(Number(x.box)) || 1));
+            const done = new Set(((srsSched && srsSched.done) ||[]).map(srsKey));
+            return (word) => {
+                const k = srsKey(word);
+                if (!k) return 0;
+                return done.has(k) ? 'done' : (box.get(k) || 0);
+            };
         }
 
         /* 快刷：這一輪還有錯的就再開一輪，全對（或刷滿上限）才讓結果出來。
@@ -11818,7 +11961,7 @@
            ★ 正解與「你選了」的那個字**兩個都直接記進錯題本**（見 recordClozeResult）：
              填錯位置代表那個字也不熟。剩下那兩個站在旁邊，所以問一句
              「還有不會的嗎」讓他自己勾——勾了就一起進錯題本。
-           ⚠️ 一般測驗（單字擂台）的題目沒有 `optionWords`，那時退回舊的兩行版，
+           ⚠️ 一般測驗（單字測驗、自己出的測驗）的題目沒有 `optionWords`，那時退回舊的兩行版，
              不能硬畫勾選鈕：那種題目的選項不是單字，勾了也不知道要記什麼。 */
         function renderKahootWrongList() {
             const wrap = $('resultWrongWrap');
@@ -11861,7 +12004,7 @@
             /* ★ 每日測驗的快刷：第一輪答錯的字當場再考一次，全對了才看得到結果。
                ⚠️ 這一段要在**畫面還沒動之前**——先關掉答題視窗再開下一輪的話，
                  中間會閃一下白，看起來像測驗結束了又被拉回去。
-               ★ 其他測驗（單字擂台、克漏字）沒有 `drill`，這裡直接回 false。 */
+               ★ 其他測驗（單字測驗、克漏字）沒有 `drill`，這裡直接回 false。 */
             if (maybeDrillAgain()) return;
             endDrill();
             $('playKahootModal').classList.add('hidden');
@@ -11888,6 +12031,11 @@
             if (activeKahoot && activeKahoot.srs)
                 recordSrsResult(playAnswers)
                     .catch(() => showToast("複習排程沒存起來，下次登入再試"));
+            /* 單字測驗：只推階數，不記完成日（見 recordVocabSrsResult）。
+               ★ 同樣不 await，理由跟上面那兩條一樣。 */
+            if (activeKahoot && activeKahoot.vocabSrs)
+                recordVocabSrsResult(playAnswers)
+                    .catch(() => showToast("複習進度沒存起來，下次登入再試"));
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
