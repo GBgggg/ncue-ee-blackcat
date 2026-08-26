@@ -3220,8 +3220,12 @@
                      閱讀拿掉之後它搬到這裡——查完就是要收進單字冊，本來就同一件事。
                      ★ 按下去開的是站內的英英小卡（可以一層層往下點），
                      劍橋連結在小卡裡面，不是直接跳出去。 -->
+                <!-- ★ 輸入框一定要有 min-w-0。flex 項目預設 min-width:auto，
+                     而 <input> 的固有最小寬度是 size 屬性（約 20 個字元、200px 上下），
+                     所以 flex-1 在窄螢幕上**縮不下去**，被擠出容器的是右邊那顆
+                     shrink-0 的「查字典」。桌機看不出來，只有手機會。 -->
                 <div class="flex gap-2 mb-5 max-w-md">
-                    <input id="cambridgeQuickInput" type="text" placeholder="查任一單字…" class="flex-1 px-4 py-2 rounded-xl bg-white border-2 border-slate-200 focus:outline-none focus:border-emerald-500 text-sm" aria-label="查任一單字…">
+                    <input id="cambridgeQuickInput" type="text" placeholder="查任一單字…" class="flex-1 min-w-0 px-4 py-2 rounded-xl bg-white border-2 border-slate-200 focus:outline-none focus:border-emerald-500 text-sm" aria-label="查任一單字…">
                     <button data-action="cambridge-quick" class="px-4 py-2 bg-emerald-500 text-white rounded-xl font-bold text-sm hover:bg-emerald-400 transition-colors flex items-center gap-1 shrink-0"><i data-lucide="book-open" class="w-4 h-4 pointer-events-none"></i> 查字典</button>
                 </div>
                 <!-- 資料夾麵包屑：在資料夾裡才顯示 -->
@@ -5448,6 +5452,17 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-26',
+                title: '手機上「查字典」那顆按鈕不再被擠出畫面；英文分頁改成單字庫在前',
+                items: [
+                    ['做了什麼', '單字庫那一頁的快查框在窄螢幕上會把「查字典」擠出容器，修好了。另外英文分頁底下兩顆子分頁對調，**單字庫排在克漏字前面**。'],
+                    ['★★ 原因是 flex 項目的 `min-width` 預設是 `auto`', '`<input>` 的固有最小寬度來自 `size` 屬性（約 20 個字元、200 px 上下），所以掛著 `flex-1` 也**縮不下去**；縮不下去的結果是右邊那顆 `shrink-0` 的按鈕被推出容器。桌機寬度夠，完全看不出來，也不會有任何錯誤——只有手機上看得到。加一個 `min-w-0` 就好。'],
+                    ['★ 測試寫成通則，不是釘那一顆', '`tests/vocab.mjs` 現在掃全站：**橫向** `flex-1` 的輸入元件漏了 `min-w-0` 就紅。帶 `w-full` 的排除掉——那種是直向 flex 靠 `flex-1` 撐高度的（評價精靈那個 textarea），橫向本來就沒問題，硬要它加一個沒有意義的 class 比沒有這條測試更糟。'],
+                    ['★★ 對調子分頁順序連帶要改 `TAB_PAGE.english`', '英文分頁沒有自己的 `page-section`：克漏字住 `#page-self-study`、單字庫住 `#page-quiz`。`switchTab` 先開（也先驗證）`TAB_PAGE[tab]` 那一頁，`switchStudySub` 才換成子分頁真正住的那一頁。只對調 `TAB_SUBS` 而忘了這一格的話，進英文分頁會先閃一下另一個 page-section。**這是測試抓到的，不是想到的**——`tests/tabs.mjs` 有一條在問「`TAB_PAGE.english` 是不是第一個子分頁住的那一頁」。'],
+                    ['★ 為什麼是單字庫在前', '克漏字的題目就是從內建單字庫的例句挖的，先看得到字表再去練，順序才對得上；而且進英文分頁的預設落點就是第一顆。'],
+                ]
+            },
             {
                 date: '2026-08-26',
                 title: '上課時間改成自己填；填課表不再預設吐出整份電子系課程庫',
@@ -10110,7 +10125,7 @@
 'home':       ['schedule','missions','countdown'], // 主頁＝課表＋任務＋倒數（任務 2026-08-20 從「壓在計劃上面」搬進來）
 'plan':       ['plan','timer'],          // 計劃＋讀書計時（★ 計時器整站只能有一個，就是這一個）
 'self-study': ['course','kahoot'],       // 學習＝自學課程＋（自己出的）測驗
-'english':    ['cloze','vocab'],         // 英文＝克漏字＋單字庫
+'english':    ['vocab','cloze'],         // 英文＝單字庫＋克漏字（單字庫在前：先有字才練克漏字）
 'quiz':       ['kahoot']                 // 彰師電子的測驗（只有公有的）
         };
         /* ★ 英文分頁沒有自己的 page-section。
@@ -10122,7 +10137,12 @@
         /* ★ 「計劃」也在這裡：它是大分頁，但內容還住在 #page-home。
            沒有這一行的話 switchTab('plan') 會找不到 #page-plan 而丟例外，
            整頁全白（switchTab 裡那個 throw 就是為了讓這種事別安靜地過去）。 */
-        const TAB_PAGE = { 'english': 'page-self-study', 'plan': 'page-home' };
+        /* ★ english 這一格跟著 TAB_SUBS.english[0] 走，不是隨便挑一頁：
+           switchTab 先開（也先驗證）這一頁，switchStudySub 才換成子分頁該住的那一頁。
+           對不上的話會先閃一下另一個 page-section。2026-08-26 兩顆子分頁對調，
+           第一個變成單字庫（住 #page-quiz），這一格就跟著換。
+           `tests/tabs.mjs` 有一條在釘這件事，改一邊忘了改另一邊會紅。 */
+        const TAB_PAGE = { 'english': 'page-quiz', 'plan': 'page-home' };
 
         let studySub ='course';
         // 舊變數保留別名，避免其他地方引用時出錯
