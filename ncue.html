@@ -2647,6 +2647,7 @@
                             <button data-action="set-schedule-mode" data-mode="read" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> 閱讀</button>
                             <button data-action="set-schedule-mode" data-mode="edit" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5 pointer-events-none"></i> 編輯</button>
                         </div>
+                        <button data-action="edit-slot-times" class="px-3 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-500 hover:bg-teal-50 hover:text-teal-600 transition-all flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 pointer-events-none"></i> 時間</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto scrollbar-hide schedule-scroll">
@@ -3423,6 +3424,20 @@
                 </div>
                 <button id="clearScheduleCell" class="w-full py-2 text-sm font-bold text-rose-500 hover:bg-rose-50 rounded-xl transition-colors">清除這節課</button>
             </div>
+        </div>
+    </div>
+
+    <!-- 調整每一節的上課時間（個人設定，跟課表存在同一份私人文件） -->
+    <div id="slotTimeModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-teal-400">
+            <h3 class="text-2xl font-bold mb-1 text-slate-900 text-center">上課時間</h3>
+            <p class="text-xs font-bold text-slate-400 mb-5 text-center">每間學校的鐘點不一樣，這裡改成你自己的</p>
+            <div id="slotTimeRows" class="space-y-2"></div>
+            <div class="flex gap-4 pt-5">
+                <button data-close="slotTimeModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
+                <button id="confirmSaveSlotTimes" class="flex-1 py-3 bg-teal-400 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-500 transition-colors">儲存</button>
+            </div>
+            <button id="resetSlotTimes" class="w-full py-2 mt-1 text-sm font-bold text-slate-400 hover:bg-slate-50 rounded-xl transition-colors">回復預設時間</button>
         </div>
     </div>
 
@@ -4432,18 +4447,53 @@
             { id:'toefl', label:'托福 DLC',                   scopes: ['toefl'] }
         ];
 
-        const timeSlots = [
-            { id: 1, label:'1', timeStr:'08:10-<br>09:00', start: 8 * 60 + 10, end: 9 * 60 },
-            { id: 2, label:'2', timeStr:'09:05-<br>09:55', start: 9 * 60 + 5, end: 9 * 60 + 55 },
-            { id: 3, label:'3', timeStr:'10:15-<br>11:05', start: 10 * 60 + 15, end: 11 * 60 + 5 },
-            { id: 4, label:'4', timeStr:'11:10-<br>12:00', start: 11 * 60 + 10, end: 12 * 60 },
-            { id:'noon', label:'中午', timeStr:'12:05-<br>12:55', start: 12 * 60 + 5, end: 12 * 60 + 55 },
-            { id: 5, label:'5', timeStr:'13:10-<br>14:00', start: 13 * 60 + 10, end: 14 * 60 },
-            { id: 6, label:'6', timeStr:'14:05-<br>14:55', start: 14 * 60 + 5, end: 14 * 60 + 55 },
-            { id: 7, label:'7', timeStr:'15:15-<br>16:05', start: 15 * 60 + 15, end: 16 * 60 + 5 },
-            { id: 8, label:'8', timeStr:'16:10-<br>17:00', start: 16 * 60 + 10, end: 17 * 60 },
-            { id: 9, label:'9', timeStr:'17:10-<br>18:00', start: 17 * 60 + 10, end: 18 * 60 }
+        /* 節次時間
+           ★ 這一張是「彰師的鐘點」，不是全世界的鐘點。使用者可以在課表上方
+           「時間」自己改，改過的那一份存在私人課表文件的 slots 欄位。
+           timeStr 一律由 start/end 算出來，**不另外存一份字串**——
+           存兩份的下場是「表頭寫 08:10、高亮卻拉到別節」，而且不會報錯。 */
+        const DEFAULT_SLOT_TIMES = [
+            { id: 1, label:'1', start: 8 * 60 + 10, end: 9 * 60 },
+            { id: 2, label:'2', start: 9 * 60 + 5, end: 9 * 60 + 55 },
+            { id: 3, label:'3', start: 10 * 60 + 15, end: 11 * 60 + 5 },
+            { id: 4, label:'4', start: 11 * 60 + 10, end: 12 * 60 },
+            { id:'noon', label:'中午', start: 12 * 60 + 5, end: 12 * 60 + 55 },
+            { id: 5, label:'5', start: 13 * 60 + 10, end: 14 * 60 },
+            { id: 6, label:'6', start: 14 * 60 + 5, end: 14 * 60 + 55 },
+            { id: 7, label:'7', start: 15 * 60 + 15, end: 16 * 60 + 5 },
+            { id: 8, label:'8', start: 16 * 60 + 10, end: 17 * 60 },
+            { id: 9, label:'9', start: 17 * 60 + 10, end: 18 * 60 }
         ];
+        const minToHHMM = (m) => `${String(Math.floor(m / 60)).padStart(2,'0')}:${String(m % 60).padStart(2,'0')}`;
+        const hhmmToMin = (v) => {
+            const m = /^(\d{1,2}):(\d{2})$/.exec(String(v ||'').trim());
+            if (!m) return null;
+            const h = +m[1], mi = +m[2];
+            return (h > 23 || mi > 59) ? null : h * 60 + mi;
+        };
+        // custom 是「只覆寫有改過的那幾節」，其餘一律回預設；
+        // 空陣列／非陣列等於「沒改過」。
+        function buildTimeSlots(custom) {
+            const by = {};
+            (Array.isArray(custom) ? custom : []).forEach(c => {
+                if (c && Number.isFinite(c.start) && Number.isFinite(c.end)) by[String(c.id)] = c;
+            });
+            return DEFAULT_SLOT_TIMES.map(d => {
+                const c = by[String(d.id)];
+                const start = c ? c.start : d.start;
+                const end = c ? c.end : d.end;
+                return { id: d.id, label: d.label, start, end, timeStr: `${minToHHMM(start)}-<br>${minToHHMM(end)}` };
+            });
+        }
+        /* ★ 宣告在常數區並且是 let：讀到雲端的設定之後整張換掉，
+           renderSchedule／highlightCurrentClass／buildReminderItems 都是當下才查，
+           所以换一次就全部跟著走。別把它拆進別的區塊（暫時性死區踩過六次）。 */
+        let timeSlots = buildTimeSlots(null);
+        let userSlotTimes = [];          // 使用者改過的那幾節（空 = 全部預設）
+        function applySlotTimes(slots) {
+            userSlotTimes = Array.isArray(slots) ? slots : [];
+            timeSlots = buildTimeSlots(userSlotTimes);
+        }
 
         const reviewQuestions = [
             { id:'courseDiff', title:"Q1. 這門課的難度如何？" },
@@ -5398,6 +5448,24 @@
          *    格式：{ date:'YYYY-MM-DD', title:'這次的主題', items: [['標題','說明'], ...] }
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-26',
+                title: '上課時間改成自己填；填課表不再預設吐出整份電子系課程庫',
+                items: [
+                    ['做了什麼', '課表上方多一顆「時間」，十節（含中午）的起訖時間都可以自己改，存在私人課表那份文件裡，只有本人讀得到。另外，編輯課表時課名欄位一聚焦不再列出整份彰師電子課程庫——有打字才出現搜尋結果。'],
+                    ['★★ 起因是那張時刻表根本不是全世界的時刻表', '`timeSlots` 寫死的是彰師的鐘點。定位早就寫著「目標客群是還在念書的學生」，不是彰師電子的學生。時間對不上的話，「現在／下一堂」跟上課提醒會整天指錯節，而畫面上完全不會說它錯了——它只是很有把握地寫錯。'],
+                    ['★★ `timeStr` 一律算出來，不另外存一份', '原本每一節都手寫一份 `timeStr:\'08:10-<br>09:00\'` 跟 `start`／`end` 並存。可以改時間之後那就是兩個真相來源：表頭寫 08:10、高亮卻拉到別節，兩邊都不報錯。現在 `buildTimeSlots()` 只吃分鐘數，字串當場組。'],
+                    ['★★ 存課表一定要把 `slots` 一起寫回去', '`savePrivateSchedule` 是 `setDoc` 不是 `updateDoc`，整包覆寫。漏掉 `slots` 的話**每存一次課表就把使用者改過的時間清成預設**，而且要等下次重新整理才看得出來。'],
+                    ['★ 節次不准重疊', '「現在是第幾節」是拿分鐘去找第一個包住它的區間。兩節重疊的話永遠只命中前面那一節，沒有任何錯誤訊息。存檔前擋掉，並且明講是哪兩節。'],
+                    ['★ 只存跟預設不一樣的那幾節', '整份存下去的話，日後改了預設鐘點，連沒動過的節次也跟不上。'],
+                    ['★ 存不起來要把畫面退回去', '跟課表同一條：`scheduleLoaded` 是 false（讀不到雲端）時寧可不存，而且畫面上的時間要一起退回原本那份——不退的話使用者看到新時間，以為改成功了。'],
+                    ['★ 登出要把節次時間收回預設', '跟 `userSchedule` 同一個理由：這是個人設定，換一個人登入不能沿用上一個人的鐘點。'],
+                    ['★★ 課名搜尋原本一聚焦就吐出整份課程庫', '在小黑貓那邊看起來像「填課表預設就有這些課」，而那些課跟大多數使用者無關。搜尋是輔助，不是預設值——沒打字就不列。'],
+                    ['★ 那顆新 Modal 不抄 `backdrop-blur-sm`', 'A5 早就把全螢幕遮罩的背景模糊整批關掉（CSS `!important`），抄上去只是讓 `tests/design.mjs` 的上限數字往上長一格，視覺上一點差別都沒有。'],
+                    ['★ 讀輸入框不要用「屬性裡插值」的選擇器', '`querySelector(`[data-id="${d.id}"]`)` 這個形狀正是 `tests/security.mjs` 在盯的。這裡的 id 其實是程式裡的常數不是使用者資料，但寫成那樣等於每次都要有人來重新判斷一次——改成先把輸入框收成一張表。'],
+                    ['★ 測試多 12 條', '含「timeStr 又被寫死一份」「存檔漏了 slots」「登出沒收回」「節次可以重疊」「存失敗沒退回畫面」「課名又預設列出整份課程庫」，都會紅。'],
+                ]
+            },
             {
                 date: '2026-08-21',
                 title: '每日測驗現在真的走得完：字學會了會畢業，範圍與題數可以自己選',
@@ -6876,6 +6944,84 @@
             icons();
         }
         setInterval(highlightCurrentClass, 60000);
+
+        /* ----------------------------------------------------------
+           調整每一節的上課時間
+           ★ 為什麼要有：DEFAULT_SLOT_TIMES 是彰師的鐘點，但這個站的
+           使用者不是只有彰師的人。時間對不上的話，「現在／下一堂」與
+           上課提醒會整天指錯節，而畫面上完全不會說它錯了。
+           ---------------------------------------------------------- */
+        function slotRowsHTML(slots) {
+            return slots.map(s => `
+                <div class="flex items-center gap-2">
+                    <span class="w-14 shrink-0 text-sm font-black text-slate-600 text-center">${escapeHTML(String(s.label))}</span>
+                    <input type="time" data-slot="start" data-id="${escapeHTML(String(s.id))}" value="${minToHHMM(s.start)}"
+                        aria-label="第 ${escapeHTML(String(s.label))} 節開始時間"
+                        class="flex-1 min-w-0 px-3 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-700">
+                    <span class="text-slate-300 font-black">–</span>
+                    <input type="time" data-slot="end" data-id="${escapeHTML(String(s.id))}" value="${minToHHMM(s.end)}"
+                        aria-label="第 ${escapeHTML(String(s.label))} 節結束時間"
+                        class="flex-1 min-w-0 px-3 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-700">
+                </div>`).join('');
+        }
+
+        function openSlotTimeModal() {
+            $('slotTimeRows').innerHTML = slotRowsHTML(timeSlots);
+            openModal('slotTimeModal');
+        }
+
+        // 把畫面上那十組輸入讀回來；不合法就回傳 null 並吐司說是哪一節
+        function readSlotTimeInputs() {
+            const out = [];
+            /* ★ 先把輸入框收成一張表，不要用 `[data-id="${...}"]` 這種
+               「屬性裡插值」的選擇器——那個形狀正是 tests/security.mjs 在盯的，
+               寫成那樣等於每次都要有人來判斷「這個欄位到底是不是使用者資料」。 */
+            const rows = {};
+            $('slotTimeRows').querySelectorAll('input[data-slot]').forEach(el => {
+                (rows[el.dataset.id] = rows[el.dataset.id] || {})[el.dataset.slot] = el.value;
+            });
+            let prevEnd = -1, prevLabel = '';
+            for (const d of DEFAULT_SLOT_TIMES) {
+                const r = rows[String(d.id)] || {};
+                const start = hhmmToMin(r.start);
+                const end = hhmmToMin(r.end);
+                if (start === null || end === null) { showToast(`第 ${d.label} 節的時間格式不對`); return null; }
+                if (end <= start) { showToast(`第 ${d.label} 節的結束時間要晚於開始時間`); return null; }
+                /* ★ 不准重疊：「現在是第幾節」是拿分鐘去找第一個包住它的區間，
+                   兩節重疊的話永遠只會命中前面那一節，而且不會有任何錯誤。 */
+                if (start < prevEnd) { showToast(`第 ${d.label} 節跟第 ${prevLabel} 節的時間重疊了`); return null; }
+                prevEnd = end; prevLabel = d.label;
+                out.push({ id: d.id, start, end });
+            }
+            // 只存跟預設不一樣的那幾節，日後改預設值時沒動過的節次才跟得上
+            return out.filter(o => {
+                const d = DEFAULT_SLOT_TIMES.find(x => String(x.id) === String(o.id));
+                return !d || d.start !== o.start || d.end !== o.end;
+            });
+        }
+
+        async function commitSlotTimes(slots) {
+            const before = userSlotTimes;
+            applySlotTimes(slots);
+            try {
+                await savePrivateSchedule(userSchedule);
+                renderSchedule();
+                syncReminderSubscription();   // 提醒清單帶的是每一節的開始時間
+                closeModal('slotTimeModal');
+                showToast('上課時間已更新');
+            } catch (e) {
+                // 存不起來就把畫面也退回去，不要讓使用者以為改成功了
+                applySlotTimes(before);
+                console.warn('節次時間存檔失敗', e);
+                showToast(scheduleLoaded ? '儲存失敗…' : '讀不到雲端的課表，這次先不存（避免蓋掉原本的）');
+            }
+        }
+
+        async function saveSlotTimes() {
+            const slots = readSlotTimeInputs();
+            if (!slots) return;
+            await commitSlotTimes(slots);
+        }
 
         /* ==========================================================
          * 上課提醒（Notification API，需 App 開著）
@@ -13341,8 +13487,12 @@
         function renderScheduleCourseResults(q) {
             const box = $('editScheduleCourseResults');
             const ql = (q ||'').trim().toLowerCase();
+            /* ★ 沒打字就不列課：這個站不是只有彰師電子的人在用，
+               一聚焦就吐出整份電子系課程庫，對其他人來說是雜訊，
+               而且看起來像「填課表預設就有這些課」。搜尋是輔助，不是預設值。 */
+            if (!ql) { box.innerHTML =''; box.classList.add('hidden'); return; }
             let list = [...state.courses].sort((a, b) => a.name.localeCompare(b.name,'zh-Hant'));
-            if (ql) list = list.filter(c => (c.name + c.instructor).toLowerCase().includes(ql));
+            list = list.filter(c => (c.name + c.instructor).toLowerCase().includes(ql));
             list = list.slice(0, 30);
             box.innerHTML = list.length === 0
                 ?'<div class="px-4 py-3 text-sm text-slate-400 font-bold text-center">查無此課，將以自訂名稱儲存</div>'
@@ -13661,7 +13811,11 @@
             if (!p) return {};
             try {
                 const snap = await getDoc(doc(db, p,'schedule'));
-                if (snap.exists()) { scheduleLoaded = true; return snap.data().cells || {}; }
+                if (snap.exists()) {
+                    scheduleLoaded = true;
+                    applySlotTimes(snap.data().slots);   // 節次時間跟課表同一份文件
+                    return snap.data().cells || {};
+                }
 
                 // 舊帳號的課表還留在個人資料文件裡 → 搬到私人區，並從舊位置刪掉
                 const legacy = (profileData && profileData.schedule) || null;
@@ -13692,7 +13846,10 @@
             const p = schedulePath();
             if (!p) throw new Error('not signed in');
             if (!scheduleLoaded) throw new Error('schedule not loaded');
-            await setDoc(doc(db, p,'schedule'), { cells, updatedAt: Date.now() });
+            /* ★ slots 一定要一起寫：這是 setDoc 不是 update，
+               漏掉它等於每存一次課表就把使用者改過的節次時間清成預設，
+               而且畫面上要等下次重新整理才看得出來。 */
+            await setDoc(doc(db, p,'schedule'), { cells, slots: userSlotTimes, updatedAt: Date.now() });
         }
 
         /* 這一層只做一件事：不管走哪條路（成功、讀不到資料、丟例外），
@@ -13724,6 +13881,7 @@
                         currentUserTierField = null;      // 新帳號不寫 tier，走後備換算
                         userDisplayName ='無名小貓';
                         userSchedule = {};
+                        applySlotTimes([]);
                         scheduleLoaded = true;   // 新帳號本來就沒有課表，不是讀不到
                     } else {
                         const data = userSnap.data();
@@ -13889,6 +14047,7 @@
                 currentUserTierField = null;
                 userDisplayName ="無名小貓";
                 userSchedule = {};
+                applySlotTimes([]);   // 節次時間是個人設定，換人就要換掉
                 /* ★ 跟計劃同一條：留著 true 的話，登出後（或下一個人登入的空窗裡）
                    任何一次存檔都會拿這張空課表覆蓋雲端。 */
                 scheduleLoaded = false;
@@ -13966,6 +14125,7 @@
 'add-vocab-folder': () => openVocabFolderModal(),
 'back-to-vocab-folders': () => backToVocabFolders(),
 'edit-schedule':   (t) => openScheduleCellModal(t.dataset.cell),
+'edit-slot-times': () => openSlotTimeModal(),
 'pick-schedule-course': (t) => {
                 const c = state.courses.find(x => x.id === t.dataset.id);
                 if (!c) return;
@@ -14452,6 +14612,8 @@
             bindPlanDragAndDrop();
             bind('addCountdownBtn', () => openCountdownModal(null));
             bind('confirmSaveCountdown', saveCountdownFromModal);
+            bind('confirmSaveSlotTimes', saveSlotTimes);
+            bind('resetSlotTimes', () => { $('slotTimeRows').innerHTML = slotRowsHTML(buildTimeSlots(null)); showToast('已填回預設時間，記得按儲存'); });
             bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleLocation:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
             // 課名可搜尋課程庫：聚焦/輸入時顯示過濾結果，手動打字則解除連動
             $('editScheduleCourse').addEventListener('focus', (e) => renderScheduleCourseResults(e.target.value));
