@@ -3568,14 +3568,20 @@
    "set": "toefl",
    "title": "人類學、考古學與歷史學",
    "description": "Anthropology, Archaeology & History",
-   "count": 14,
+   "count": 60,
    "file": "toefl-1.json",
    "books": [
     {
      "id": "toefl-1-1",
      "title": "人類學、考古學與歷史學 1",
      "description": "",
-     "count": 14
+     "count": 30
+    },
+    {
+     "id": "toefl-1-2",
+     "title": "人類學、考古學與歷史學 2",
+     "description": "",
+     "count": 30
     }
    ]
   },
@@ -3584,14 +3590,20 @@
    "set": "toefl",
    "title": "天文學、物理學與化學",
    "description": "Astronomy, Physics & Chemistry",
-   "count": 21,
+   "count": 43,
    "file": "toefl-2.json",
    "books": [
     {
      "id": "toefl-2-1",
      "title": "天文學、物理學與化學 1",
      "description": "",
-     "count": 21
+     "count": 30
+    },
+    {
+     "id": "toefl-2-2",
+     "title": "天文學、物理學與化學 2",
+     "description": "",
+     "count": 13
     }
    ]
   },
@@ -3600,14 +3612,20 @@
    "set": "toefl",
    "title": "地球科學與地質學",
    "description": "Earth Science & Geology",
-   "count": 20,
+   "count": 41,
    "file": "toefl-3.json",
    "books": [
     {
      "id": "toefl-3-1",
      "title": "地球科學與地質學 1",
      "description": "",
-     "count": 20
+     "count": 30
+    },
+    {
+     "id": "toefl-3-2",
+     "title": "地球科學與地質學 2",
+     "description": "",
+     "count": 11
     }
    ]
   },
@@ -3616,7 +3634,7 @@
    "set": "toefl",
    "title": "一般學術與研究方法論",
    "description": "General Academic & Methodologies",
-   "count": 131,
+   "count": 155,
    "file": "toefl-4.json",
    "books": [
     {
@@ -3647,7 +3665,13 @@
      "id": "toefl-4-5",
      "title": "一般學術與研究方法論 5",
      "description": "",
-     "count": 11
+     "count": 30
+    },
+    {
+     "id": "toefl-4-6",
+     "title": "一般學術與研究方法論 6",
+     "description": "",
+     "count": 5
     }
    ]
   },
@@ -3656,14 +3680,92 @@
    "set": "toefl",
    "title": "生命科學、動物學與植物學",
    "description": "Life Science, Zoology & Botany",
-   "count": 24,
+   "count": 71,
    "file": "toefl-5.json",
    "books": [
     {
      "id": "toefl-5-1",
      "title": "生命科學、動物學與植物學 1",
      "description": "",
-     "count": 24
+     "count": 30
+    },
+    {
+     "id": "toefl-5-2",
+     "title": "生命科學、動物學與植物學 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-5-3",
+     "title": "生命科學、動物學與植物學 3",
+     "description": "",
+     "count": 11
+    }
+   ]
+  },
+  {
+   "id": "toefl-6",
+   "set": "toefl",
+   "title": "社會學與心理學",
+   "description": "Sociology & Psychology",
+   "count": 67,
+   "file": "toefl-6.json",
+   "books": [
+    {
+     "id": "toefl-6-1",
+     "title": "社會學與心理學 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-6-2",
+     "title": "社會學與心理學 2",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-6-3",
+     "title": "社會學與心理學 3",
+     "description": "",
+     "count": 7
+    }
+   ]
+  },
+  {
+   "id": "toefl-7",
+   "set": "toefl",
+   "title": "政治、法律與經濟",
+   "description": "Political Science, Law & Economics",
+   "count": 32,
+   "file": "toefl-7.json",
+   "books": [
+    {
+     "id": "toefl-7-1",
+     "title": "政治、法律與經濟 1",
+     "description": "",
+     "count": 30
+    },
+    {
+     "id": "toefl-7-2",
+     "title": "政治、法律與經濟 2",
+     "description": "",
+     "count": 2
+    }
+   ]
+  },
+  {
+   "id": "toefl-8",
+   "set": "toefl",
+   "title": "哲學、文學與藝術",
+   "description": "Philosophy, Literature & the Arts",
+   "count": 17,
+   "file": "toefl-8.json",
+   "books": [
+    {
+     "id": "toefl-8-1",
+     "title": "哲學、文學與藝術 1",
+     "description": "",
+     "count": 17
     }
    ]
   }
