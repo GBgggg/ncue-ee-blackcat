@@ -4450,9 +4450,19 @@
         const SRS_STEPS = [1, 3, 7, 14, 30];   // 第 1～5 階各自隔幾天
         const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題（預設值，使用者可改）
         const SRS_DAILY_CHOICES = [20, 50, 100];
-        const SRS_KEEP = 800;                  // 排程最多記幾個字（一份文件裝得下）
-        /* 已學會的字最多記幾個。★ 只存字串，一個字約 12 bytes，
-           整個內建單字庫 10,596 個字也才 130KB 上下，離 Firestore 的
+        const SRS_KEEP = 800;                  // 排程最多記幾個字
+        /* ★ 800 是**排程效率**算出來的，不是容量算出來的。
+             （原本這一行寫「一份文件裝得下」，那是錯的理由，會讓下一個人往錯的方向找：
+             排程 800 滿、而且整個單字庫都畢業了也才 146KB，是單份文件上限的 14%。）
+             真正的理由是：排程裡同時活著的字數大約是「每日題數 × 9」，
+             所以 20 與 50 完全碰不到 800，100 剛好站在邊上——
+             `記憶曲線試算.md` 第六節那張表是唯一看得見這件事的地方。
+           ⚠️ 這個數字跟 `SRS_DAILY_CHOICES` 綁在一起。要加第四個題數選項（150、200），
+             得同時把它放大到「最大題數 × 12」，否則被擠掉的字會回去當新字重教一次，
+             每個字平均要考的次數從 9.6 漲到 17.7（200 題／天），而畫面上完全看不出來。 */
+        /* 已學會的字最多記幾個。★ 只存字串，一個字平均 9.6 bytes（實際量的，
+           不是估的：`node tools/srssim.mjs size`），整個內建單字庫 10,596 個字
+           也才 100KB 上下，離 Firestore 的
            單份文件 1MB 還很遠——所以這個數字設得比單字總數大，
            實際上等於「不會滿」。⚠️ 設小的話會出現最難查的那種錯：
            已經學會的字被擠出清單，於是又被當成新字重教一次，
@@ -4465,6 +4475,30 @@
         /* 快刷最多幾輪。★ 不是「直到全對」的字面實作：同一個字連錯五輪的人
            再刷下去只是挫折，而那個字明天本來就會被排出來（答錯＝掉回第一階）。 */
         const SRS_DRILL_MAX = 5;
+        /* ---- 排不進排程的字（2026-08-27）----
+           排程裡有一種字會**永遠卡住**：它到期了，但每日測驗抓不到它的單字本體，
+           所以出不了題、沒被作答、`due` 也就不會往後推——於是明天、後天、
+           每一天它都到期，每一天都被跳過。
+           而卡片上「今天有 N 個字到期」是 `srsDueList` 算的，它不管抓不抓得到本體，
+           所以那些字每天都被算進去。**症狀是「做完 20 題，數字一個都沒少」，
+           而存檔成功、任務照算、沒有任何錯誤訊息。**
+           兩種來源：非內建的單字冊（自己的／公有的）考過的字——那些字只存在
+           使用者自己的雲端，內建單字庫裡根本沒有；以及克漏字錯題搬進排程時
+           查不到資料夾的字。
+
+           處理方式是「連續失蹤 SRS_MISS_MAX 次才請出去」，不是「抓不到就刪」：
+           ⚠️⚠️ 「這次沒載到那一夾」跟「這個字根本不在內建單字庫裡」是兩件事。
+             前者是暫時的（換個範圍就找得到），拿刪除去處理會把使用者的複習進度
+             整批清空——而那正是 `srsPickWords` 註解一直在擋的事。所以要連續失蹤
+             滿次數才動它，中間只要成功排出來一次就歸零。
+           `marks` 是「有階數、但不排進每日測驗」的字：單字卡上那顆階數圈照樣
+           看得到，只是它不再佔著複習排程、也不再被算進「今天有幾個字到期」。
+           ⚠️ 這個數字不要調到 1：那等於「抓不到就踢掉」，換一次範圍就會把
+             還沒載入那幾夾的複習進度全部搬走，而畫面上完全看不出來。 */
+        const SRS_MISS_MAX = 3;
+        /* `marks` 最多記幾個字。★ 一筆只有 `w` 與 `box`，比排程那一筆還小，
+           所以設得比任何人可能有的單字冊總字數大，實際上等於「不會滿」。 */
+        const SRS_MARK_KEEP = 2000;
         /* 每日測驗自己的範圍，跟克漏字那六顆 chip **分開**。
            ★ 為什麼不共用：克漏字是「隨便練一場」，換範圍是隨手的事；
              每日測驗是「長期排程」，換一次範圍等於換掉往後幾個月要背的東西。
@@ -5491,6 +5525,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-27',
+                title: '每日測驗的「今天有幾個字到期」終於會減了',
+                items: [
+                    ['做完一場，到期的數字卻一個都沒少', '有一種字會永遠卡在到期清單裡：它排得上今天的複習，可是題目出不出來，所以你根本沒機會作答，它的下次複習日就一直沒往後走——明天、後天、每一天都還是它。畫面上完全看不出異狀，做完二十題之後那個數字紋風不動，而且每天看到的都是同一批字。現在這種字會自動退出複習排程，數字會正常減少了。'],
+                    ['按下「開始今日測驗」不再等好久', '上面那些卡住的字會害系統每次都把整個範圍的單字檔重抓一遍，字表大的時候要等上一兩分鐘。清掉之後就不會了。'],
+                    ['你自己建的單字冊，練過的字還是看得到階數', '那些字本來就不在內建單字庫裡，每日測驗出不了它們的題。現在它們不再佔著複習排程，但單字卡上那顆「背到第幾階」的圈照樣會跟著你練的結果動。'],
+                    ['只是那一次沒抓到單字檔的字不會被誤傷', '有時候只是某個資料夾剛好沒載進來，並不是那個字有問題。所以要連續三次都排不出來才會讓它退出，中間只要成功考到一次就重新算起——已經背起來的進度不會不見。'],
+                ]
+            },
             {
                 date: '2026-08-26',
                 title: '多益的單字冊終於考得了；單字擂台改名「單字測驗」，而且會記得你背到哪',
@@ -11059,7 +11103,11 @@
                     f: typeof x.f ==='string' ? x.f :'',
                     box: Math.min(SRS_STEPS.length, Math.max(1, Math.floor(Number(x.box)) || 1)),
                     due: /^\d{4}-\d{2}-\d{2}$/.test(x.due) ? x.due :'',
-                    at: Number(x.at) > 0 ? Number(x.at) : 0
+                    at: Number(x.at) > 0 ? Number(x.at) : 0,
+                    /* 連續幾次排出來卻抓不到單字本體（見 SRS_MISS_MAX）。
+                       舊資料沒有這一欄，當作 0 ——也就是「還沒失蹤過」，
+                       所以升級之後不會有人的字被立刻搬走。 */
+                    miss: Math.min(SRS_MISS_MAX, Math.max(0, Math.floor(Number(x.miss)) || 0))
                 });
             }
             /* 完成日清單。★ 格式不對的直接濾掉、同一天只留一筆、由舊到新排好——
@@ -11072,7 +11120,21 @@
                ⚠️ 空陣列不能留：那會變成「今天排不出任何字」而且沒有錯誤訊息。 */
             const scopes = [...new Set((Array.isArray(d && d.scopes) ? d.scopes : [])
                              .filter(x => SRS_SCOPES.some(s => s.id === x)))];
+            /* 排不進排程、但要記著階數的字（見 SRS_MISS_MAX）。
+               ⚠️ 已經在排程裡、或已經學會的字這裡一律不留：同一個字兩邊
+                 各有一份階數的話，單字卡那顆圈讀到哪一筆要看順序，
+                 而畫面上只是「圈裡的數字跟每日測驗實際考它的階數對不上」。 */
+            const marks = [], mseen = new Set();
+            for (const x of (Array.isArray(d && d.marks) ? d.marks : [])) {
+                if (!x || typeof x.w !=='string') continue;
+                const k = srsKey(x.w);
+                if (!k || mseen.has(k) || seen.has(k) || dseen.has(k)) continue;
+                mseen.add(k);
+                marks.push({ w: x.w,
+                    box: Math.min(SRS_STEPS.length, Math.max(1, Math.floor(Number(x.box)) || 1)) });
+            }
             return { words: srsTrim(out),
+                     marks: marks.slice(-SRS_MARK_KEEP),
                      done: done.slice(-SRS_DONE_KEEP),
                      count: srsDailyCount(d),
                      scopes: scopes.length ? scopes : [SRS_SCOPES[0].id],
@@ -11131,7 +11193,13 @@
             }
             const nextDone = done.filter(w => dkeys.has(srsKey(w)));
             if (nextDone.length !== done.length) changed = true;
-            return changed ? { ...sched, words: srsTrim(words), done: nextDone } : sched;
+            /* ★ 從錯題本搬回排程的字要離開 `marks`：它在克漏字裡出得了題，
+               就證明它**確實在內建單字庫裡**（先前只是那一夾沒載到）。
+               留在兩邊的話階數會有兩份，見 normalizeSrs 的註記。 */
+            const prevMarks = ((sched && sched.marks) ||[]);
+            const marks = prevMarks.filter(x => !at.has(srsKey(x && x.w)));
+            if (marks.length !== prevMarks.length) changed = true;
+            return changed ? { ...sched, words: srsTrim(words), marks, done: nextDone } : sched;
         }
 
         /* 今天這一場考哪些字。到期的優先，不夠再用「沒排過的新字」補滿。
@@ -11147,15 +11215,19 @@
                 const k = srsKey(w && w.english);
                 if (k && !byKey.has(k)) byKey.set(k, w);
             }
-            const used = new Set(), due = [];
+            const used = new Set(), due = [], missed = [];
             for (const e of srsDueList(sched, todayKey)) {
                 if (due.length >= count) break;
                 const k = srsKey(e.w);
                 const w = byKey.get(k);
                 /* ⚠️ 抓不到單字本體就跳過（那個資料夾這次沒載到）。
                    跳過是對的，但**不要順手把它從排程刪掉**——
-                   刪了的話換一次範圍就會把舊的複習進度整批清空。 */
-                if (!w || used.has(k)) continue;
+                   刪了的話換一次範圍就會把舊的複習進度整批清空。
+                   ★ 但要**記一筆**再跳過：連續跳過很多次的字不是「這次沒載到」，
+                     是「它根本不在內建單字庫裡」，那種字會永遠卡在到期清單裡，
+                     使用者看到的是「做完一場，今天到期的數字一個都沒少」。
+                     判斷交給 `srsApplyMisses`（見 SRS_MISS_MAX），這裡只負責數。 */
+                if (!w || used.has(k)) { if (!w && k) missed.push(k); continue; }
                 used.add(k); due.push(w);
             }
             const picked = [...due];
@@ -11177,7 +11249,71 @@
                     used.add(k); picked.push(w);
                 }
             }
-            return { words: picked, due: due.length, fresh: picked.length - due.length };
+            /* ★ `missed`／`seen` 是給 `srsApplyMisses` 用的，這一支自己不改排程
+               （它是純函式，`tests/cloze.mjs` 直接抽出來跑）。 */
+            return { words: picked, due: due.length, fresh: picked.length - due.length,
+                     missed, seen: [...used] };
+        }
+
+        /* 把「這一場排得出來／排不出來」記回排程。
+           ⚠️ 這一支不是在清垃圾，是**把永遠排不出來的字請出到期清單**：
+             不做的話那些字每天都到期、每天都被跳過，`due` 從來不會往後推，
+             而卡片上的「今天有 N 個字到期」照樣把它們算進去——症狀就是
+             「做完 20 題，數字一個都沒少」（全文見 SRS_MISS_MAX）。
+           ★ 成功排出來的字失蹤次數**歸零**，所以「這次剛好沒載到那一夾」
+             不會累積成誤判；要連續 SRS_MISS_MAX 次都排不出來才搬去 `marks`。
+           ★ 搬走不等於刪掉：階數留在 `marks` 裡，單字卡那顆圈照樣看得到。
+           ★ 沒事發生就回傳同一個物件，呼叫端才知道不必存檔。 */
+        function srsApplyMisses(sched, missed, seen) {
+            const miss = new Set((missed ||[]).map(srsKey).filter(Boolean));
+            const ok = new Set((seen ||[]).map(srsKey).filter(Boolean));
+            if (!miss.size && !ok.size) return sched;
+            const marks = [...((sched && sched.marks) ||[])];
+            const mseen = new Set(marks.map(x => srsKey(x && x.w)));
+            const words = [];
+            let changed = false;
+            for (const x of ((sched && sched.words) ||[])) {
+                const k = srsKey(x.w);
+                if (ok.has(k)) {
+                    if (Number(x.miss) > 0) { words.push({ ...x, miss: 0 }); changed = true; }
+                    else words.push(x);
+                    continue;
+                }
+                if (!miss.has(k)) { words.push(x); continue; }
+                const n = (Number(x.miss) || 0) + 1;
+                changed = true;
+                if (n < SRS_MISS_MAX) { words.push({ ...x, miss: n }); continue; }
+                if (!mseen.has(k)) {
+                    mseen.add(k);
+                    marks.push({ w: x.w, box: Math.max(1, Math.floor(Number(x.box)) || 1) });
+                }
+            }
+            return changed ? { ...sched, words, marks: marks.slice(-SRS_MARK_KEEP) } : sched;
+        }
+
+        /* 非內建單字冊（自己的／公有的）考過的字：**只記階數，不進排程**。
+           升降階跟排程同一條規矩（答對升一階、答錯掉回第一階），這樣單字卡上
+           那顆圈的意思在兩邊是同一件事。
+           ⚠️ 已經在排程裡、或已經學會的字一律不碰：同一個字兩邊各有一份階數的話，
+             圈裡的數字會跟每日測驗實際考它的階數對不上，而且不報錯。 */
+        function srsMarkResult(sched, answers) {
+            const at = new Set(((sched && sched.words) ||[]).map(x => srsKey(x && x.w)));
+            const done = new Set(((sched && sched.done) ||[]).map(srsKey));
+            const marks = new Map(((sched && sched.marks) ||[])
+                            .map(x => [srsKey(x && x.w), { ...x }]));
+            let changed = false;
+            for (const a of answers ||[]) {
+                const k = srsKey(a && a.word);
+                if (!k || at.has(k) || done.has(k)) continue;
+                const cur = marks.get(k) ||{ w: a.word, box: 1 };
+                const box = a.correct
+                    ? Math.min(SRS_STEPS.length, (Number(cur.box) || 1) + 1) : 1;
+                if (marks.has(k) && (Number(cur.box) || 1) === box) continue;
+                marks.set(k, { w: cur.w || a.word, box });
+                changed = true;
+            }
+            return changed
+                ? { ...sched, marks: [...marks.values()].slice(-SRS_MARK_KEEP) } : sched;
         }
 
         /* 一場結束後把排程往前推。
@@ -11479,6 +11615,16 @@
 
             const scopeWords = clozeWordsInScope(scopeIds);
             const pick = srsPickWords(srsSched, state.builtinVocabWords ||[], scopeWords, today, { count });
+            /* ★★ 排不出來的字記一筆再往下走（見 srsApplyMisses）。
+               ⚠️ 一定要在下面那個 `return` **之前**做：一個字都排不出來的時候
+                 正是失蹤最嚴重的時候，先 return 的話那些字永遠不會被記到，
+                 使用者就會一直卡在「數字不動而且沒有任何訊息」。 */
+            const swept = srsApplyMisses(srsSched, pick.missed, pick.seen);
+            if (swept !== srsSched) {
+                srsSched = swept;
+                renderSrsCard();
+                if (srsLoaded) saveSrs().catch(e => console.warn('排程整理存檔失敗', e));
+            }
             if (!pick.words.length) return showToast("目前的範圍出不了題，換一個範圍再試");
             /* ★ 出題的池子是「今天要考的字 ＋ 整個範圍」：前面那批決定考什麼
                （`ask`），整個範圍是給干擾選項用的。只餵前面那批的話，
@@ -11536,15 +11682,28 @@
            ⚠️ **不記完成日**（`days`／`last`）：那兩欄是「今天做過每日測驗」的證據，
              任務判定在數它。單字冊隨手練一場也記一筆的話，每週任務會在
              沒做每日測驗的日子提早達標，而畫面上只是一個提早出現的勾。
-           ⚠️ 非內建的單字冊（自己的／公有的）查不到 `f`（那是「這個字住在哪一夾」，
-             只有內建單字庫查得到）。那種字**照樣記階數**，只是每日測驗排到它的時候
-             找不到本體會跳過——階數圈還是看得到，而排程滿了的時候
-             `srsTrim` 本來就先丟第一階最舊的，所以不會愈積愈多。 */
+           ⚠️⚠️ **非內建的單字冊（自己的／公有的）不寫進排程**（2026-08-27 修）。
+             那種字查不到 `f`（「這個字住在哪一夾」只有內建單字庫查得到），
+             而且每日測驗根本抓不到它的單字本體。
+             這裡原本照樣寫進排程，理由是「階數圈還是看得到」——但後果沒寫出來：
+             它會**永遠**留在到期清單裡。到期 → 抓不到本體 → 出不了題 → `due` 不會
+             往後推 → 明天再到期。使用者看到的是「做完 20 題，今天到期的數字
+             一個都沒少」，而存檔成功、任務照算、完全沒有錯誤訊息。
+             （原本以為 `srsTrim` 會慢慢把它們擠掉，但 `srsTrim` 只在超過
+             `SRS_KEEP` 時才動手，而卡住的字通常遠不到那個數量。）
+             現在改成寫進 `marks`：階數照樣往上走、圈照樣看得到，
+             但它不進到期清單（見 SRS_MISS_MAX）。 */
         function recordVocabSrsResult(answers) {
             const now = Date.now();
             const list = srsGradable(srsSched, answers, dayKeyOf(now));
             if (!list.length) return Promise.resolve();
-            srsSched = srsApplyResult(srsSched, list, builtinFolderIndex(), now);
+            const folderOf = builtinFolderIndex();
+            /* ★ 分兩堆的判準是 `folderOf(w)` 有沒有值，不是「這一場是哪本冊子」：
+               內建冊子裡的字就算是從單字冊那一場考到的，照樣該排進每日測驗。 */
+            const inLib = list.filter(a => folderOf(a && a.word));
+            const outLib = list.filter(a => !folderOf(a && a.word));
+            if (inLib.length) srsSched = srsApplyResult(srsSched, inLib, folderOf, now);
+            if (outLib.length) srsSched = srsMarkResult(srsSched, outLib);
             renderSrsCard();
             /* 單字冊那一頁還開著，圈裡的階數要當場換掉——
                不重畫的話要切出去再切回來才看得到，看起來像沒記到。 */
@@ -11558,6 +11717,11 @@
            ★ 回傳一支查詢函式而不是每個字各掃一次陣列，理由寫在 renderVocabWords。 */
         function srsStageIndex() {
             const box = new Map();
+            /* ★ `marks`（排不進排程、但記著階數的字）先放，排程裡的後放蓋過去。
+               正常情況同一個字不會同時在兩邊（`normalizeSrs` 擋掉了），
+               萬一有，以真的排得出來的那一筆為準。 */
+            for (const x of (srsSched && srsSched.marks) ||[])
+                box.set(srsKey(x.w), Math.max(1, Math.floor(Number(x.box)) || 1));
             for (const x of (srsSched && srsSched.words) ||[])
                 box.set(srsKey(x.w), Math.max(1, Math.floor(Number(x.box)) || 1));
             const done = new Set(((srsSched && srsSched.done) ||[]).map(srsKey));
