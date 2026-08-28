@@ -1682,6 +1682,27 @@
         .bg-sw-6 { background-color: #7a5a3c !important; }
         .bg-sw-7 { background-color: #4f4a3c !important; }  /* 原本的石板藍灰跟第 5 色只差 ΔE 15，換成橄欖墨拉開到 19 */
 
+        /* 今日測驗那條熟練度長條的六段（第 1～5 階與已學會）。
+           ★ 為什麼不借 Tailwind 的 `bg-rose-400` 那一排：上面整段接管規則會把
+             一部分壓成**配白紙算的深色**（`.bg-rose-500` → #9c4a48），而這條線
+             鋪在墨塊上，壓深色等於整條看不見；沒被接管的那幾個又是原廠螢光色，
+             在這套紙墨語彙裡像貼上去的。這是 CLAUDE.md 那條坑的同一種。
+           ★ 這六個**不隨深淺模式換**：今日測驗那張卡在兩個模式下都是墨塊
+             （`.bg-slate-900` → #171512／#0a1020），跟 `--ink-3-on-ink` 同一個道理。
+           ★ 量過的（CIEDE2000）：相鄰 22／18／20／32／23，全部兩兩最小 18.5，
+             對兩個模式的墨塊對比都在 6.2–11.3。
+           ⚠️ 這是一條**有順序**的線，不是七本單字冊那種「誰是誰」的色票，
+             所以色相要一路從暖走到冷（生 → 熟），**不能為了把距離拉開就跳來跳去**——
+             跳開之後每一段都看得很清楚，但「哪邊是進步的方向」就沒了。
+           ★ 刻意不加 `--vg-impasto` 筆觸：那條線只有 8px 高，在那個尺度下
+             紋理只會變成雜訊。 */
+        .bg-tier-1 { background-color: #d68b88 !important; }   /* 第 1 階：最生 */
+        .bg-tier-2 { background-color: #cc8842 !important; }
+        .bg-tier-3 { background-color: #e8c46a !important; }
+        .bg-tier-4 { background-color: #94b060 !important; }
+        .bg-tier-5 { background-color: #63b6c4 !important; }   /* 第 5 階：再對一次就畢業 */
+        .bg-tier-6 { background-color: #8a94c4 !important; }   /* 已學會 */
+
         /* ==========================================================
            計劃的五個區塊
            ★ 原本是 `border-2 border-dashed border-slate-200`，看起來很合理，
@@ -5546,6 +5567,18 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-27',
+                title: '今日測驗會先教用得到的字，卡片上也看得到你背到哪了',
+                items: [
+                    ['每天補的新字改成先教用得到的', '以前每天不夠一場的時候，是從整個範圍裡隨便抽字來補，所以「污漬」「兆」這種近五年學測一次都沒考過的字，會跟「職業」排在同一天出場。現在會先教常用又考過的字：以前你背的前一百個新字裡，學測考過的大概只有五個，現在是一百個都考過。背到第六百個字的時候，近五年學測考過的那批（535 個）幾乎就教完了。'],
+                    ['多益和托福的字也排得動了', '大考中心的 7000 單字本來就標好了級數（第幾級大致就是這個字有多常用），多益和托福那七千多個字沒有這個標記，所以以前它們只能整批排在最後面。現在改成照這個字在英文裡出現得多不多來分級，愈少見的排愈後面——常用的多益字（像 meeting、advertising campaign）會跟 7000 的基礎字一起早早出場，冷僻的學術字（像 spurious、symbiotic）才排到後面。'],
+                    ['同樣好用的字會洗牌，不會整個月都在背 a 開頭的', '一樣重要的字之間是隨機出場的。不洗的話，「字母排序」那本會從 a 一路往下教，你背一個月會發現背的全是 a 開頭的字。'],
+                    ['你自己開的單字冊不受影響', '這個順序只用在每日測驗自動補新字的時候。你自己挑一本單字冊進去練，順序還是那本原本的順序——那是你自己選的。'],
+                    ['卡片上多了一條線，看得到你背過的字分別在哪一階', '以前那張卡只寫「已學會幾個」，而一個字最快也要 54 天才會畢業，所以第一個月打開永遠是 0，看起來像什麼都沒發生。其實那時候你可能已經有四十幾個字兩個禮拜不看也還記得，只是畫面上沒有一個地方在講。現在那條線分成六段（第 1 階到第 5 階，加上已學會），一眼看得出你的字堆在哪一端，愈往右邊代表記得愈久。'],
+                    ['「排程裡有幾個字」換成「你背過幾個字」', '前面那個數字會愈背愈小——字一學會就離開複習排程了，所以愈認真的人看到的數字愈低，那很奇怪。換成「你背過幾個字」之後它只會往上走。'],
+                ]
+            },
             {
                 date: '2026-08-27',
                 title: '單字左邊多了一個方塊，寫著你背到第幾階',
@@ -10006,6 +10039,30 @@
         let builtinVocabState ='idle';            //'idle' |'loading' |'ready' |'error'
         const builtinVocabLoaded = new Set();     // 已抓過單字的資料夾 id
         const VOCAB_BUILTIN_BASE ='data/vocab/';
+        /* 多益與托福的詞頻級數（`tools/vocabfreq.mjs` 產的 freq.json，約 89KB）。
+           ★ 為什麼另外一份檔而不是寫進那 25 份單字檔：寫進去是多 130KB，
+             而且**改一次門檻就要重發那 25 份**、`sw.js` 的 CACHE 也要跟著 bump。
+             單獨一份只要重發一份。
+           ★ 7000 那批不在這份裡：它們有大考中心真正的級數，不要拿算的蓋掉。
+           ⚠️ 抓不到就整份當空的（`catch` 之後仍然是一個 Map）。那些字的價值會變回 0、
+             排在新字的最後面，跟這個功能上線之前一樣——**不要讓它變成拋出來的錯誤**，
+             拋出去的話一次網路不順就整個單字庫打不開，而畫面上什麼都不會說。 */
+        let vocabFreqLevels = null;
+        let vocabFreqPromise = null;
+        function loadVocabFreq() {
+            if (!vocabFreqPromise) vocabFreqPromise = (async () => {
+                try {
+                    const res = await fetch(VOCAB_BUILTIN_BASE +'freq.json');
+                    if (!res.ok) throw new Error(res.status);
+                    const data = await res.json();
+                    const m = new Map();
+                    for (const [lv, list] of Object.entries((data && data.levels) ||{}))
+                        for (const w of list ||[]) m.set(String(w).trim().toLowerCase(), Number(lv));
+                    vocabFreqLevels = m;
+                } catch { vocabFreqLevels = new Map(); }
+            })();
+            return vocabFreqPromise;
+        }
 
         const isSignedInMember = () => !!(auth.currentUser && !auth.currentUser.isAnonymous);
         const pickScoped = (scope, mine, builtin, pub) => scope ==='mine' ? mine : scope ==='builtin' ? builtin : pub;
@@ -10115,9 +10172,22 @@
                 const res = await fetch(`${VOCAB_BUILTIN_BASE}${encodeURIComponent(folderId)}.json`);
                 if (!res.ok) throw new Error(res.status);
                 const data = await res.json();
+                /* 詞頻級數跟單字一起備好。★ 等它是安全的：它只 fetch 一次
+                   （promise 記在外面），而且失敗也會 resolve 成空的 Map。 */
+                await loadVocabFreq();
                 const words = [];
                 (data.books || []).forEach(b => (b.words || []).forEach((w, i) => {
-                    words.push({ ...w, id: `${b.id}-${i + 1}`, bookId: b.id });
+                    const rec = { ...w, id: `${b.id}-${i + 1}`, bookId: b.id };
+                    /* ★ 只補**沒有** `level` 的字（多益／托福）。7000 那批有大考中心
+                       真正的級數，蓋掉的話排序會突然改用另一把尺，而且不會報錯。
+                       ⚠️ 欄位刻意叫 `freqLevel` 不叫 `level`：叫 `level` 的話
+                         畫面上那顆級數徽章會跟著亮起來，等於替大考中心宣布
+                         「多益這個字是第 4 級」——那件事沒有人說過。 */
+                    if (!rec.level) {
+                        const lv = vocabFreqLevels.get(String(rec.english ||'').trim().toLowerCase());
+                        if (lv) rec.freqLevel = lv;
+                    }
+                    words.push(rec);
                 }));
                 state.builtinVocabWords = state.builtinVocabWords.concat(words);
                 builtinVocabLoaded.add(folderId);
@@ -11086,6 +11156,52 @@
             return dayKeyOfDate(d);
         }
 
+        /* 一個字的「價值」＝該不該優先教它。愈高愈早出場。
+           v = (7 − 級數) + 3 × 近五年學測出現過的年數
+
+           ★ 級數愈低＝愈常用愈基礎，所以用 (7 − 級數)：第 3 級 4 分、第 6 級 1 分。
+             學測考過一年再加 3 分。**係數 3 是拍的**（「考過一年 ≈ 差一個級數的三倍」），
+             沒有研究撐；要調的話 `記憶與耐心曲線.md` 第五節那張表要重跑。
+           ★ 兩個欄位吃的是兩把不同的尺：7000 那 3,461 個字的 `level` 是大考中心
+             參考詞彙表的級數；多益與托福的 `freqLevel` 是 `tools/vocabfreq.mjs`
+             用詞頻算出來的（愈少見級數愈高），門檻是拿 7000 那批自己的級數校準的。
+             **不是同一把尺，但方向一樣**，混在一起排「先教哪個」夠用。
+             ⚠️ 但 `freqLevel` **不要上畫面**——畫面上那顆徽章寫的是大考中心的級數，
+               把算出來的數字混進去等於在講一件沒有人說過的事。
+           ⚠️ 兩個都沒有就回 0（使用者自己建的字、查不到詞頻的字）。
+             回 0 不是「它不重要」，是「現在沒有資料排它」——0 會讓它整批排在最後面，
+             那是一個看得懂、也一眼看得出不對勁的行為；如果改成給平均值讓它插在中間，
+             就再也分不出「演算法覺得這個字中等」跟「這個字根本沒有資料」。 */
+        function srsValueOf(w) {
+            const lv = Number((w && (w.level || w.freqLevel)) || 0);
+            if (!(lv >= 2 && lv <= 6)) return 0;
+            const ex = Array.isArray(w && w.exam) ? w.exam.length : 0;
+            return (7 - lv) + 3 * ex;
+        }
+
+        /* 七層熟練度的分佈：第 1～5 階各幾個、已學會幾個。
+           ★ 這一支只**算**不**存**。`記憶曲線試算.md` 第九節量過：
+             把「未測」明著寫進 Firestore 那份文件要付四倍空間（39KB → 609KB），
+             而且 609KB 那格是「今天剛好還塞得下」——字表再長一倍就爆，
+             爆的時候是整份 `setDoc` 存不進去，不是少存一點。
+
+           ★★ **刻意不吃「範圍有多大」這個參數。** 原本想順便算「未測 ＝ 範圍字數 −
+             背過的」，但那個減法在使用者換過範圍之後會變成負數：範圍字數是**目前範圍**
+             的，背過的卻是**跨範圍**的全部，背了 3,000 個 7000 的字再切到托福（516 字）
+             減出來是 −2,484。⚠️ 那個負數看起來像 bug、實際上完全合理，會被追很久。
+             夾成 0 是在補一個不該存在的洞——這六段本來就跟範圍無關（它們講的是
+             「你背過的字現在在哪一層」），只有「未測」需要範圍，而「未測」本來就不畫。
+           ★ 所以畫面上的字要寫「你背過的字」，**不要寫成「這個範圍的進度」**——
+             寫成後者的話它就真的錯了，而且錯得看不出來。 */
+        function srsTierCounts(sched) {
+            const boxes = SRS_STEPS.map(() => 0);
+            for (const x of (sched && sched.words) ||[])
+                boxes[Math.min(SRS_STEPS.length,
+                               Math.max(1, Math.floor(Number(x.box)) || 1)) - 1]++;
+            const done = ((sched && sched.done) ||[]).length;
+            return { boxes, done, seen: boxes.reduce((a, b) => a + b, 0) + done };
+        }
+
         /* 超過 `SRS_KEEP` 的時候該丟誰。
            ⚠️⚠️ 這裡原本是 `slice(-SRS_KEEP)`，也就是**按進場順序**丟掉最早進來的。
              那是反的：最早進排程的字通常正好是階數最高的那些，等於專挑
@@ -11296,7 +11412,25 @@
                     const k = srsKey(w && w.english);
                     return k && !known.has(k) && !used.has(k);
                 });
-                for (const w of clozeShuffle(fresh, rand)) {
+                /* ★ 先照價值分組、**組內**才洗牌，不是直接 sort。
+                   同分的字一定要洗：不洗的話「字母排序」那本會從 a 一路往下，
+                   使用者背一個月會發現他背的字全是 a 開頭的——那不是錯誤，
+                   但它會讓人以為程式壞了。
+                   ★ 分組而不是「洗完再 sort」純粹是為了好讀
+                     （ES2019 之後 sort 保證穩定，兩種寫法結果一樣）。
+                   ⚠️ 這一段只動「補新字」，使用者自己開的單字冊走的是別的路，
+                     **不要順手也排它**——那是他自己選的順序。
+                   ⚠️ `rand` 被叫的次數變了（原本洗一次，現在每一組各洗一次），
+                     所以固定種子的測試抽到的字會換一批。那個變化是對的。 */
+                const byValue = new Map();
+                for (const w of fresh) {
+                    const v = srsValueOf(w);
+                    if (!byValue.has(v)) byValue.set(v, []);
+                    byValue.get(v).push(w);
+                }
+                const ordered = [...byValue.keys()].sort((a, b) => b - a)
+                    .flatMap(v => clozeShuffle(byValue.get(v), rand));
+                for (const w of ordered) {
                     if (picked.length >= count) break;
                     const k = srsKey(w.english);
                     if (used.has(k)) continue;
@@ -11558,7 +11692,13 @@
             const signedIn = isSignedInMember();
             const today = dayKeyOf(Date.now());
             const due = signedIn && srsLoaded ? srsDueList(srsSched, today).length : 0;
-            const total = signedIn && srsLoaded ? (srsSched.words ||[]).length : 0;
+            /* 熟練度的分佈（第 1～5 階各幾個、已學會幾個）。
+               ★ 跟出題範圍**無關**：它講的是「你背過的字現在在哪一層」，
+                 換一次範圍算出來要一模一樣（srsTierCounts 刻意不吃範圍字數）。
+               ⚠️ 沒登入或排程還沒讀完的時候要當作 0：讀完之前 `srsSched` 是
+                 空的預設值，照畫的話會閃一下「背過 0 個」再跳成真的數字。 */
+            const tiers = signedIn && srsLoaded ? srsTierCounts(srsSched)
+                                                : { boxes: SRS_STEPS.map(() => 0), done: 0, seen: 0 };
             const doneToday = signedIn && srsLoaded && srsSched.last === today;
             const next = signedIn && srsLoaded ? srsNextDue(srsSched, today) :'';
             const nextTxt = next ? `${Number(next.slice(5, 7))}/${Number(next.slice(8, 10))}` :'';
@@ -11595,6 +11735,30 @@
                         ?'bg-amber-500 text-white border-amber-500 shadow'
                         :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${n} 題</button>`;
             }).join('');
+            /* 熟練度長條：六段（第 1～5 階與已學會）照字數分寬度。
+               ★ **「未測」那一段刻意不畫。** 它通常佔九成以上，畫出來的話
+                 另外六段會全部擠成一條看不見的線。它寫在上面那行字裡就夠了。
+               ★ `flex:${n} 1 0` 讓每一段照字數分寬度。**不要用百分比寬度**：
+                 六段各自四捨五入之後加起來不是 100%，右邊會露出一條縫。
+               ⚠️ 一個字都還沒背的時候整條不畫（`tiers.seen` 是 0）——
+                 畫一條全灰的比不畫更難看，而且會讓人以為那是進度條卡住了。
+                 沒登入的時候走的也是這一條（`tiers` 被夾成 0）。
+               ⚠️ 六個顏色是自己一組（`.bg-tier-*`，定義在設計系統那一段並且量過），
+                 **不要換回 Tailwind 的色階**：那一排有一半會被接管規則壓成
+                 配白紙算的深色，鋪在墨塊上等於整條看不見。
+               ★ `aria-label` 裡的數字是自己算的，不是外部字串，所以沒有跳脫；
+                 之後若改成把單字名塞進去**那就要 escapeHTML**——`tests/security.mjs`
+                 釘的規則是「屬性插值一律跳脫，不分來源」。 */
+            const TIER_COLORS = ['bg-tier-1','bg-tier-2','bg-tier-3','bg-tier-4','bg-tier-5'];
+            const tierBar = !tiers.seen ?'' : `
+                    <div class="flex h-2 rounded-full overflow-hidden bg-white/10 mb-4" role="img"
+                         aria-label="你背過的字分佈：${tiers.boxes
+                            .map((n, i) => `第 ${i + 1} 階 ${n} 個`).join('、')}、已學會 ${tiers.done} 個">
+                        ${[...tiers.boxes.map((n, i) => [n, TIER_COLORS[i]]),
+                           [tiers.done,'bg-tier-6']]
+                            .filter(([n]) => n > 0)
+                            .map(([n, c]) => `<span class="${c}" style="flex:${n} 1 0"></span>`).join('')}
+                    </div>`;
             box.innerHTML = `
                 <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
                     <div class="flex items-start gap-3 mb-4">
@@ -11604,10 +11768,10 @@
                         <div class="min-w-0">
                             <h3 class="text-xl font-black">今日測驗</h3>
                             <p class="text-white/50 text-xs font-bold">照遺忘曲線排的複習 · 答錯的當場再刷一輪${
-                                total ? ` · 排程裡有 ${total} 個字` :''}${
-                                learned ? ` · 已學會 ${learned} 個` :''}</p>
+                                tiers.seen ? ` · 你背過 ${tiers.seen} 個字` :''}${
+                                learned ? `（其中 ${learned} 個已學會）` :''}</p>
                         </div>
-                    </div>${signedIn ? `
+                    </div>${tierBar}${signedIn ? `
                     <div class="mb-4 space-y-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-[11px] font-black text-white/40 shrink-0">範圍</span>${scopeChips}
