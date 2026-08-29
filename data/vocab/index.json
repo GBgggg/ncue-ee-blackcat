@@ -1990,7 +1990,7 @@
    "set": "toeic",
    "title": "辦公日常",
    "description": "Office Life & Daily Routines",
-   "count": 1811,
+   "count": 1768,
    "file": "toeic-1.json",
    "books": [
     {
@@ -2345,19 +2345,7 @@
      "id": "toeic-1-59",
      "title": "辦公日常 59",
      "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-1-60",
-     "title": "辦公日常 60",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-1-61",
-     "title": "辦公日常 61",
-     "description": "",
-     "count": 11
+     "count": 28
     }
    ]
   },
@@ -2366,7 +2354,7 @@
    "set": "toeic",
    "title": "溝通互動",
    "description": "Communication & Interaction",
-   "count": 760,
+   "count": 729,
    "file": "toeic-2.json",
    "books": [
     {
@@ -2517,13 +2505,7 @@
      "id": "toeic-2-25",
      "title": "溝通互動 25",
      "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-2-26",
-     "title": "溝通互動 26",
-     "description": "",
-     "count": 10
+     "count": 9
     }
    ]
   },
@@ -2532,7 +2514,7 @@
    "set": "toeic",
    "title": "會議與簡報",
    "description": "Meetings & Presentations",
-   "count": 54,
+   "count": 53,
    "file": "toeic-3.json",
    "books": [
     {
@@ -2545,7 +2527,7 @@
      "id": "toeic-3-2",
      "title": "會議與簡報 2",
      "description": "",
-     "count": 24
+     "count": 23
     }
    ]
   },
@@ -2554,7 +2536,7 @@
    "set": "toeic",
    "title": "營運管理",
    "description": "Operations & Management",
-   "count": 900,
+   "count": 879,
    "file": "toeic-4.json",
    "books": [
     {
@@ -2735,7 +2717,7 @@
      "id": "toeic-4-30",
      "title": "營運管理 30",
      "description": "",
-     "count": 30
+     "count": 9
     }
    ]
   },
@@ -2744,7 +2726,7 @@
    "set": "toeic",
    "title": "人力資源",
    "description": "Human Resources",
-   "count": 469,
+   "count": 467,
    "file": "toeic-5.json",
    "books": [
     {
@@ -2841,7 +2823,7 @@
      "id": "toeic-5-16",
      "title": "人力資源 16",
      "description": "",
-     "count": 19
+     "count": 17
     }
    ]
   },
@@ -2850,7 +2832,7 @@
    "set": "toeic",
    "title": "金融與會計",
    "description": "Finance & Accounting",
-   "count": 346,
+   "count": 341,
    "file": "toeic-6.json",
    "books": [
     {
@@ -2923,7 +2905,7 @@
      "id": "toeic-6-12",
      "title": "金融與會計 12",
      "description": "",
-     "count": 16
+     "count": 11
     }
    ]
   },
@@ -2932,7 +2914,7 @@
    "set": "toeic",
    "title": "採購與物流",
    "description": "Purchasing & Logistics",
-   "count": 318,
+   "count": 303,
    "file": "toeic-7.json",
    "books": [
     {
@@ -2999,7 +2981,7 @@
      "id": "toeic-7-11",
      "title": "採購與物流 11",
      "description": "",
-     "count": 18
+     "count": 3
     }
    ]
   },
@@ -3008,7 +2990,7 @@
    "set": "toeic",
    "title": "行銷與銷售",
    "description": "Marketing & Sales",
-   "count": 383,
+   "count": 351,
    "file": "toeic-8.json",
    "books": [
     {
@@ -3081,13 +3063,7 @@
      "id": "toeic-8-12",
      "title": "行銷與銷售 12",
      "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-8-13",
-     "title": "行銷與銷售 13",
-     "description": "",
-     "count": 23
+     "count": 21
     }
    ]
   },
@@ -3118,7 +3094,7 @@
    "set": "toeic",
    "title": "法務合規與安全",
    "description": "Legal, Compliance & Safety",
-   "count": 161,
+   "count": 158,
    "file": "toeic-10.json",
    "books": [
     {
@@ -3155,7 +3131,7 @@
      "id": "toeic-10-6",
      "title": "法務合規與安全 6",
      "description": "",
-     "count": 11
+     "count": 8
     }
    ]
   },
@@ -3164,7 +3140,7 @@
    "set": "toeic",
    "title": "科技與技術支援",
    "description": "Technology & Technical Support",
-   "count": 413,
+   "count": 373,
    "file": "toeic-11.json",
    "books": [
     {
@@ -3243,13 +3219,7 @@
      "id": "toeic-11-13",
      "title": "科技與技術支援 13",
      "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-11-14",
-     "title": "科技與技術支援 14",
-     "description": "",
-     "count": 23
+     "count": 13
     }
    ]
   },
@@ -3258,7 +3228,7 @@
    "set": "toeic",
    "title": "旅遊與交通",
    "description": "Travel & Transportation",
-   "count": 423,
+   "count": 344,
    "file": "toeic-12.json",
    "books": [
     {
@@ -3331,25 +3301,7 @@
      "id": "toeic-12-12",
      "title": "旅遊與交通 12",
      "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-12-13",
-     "title": "旅遊與交通 13",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-12-14",
-     "title": "旅遊與交通 14",
-     "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-12-15",
-     "title": "旅遊與交通 15",
-     "description": "",
-     "count": 3
+     "count": 14
     }
    ]
   },
@@ -3358,7 +3310,7 @@
    "set": "toeic",
    "title": "住宿與餐飲",
    "description": "Accommodation & Dining",
-   "count": 241,
+   "count": 236,
    "file": "toeic-13.json",
    "books": [
     {
@@ -3407,13 +3359,7 @@
      "id": "toeic-13-8",
      "title": "住宿與餐飲 8",
      "description": "",
-     "count": 30
-    },
-    {
-     "id": "toeic-13-9",
-     "title": "住宿與餐飲 9",
-     "description": "",
-     "count": 1
+     "count": 26
     }
    ]
   },
@@ -3422,7 +3368,7 @@
    "set": "toeic",
    "title": "物業與不動產",
    "description": "Property & Real Estate",
-   "count": 96,
+   "count": 91,
    "file": "toeic-14.json",
    "books": [
     {
@@ -3447,7 +3393,7 @@
      "id": "toeic-14-4",
      "title": "物業與不動產 4",
      "description": "",
-     "count": 6
+     "count": 1
     }
    ]
   },
