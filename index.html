@@ -4707,6 +4707,11 @@
            「今天沒有到期的字」——看起來完全正常。 */
         let srsSched = { words: [], days: [], last:'' };
         let srsLoaded = false;
+        /* 「已學會」最後一次寫進雲端的那一份，拿來比對「這次要不要再傳一遍」。
+           ★ 只有 `loadSrs()` 會給它值，而 `srsLoaded` 也是那時候才變 true——
+             所以能存檔的時候它一定是陣列，不會是 null。
+           ⚠️ 宣告在狀態區的理由跟上面同一條（暫時性死區＝一載入整頁全白）。 */
+        let srsDoneSaved = null;
         let srsBusy = false;               // 正在抓單字檔（擋重複按）
         let srsProgress ='';
         /* 快刷：第一輪的成績與作答收在這裡，後面幾輪只是練（見 maybeDrillAgain）。 */
@@ -5567,6 +5572,15 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-08-29',
+                title: '每日測驗考完之後的存檔變輕了，用手機網路的時候感覺得到',
+                items: [
+                    ['以前每考完一場，都會把「已經學會的字」整份重新傳一次', '你的複習進度裡有兩種東西：一種是「哪些字什麼時候要再考」，那個每考完一場都會變；另一種是「哪些字已經學會了」，那個要一個字連續答對到最後一階才會多一筆，多數場次根本一個字都沒變。可是它們原本存在一起，而存檔的方式是「整份重寫」，所以那份沒變的名單每場都跟著傳一次——背到一萬多個字的時候，那是十幾萬個字母的量。'],
+                    ['現在沒變的那一半就不傳了', '存檔改成只送這次真的有變的部分。你會感覺到的是：在外面用行動網路做完每日測驗，按完結算之後那一下比較快，也少吃一點流量。複習進度、已學會的字、階數，一個都不會變。'],
+                    ['不用做任何事，也不會有東西要重新設定', '這次動的只是「怎麼把進度送上雲端」，資料本身放在原來的地方、長得跟原來一樣。'],
+                ]
+            },
             {
                 date: '2026-08-29',
                 title: '多益又多了兩百多個字看得到字根，也清掉最後三十五張教錯字的卡',
@@ -11161,8 +11175,11 @@
          *   真正擋住**最佳化器**的是三件事：
          *     (1) 四選一有 25% 猜對底，會把 6% 的字推成假畢業（`tools/guessfloor.mjs`），
          *         保留率壓到 0.80 就變 12.7%；
-         *     (2) 最佳化器要複習歷史，站上一筆都沒存，而 `saveSrs()` 是整份覆寫，
-         *         歷史塞進同一份文件等於每場上傳 117 KB；
+         *     (2) 最佳化器要複習歷史，而站上一筆都沒存（⚠️ 2026-08-29 更新：
+         *         原本這一條還說「塞進同一份文件等於每場上傳 117 KB」，那不再成立——
+         *         存檔改成只寫變動的欄位之後，歷史可以自己一個欄位。
+         *         ⚠️ 但歷史是**每一場都會長**的東西，所以真要存之前得先訂上限與
+         *         丟棄規則；沒訂的話它會變成下一個「每場整份重傳」）；
          *     (3) `fsrs-browser`（最佳化器）是 WASM，CSP 沒有 `'wasm-unsafe-eval'`。
          *   ⚠️ 這三條擋的都是**最佳化器**，不是排程器：`ts-fsrs` 有 UMD 版、零相依，
          *   照 `vendor/` 那條既有流程抄一支檔就能用（`記憶與耐心曲線.md` 9.3 的路 2）。
@@ -11636,16 +11653,63 @@
 
         /* ---- 每日測驗：資料、畫面與流程 ---- */
         const srsPath = () => PU('settings');
+        /* ---- 存檔只寫變動的那一半（2026-08-29）----
+         *
+         * 為什麼：`settings/vocabSrs` 一份文件裡有兩種東西——**排程**（每考完一場都變，
+         * 800 筆滿的時候 55 KB）與**「已學會」**（要第五階再答對才進得去，
+         * 多數場次一個字都沒變，但整個內建字庫都學會的時候是 131 KB）。
+         * 原本 `saveSrs()` 是 `setDoc` **整份覆寫**，所以每考完一場都把後面那一包
+         * 再上傳一次。空間從來不是問題（最壞 187 KB，只用掉單份上限的 18%，
+         * 量在 `架構.md` v105 第五節），痛的是**流量**：手機用行動網路的時候有感，
+         * 而畫面上什麼都不會說，只是存檔那一下久一點。
+         *
+         * 做法是 `setDoc` 的第三個參數 `{ merge: true }`：**只寫這次列進去的欄位，
+         * 沒列到的維持雲端原樣**。「已學會」沒變就不列，那一包就不會上傳。
+         *
+         * ⚠️⚠️ **`merge` 合併的是「欄位」這一層，不是陣列。** `words` 只要列進去
+         *   就是整條換掉——這正是排程要的（`srsTrim` 丟掉的字如果被合併回來，
+         *   排程會自己長回去，而畫面上完全正常）。**不要拿 merge 當「只加一筆」用。**
+         *
+         * ⚠️ 路線圖原本寫的是「拆成兩份文件」。同一份 ＋ merge 省下來的流量一模一樣，
+         *   但少了三件會安靜壞掉的事：登入要讀兩份（多花一次讀取額度）、
+         *   要一段把舊資料搬過去的程式、以及「搬完之後別的裝置上還開著的舊版
+         *   會看到已學會是空的」。取捨寫在 `架構.md` 這一輪那一節。
+         *
+         * ★ 順手拿到的：`merge` 在文件還不存在時會自己建，所以新使用者不必另外處理
+         *   （`updateDoc` 在這裡會直接失敗）。
+         * ---- */
+        /* 兩份「已學會」一不一樣。★ 逐筆比，不是比長度：同一場裡可能有一個字畢業、
+           另一個已畢業的字被重新考到而退回排程（`srsApplyResult` 那條「重新進場」），
+           長度一樣但內容不同——只比長度的話那一次就漏存了。 */
+        function srsSameDone(a, b) {
+            if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+            for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+            return true;
+        }
         async function loadSrs() {
             const p = srsPath();
             if (!p) return null;
             const snap = await getDoc(doc(db, p,'vocabSrs'));
-            return normalizeSrs(snap.exists() ? (snap.data() ||{}) : {});
+            const out = normalizeSrs(snap.exists() ? (snap.data() ||{}) : {});
+            /* 讀進來的這一份就是雲端現在的樣子，下一次存檔拿它比。
+               ⚠️ 記的是**正規化之後**的 `out.done`，不是原始資料那一份：
+                 `normalizeSrs` 會去重、會把已學會的字從排程裡剔掉，
+                 拿原始的比的話第一次存檔一定會白寫一次。 */
+            srsDoneSaved = (out.done ||[]).slice();
+            return out;
         }
         async function saveSrs() {
             const p = srsPath();
             if (!p || !srsLoaded) return;             // 沒登入或沒讀到就不存
-            await setDoc(doc(db, p,'vocabSrs'), { ...srsSched, updatedAt: Date.now() });
+            const done = srsSched.done ||[];
+            const data = { ...srsSched, updatedAt: Date.now() };
+            /* ★ 沒有人畢業就把那一包從這次的寫入裡拿掉——這就是省下來的那 131 KB。
+               ⚠️ `delete` 是「這次不碰它」，不是「把雲端那一欄刪掉」——
+                 靠的是下一行的 `{ merge: true }`。少了那個參數就變成整份覆寫，
+                 而症狀是**所有人的「已學會」一次歸零**（那些字明天全部回來當新字）。 */
+            if (srsSameDone(done, srsDoneSaved)) delete data.done;
+            await setDoc(doc(db, p,'vocabSrs'), data, { merge: true });
+            srsDoneSaved = done.slice();              // 寫成功了才記下來
         }
 
         /* 單字 → 它住在哪個資料夾。查得到才存得進排程的 `f`，
@@ -13835,6 +13899,7 @@
                    而症狀是「複習進度自己歸零」——畫面上看起來只是「今天沒有到期的字」。 */
                 srsLoaded = false;
                 srsSched = normalizeSrs(null);
+                srsDoneSaved = null;
                 loadSrs().then(d => {
                     if (d) srsSched = d;
                     srsLoaded = true;
@@ -13905,6 +13970,7 @@
                    而畫面上看不出它屬於誰。 */
                 srsSched = normalizeSrs(null);
                 srsLoaded = false;
+                srsDoneSaved = null;
                 srsDrill = null;
                 renderSrsCard();
                 renderMissions();
