@@ -3252,22 +3252,24 @@
                 </div>
             </div>
             </div>
-            <!-- 子分頁：克漏字
-                 ★ 2026-08-19 這一格原本是「英文閱讀」。閱讀整塊拿掉之後，
-                 克漏字從「單字庫最上層的一張卡」升格成自己的子分頁——
-                 卡片本體（#clozeCard）由 renderClozeCard() 填，內容一行沒搬，
-                 只是換了住的地方（搬程式的風險遠高於收益，這條寫過很多次了）。 -->
+            <!-- 子分頁：背單字
+                 ★ 2026-08-19 這一格原本是「英文閱讀」，後來是「克漏字」。
+                 2026-09-01 克漏字測驗那張卡整張換成「錯題複習」，這一頁
+                 於是變成兩張卡：上面學新字、下面複習錯過的字。
+                 ⚠️ 子分頁的 id 還是 `cloze`（`study-sub-cloze`）——那是網址與
+                 路由表用的鍵，改掉會讓所有舊的分頁記憶失效，而畫面上只是
+                 「一進來跑到別頁」。看得到的字改了就好。
+                 卡片本體分別由 renderSrsCard() 與 renderSrsReviewCard() 填。 -->
             <div id="study-sub-cloze" class="hidden">
                 <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <div class="relative z-10">
-                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">克漏字 <span class="animate-bounce">✏️</span></h2>
-                        <p class="text-slate-400 text-sm mt-2">從內建單字庫的例句挖一個字，選好範圍就開始。錯的字會排進今日測驗，照遺忘曲線再考你一次。</p>
+                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">背單字 <span class="animate-bounce">✏️</span></h2>
+                        <p class="text-slate-400 text-sm mt-2">題目是從內建單字庫的例句挖掉一個字讓你填回去。上面那張只出沒考過的新字，答錯的會排進下面那張，照遺忘曲線再考你一次。</p>
                     </div>
                 </div>
-                <!-- 今日測驗（艾賓浩斯排程）排在克漏字前面：它才是每天要按的那一顆。
-                     卡片本體由 renderSrsCard() 填。 -->
+                <!-- 學新字排在複習前面：先有字才有得複習。 -->
                 <div id="srsCard" class="mb-5"></div>
-                <div id="clozeCard" class="mb-5"></div>
+                <div id="srsReviewCard" class="mb-5"></div>
             </div>
         </div>
 
@@ -3461,7 +3463,7 @@
                     <div class="space-y-4">
                         <div class="flex gap-3"><i data-lucide="home" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">主頁：</span>自編課表、計劃、倒數。計劃可以打一行字新增（例如「明天下午三點 交報告」），也可以設每天／每週／每月重複。</p></div>
                         <div class="flex gap-3"><i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">學習：</span>自學課程的單元教材，以及你自己出的測驗。<span class="font-bold text-slate-800">自己的測驗只有你看得到。</span></p></div>
-                        <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>克漏字測驗從內建三千多字的例句自動出題；查字典跳出英英解釋，可以一層層往下查，看到生字直接收進自己的單字冊。</p></div>
+                        <div class="flex gap-3"><i data-lucide="languages" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">英文：</span>背單字分成「今日測驗」學新字與「錯題複習」把錯過的字排回來，題目從內建一萬多字的例句自動出；查字典跳出英英解釋，可以一層層往下查，看到生字直接收進自己的單字冊。</p></div>
                         <div class="flex gap-3"><i data-lucide="wallet" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">理財：</span>記帳與投資紀錄，按一下會帶入台股與美股的參考價。<span class="font-bold text-slate-800">報價是延遲資料，只供自己記錄，不是投資建議。</span></p></div>
                         <div class="flex gap-3"><i data-lucide="settings" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">設定（右上角 ⚙️）：</span>深色模式、通知、暱稱與密碼都在這裡。<span class="font-bold text-slate-800">通知</span>打開之後，上課前、計劃開始前、以及你勾了提醒的倒數當天早上都會響，關掉 App 也會響。iPhone 要先用 Safari「分享 → 加入主畫面」裝成 App，按下去會有圖解帶你裝。</p></div>
                         <div class="flex gap-3"><i data-lucide="git-branch" class="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"></i><p class="text-sm text-slate-600 leading-relaxed"><span class="font-bold text-slate-800">左上角 logo：</span>切到另外兩個站——<span class="font-bold text-slate-800">彰師電子小黑貓</span>（課程評價、資料、測驗、消息）與<span class="font-bold text-slate-800">電路小黑貓</span>（電路模擬器，要用電腦開）。</p></div>
@@ -4686,24 +4688,26 @@
         /* `marks` 最多記幾個字。★ 一筆只有 `w` 與 `box`，比排程那一筆還小，
            所以設得比任何人可能有的單字冊總字數大，實際上等於「不會滿」。 */
         const SRS_MARK_KEEP = 2000;
-        /* 每日測驗自己的範圍，跟克漏字那六顆 chip **分開**。
-           ★ 為什麼不共用：克漏字是「隨便練一場」，換範圍是隨手的事；
-             每日測驗是「長期排程」，換一次範圍等於換掉往後幾個月要背的東西。
-             共用一份的話，使用者為了練多益隨手點一下，隔天的排程就跟著變了，
-             而畫面上不會有任何提示。
-           ★ 這裡是**預設組合**不是新的級數：`scopes` 裡的 id 一律要在
-             `CLOZE_SCOPES` 裡找得到（`srsScopeIds` 只是攤平成那幾個 id，
-             範圍與載入還是走克漏字那一套）。
-           ⚠️ 打錯一個 id 不會報錯，只會變成「那個範圍出不了題」——
-             `tests/cloze.mjs` 有一條在釘這件事。
-           `group` 相同的兩顆互斥：7000 的「全部」與「不含 Lv6」同時亮著的話，
-           後者等於沒有意義，而兩顆都是亮的看起來像設定生效了。 */
-        const SRS_SCOPES = [
-            { id:'az',    label:'7000 全部',      group:'az', scopes: ['lv3','lv4','lv5','lv6'] },
-            { id:'az5',   label:'7000 不含 Lv6',  group:'az', scopes: ['lv3','lv4','lv5'] },
-            { id:'toeic', label:'多益',                       scopes: ['toeic'] },
-            { id:'toefl', label:'托福',                       scopes: ['toefl'] }
-        ];
+        /* 每日測驗（今日測驗＝挑新字）與錯題複習（挑要複習哪些到期的字）
+           各自的範圍。**兩張卡各存一份，但共用同一組六顆級數。**
+
+           ⚠️⚠️ 2026-09-01 改過：這裡原本是四顆「組合」——7000 全部／7000 不含
+             Lv6／多益／托福。症狀不是壞掉，是**同一件事有兩套按鈕**：
+             隔壁那張卡選的是 Level 3／4／5／6 六顆，這張卡選的是「7000 全部」，
+             使用者要選「只背 Level 4」在這裡選不出來，而畫面上不會說為什麼。
+           ★ 所以直接從 `CLOZE_SCOPES` 長出來，不再抄一份：抄一份的下場是
+             哪天新增一個級數只改了一邊，而少的那一邊完全不報錯。
+           ★ 兩張卡的範圍**還是分開存**（`scopes`／`rscopes`）：
+             今日測驗換範圍＝換往後要學的新字，錯題複習換範圍＝只是把今天
+             要複習的那批縮小，兩件事的後果差很多，綁在一起會互相干擾。 */
+        const SRS_SCOPES = CLOZE_SCOPES.map(s => ({ id: s.id, label: s.label, scopes: [s.id] }));
+        /* 舊資料裡那四顆組合 id → 現在這六顆。
+           ⚠️ 沒有這一張表的話 `normalizeSrs` 會把 `az` 當成不認得的 id 濾掉，
+             結果是**每一個舊使用者的範圍當場被重設**，而畫面上只是
+             「範圍怎麼變了」，沒有任何提示，也沒有任何錯誤。 */
+        const SRS_SCOPE_LEGACY = { az: ['lv3','lv4','lv5','lv6'], az5: ['lv3','lv4','lv5'] };
+        /* 一個範圍都沒有時退回這一組（＝舊的第一顆「7000 全部」，行為不變）。 */
+        const SRS_SCOPE_DEFAULT = ['lv3','lv4','lv5','lv6'];
 
         /* 節次時間
            ★ 這一張是「彰師的鐘點」，不是全世界的鐘點。使用者可以在課表上方
@@ -4822,15 +4826,15 @@
         let missionsLoaded = false;
         let missionsReady = Promise.resolve();
 
-        /* 克漏字測驗的狀態。★ 宣告在狀態區的理由跟上面幾條一樣：
-           `renderClozeCard()` 被 `switchStudySub()` 與 `loadBuiltinVocabIndex()`
-           叫，兩支都在「進英文分頁」的路徑上——寫在函式旁邊就是暫時性死區，
+        /* 錯題複習那張卡的狀態（2026-09-01 之前是克漏字測驗那張卡的）。
+           ★ 宣告在狀態區的理由跟上面幾條一樣：`renderSrsReviewCard()` 被
+           `switchStudySub()` 與 `loadBuiltinVocabIndex()` 叫，兩支都在
+           「進英文分頁」的路徑上——寫在函式旁邊就是暫時性死區，
            症狀是一載入整頁全白，而 `node --check` 看不出來（已經踩過六次）。
-           ★ 預設只勾 Level 4：全勾等於第一次按下去要抓 25 份檔案，
-           而使用者還不知道自己按了什麼。 */
-        let clozeScopes = ['lv4'];
-        let clozeBusy = false;             // 正在抓單字檔（擋重複按）
-        let clozeProgress ='';             // 「載入單字 3 / 25」
+           ★ 範圍**不在這裡**：它跟著排程存在 `srsSched.rscopes`，
+           所以換過的範圍下次登入還在。 */
+        let srsRevBusy = false;            // 正在抓單字檔（擋重複按）
+        let srsRevProgress ='';            // 「載入單字 3 / 25」
         /* 錯題與最近出過的字（雲端，登入才有）。
            ★ 存在 `settings/vocabWrong`：`settings` 這個集合早就在
            `firestore.rules` 的私人白名單裡，所以這一項**不必再去主控台推規則**。
@@ -5722,6 +5726,19 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-01',
+                title: '背單字拆成兩張卡：上面學新字，下面把錯過的字排回來',
+                items: [
+                    ['「今日測驗」以後只出你沒考過的新字', '以前它一張卡要做兩件事：先把今天該複習的字排完，不夠再拿新字補滿。於是「今天想多學幾個新字」跟「今天只想把欠的複習清掉」兩件事都做不到，卡片上那句話也得同時交代兩件事。現在它只做一件事——每一場都是全新的字。'],
+                    ['複習全部交給新的「錯題複習」', '原本那張「克漏字測驗」換成了它。你答錯過的字會照遺忘曲線排回來，到哪一天該複習哪些字都由它管；答對就往上一階、答錯退一階，跟原本一樣。題目的樣子沒變，還是從例句挖掉一個字讓你填回去。'],
+                    ['複習也可以自己選範圍了', '例如最近只想把多益的字補起來，就在錯題複習那張卡上只留「多益」。⚠️ 縮小範圍不會讓其他的字消失，也不會弄丟它們的進度——只是今天先不考它們，範圍打開它們就回來了。'],
+                    ['今日測驗的範圍改成六顆，跟複習那張一樣', '以前只有「7000 全部」「7000 不含 Lv6」「多益」「托福」四個選項，想「只背 Level 4」選不出來。現在是 Level 3、4、5、6、多益、托福六顆，要幾顆就選幾顆。以前選過的設定會自動換成對應的那幾顆，不用重設。'],
+                    ['那條分成六段的進度線翻了個面', '以前最左邊是剛開始背的字、最右邊是已學會；現在反過來，最左邊就是已學會。你一眼看到的會是「我學會了多少」，而不是「我還有多少沒學」。它現在跟著複習那張卡。'],
+                    ['考完看錯題時，那個「不會」現在看得出來可以按', '它以前只是一行字，跟旁邊的「正解」「你選了」長得一樣，所以很多人以為那是系統在告訴你「這個字你不會」。現在它圈起來變成一顆鈕：按下去，那個字就一起記進錯題本，之後也會排進複習。'],
+                    ['英文分頁的「克漏字」改叫「背單字」', '那一頁現在是兩張卡（學新字、複習），名字跟著改。點進去的位置沒有變。'],
+                ]
+            },
             {
                 date: '2026-09-01',
                 title: '每日測驗回到「1、3、7、14、30 天」五階，答錯不再打回原點',
@@ -9630,7 +9647,7 @@
 'timer':     { label:'讀書計時', icon:'timer'          },
 'countdown': { label:'倒數',     icon:'hourglass'      },
 'course':    { label:'自學課程', icon:'book-open'  },
-'cloze':     { label:'克漏字',   icon:'pencil-line'},
+'cloze':     { label:'背單字',   icon:'pencil-line'},
 'vocab':     { label:'單字庫',   icon:'library'    },
 'kahoot':    { label:'測驗',     icon:'gamepad-2'  }
         };
@@ -9707,13 +9724,13 @@
                 currentViewSSCourseId = null;
                 renderSelfStudyCourses();
             } else if (studySub ==='cloze') {
-                /* 克漏字吃的是內建單字庫的索引，而那份不是 Firestore 訂閱，
+                /* 這兩張卡吃的是內建單字庫的索引，而那份不是 Firestore 訂閱，
                    沒人幫它「等資料進來就重畫」——所以跟單字庫那一頁一樣，
-                   進來就自己抓一次（抓完會再叫一次 renderClozeCard）。
+                   進來就自己抓一次（抓完會再把兩張都重畫一次）。
                    ⚠️ 抓過就不會重抓，所以這行不是每次切分頁都發一次請求。 */
                 loadBuiltinVocabIndex();
-                renderClozeCard();
                 renderSrsCard();
+                renderSrsReviewCard();
             } else if (studySub ==='vocab') {
                 closeModalView('page-vocabulary-details','page-vocabulary-main');
                 currentViewVocabBookId = null;
@@ -10378,12 +10395,12 @@
                 builtinVocabState ='ready';
             } catch { builtinVocabState ='error'; }
             if (vocabScope ==='builtin') renderVocabBooks();
-            /* ★ 克漏字那一頁也吃這份索引（範圍有幾個字、第一次要抓幾份檔案
-               全部從它算）。漏掉這一行的症狀是那一頁永遠停在「載入單字庫索引…」，
-               而且不會報錯——索引其實已經好了，只是沒有人叫它重畫。 */
-            renderClozeCard();
-            /* 今日測驗那張卡也吃這份索引（沒有索引就出不了題，按鈕要停用）。 */
+            /* ★ 背單字那一頁的兩張卡也吃這份索引（範圍有幾個字、第一次要抓
+               幾份檔案全部從它算）。漏掉這兩行的症狀是那一頁永遠停在
+               「載入單字庫索引…」，而且不會報錯——索引其實已經好了，
+               只是沒有人叫它重畫。 */
             renderSrsCard();
+            renderSrsReviewCard();
         }
 
         /* ---- 內建單字庫：抓某個資料夾的單字 ---- */
@@ -10520,9 +10537,9 @@
             const grid = $('vocabBookGrid');
             if (!grid) return;
             updateVocabScopeUI();
-            /* ★ 2026-08-19：這裡原本會叫 renderClozeCard()——當時那張卡住在
+            /* ★ 2026-08-19：這裡原本會叫克漏字那張卡重畫——當時那張卡住在
                單字庫「內建」的最上層，所以要跟著這一頁的範圍切換一起收放。
-               克漏字升格成自己的子分頁之後那個相依就沒了，留著反而是
+               它升格成自己的子分頁之後那個相依就沒了，留著反而是
                「換一頁會去重畫另一頁」，兩邊的狀態遲早互相干擾。 */
 
             const folders = vocabFoldersOf(vocabScope);
@@ -11137,18 +11154,32 @@
         /* 範圍內的字。⚠️ 這裡就是那條「不能寫成同一個 `w.level` 判斷」：
            DLC 沒有 `level` 欄位，跟 Level 3–6 混在一個判斷裡的話，
            「Level 4 ＋ 多益」會把多益整批濾掉——不報錯，只是題目變少。 */
-        function clozeWordsInScope(scopes) {
+        /* 「這個**已載入的**單字在不在這個範圍裡」，做成一顆可以重複問的函式。
+           ★ 錯題複習要問的就是這件事：今天到期的那批字裡，哪些算在使用者
+             這次選的範圍內。跟 `clozeWordsInScope` 是同一條判斷，拆出來
+             是為了**只有一份**——抄第二份的話下面那個「DLC 沒有 `level` 欄位」
+             的陷阱就要再踩一次，而且照樣不報錯。
+           ⚠️ 只回答得了**載入過**的字：級數寫在單字本體上，那份檔案沒抓下來
+             就沒有級數可判（回 false）。所以呼叫端要先確定該抓的抓了。 */
+        function clozeScopeTest(scopes) {
             const { levels, dlc } = clozeScopePick(scopes);
             const setOfBook = new Map();
             for (const b of state.builtinVocabBooks ||[]) {
                 const f = (state.builtinVocabFolders ||[]).find(x => x.id === b.folderId);
                 if (f) setOfBook.set(b.id, f.set);
             }
+            return (w) => {
+                const set = setOfBook.get(w && w.bookId);
+                if (!set) return false;
+                return set ==='az' ? levels.has(Number(w.level)) : dlc.has(set);
+            };
+        }
+
+        function clozeWordsInScope(scopes) {
+            const hit = clozeScopeTest(scopes);
             const out = [], seen = new Set();
             for (const w of state.builtinVocabWords ||[]) {
-                const set = setOfBook.get(w.bookId);
-                const hit = set ==='az' ? levels.has(Number(w.level)) : dlc.has(set);
-                if (!hit) continue;
+                if (!hit(w)) continue;
                 const key = String(w.english ||'').toLowerCase();
                 if (!key || seen.has(key)) continue;   // 兩套分法都載入過時的保險
                 seen.add(key);
@@ -11157,114 +11188,16 @@
             return out;
         }
 
-        function toggleClozeScope(id) {
-            if (!CLOZE_SCOPES.some(s => s.id === id)) return;
-            clozeScopes = clozeScopes.includes(id)
-                ? clozeScopes.filter(x => x !== id) : [...clozeScopes, id];
-            renderClozeCard();
-        }
-
-        /* ★ 2026-08-19：這張卡原本住在單字庫「內建」的最上層，所以有一段
-           「不是內建就整張收掉」的判斷。克漏字升格成自己的子分頁之後那段拿掉了——
-           **這一整頁就只有這張卡**，收掉等於切過去是一片空白。
-           ⚠️ 索引還沒好的時候也不能收：以前收掉沒關係（下面還有單字冊），
-           現在收掉就沒有東西了。所以改成畫同一張卡、但把按鈕停用、
-           右邊那行話換成「正在載入」或「載入失敗」——
-           「還在載入」與「壞了」不能是同一個畫面，這條在課表那邊踩過。 */
-        function renderClozeCard() {
-            const box = $('clozeCard');
-            if (!box) return;
-            box.classList.remove('hidden');
-            const ready = builtinVocabState ==='ready';
-
-            const folders = ready ? clozeFoldersFor(clozeScopes) : [];
-            /* 字數從索引上的各級字數算，不必等單字檔抓下來——
-               這張卡在「還沒抓任何東西」的時候就要說得出範圍有多大。
-               ⚠️ 以前這裡是「整個資料夾的 count 加總」，於是只勾 Level 4
-               也回答 3,461 字（實際 836）：資料夾是字母，不是級數。 */
-            const words = ready ? clozeCountInScope(clozeScopes) : 0;
-            const todo = folders.filter(f => !builtinVocabLoaded.has(f.id)).length;
-            /* ★ `s.id` 也包 escapeHTML：它來自這個檔案裡的常數，不是 Firestore，
-               但資安那支測試釘的是「屬性插值裡的 `.id` 一律要跳脫」——
-               那條規則刻意不分來源，因為「這個欄位現在是安全的」正是
-               課程那三個欄位當年漏掉的理由。 */
-            const chips = CLOZE_SCOPES.map(s => {
-                const on = clozeScopes.includes(s.id);
-                return `<button data-action="toggle-cloze-scope" data-scope="${escapeHTML(s.id)}" aria-pressed="${on}"
-                    class="px-4 py-2 rounded-2xl text-xs font-black transition-all shrink-0 border-2 ${on
-                        ?'bg-emerald-500 text-white border-emerald-500 shadow-md'
-                        :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${escapeHTML(s.label)}</button>`;
-            }).join('');
-            const note = builtinVocabState ==='error' ?'單字庫索引載入失敗，重新整理再試一次'
-                : !ready ?'載入單字庫索引…'
-                : clozeBusy ? escapeHTML(clozeProgress)
-                : !clozeScopes.length ?'先選一個範圍'
-                : todo ? `${words} 字可出題 · 第一次要先抓 ${todo} 份單字檔`
-                       : `${words} 字可出題`;
-            const canStart = ready && !clozeBusy && clozeScopes.length > 0;
-            box.innerHTML = `
-                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
-                    <div class="flex items-start gap-3 mb-4">
-                        <div class="w-11 h-11 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0">
-                            <i data-lucide="pencil-line" class="w-5 h-5"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <h3 class="text-xl font-black">克漏字測驗</h3>
-                            <p class="text-white/50 text-xs font-bold">從例句挖一個字，每次 ${CLOZE_COUNT} 題</p>
-                        </div>
-                    </div>
-                    <div class="flex flex-wrap gap-2 mb-4">${chips}</div>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button data-action="start-cloze" ${canStart ?'' :'disabled'}
-                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${canStart
-                                ?'bg-emerald-500 text-white hover:bg-emerald-400'
-                                :'bg-slate-700 text-slate-400 cursor-not-allowed'}">
-                            <i data-lucide="${clozeBusy ?'loader' :'play'}" class="w-4 h-4 pointer-events-none"></i> ${clozeBusy ?'載入中…' :'開始測驗'}
-                        </button>
-                        <span class="text-xs font-bold text-white/50">${note}</span>
-                    </div>
-                </div>`;
-            icons();
-        }
-
-        /* 按下開始：先把選到的資料夾抓齊（抓過的跳過），再出題。
-           ★ 一份一份抓並且回報進度，是因為「Level 3–6 全選」等於 25 份檔案。
-             沒有進度的話那幾秒鐘畫面完全靜止，看起來像按鈕壞了。 */
-        async function startClozeQuiz() {
-            if (clozeBusy) return;
-            if (!clozeScopes.length) return showToast("先選一個範圍");
-            const folders = clozeFoldersFor(clozeScopes);
-            if (!folders.length) return showToast("這個範圍還沒有單字");
-            const todo = folders.filter(f => !builtinVocabLoaded.has(f.id));
-            clozeBusy = true;
-            let failed = 0;
-            for (let i = 0; i < todo.length; i++) {
-                clozeProgress = `載入單字 ${i + 1} / ${todo.length}`;
-                renderClozeCard();
-                if (!(await loadBuiltinVocabFolder(todo[i].id))) failed++;
-            }
-            clozeBusy = false; clozeProgress ='';
-            renderClozeCard();
-            if (failed && failed === todo.length) return showToast("單字載入失敗，請檢查連線");
-
-            const pool = clozeWordsInScope(clozeScopes);
-            const questions = buildClozeQuiz(pool, { skip: clozeWrong.seen ||[] });
-            if (questions.length < 4)
-                return showToast("這個範圍出不了題，換一個範圍或多選幾個");
-
-            /* ★ 作答流程讀的是 playQuestions 這一組狀態，不是 activeKahoot。
-               只設 activeKahoot 的話一按下去直接跳結算、0 分——
-               單字測驗踩過一次，這裡照抄它補齊的那一份清單。 */
-            activeKahoot = { title:'克漏字測驗', questions, cloze: true };
-            playQuestions = questions;
-            playAnswers = [];
-            currentQIndex = 0;
-            currentScore = 0;
-            isKahootTransitioning = false;
-            $('playKahootModal').classList.remove('hidden');
-            $('playKahootModal').classList.add('flex');
-            renderPlayQuestion();
-        }
+        /* ★★ 「克漏字測驗」那張卡 2026-09-01 整張拿掉了，換成「錯題複習」
+           （`renderSrsReviewCard`／`startSrsReview`，住在下面每日測驗那一區）。
+           拿掉的是**卡片**不是**出題方式**：題目照樣是挖空例句，上面這一整段
+           範圍與載入、下面那一整段錯題本，兩邊都原封不動地被新卡片用著。
+           ★ 為什麼換：那張卡是「隨便練一場」，跟今日測驗長得幾乎一樣、
+             範圍按鈕卻是另一組，兩張卡擺在一起沒有人分得出該按哪一顆。
+             現在那個位置放的是「把你錯過的字排回來」，那才是每天要按的第二顆。
+           ⚠️ 一起消失的還有 `toggleClozeScope` 與模組層的 `clozeScopes`：
+             錯題複習的範圍存在排程那份文件裡（`srsSched.rscopes`），
+             不再有「畫面讀變數、存檔讀文件」那種兩個真相來源。 */
 
         /* ---- 克漏字：錯題與最近出過的字（settings/vocabWrong）---- */
         const clozeWrongPath = () => PU('settings');
@@ -11522,6 +11455,17 @@
             return out;
         }
 
+        /* 存下來的那一份範圍 → 現在認得的那六個 id（順便把舊的組合 id 展開）。
+           ★ 一個都不剩就退回預設，**不要留空陣列**：空的等於「排不出任何字」，
+             而卡片上只會寫「0 字可排」，看起來像單字庫壞了。 */
+        function srsNormScopes(list) {
+            const out = [];
+            for (const x of (Array.isArray(list) ? list : []))
+                for (const id of (SRS_SCOPE_LEGACY[x] ||[x]))
+                    if (SRS_SCOPES.some(s => s.id === id) && !out.includes(id)) out.push(id);
+            return out.length ? out : [...SRS_SCOPE_DEFAULT];
+        }
+
         /* 一筆排程：{ w 單字, f 它住在哪個資料夾, box 第幾階, due 下次到期日, at 上次複習 }
            ⚠️ `due` 空字串代表「立刻到期」，不是「沒有到期日」：舊資料或壞掉的
              日期留在那裡不動的話，那個字會變成永遠排不出來的孤兒，
@@ -11594,10 +11538,11 @@
                而畫面上只是一個提早出現的勾。 */
             const days = [...new Set((Array.isArray(d && d.days) ? d.days : [])
                             .filter(k => typeof k ==='string' && /^\d{4}-\d{2}-\d{2}$/.test(k)))].sort();
-            /* 範圍：只認得的留下來；一個都不剩就退回第一個預設組合。
-               ⚠️ 空陣列不能留：那會變成「今天排不出任何字」而且沒有錯誤訊息。 */
-            const scopes = [...new Set((Array.isArray(d && d.scopes) ? d.scopes : [])
-                             .filter(x => SRS_SCOPES.some(s => s.id === x)))];
+            /* 兩份範圍：`scopes` 是今日測驗（要學哪一批新字）、
+               `rscopes` 是錯題複習（今天要複習的字裡只考哪一批）。
+               ⚠️ 空陣列不能留：那會變成「排不出任何字」而且沒有錯誤訊息。 */
+            const scopes  = srsNormScopes(d && d.scopes);
+            const rscopes = srsNormScopes(d && d.rscopes);
             /* 排不進排程、但要記著階數的字（見 SRS_MISS_MAX）。
                ⚠️ 已經在排程裡、或已經學會的字這裡一律不留：同一個字兩邊
                  各有一份階數的話，單字卡那顆圈讀到哪一筆要看順序，
@@ -11615,7 +11560,7 @@
                      marks: marks.slice(-SRS_MARK_KEEP),
                      done: done.slice(-SRS_DONE_KEEP),
                      count: srsDailyCount(d),
-                     scopes: scopes.length ? scopes : [SRS_SCOPES[0].id],
+                     scopes, rscopes,
                      days: days.slice(-SRS_DAYS_KEEP),
                      last: /^\d{4}-\d{2}-\d{2}$/.test(d && d.last) ? d.last :'' };
         }
@@ -11698,21 +11643,31 @@
             return changed ? { ...sched, words: srsTrim(words), marks, done: nextDone } : sched;
         }
 
-        /* 今天這一場考哪些字。到期的優先，不夠再用「沒排過的新字」補滿。
+        /* 這一場考哪些字。**2026-09-01 起分成兩條路**（`opts.only`）：
+             `'due'` 錯題複習——只考到期的字，不夠不補。
+             `'new'` 今日測驗——只考沒排過的新字，一個到期的都不碰。
+           不給 `only` 的話兩段都跑（到期優先、不夠用新字補滿），那是 09-01
+           之前那張合而為一的卡片的行為，**現在站上沒有人走這條**，
+           留著是因為 `tests/cloze.mjs` 用它釘「兩段的交界」。
+
            ★ 到期的字要從**所有已載入的字**裡找，不是只從目前範圍找：
              它可能是換範圍之前錯的，只照範圍挑的話那個字永遠排不出來。
+           ★ `opts.inScope(w)` 是錯題複習那張卡的範圍過濾器（只吃**單字本體**，
+             因為級數在單字上、不在排程那一筆上）。
            ★ 回傳的是單字物件（要例句才出得了題），不是字串。 */
         function srsPickWords(sched, allWords, scopeWords, todayKey, opts) {
             const o = opts ||{};
             const count = o.count || SRS_DAILY_COUNT;
             const rand = o.rand || Math.random;
+            const only = o.only ||'both';
+            const inScope = typeof o.inScope ==='function' ? o.inScope : null;
             const byKey = new Map();
             for (const w of allWords ||[]) {
                 const k = srsKey(w && w.english);
                 if (k && !byKey.has(k)) byKey.set(k, w);
             }
             const used = new Set(), due = [], missed = [];
-            for (const e of srsDueList(sched, todayKey)) {
+            if (only !=='new') for (const e of srsDueList(sched, todayKey)) {
                 if (due.length >= count) break;
                 const k = srsKey(e.w);
                 const w = byKey.get(k);
@@ -11724,10 +11679,15 @@
                      使用者看到的是「做完一場，今天到期的數字一個都沒少」。
                      判斷交給 `srsApplyMisses`（見 SRS_MISS_MAX），這裡只負責數。 */
                 if (!w || used.has(k)) { if (!w && k) missed.push(k); continue; }
+                /* ⚠️⚠️ 範圍外的字**跳過而且不算失蹤**。算成失蹤的話，
+                   使用者只是把錯題複習的範圍縮到「只複習多益」，那些 7000 的字
+                   連續三次排不出來就被搬去 `marks`（等於退出複習排程），
+                   而畫面上完全看不出來——他只會發現「以前背的字不見了」。 */
+                if (inScope && !inScope(w)) continue;
                 used.add(k); due.push(w);
             }
             const picked = [...due];
-            if (picked.length < count) {
+            if (only !=='due' && picked.length < count) {
                 /* ★ 補新字的時候「已學會」的那些也算數過了——不排除的話
                    畢業出口等於白做：字一畢業就馬上被當成新字重教一次，
                    而畫面上只是「今天有 20 個新字」，看起來完全正常。 */
@@ -12055,7 +12015,7 @@
             const next = srsSeed(srsSched, clozeWrong, builtinFolderIndex(), Date.now());
             if (next === srsSched) return Promise.resolve();
             srsSched = next;
-            renderSrsCard();
+            renderSrsCards();
             return saveSrs();
         }
 
@@ -12064,78 +12024,79 @@
             const next = srsForget(srsSched, word);
             if (next === srsSched) return;
             srsSched = next;
-            renderSrsCard();
+            renderSrsCards();
             if (srsLoaded) saveSrs().catch(() => {});
         }
 
         /* 範圍與題數都住在 `srsSched` 裡，**沒有另一份模組層的變數**。
-           ★ 這是刻意的：`clozeScopes` 那種寫法在這裡會變成兩個真相來源
+           ★ 這是刻意的：模組層變數那種寫法在這裡會變成兩個真相來源
              （畫面讀變數、存檔讀文件），而不同步的時候兩邊都不報錯——
              使用者換了範圍、重新整理之後又變回去，只覺得「沒存到」。 */
-        function toggleSrsScope(id) {
-            const p = SRS_SCOPES.find(s => s.id === id);
-            if (!p) return;
-            const cur = (srsSched.scopes ||[]).slice();
-            const next = cur.includes(id)
-                ? cur.filter(x => x !== id)
-                /* 同一 `group` 互斥（7000 的「全部」與「不含 Lv6」）。 */
-                : [...cur.filter(x => {
-                       const o = SRS_SCOPES.find(s => s.id === x);
-                       return !(p.group && o && o.group === p.group);
-                   }), id];
-            /* ⚠️ 一個都不留會變成「今天排不出任何字」而且沒有錯誤訊息，
+        /* ★ 2026-09-01 拿掉了「同一 group 互斥」那一段：六顆級數彼此獨立，
+           沒有「全部」與「不含 Lv6」這種會互相蓋掉的組合了。
+           ★ 兩張卡走同一支（`key` 是 `scopes` 或 `rscopes`），只差要重畫哪一張。
+           ⚠️ 用 `function` 宣告而不是箭頭常數：這幾支被最底下那張事件委派表
+             接住，而那張表在檔案更後面——寫成 `const` 的話順序一動就是
+             暫時性死區，症狀是一載入整頁全白（這個檔案已經踩過六次）。 */
+        function toggleSrsScopeIn(key, id, redraw) {
+            if (!SRS_SCOPES.some(s => s.id === id)) return;
+            const cur = (srsSched[key] ||[]).slice();
+            const next = cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id];
+            /* ⚠️ 一個都不留會變成「排不出任何字」而且沒有錯誤訊息，
                所以擋在這裡，不是讓它空著。 */
             if (!next.length) return showToast("至少要留一個範圍");
-            srsSched = { ...srsSched, scopes: next };
-            renderSrsCard();
+            srsSched = { ...srsSched, [key]: next };
+            redraw();
             if (srsLoaded) saveSrs().catch(() => {});
         }
+        /* ⚠️⚠️ **排程一動，兩張卡都要重畫。** 拆成兩張卡之後，`srsSched` 同時
+           餵著今日測驗（範圍、題數）與錯題複習（到期幾個、六段長條）——
+           只重畫一張的下場是另一張停在上一輪的數字，而且**不會報錯**：
+           做完一場複習回到那一頁，長條沒動、到期數字沒少，看起來像存檔失敗。
+           ★ 只重畫一張是例外（載入進度那種），要在當下寫清楚為什麼。 */
+        function renderSrsCards() { renderSrsCard(); renderSrsReviewCard(); }
+
+        function toggleSrsScope(id)    { toggleSrsScopeIn('scopes',  id, renderSrsCard); }
+        function toggleSrsRevScope(id) { toggleSrsScopeIn('rscopes', id, renderSrsReviewCard); }
 
         function setSrsCount(n) {
             const v = Math.floor(Number(n));
             if (!SRS_DAILY_CHOICES.includes(v)) return;
             if (srsDailyCount(srsSched) === v) return;
             srsSched = { ...srsSched, count: v };
-            renderSrsCard();
+            renderSrsCards();
             if (srsLoaded) saveSrs().catch(() => {});
         }
 
-        /* 今日測驗那張卡。
-           ★ 沒登入直接擋下來（跟克漏字不一樣）：排程沒地方存，
-             做完一場等於什麼都沒發生，而「每日」這件事本身就靠存得起來。
-             ⚠️ 但不要整張藏起來——藏起來的話沒登入的人不知道有這個功能。 */
+        /* ---- 今日測驗那張卡（2026-09-01 起**只出沒考過的新字**）----
+           ★ 為什麼拆成兩張卡：這張卡以前一張要做兩件事——先把今天到期的
+             複習排完，不夠再用新字補滿。於是「今天想多學幾個新字」跟
+             「今天只想把欠的複習清掉」兩件事都做不到，卡片上那句話還得
+             同時交代兩件事，誰也看不懂。複習整批搬去下面那張「錯題複習」。
+           ★ 沒登入直接擋下來：排程沒地方存，做完一場等於什麼都沒發生，
+             而「每日」這件事本身就靠存得起來。
+             ⚠️ 但不要整張藏起來——藏起來的話沒登入的人不知道有這個功能。
+           ★ 熟練度那條六段線**不在這張卡上了**（搬去錯題複習）：它講的是
+             「你背過的字現在在哪一層」，那是複習的進度，跟「今天學幾個新字」
+             是兩件事。 */
         function renderSrsCard() {
             const box = $('srsCard');
             if (!box) return;
             const signedIn = isSignedInMember();
             const today = dayKeyOf(Date.now());
-            const due = signedIn && srsLoaded ? srsDueList(srsSched, today).length : 0;
-            /* 熟練度的分佈（第 1～5 階各幾個、已學會幾個）。
-               ★ 跟出題範圍**無關**：它講的是「你背過的字現在在哪一層」，
-                 換一次範圍算出來要一模一樣（srsTierCounts 刻意不吃範圍字數）。
-               ⚠️ 沒登入或排程還沒讀完的時候要當作 0：讀完之前 `srsSched` 是
-                 空的預設值，照畫的話會閃一下「背過 0 個」再跳成真的數字。 */
-            const tiers = signedIn && srsLoaded ? srsTierCounts(srsSched)
-                                                : { boxes: SRS_STEPS.map(() => 0), done: 0, seen: 0 };
             const doneToday = signedIn && srsLoaded && srsSched.last === today;
-            const next = signedIn && srsLoaded ? srsNextDue(srsSched, today) :'';
-            const nextTxt = next ? `${Number(next.slice(5, 7))}/${Number(next.slice(8, 10))}` :'';
-            const learned = (srsSched.done ||[]).length;
             const count = srsDailyCount(srsSched);
             const scopeIds = srsScopeIds(srsSched.scopes);
-            /* 範圍有多大：跟克漏字那張卡同一支（從索引上的各級字數算，
-               不必等單字檔抓下來）。⚠️ 索引還沒好的時候不要叫，會拿到 0
-               而那個 0 看起來像「這個範圍沒有字」。 */
+            /* 範圍有多大：從索引上的各級字數算，不必等單字檔抓下來。
+               ⚠️ 索引還沒好的時候不要叫，會拿到 0，而那個 0 看起來像
+                 「這個範圍一個字都沒有」。 */
             const pool = builtinVocabState ==='ready' ? clozeCountInScope(scopeIds) : 0;
-
-            const note = !signedIn ?'排程存在你自己的帳號底下，登入才排得起來'
+            const note = !signedIn ?'進度存在你自己的帳號底下，登入才記得住'
                 : !srsLoaded ?'讀取排程…'
                 : srsBusy ? srsProgress
                 : builtinVocabState !=='ready' ?'載入單字庫索引…'
-                : doneToday && !due ? `今天的排程做完了${nextTxt ? ` · 下一批在 ${nextTxt}` :''}`
-                : due ? `今天有 ${due} 個字到期${due < count ?'，不夠的用沒考過的新字補滿' :''}`
-                : nextTxt ? `今天沒有到期的字 · 下一批在 ${nextTxt}（也可以直接練新字）`
-                          : `排程還是空的 · 先練一場，錯的字就會排進來`;
+                : doneToday ?'今天學過一輪了 · 還想多學可以再來一場'
+                : `一場 ${count} 個沒考過的新字 · 答錯的會排進錯題複習`;
             const canStart = signedIn && srsLoaded && !srsBusy && builtinVocabState ==='ready';
             /* ★ `s.id` 也包 escapeHTML：來源是這個檔案裡的常數，但資安那支
                測試釘的是「屬性插值裡的 `.id` 一律要跳脫」，刻意不分來源。 */
@@ -12153,30 +12114,6 @@
                         ?'bg-amber-500 text-white border-amber-500 shadow'
                         :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${n} 題</button>`;
             }).join('');
-            /* 熟練度長條：六段（第 1～5 階與已學會）照字數分寬度。
-               ★ **「未測」那一段刻意不畫。** 它通常佔九成以上，畫出來的話
-                 另外六段會全部擠成一條看不見的線。它寫在上面那行字裡就夠了。
-               ★ `flex:${n} 1 0` 讓每一段照字數分寬度。**不要用百分比寬度**：
-                 六段各自四捨五入之後加起來不是 100%，右邊會露出一條縫。
-               ⚠️ 一個字都還沒背的時候整條不畫（`tiers.seen` 是 0）——
-                 畫一條全灰的比不畫更難看，而且會讓人以為那是進度條卡住了。
-                 沒登入的時候走的也是這一條（`tiers` 被夾成 0）。
-               ⚠️ 六個顏色是自己一組（`.bg-tier-*`，定義在設計系統那一段並且量過），
-                 **不要換回 Tailwind 的色階**：那一排有一半會被接管規則壓成
-                 配白紙算的深色，鋪在墨塊上等於整條看不見。
-               ★ `aria-label` 裡的數字是自己算的，不是外部字串，所以沒有跳脫；
-                 之後若改成把單字名塞進去**那就要 escapeHTML**——`tests/security.mjs`
-                 釘的規則是「屬性插值一律跳脫，不分來源」。 */
-            const TIER_COLORS = ['bg-tier-1','bg-tier-2','bg-tier-3','bg-tier-4','bg-tier-5'];
-            const tierBar = !tiers.seen ?'' : `
-                    <div class="flex h-2 rounded-full overflow-hidden bg-white/10 mb-4" role="img"
-                         aria-label="你背過的字分佈：${tiers.boxes
-                            .map((n, i) => `第 ${i + 1} 階 ${n} 個`).join('、')}、已學會 ${tiers.done} 個">
-                        ${[...tiers.boxes.map((n, i) => [n, TIER_COLORS[i]]),
-                           [tiers.done,'bg-tier-6']]
-                            .filter(([n]) => n > 0)
-                            .map(([n, c]) => `<span class="${c}" style="flex:${n} 1 0"></span>`).join('')}
-                    </div>`;
             box.innerHTML = `
                 <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
                     <div class="flex items-start gap-3 mb-4">
@@ -12185,11 +12122,9 @@
                         </div>
                         <div class="min-w-0">
                             <h3 class="text-xl font-black">今日測驗</h3>
-                            <p class="text-white/50 text-xs font-bold">照遺忘曲線排的複習 · 答錯的當場再刷一輪${
-                                tiers.seen ? ` · 你背過 ${tiers.seen} 個字` :''}${
-                                learned ? `（其中 ${learned} 個已學會）` :''}</p>
+                            <p class="text-white/50 text-xs font-bold">只出沒考過的新字 · 答錯的當場再刷一輪</p>
                         </div>
-                    </div>${tierBar}${signedIn ? `
+                    </div>${signedIn ? `
                     <div class="mb-4 space-y-2">
                         <div class="flex flex-wrap items-center gap-2">
                             <span class="text-[11px] font-black text-white/40 shrink-0">範圍</span>${scopeChips}
@@ -12205,7 +12140,7 @@
                                 ?'bg-amber-500 text-white hover:bg-amber-400'
                                 :'bg-slate-700 text-slate-400 cursor-not-allowed'}">
                             <i data-lucide="${srsBusy ?'loader' :'play'}" class="w-4 h-4 pointer-events-none"></i> ${
-                                srsBusy ?'載入中…' : doneToday && !due ?'再來一場' :'開始今日測驗'}
+                                srsBusy ?'載入中…' : doneToday ?'再來一場' :'開始今日測驗'}
                         </button>` : `
                         <button data-action="settings-login"
                             class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 bg-amber-500 text-white hover:bg-amber-400 transition-colors">
@@ -12217,26 +12152,152 @@
             icons();
         }
 
-        /* 按下開始：先把要用到的單字檔抓齊，再照排程出題。
-           ★ 抓哪幾份是算出來的，不是「全抓」：到期的字自己記得住在哪個資料夾
-             （`f`），只有在到期不滿一場、要補新字的時候才需要範圍那幾份。 */
+        /* 今天到期的字裡，有幾個落在這個範圍內。
+           ⚠️⚠️ **這個數字可能偏多，而且它就是該偏多。** 級數寫在單字本體上，
+             那份檔案不一定抓下來了；沒抓下來的字只判得到它住在哪一套
+             （7000／多益／托福），判不到第幾級，所以先算進去。
+             要它一定準的話，得先抓 25 份單字檔才畫得出這張卡——那是本末倒置。
+             抓過一次之後（也就是真的複習過一場之後）它就準了。
+           ★ 寧可偏多不要偏少：偏少的症狀是「明明有到期的字，卡片卻說今天沒有」，
+             那會讓人以為排程壞了。偏多的症狀只是按下去之後題數比預期少一點。 */
+        function srsDueScopeCount(sched, todayKey, scopes) {
+            const list = srsDueList(sched, todayKey);
+            if (!list.length) return 0;
+            const hit = clozeScopeTest(scopes);
+            const { levels, dlc } = clozeScopePick(scopes);
+            const setOf = new Map((state.builtinVocabFolders ||[]).map(f => [f.id, f.set]));
+            const byKey = new Map();
+            for (const w of state.builtinVocabWords ||[]) {
+                const k = srsKey(w && w.english);
+                if (k && !byKey.has(k)) byKey.set(k, w);
+            }
+            let n = 0;
+            for (const e of list) {
+                const w = byKey.get(srsKey(e.w));
+                if (w) { if (hit(w)) n++; continue; }
+                const set = setOf.get(e.f);
+                if (!set) { n++; continue; }
+                if (set ==='az' ? levels.size > 0 : dlc.has(set)) n++;
+            }
+            return n;
+        }
+
+        /* ---- 錯題複習那張卡（2026-09-01 取代原本的「克漏字測驗」）----
+           它做的是原本今日測驗的前半段：**照遺忘曲線把到期的字排回來**，
+           不夠一場也不拿新字補（要學新字就按上面那張）。
+           ★ 這裡的「範圍」跟今日測驗那張卡的意思不一樣：
+             今日測驗的範圍是「要學哪一批新字」，這裡的範圍是「今天到期的
+             這些字裡，先考落在這個範圍的」。**縮小範圍不會讓任何字消失**，
+             它只是今天先不考——被跳過的字連失蹤次數都不會加（見 srsPickWords）。
+           ★ 那條六段的熟練度長條從今日測驗搬到這裡：它講的是複習的進度。
+             ⚠️ 它跟範圍**無關**（`srsTierCounts` 刻意不吃範圍），換範圍算出來
+               要一模一樣；寫成「這個範圍的進度」就真的錯了，而且錯得看不出來。 */
+        function renderSrsReviewCard() {
+            const box = $('srsReviewCard');
+            if (!box) return;
+            box.classList.remove('hidden');
+            const signedIn = isSignedInMember();
+            const ready = builtinVocabState ==='ready';
+            const today = dayKeyOf(Date.now());
+            const loaded = signedIn && srsLoaded;
+            const scopeIds = srsScopeIds(srsSched.rscopes);
+            const dueAll = loaded ? srsDueList(srsSched, today).length : 0;
+            const dueHere = loaded && ready ? srsDueScopeCount(srsSched, today, scopeIds) : dueAll;
+            const tiers = loaded ? srsTierCounts(srsSched)
+                                 : { boxes: SRS_STEPS.map(() => 0), done: 0, seen: 0 };
+            const next = loaded ? srsNextDue(srsSched, today) :'';
+            const nextTxt = next ? `${Number(next.slice(5, 7))}/${Number(next.slice(8, 10))}` :'';
+            /* 熟練度長條：六段（已學會與第 5～1 階）照字數分寬度。
+               ★★ **2026-09-01 左右翻轉了。** 原本由左到右是第 1 階→已學會，
+                 也就是「愈右邊愈熟」。翻過來之後最左邊是已學會，
+                 使用者一眼看到的是「我學會了多少」，而不是「我還有多少沒學」。
+               ★ **「未測」那一段刻意不畫。** 它通常佔九成以上，畫出來的話
+                 另外六段會全部擠成一條看不見的線。
+               ★ `flex:${n} 1 0` 讓每一段照字數分寬度。**不要用百分比寬度**：
+                 六段各自四捨五入之後加起來不是 100%，邊上會露出一條縫。
+               ⚠️ 一個字都還沒背的時候整條不畫（`tiers.seen` 是 0）——
+                 畫一條全灰的比不畫更難看，而且會讓人以為那是進度條卡住了。
+               ⚠️ 六個顏色是自己一組（`.bg-tier-*`，定義在設計系統那一段並且量過），
+                 **不要換回 Tailwind 的色階**：那一排有一半會被接管規則壓成
+                 配白紙算的深色，鋪在墨塊上等於整條看不見。
+               ★ `aria-label` 裡的數字是自己算的，不是外部字串，所以沒有跳脫。 */
+            const TIER_COLORS = ['bg-tier-1','bg-tier-2','bg-tier-3','bg-tier-4','bg-tier-5'];
+            const tierBar = !tiers.seen ?'' : `
+                    <div class="flex h-2 rounded-full overflow-hidden bg-white/10 mb-4" role="img"
+                         aria-label="你背過的字分佈：已學會 ${tiers.done} 個、${tiers.boxes
+                            .map((n, i) => `第 ${i + 1} 階 ${n} 個`).reverse().join('、')}">
+                        ${[[tiers.done,'bg-tier-6'],
+                           ...tiers.boxes.map((n, i) => [n, TIER_COLORS[i]]).reverse()]
+                            .filter(([n]) => n > 0)
+                            .map(([n, c]) => `<span class="${c}" style="flex:${n} 1 0"></span>`).join('')}
+                    </div>`;
+            const chips = SRS_SCOPES.map(s => {
+                const on = (srsSched.rscopes ||[]).includes(s.id);
+                return `<button data-action="toggle-srs-rev-scope" data-scope="${escapeHTML(s.id)}" aria-pressed="${on}"
+                    class="px-3 py-1.5 rounded-xl text-xs font-black transition-colors shrink-0 border-2 ${on
+                        ?'bg-emerald-500 text-white border-emerald-500 shadow'
+                        :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${escapeHTML(s.label)}</button>`;
+            }).join('');
+            const note = !signedIn ?'複習排程存在你自己的帳號底下，登入才排得起來'
+                : !srsLoaded ?'讀取排程…'
+                : srsRevBusy ? srsRevProgress
+                : builtinVocabState ==='error' ?'單字庫索引載入失敗，重新整理再試一次'
+                : !ready ?'載入單字庫索引…'
+                : !dueAll ? (nextTxt ? `今天沒有到期的字 · 下一批在 ${nextTxt}`
+                                     :'排程還是空的 · 先去今日測驗練一場')
+                : !dueHere ? `今天到期的 ${dueAll} 個字都不在這個範圍裡`
+                : `今天有 ${dueHere} 個字到期${dueHere < dueAll ? `（範圍外還有 ${dueAll - dueHere} 個）` :''}`;
+            const canStart = loaded && ready && !srsRevBusy && dueHere > 0;
+            box.innerHTML = `
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-11 h-11 bg-emerald-500 text-white rounded-2xl flex items-center justify-center shrink-0">
+                            <i data-lucide="history" class="w-5 h-5"></i>
+                        </div>
+                        <div class="min-w-0">
+                            <h3 class="text-xl font-black">錯題複習</h3>
+                            <p class="text-white/50 text-xs font-bold">錯過的字照遺忘曲線排回來${
+                                tiers.seen ? ` · 你背過 ${tiers.seen} 個字` :''}${
+                                tiers.done ? `（其中 ${tiers.done} 個已學會）` :''}</p>
+                        </div>
+                    </div>${tierBar}${signedIn ? `
+                    <div class="flex flex-wrap items-center gap-2 mb-4">
+                        <span class="text-[11px] font-black text-white/40 shrink-0">範圍</span>${chips}
+                    </div>` :''}
+                    <div class="flex flex-wrap items-center gap-3">${signedIn ? `
+                        <button data-action="start-srs-review" ${canStart ?'' :'disabled'}
+                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 transition-colors ${canStart
+                                ?'bg-emerald-500 text-white hover:bg-emerald-400'
+                                :'bg-slate-700 text-slate-400 cursor-not-allowed'}">
+                            <i data-lucide="${srsRevBusy ?'loader' :'play'}" class="w-4 h-4 pointer-events-none"></i> ${
+                                srsRevBusy ?'載入中…' :'開始複習'}
+                        </button>` : `
+                        <button data-action="settings-login"
+                            class="px-6 py-3 rounded-2xl font-bold shadow-lg flex items-center gap-2 bg-emerald-500 text-white hover:bg-emerald-400 transition-colors">
+                            <i data-lucide="log-in" class="w-4 h-4 pointer-events-none"></i> 登入 / 註冊
+                        </button>`}
+                        <span class="text-xs font-bold text-white/50">${escapeHTML(note)}</span>
+                    </div>
+                </div>`;
+            icons();
+        }
+
+        /* 按下「開始今日測驗」：把範圍那幾份單字檔抓齊，再挑沒考過的新字。
+           ★ 這裡**一定要抓整個範圍**（不像複習那張卡）：新字是從範圍裡挑的，
+             沒抓下來的檔案裡的字等於不存在。 */
         async function startSrsQuiz() {
-            if (srsBusy || clozeBusy) return;
+            if (srsBusy || srsRevBusy) return;
             if (!isSignedInMember()) return showToast("每日測驗要先登入");
             if (!srsLoaded) return showToast("排程還沒讀到，等一下再試");
             if (builtinVocabState !=='ready') return showToast("單字庫索引還沒好，等一下再試");
             const today = dayKeyOf(Date.now());
             const count = srsDailyCount(srsSched);
-            /* ★ 每日測驗吃自己那份範圍（`srsSched.scopes`），不是克漏字的
-               `clozeScopes`——共用的話「去克漏字隨手點一下多益」就會把
-               隔天的排程一起換掉，而畫面上沒有任何提示。 */
+            /* ★ 今日測驗吃自己那份範圍（`srsSched.scopes`），錯題複習吃
+               `srsSched.rscopes`——共用一份的話「複習時隨手把範圍縮成多益」
+               就會把往後要學的新字一起換掉，而畫面上沒有任何提示。 */
             const scopeIds = srsScopeIds(srsSched.scopes);
-            const dueList = srsDueList(srsSched, today);
-            const need = new Set();
-            for (const e of dueList.slice(0, count)) if (e.f) need.add(e.f);
-            if (dueList.length < count || !need.size)
-                for (const f of clozeFoldersFor(scopeIds)) need.add(f.id);
-            const todo = [...need].filter(id => !builtinVocabLoaded.has(id));
+            const todo = clozeFoldersFor(scopeIds)
+                .map(f => f.id).filter(id => !builtinVocabLoaded.has(id));
 
             srsBusy = true;
             let failed = 0;
@@ -12250,18 +12311,14 @@
             if (failed && failed === todo.length) return showToast("單字載入失敗，請檢查連線");
 
             const scopeWords = clozeWordsInScope(scopeIds);
-            const pick = srsPickWords(srsSched, state.builtinVocabWords ||[], scopeWords, today, { count });
-            /* ★★ 排不出來的字記一筆再往下走（見 srsApplyMisses）。
-               ⚠️ 一定要在下面那個 `return` **之前**做：一個字都排不出來的時候
-                 正是失蹤最嚴重的時候，先 return 的話那些字永遠不會被記到，
-                 使用者就會一直卡在「數字不動而且沒有任何訊息」。 */
-            const swept = srsApplyMisses(srsSched, pick.missed, pick.seen);
-            if (swept !== srsSched) {
-                srsSched = swept;
-                renderSrsCard();
-                if (srsLoaded) saveSrs().catch(e => console.warn('排程整理存檔失敗', e));
-            }
-            if (!pick.words.length) return showToast("目前的範圍出不了題，換一個範圍再試");
+            /* ★ `only:'new'`＝一個到期的字都不碰。到期的那半邊整批歸錯題複習。
+               ⚠️ 這裡**不要叫 `srsApplyMisses`**：那一支是在處理「到期卻排不出來」
+                 的字，而這一場根本沒有看到期清單，傳進去等於拿沒發生的事
+                 去改別人的失蹤次數。 */
+            const pick = srsPickWords(srsSched, state.builtinVocabWords ||[], scopeWords, today,
+                                      { count, only:'new' });
+            if (!pick.words.length)
+                return showToast("這個範圍裡的字都背過了，換一個範圍試試");
             /* ★ 出題的池子是「今天要考的字 ＋ 整個範圍」：前面那批決定考什麼
                （`ask`），整個範圍是給干擾選項用的。只餵前面那批的話，
                四個選項會變成四個不相干的字（見 buildClozeQuiz 的註記）。 */
@@ -12282,7 +12339,71 @@
             $('playKahootModal').classList.remove('hidden');
             $('playKahootModal').classList.add('flex');
             renderPlayQuestion();
-            if (pick.due) showToast(`今天要複習 ${pick.due} 個字${pick.fresh ? `，另外 ${pick.fresh} 個是新的` :''}`);
+            if (pick.fresh) showToast(`今天有 ${pick.fresh} 個新字`);
+        }
+
+        /* 按下「開始複習」：只抓**到期那些字住的資料夾**，不抓整個範圍。
+           ★ 這是這張卡跟今日測驗最大的不同，也是它便宜的原因：要複習的字
+             自己記得住在哪一夾（`f`），二十個字通常散在兩三夾裡。
+             整個範圍抓下來是 25 份檔案，為了複習二十個字抓 25 份是浪費。
+           ★ 干擾選項就用**已經載入的所有字**，不是「這個範圍的字」：
+             範圍那幾份沒抓下來的話它會是空的，四個選項就出不來了。 */
+        async function startSrsReview() {
+            if (srsBusy || srsRevBusy) return;
+            if (!isSignedInMember()) return showToast("錯題複習要先登入");
+            if (!srsLoaded) return showToast("排程還沒讀到，等一下再試");
+            if (builtinVocabState !=='ready') return showToast("單字庫索引還沒好，等一下再試");
+            const today = dayKeyOf(Date.now());
+            const count = srsDailyCount(srsSched);
+            const scopeIds = srsScopeIds(srsSched.rscopes);
+            const dueList = srsDueList(srsSched, today);
+            if (!dueList.length) return showToast("今天沒有到期的字");
+            const need = new Set();
+            for (const e of dueList) if (e.f) need.add(e.f);
+            const todo = [...need].filter(id => !builtinVocabLoaded.has(id));
+
+            srsRevBusy = true;
+            let failed = 0;
+            for (let i = 0; i < todo.length; i++) {
+                srsRevProgress = `載入單字 ${i + 1} / ${todo.length}`;
+                renderSrsReviewCard();
+                if (!(await loadBuiltinVocabFolder(todo[i]))) failed++;
+            }
+            srsRevBusy = false; srsRevProgress ='';
+            renderSrsReviewCard();
+            if (failed && failed === todo.length) return showToast("單字載入失敗，請檢查連線");
+
+            const all = state.builtinVocabWords ||[];
+            const inScope = clozeScopeTest(scopeIds);
+            const pick = srsPickWords(srsSched, all, all, today,
+                                      { count, only:'due', inScope });
+            /* ★★ 排不出來的字記一筆再往下走（見 srsApplyMisses）。
+               ⚠️ 一定要在下面那個 `return` **之前**做：一個字都排不出來的時候
+                 正是失蹤最嚴重的時候，先 return 的話那些字永遠不會被記到，
+                 使用者就會一直卡在「數字不動而且沒有任何訊息」。 */
+            const swept = srsApplyMisses(srsSched, pick.missed, pick.seen);
+            if (swept !== srsSched) {
+                srsSched = swept;
+                renderSrsReviewCard();
+                if (srsLoaded) saveSrs().catch(e => console.warn('排程整理存檔失敗', e));
+            }
+            if (!pick.words.length)
+                return showToast("今天到期的字都不在這個範圍裡，換一個範圍再試");
+            const questions = buildClozeQuiz([...pick.words, ...all], {
+                count, ask: pick.words.map(w => w.english) });
+            if (questions.length < 4) return showToast("今天要複習的字出不了題，換個範圍再試");
+
+            activeKahoot = { title:'錯題複習', questions, cloze: true, srs: true, drill: true };
+            playQuestions = questions;
+            playAnswers = [];
+            currentQIndex = 0;
+            currentScore = 0;
+            isKahootTransitioning = false;
+            srsDrill = null;
+            $('playKahootModal').classList.remove('hidden');
+            $('playKahootModal').classList.add('flex');
+            renderPlayQuestion();
+            showToast(`今天要複習 ${pick.due} 個字`);
         }
 
         /* 一場結束後寫回排程。★ 跟錯題本同一條：**呼叫端不 await**。 */
@@ -12307,7 +12428,7 @@
             const days = srsSched.days ||[];
             if (days[days.length - 1] !== today)
                 srsSched.days = [...days.filter(d => d !== today), today].slice(-SRS_DAYS_KEEP);
-            renderSrsCard();
+            renderSrsCards();
             /* 任務那一區也要跟著重畫：不畫的話「今天的克漏字任務」要等到
                切分頁回來才看得出來已經達標，而使用者剛剛就是在做那件事。
                ★ 任務可能還沒訂閱回來（renderMissions 自己會擋），所以不必判斷。 */
@@ -12348,7 +12469,7 @@
             if (inLib.length) srsSched = srsApplyResult(srsSched, inLib, folderOf, now,
                                                         builtinValueIndex());
             if (outLib.length) srsSched = srsMarkResult(srsSched, outLib);
-            renderSrsCard();
+            renderSrsCards();
             /* 單字冊那一頁還開著，圈裡的階數要當場換掉——
                不重畫的話要切出去再切回來才看得到，看起來像沒記到。 */
             renderVocabWords();
@@ -12830,10 +12951,20 @@
                     return `<div class="${line} bg-rose-50 border-rose-200"><span class="font-black text-rose-500 shrink-0">你選了</span>${body}</div>`;
                 const w = (a.optionWords ||[])[i] ||'';
                 const on = clozeIsUnknown(w);
+                /* ★ 「不會」那兩個字**要自己圈成一顆鈕**（2026-09-01）。
+                   原本它只是一行變色的字，跟上面「正解」「你選了」那兩個
+                   純標籤長在同一個位置、同一種字重——於是整列雖然真的是
+                   `<button>`，看起來卻像第三個標籤，使用者以為那是系統在
+                   告訴他「這個字你不會」，而不是「按下去就記起來」。
+                   ⚠️ 這種誤解不會有人來回報，只會變成「這顆鈕沒有人按」。
+                   ★ 圈起來用的是外框而不是實心底：實心的 amber-500 配白字
+                     只有 2.15:1，量不過（`tools/contrast.mjs` 那條線是 4.5）。 */
                 return `<button data-action="toggle-cloze-unknown" data-word="${escapeHTML(w)}" aria-pressed="${on}"
                     class="${line} w-full text-left transition-colors ${on
                         ?'bg-amber-50 border-amber-300' :'bg-white border-slate-200 hover:border-slate-300'}">
-                    <span class="font-black shrink-0 pointer-events-none ${on ?'text-amber-600' :'text-slate-400'}">${on ?'✓ 不會' :'＋ 不會'}</span>
+                    <span class="font-black shrink-0 pointer-events-none px-2 py-0.5 rounded-full border-2 ${on
+                        ?'bg-amber-100 text-amber-700 border-amber-400'
+                        :'bg-white text-slate-500 border-slate-300'}">${on ?'✓ 不會' :'＋ 不會'}</span>
                     <span class="pointer-events-none">${body}</span></button>`;
             };
             $('resultWrongList').innerHTML = wrong.map(a => {
@@ -14265,7 +14396,7 @@
                 loadSrs().then(d => {
                     if (d) srsSched = d;
                     srsLoaded = true;
-                    renderSrsCard();
+                    renderSrsCards();
                     return srsSyncFromWrong();
                 }).catch(e => console.warn('讀取複習排程失敗', e));
                 countdownsLoaded = false;
@@ -14334,7 +14465,7 @@
                 srsLoaded = false;
                 srsDoneSaved = null;
                 srsDrill = null;
-                renderSrsCard();
+                renderSrsCards();
                 renderMissions();
                 renderPlans();
                 renderCountdowns();
@@ -14388,9 +14519,9 @@
 'start-kahoot':    (t) => startKahoot(t.dataset.id),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
-'toggle-cloze-scope': (t) => toggleClozeScope(t.dataset.scope),
+'toggle-srs-rev-scope': (t) => toggleSrsRevScope(t.dataset.scope),
 'toggle-cloze-unknown': (t) => toggleClozeUnknown(t.dataset.word),
-'start-cloze':     () => startClozeQuiz(),
+'start-srs-review':() => startSrsReview(),
 'start-srs':       () => startSrsQuiz(),
 'toggle-srs-scope': (t) => toggleSrsScope(t.dataset.scope),
 'set-srs-count':   (t) => setSrsCount(t.dataset.count),
