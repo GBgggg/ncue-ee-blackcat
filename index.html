@@ -5524,6 +5524,21 @@
             const GW = 1200, GH = 440, ASPECT = GW / GH;
             const PERIOD = 20;      /* 秒。無縫，因為所有隨時間變的量都是 sin/cos(phase) */
             const SPEED  = 1.0;     /* 唯一的調速旋鈕。1.0 ≈ 15.3 px/s，現行 SVG 版是 1.5 */
+            /* ★★ 一秒畫幾格（2026-09-01 加）。
+               這片 shader 每一個像素要算 **898 次 sin／cos**：三條 `lic` × 12 步，
+               每一步一次 `flowV`（4 個漩渦眼 = 8 次）加一次 `fbm`（4 層 × 4 次 hash = 16 次）。
+               1200×440 是 52.8 萬個像素，乘起來是**一格四億七千萬次 sin**。
+               照 60 fps 畫就是一秒二百八十億次——手機的 GPU 沒有那個預算，
+               桌機也要吃掉可觀的一塊。而症狀不會出現在天空上：
+               天空自己看起來好好的，**卡的是壓在它上面的東西**（捲動、按鈕、切分頁），
+               因為塞住的是合成器，不是主執行緒（跟 5.15 那一節同一個坑）。
+             ★ 為什麼 30 fps 看不出來：整片天空的漂移是 15.3 px/s，
+               60 fps 是一格 0.26 個像素、30 fps 是 0.51 個像素——兩個都遠小於一個像素，
+               而且它是一片低頻的糊東西，沒有邊緣可以讓人看出間隔。
+               成本直接對半砍。⚠️ 再往下砍到 20 fps 以下就開始看得出來了，別調。 */
+            const FPS = 30;
+            const MIN_DT = 1000 / FPS - 2;   /* 減 2 毫秒的容差：不減的話在 60Hz 螢幕上
+                                                每兩格會有一格剛好差一點點沒到，變成 20 fps */
 
             const VERT = 'attribute vec2 aPos;void main(){gl_Position=vec4(aPos,0.,1.);}';
             const FRAG = [
@@ -5695,8 +5710,15 @@
             const visible = (el, h, covered) => h.on && !document.hidden && !covered;
 
             const t0 = performance.now();
+            let lastDraw = -1e9;
             function frame() {
                 if (dead) { running = false; return; }
+                /* ★ 節流擋在最前面，連 `skyCovered()` 那次 querySelector 都省掉。
+                   ⚠️ 這裡是 `return` 之前先排下一格，**不要**寫成 return 就算了——
+                     那樣天空會停在原地不動，而且看起來只像「今天比較不明顯」。 */
+                const now = performance.now();
+                if (now - lastDraw < MIN_DT) { requestAnimationFrame(frame); return; }
+                lastDraw = now;
                 /* 照底色分組。看得見的宿主幾乎永遠共用同一個底色，
                    所以這個迴圈通常只跑一輪（開站畫面疊在卡片上那一瞬間是兩輪）。 */
                 /* ★ 一格只問一次「有沒有被蓋住」。寫進 visible() 裡的話
@@ -5899,6 +5921,15 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-01',
+                title: '按下「開始今日測驗」不會再卡住了，整個站也順一點',
+                items: [
+                    ['按下去到題目出來，從一秒多變成幾乎沒有等', '以前按下「開始今日測驗」或「開始複習」之後，畫面會整個定住一下才跳出第一題——手機上更久，久到會讓人以為是自己沒按到、又按了一次。原因是它在出題之前，把你選的範圍裡**全部**一萬多個字都先處理過一遍，而一場其實只要二十題。現在改成用到哪個字才處理哪個字。'],
+                    ['整個站捲動、切分頁、按按鈕都會順一點，手機更明顯', '卡片上那片會流動的天空，本來是照螢幕能畫多快就畫多快在畫。它是很慢很慢的一片雲，畫那麼密看不出差別，卻會把顯示晶片吃掉一大塊，然後**壓在它上面的東西**跟著頓——頓的不是天空，是你正在捲的那一頁。現在改成一秒畫三十次，天空看起來一模一樣，省下來的力氣還給畫面。'],
+                    ['出來的題目、選項、排程全部照舊', '這一輪只動「怎麼算比較快」，沒有動「考什麼、怎麼算對錯、什麼時候再考你」。'],
+                ]
+            },
             {
                 date: '2026-09-01',
                 title: '單字可以按著聽了',
@@ -11208,14 +11239,37 @@
 
         /* 一題：正解一個、干擾三個。
            干擾的優先序是 同字根族群 → 同詞性 → 範圍內隨機，
-           三層都湊不滿三個就回 null（那個字這一輪不出）。 */
-        function clozeQuestionOf(item, items, fam, rand) {
+           三層都湊不滿三個就回 null（那個字這一輪不出）。
+
+           ⚠️⚠️ **`take` 不可以「整份洗牌再走」**（2026-09-01 修）。
+             原本這裡寫的是 `clozeShuffle(items.filter(…))`：池子是**整個範圍**，
+             四套全開是一萬多個字，於是每一題都複製一份、洗一萬多筆、再從頭走——
+             二十題就是四十幾萬次，而它要的只是**三個**干擾選項。
+             症狀是按下「開始今日測驗」之後整個畫面凍住一秒多（手機更久），
+             而且**沒有錯誤訊息、沒有 loading**，看起來就像那顆鈕按了沒反應。
+             量出來：整池 10,555 字出 20 題，冷啟 1,269 毫秒。
+           ★ 現在改成**部分 Fisher–Yates**：從還沒抽過的那一段隨機抽一筆、
+             跟尾巴換位置、範圍縮一格，**抽滿三個就停**。抽出來的分佈跟
+             整份洗牌一模一樣（整份洗牌本來就只是把同一件事做到底），
+             差別只在它不會為了三個選項把一萬筆全部走完。
+           ★ `idx` 是跟 `list` 一樣長的索引，一場測驗共用一條（見 `buildClozeQuiz` 的 `ix`）。
+             ⚠️ 每一題都從 `n = list.length` 重新開始，**不要**接續上一題的 `n`：
+               接續的話等於前面幾題把池子抽乾，後面幾題的干擾選項會愈來愈少，
+               而畫面上只是「後面的題目好像比較好猜」。 */
+        function clozeQuestionOf(item, pool, fam, rand, ix) {
             const used = new Set([item.answer]);
             const picks = [];
-            const take = (list) => {
-                for (const c of clozeShuffle(list, rand)) {
-                    if (picks.length >= 3) return;
-                    if (used.has(c.answer)) continue;
+            /* ⚠️ `list` 裡裝的是**單字**，不是挖好空的題目——挖空是現用現挖
+               （`ix.itemOf`，理由在 `buildClozeQuiz` 那一段）。挖不出空的
+               （沒有例句、或例句裡根本沒出現那個字）就跳過，那個字不當干擾選項。 */
+            const take = (list, idx) => {
+                for (let n = list.length; n > 0 && picks.length < 3; n--) {
+                    const j = Math.floor(rand() * n);
+                    const k = idx[j]; idx[j] = idx[n - 1]; idx[n - 1] = k;
+                    const cw = list[k];
+                    if (cw === item.w) continue;
+                    const c = ix.itemOf(cw);
+                    if (!c || used.has(c.answer)) continue;
                     /* ★ 干擾選項不能已經出現在題目句子裡。出現的話那一格
                        填它也讀得通，而畫面上只會像是出題出錯——
                        沒有任何訊息說明為什麼「明明對的答案算我錯」。 */
@@ -11227,12 +11281,16 @@
             for (const k of clozeRootKeys(item.w.rootPrefix)) {
                 const f = fam.get(k);
                 if (f && f.length >= 2 && f.length <= CLOZE_FAMILY_MAX)
-                    for (const x of f) if (x !== item) family.push(x);
+                    for (const x of f) if (x !== item.w) family.push(x);
             }
-            take(family);
-            if (picks.length < 3 && item.w.pos)
-                take(items.filter(x => x !== item && x.w.pos === item.w.pos));
-            if (picks.length < 3) take(items.filter(x => x !== item));
+            take(family, family.map((_, i) => i));
+            /* ★ 同詞性那一組與整池都**不再現做 filter**：那個 filter 自己就要
+               走完整池，而且每一題走一次。兩份索引改由 `buildClozeQuiz` 建一次。 */
+            if (picks.length < 3 && item.w.pos) {
+                const g = ix.byPos.get(item.w.pos);
+                if (g) take(g.list, g.idx);
+            }
+            if (picks.length < 3) take(pool, ix.idx);
             if (picks.length < 3) return null;
             /* 每個選項都連著它自己的單字與中文。
                ★ 選項的字面是**例句裡的那個字形**（`abandoned`），跟單字欄
@@ -11261,34 +11319,86 @@
             const rand = o.rand || Math.random;
             const skip = new Set((o.skip ||[]).map(s => String(s).toLowerCase()));
             const ask = o.ask ? new Set([...o.ask].map(s => String(s ||'').trim().toLowerCase())) : null;
-            const items = [];
-            const seen = new Set();
+            /* ★★★ **池子先只去重，不挖空。**（2026-09-01 修）
+               原本這裡是「進來的每一個字都先 `clozeBlankOf` 挖一次空」。
+               挖空一次要編兩條正規表示式，量出來一個字約 0.09 毫秒——
+               一個字看不出來，但四套全開的池子是 **10,555 個字**，
+               於是光是這一個迴圈就 **980 毫秒**，而它要的只是二十題。
+               症狀是按下「開始今日測驗」之後畫面凍住一秒多（手機三到五秒），
+               沒有錯誤訊息、沒有轉圈圈，看起來就是「這顆鈕按了沒反應」。
+               ★ 現在改成**現用現挖**：真的要拿它當題目、或真的被抽中當干擾選項
+                 的時候才挖，挖過的記在 `cache` 裡。一場二十題實際只會挖幾百次。
+               ⚠️ 去重的鍵從「挖出來的答案」改成「單字本身」：答案要挖了才知道。
+                 同一個答案出現兩次的極少數情況由每一題自己的 `used` 擋住
+                 （那本來就是它的工作），畫面上不會出現兩個一樣的選項。 */
+            const pool = [], seen = new Set();
             for (const w of words ||[]) {
+                const k = String(w && w.english ||'').trim().toLowerCase();
+                if (!k || seen.has(k)) continue;
+                seen.add(k); pool.push(w);
+            }
+            if (pool.length < 4) return [];
+            const cache = new Map();
+            const itemOf = (w) => {
+                if (cache.has(w)) return cache.get(w);
                 const c = clozeBlankOf(w);
-                if (!c || seen.has(c.answer)) continue;
-                seen.add(c.answer);
-                items.push({ w, sentence: c.sentence, answer: c.answer });
-            }
-            if (items.length < 4) return [];
+                const it = c ? { w, sentence: c.sentence, answer: c.answer } : null;
+                cache.set(w, it);
+                return it;
+            };
+            /* 字根族群。★ 這一份可以照樣整池建：`clozeRootKeys` 只是切字串，
+               整池量出來 16 毫秒，跟挖空不是同一個量級。 */
             const fam = new Map();
-            for (const it of items) for (const k of clozeRootKeys(it.w.rootPrefix)) {
+            for (const w of pool) for (const k of clozeRootKeys(w.rootPrefix)) {
                 if (!fam.has(k)) fam.set(k, []);
-                fam.get(k).push(it);
+                fam.get(k).push(w);
             }
-            const shuffled = clozeShuffle(items, rand);
-            /* ★ 過濾的是「要出哪幾題」，不是 `items`——`items` 要留著整池，
+            /* 干擾選項的兩份索引：同詞性一組、整池一條。**一場只建一次。**
+               ★ 原本每一題都 `items.filter(...)` 現做一份，而那個 filter
+                 自己就要走完整池——出二十題就是把一萬多筆走二十遍，
+                 只為了三個干擾選項（見 `clozeQuestionOf` 開頭那一段）。
+               ★ 用 `Int32Array` 不用一般陣列：它只是一串序號，
+                 一萬多格的一般陣列會多配好幾倍的記憶體，而手機正是吃緊的那一邊。 */
+            const mkIdx = (list) => {
+                const a = new Int32Array(list.length);
+                for (let i = 0; i < list.length; i++) a[i] = i;
+                return a;
+            };
+            const byPos = new Map();
+            for (const w of pool) {
+                const pos = w.pos;
+                if (!pos) continue;
+                if (!byPos.has(pos)) byPos.set(pos, { list: [] });
+                byPos.get(pos).list.push(w);
+            }
+            for (const g of byPos.values()) g.idx = mkIdx(g.list);
+            const ix = { byPos, idx: mkIdx(pool), itemOf };
+            const shuffled = clozeShuffle(pool, rand);
+            /* ★ 過濾的是「要出哪幾題」，不是 `pool`——`pool` 要留著整池，
                上面那個 `fam` 與下面的干擾選項都吃它。 */
             const wanted = ask
-                ? shuffled.filter(it => ask.has(String(it.w.english ||'').trim().toLowerCase()))
+                ? shuffled.filter(w => ask.has(String(w.english ||'').trim().toLowerCase()))
                 : shuffled;
-            const fresh = wanted.filter(it => !skip.has(it.answer));
-            const order = fresh.length >= count
-                ? fresh : fresh.concat(wanted.filter(it => skip.has(it.answer)));
-            const qs = [];
-            for (const it of order) {
-                if (qs.length >= count) break;
-                const q = clozeQuestionOf(it, items, fam, rand);
+            /* 「最近出過的字」是拿**挖出來的答案**比的，所以只能邊走邊挖：
+               沒出過的直接出，出過的先收進 `later`，題數不夠再從 later 補。
+               ⚠️⚠️ 不要改回「先把 wanted 整份挖一遍再分成兩堆」——
+                 沒有給 `ask` 的時候 wanted 就是整池，那等於把上面那 980 毫秒
+                 原封不動地叫回來，而且那條路徑平常不會被測到。 */
+            const qs = [], later = [];
+            const put = (it) => {
+                const q = clozeQuestionOf(it, pool, fam, rand, ix);
                 if (q) qs.push(q);
+            };
+            for (const w of wanted) {
+                if (qs.length >= count) break;
+                const it = itemOf(w);
+                if (!it) continue;
+                if (skip.has(it.answer)) { later.push(it); continue; }
+                put(it);
+            }
+            for (const it of later) {
+                if (qs.length >= count) break;
+                put(it);
             }
             return qs;
         }
