@@ -4565,6 +4565,20 @@
         const SRS_STEPS = [1, 3, 7, 14, 30];
         const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題（預設值，使用者可改）
         const SRS_DAILY_CHOICES = [20, 50, 100];
+        /* 錯題複習一場幾題。**跟今日測驗分開存一份**（`rcount`），
+           理由跟範圍分開存是同一條：今日測驗的題數是「今天想學幾個新字」，
+           錯題複習的題數是「今天想還幾筆舊帳」，兩件事的節奏本來就不一樣。
+           ★ 多一顆「全部」（`SRS_REV_ALL` ＝ 0）：複習跟學新字不一樣，
+             它有清空的一天——今天欠三十個就考三十個，那一場考完今天就真的清完了。
+             用 0 當哨兵是因為「不限題數」本來就沒有一個合理的數字可以填；
+             填一個很大的數（999）只是把上限藏起來，而下一輪的自己讀到那一行
+             會以為 999 是設計出來的題數。
+           ⚠️ `SRS_KEEP`（排程最多幾個字）那條限制**不適用這裡**：
+             它擋的是「每天塞進排程的新字」，而複習只考排程裡本來就有的字、
+             不會讓排程長大。所以這裡加選項**不必**回頭跑 `tools/leitgrad.mjs`——
+             那條警告是 `SRS_DAILY_CHOICES` 那一邊的，不要兩邊都套。 */
+        const SRS_REV_ALL = 0;
+        const SRS_REV_CHOICES = [20, 50, 100, SRS_REV_ALL];
         /* ★ 目標保留率 `SRS_RETENTION` 2026-09-01 拿掉了：那是 FSRS 唯一要自己
            決定的旋鈕，五階沒有它（間隔是寫死的）。當時訂 0.90 的理由與兩支
            模擬的轉折點記在 `架構.md`，換回 FSRS 的話從那裡抄回來。 */
@@ -5726,6 +5740,15 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-01',
+                title: '錯題複習可以自己決定一場考幾題，還多了「全部」',
+                items: [
+                    ['複習那張卡多了一排題數：20、50、100、全部', '以前它一場考幾題是跟著今日測驗走的，沒得改。現在它自己一份——今日測驗想一天學 100 個新字、複習只想做 20 題，兩邊各設各的，動一邊不會影響另一邊。'],
+                    ['「全部」是留給想一次清完的日子', '今天到期幾個字就考幾個，那一場考完，今天欠的複習就真的清空了。到期的字多的時候它會是很長的一場，所以卡片上先寫著今天有幾個字到期，看過再決定。'],
+                    ['到期比題數多的時候，卡片會先講清楚這一場考幾個', '以前只寫「今天有 40 個字到期」，你考完 20 題回來看到還有 20 個，很容易以為剛才那一場沒有存到。現在它會直接寫「這一場先考 20 個」。'],
+                ]
+            },
             {
                 date: '2026-09-01',
                 title: '背單字拆成兩張卡：上面學新字，下面把錯過的字排回來',
@@ -11443,6 +11466,21 @@
             return SRS_DAILY_CHOICES.includes(n) ? n : SRS_DAILY_COUNT;
         }
 
+        /* 錯題複習一場幾題（`SRS_REV_ALL` ＝ 0 ＝ 全部，見 `SRS_REV_CHOICES`）。
+           ★ 沒設過的時候**退回今日測驗那一份**，不是退回 20：這一格是 2026-09-01
+             才多出來的，所有舊帳號都沒有。直接給 20 的話，把今日測驗調成 100 的人
+             會發現複習那張卡突然只考 20 題，而畫面上沒有任何東西在講這件事。
+             按過一次之後就各存各的（`normalizeSrs` 會把它寫下來）。
+           ⚠️ `null`／`''` 要先擋掉再算：`Number(null)` 與 `Number('')` 都是 0，
+             而 0 在這裡正好是「全部」——不擋的話一格壞掉的舊資料會變成
+             「一場考完今天所有到期的字」，那是四個選項裡最重的一個。 */
+        function srsReviewCount(sched) {
+            const raw = sched && sched.rcount;
+            if (raw === null || raw === undefined || raw === '') return srsDailyCount(sched);
+            const n = Math.floor(Number(raw));
+            return SRS_REV_CHOICES.includes(n) ? n : srsDailyCount(sched);
+        }
+
         /* 每日測驗的範圍（`SRS_SCOPES` 的 id）攤平成克漏字那六個 id。
            ★ 攤平之後才餵給 `clozeFoldersFor` / `clozeWordsInScope`——
              範圍與載入只有那一套，不要在這裡再寫一份。 */
@@ -11560,6 +11598,12 @@
                      marks: marks.slice(-SRS_MARK_KEEP),
                      done: done.slice(-SRS_DONE_KEEP),
                      count: srsDailyCount(d),
+                     /* ⚠️ 舊資料沒有這一欄，`srsReviewCount` 會拿 `count` 補上來，
+                        所以**下一次存檔就會把當下的今日測驗題數寫死成複習題數**。
+                        那是刻意的：寫下來的是「使用者現在感覺到的行為」，
+                        不寫的話他哪天調了今日測驗，複習那張卡會跟著變，
+                        而他從來沒碰過那張卡。 */
+                     rcount: srsReviewCount(d),
                      scopes, rscopes,
                      days: days.slice(-SRS_DAYS_KEEP),
                      last: /^\d{4}-\d{2}-\d{2}$/.test(d && d.last) ? d.last :'' };
@@ -12068,6 +12112,19 @@
             if (srsLoaded) saveSrs().catch(() => {});
         }
 
+        /* 錯題複習的題數。★ 跟 `setSrsCount` 是兩支、各寫各的欄位——
+           合成一支再傳個 key 進去的話，兩邊的選單（`SRS_DAILY_CHOICES` 少一顆
+           「全部」）也得跟著傳，而傳錯不會報錯，只會變成某一張卡上多出
+           一顆按了沒反應的鈕。 */
+        function setSrsRevCount(n) {
+            const v = Math.floor(Number(n));
+            if (!SRS_REV_CHOICES.includes(v)) return;
+            if (srsReviewCount(srsSched) === v) return;
+            srsSched = { ...srsSched, rcount: v };
+            renderSrsCards();
+            if (srsLoaded) saveSrs().catch(() => {});
+        }
+
         /* ---- 今日測驗那張卡（2026-09-01 起**只出沒考過的新字**）----
            ★ 為什麼拆成兩張卡：這張卡以前一張要做兩件事——先把今天到期的
              複習排完，不夠再用新字補滿。於是「今天想多學幾個新字」跟
@@ -12238,6 +12295,17 @@
                         ?'bg-emerald-500 text-white border-emerald-500 shadow'
                         :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${escapeHTML(s.label)}</button>`;
             }).join('');
+            /* 題數那一排。★ 刻意跟範圍那一排長得一模一樣（同一種鈕、同一個顏色）：
+               同一張卡上兩排功能一樣的鈕長不一樣的話，使用者會以為它們是兩種東西。 */
+            const rc = srsReviewCount(srsSched);
+            const countChips = SRS_REV_CHOICES.map(n => {
+                const on = n === rc;
+                return `<button data-action="set-srs-rev-count" data-count="${n}" aria-pressed="${on}"
+                    class="px-3 py-1.5 rounded-xl text-xs font-black transition-colors shrink-0 border-2 ${on
+                        ?'bg-emerald-500 text-white border-emerald-500 shadow'
+                        :'bg-white/10 text-white/60 border-white/10 hover:border-white/30'}">${
+                        n === SRS_REV_ALL ?'全部' : `${n} 題`}</button>`;
+            }).join('');
             const note = !signedIn ?'複習排程存在你自己的帳號底下，登入才排得起來'
                 : !srsLoaded ?'讀取排程…'
                 : srsRevBusy ? srsRevProgress
@@ -12246,7 +12314,12 @@
                 : !dueAll ? (nextTxt ? `今天沒有到期的字 · 下一批在 ${nextTxt}`
                                      :'排程還是空的 · 先去今日測驗練一場')
                 : !dueHere ? `今天到期的 ${dueAll} 個字都不在這個範圍裡`
-                : `今天有 ${dueHere} 個字到期${dueHere < dueAll ? `（範圍外還有 ${dueAll - dueHere} 個）` :''}`;
+                /* ★ 到期比題數多的時候要說「這一場先考幾個」。不說的話症狀是
+                     「今天有 300 個字到期」→ 考完 20 題 → 數字剩 280，
+                     看起來像存檔沒生效（那正是 SRS_MISS_MAX 那一段在講的錯覺）。
+                   ★ 選「全部」（`rc` 是 0）不必說：考幾個就是到期幾個。 */
+                : `今天有 ${dueHere} 個字到期${dueHere < dueAll ? `（範圍外還有 ${dueAll - dueHere} 個）` :''}${
+                    rc && dueHere > rc ? ` · 這一場先考 ${rc} 個` :''}`;
             const canStart = loaded && ready && !srsRevBusy && dueHere > 0;
             box.innerHTML = `
                 <div class="bg-slate-900 rounded-[2rem] p-5 md:p-6 text-white shadow-xl border-4 border-slate-800 vg-plain">
@@ -12261,8 +12334,11 @@
                                 tiers.done ? `（其中 ${tiers.done} 個已學會）` :''}</p>
                         </div>
                     </div>${tierBar}${signedIn ? `
-                    <div class="flex flex-wrap items-center gap-2 mb-4">
+                    <div class="flex flex-wrap items-center gap-2 mb-3">
                         <span class="text-[11px] font-black text-white/40 shrink-0">範圍</span>${chips}
+                    </div>
+                    <div class="flex flex-wrap items-center gap-2 mb-4">
+                        <span class="text-[11px] font-black text-white/40 shrink-0">題數</span>${countChips}
                     </div>` :''}
                     <div class="flex flex-wrap items-center gap-3">${signedIn ? `
                         <button data-action="start-srs-review" ${canStart ?'' :'disabled'}
@@ -12354,10 +12430,16 @@
             if (!srsLoaded) return showToast("排程還沒讀到，等一下再試");
             if (builtinVocabState !=='ready') return showToast("單字庫索引還沒好，等一下再試");
             const today = dayKeyOf(Date.now());
-            const count = srsDailyCount(srsSched);
             const scopeIds = srsScopeIds(srsSched.rscopes);
             const dueList = srsDueList(srsSched, today);
             if (!dueList.length) return showToast("今天沒有到期的字");
+            /* 這一場幾題。★ 選「全部」（0）的時候拿今天到期的總數當上限，
+               **絕對不要把 0 傳下去**：`srsPickWords` 與 `buildClozeQuiz` 都寫著
+               `o.count || 預設值`，0 會被當成「沒給」而悄悄退回 20 題，
+               畫面上只是題目變少，沒有任何錯誤訊息。
+               ⚠️ 這一行一定要排在上面那個 `dueList.length` 的擋門**後面**：
+                 到期 0 個的時候 `dueList.length` 也是 0，等於又把 0 傳下去了。 */
+            const count = srsReviewCount(srsSched) || dueList.length;
             const need = new Set();
             for (const e of dueList) if (e.f) need.add(e.f);
             const todo = [...need].filter(id => !builtinVocabLoaded.has(id));
@@ -14525,6 +14607,7 @@
 'start-srs':       () => startSrsQuiz(),
 'toggle-srs-scope': (t) => toggleSrsScope(t.dataset.scope),
 'set-srs-count':   (t) => setSrsCount(t.dataset.count),
+'set-srs-rev-count': (t) => setSrsRevCount(t.dataset.count),
 'toggle-shuffle':  () => toggleShuffle(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
