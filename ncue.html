@@ -202,6 +202,24 @@
             border-color: var(--ink-3); color: var(--ink-2);
         }
 
+        /* 發音鈕（測驗題目與單字列表共用）。
+           ★ 只有線稿圖示、沒有底色：單字庫一頁是三十張卡，每張都給一顆有顏色的鈕
+             的話，整頁會變成一排喇叭在搶戲，而主角是那個英文字。
+           ★ 36px 的圓形是觸控目標，圖示只是畫在中間的 16px——手機上按得到
+             跟看得見是兩件事，圖示大小不能當按鈕大小用。
+           ⚠️ 唸的時候換 `.is-speaking`（凹進去＋轉金），跟站上其他「按住了」
+             的東西同一個語彙。不要改成會動的東西：`動效.md` 那條「不要為了
+             回饋而動」在這裡特別重要——聲音本身就是回饋了。 */
+        .speak-btn {
+            flex: 0 0 auto; width: 36px; height: 36px;
+            display: inline-flex; align-items: center; justify-content: center;
+            border-radius: 9999px; background: transparent; color: var(--ink-3);
+            transition: background var(--dur-base) var(--ease),
+                        color var(--dur-base) var(--ease);
+        }
+        @media (hover: hover) { .speak-btn:hover { background: var(--paper-sunk); color: var(--ink-2); } }
+        .speak-btn.is-speaking { background: var(--paper-sunk); color: var(--accent); }
+
         /* 作答畫面是整頁接管，底色一定要不透明。
            不能借 .bg-white——它在深色模式是半透明的 --paper-raised，
            滿版鋪開會透出底下的頁面。 */
@@ -4164,6 +4182,13 @@
             <div class="flex items-start gap-3 mb-6 shrink-0">
                 <span id="kahootQNum" class="quiz-qnum">1</span>
                 <h2 id="kahootQuestionDisplay" class="flex-1 min-w-0 text-xl md:text-2xl font-black text-slate-900 leading-snug break-words">載入中...</h2>
+                <!-- 唸這一題。只有英文的那幾種測驗才出現（見 renderPlayQuestion）。
+                     作答前唸的是題目本人：克漏字的題目是挖空的句子，
+                     那一格唸出來是一個停頓，不會把答案唸給你聽；
+                     答完之後再按，唸的才是填好的完整句子。 -->
+                <button id="kahootSpeakBtn" data-action="speak-question" class="speak-btn hidden mt-0.5" aria-label="唸這一題">
+                    <i data-lucide="volume-2" class="w-5 h-5 pointer-events-none"></i>
+                </button>
             </div>
 
             <div id="kahootOptionsGrid" class="flex flex-col gap-1">
@@ -5064,6 +5089,12 @@
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
            下次再多一種出題來源時比較不會漏。 */
         let playQuestions = [], playAnswers = [];
+        /* 這一題的喇叭要唸什麼。空字串＝這種測驗不需要喇叭。
+           ★ 它會在作答之後被換掉（挖空的句子 → 填好的句子），所以不能
+             每次現場去看 `playQuestions[currentQIndex]` 算——那樣算出來的
+             永遠是「作答前」那一個。放在狀態區的理由跟 `playQuestions` 一樣：
+             渲染與作答兩支都會碰它。 */
+        let kahootSpeakText = '';
         // 題目亂序（記在本機，下次進來沿用）
         let shuffleQuestionsOn = true;
         try { shuffleQuestionsOn = localStorage.getItem('eeblackcat-quiz-shuffle') !=='0'; } catch (e) {}
@@ -5078,6 +5109,134 @@
         const getVal = (id) => $(id).value.trim();
         const setVals = (pairs) => Object.entries(pairs).forEach(([id, v]) => { const el = $(id); if (el) el.value = v; });
         const bind = (id, fn) => { const el = $(id); if (el) el.onclick = fn; };
+
+        /* ==========================================================
+         * 3.5 英文發音（speechSynthesis）
+         *
+         * 這是什麼：`speechSynthesis` 是瀏覽器接到**作業系統自己那套語音引擎**
+         * 上的一支 API。唸出來的聲音是手機／電腦內建的，所以不花錢、沒有額度、
+         * 多數裝置離線也會唸——我們只負責把字丟過去。
+         *
+         * ★ 全站都是「按了才唸」，沒有自動唸，也就不需要一個開關。
+         *   聲音在圖書館、課堂、通勤上都是會嚇到人的東西，
+         *   第一次打開單字庫就被自己的手機出賣，那個人不會再打開第二次。
+         *
+         * ⚠️ 三件會安靜壞掉的事：
+         *   一、`getVoices()` 第一次呼叫常常回空陣列——語音清單是非同步載進來的
+         *       （iOS 與 Chrome 都會這樣）。所以**不要在載入時挑好聲音存起來**，
+         *       要在每次要唸的時候現挑。挑不到就不設 `voice`，讓瀏覽器自己照
+         *       `lang` 決定，那樣還是會唸，只是口音不一定。
+         *   二、Chrome 有一個老問題：`utterance` 物件被垃圾回收就會中途斷掉，
+         *       症狀是長句唸到一半沒聲音。所以要拿一個變數壓著最後那一個，
+         *       不要讓它變成沒有人指向的物件。
+         *   三、連按兩顆喇叭會**排隊**，第二個字要等第一個唸完才響，
+         *       中間那段沉默看起來像「按了沒反應」。所以每次唸之前先 `cancel()`。
+         * ========================================================== */
+        const SPEAK_OK = typeof speechSynthesis !== 'undefined'
+                      && typeof SpeechSynthesisUtterance !== 'undefined';
+        let speakHold = null;      // 見上面第二點：壓著最後一個 utterance
+        let speakBtnOn = null;     // 正在唸的那顆鈕，唸完要把樣式收回來
+
+        function pickEnVoice() {
+            try {
+                const list = speechSynthesis.getVoices() || [];
+                /* 順序：本機的美式 → 本機的任何英文 → 線上的美式 → 線上的任何英文。
+                   ★ `localService`（裝置內建）排在前面不是為了音質，是因為它
+                     離線也會唸；線上語音在斷線時是「按了完全沒有聲音」。 */
+                return list.find(v => /^en[-_]US/i.test(v.lang) && v.localService)
+                    || list.find(v => /^en[-_]/i.test(v.lang) && v.localService)
+                    || list.find(v => /^en[-_]US/i.test(v.lang))
+                    || list.find(v => /^en[-_]/i.test(v.lang))
+                    || null;
+            } catch (e) { return null; }
+        }
+
+        /* 唸之前先把「不是給人唸的東西」換掉。
+           克漏字挖掉的那一格是六條底線，直接丟給引擎，有的會一條一條唸出來
+           （「底線底線底線…」）。換成逗號＝一個停頓，那正好就是聽力練習裡
+           那個空格該有的樣子。 */
+        function speechText(s) {
+            return String(s || '')
+                .split(CLOZE_BLANK).join(', ')
+                /* ⚠️ 寫成 `__+` 不是 `_{2,}`：兩個意思一樣，但大括號會讓
+                   `tests/_lib.mjs` 的 `grabDecl` 在這裡數錯括號、抽到半截
+                   （那是它文件裡的第四種情況）。症狀是測試紅在一句語法錯上，
+                   而原始碼是對的。 */
+                .replace(/__+/g, ', ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function speakEnglish(text, btn) {
+            const say = speechText(text);
+            if (!SPEAK_OK || !say) return;
+            try {
+                /* 見上面第三點。★ 只在真的有東西在唸的時候才 cancel：
+                   Chrome 上「cancel 之後緊接著 speak」偶爾會把新的那一句
+                   一起吃掉，症狀是第一次按沒聲音、第二次才有。 */
+                if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+                const u = new SpeechSynthesisUtterance(say);
+                u.lang = 'en-US';
+                u.rate = 0.92;    // 比預設慢一點點：背單字要聽得清每個音節，但不能慢到像壞掉
+                const v = pickEnVoice();
+                if (v) u.voice = v;
+                speakHold = u;                            // 見上面第二點
+                if (speakBtnOn) speakBtnOn.classList.remove('is-speaking');
+                speakBtnOn = btn || null;
+                if (speakBtnOn) speakBtnOn.classList.add('is-speaking');
+                /* ★ 收樣式的時候要先確認「現在正在唸的還是我」：
+                     連按兩顆的時候，前一顆的 onend 會晚一步才到，
+                     不比對的話它會把後一顆剛亮起來的樣式收掉。 */
+                const off = () => { if (btn && speakBtnOn === btn) { btn.classList.remove('is-speaking'); speakBtnOn = null; } };
+                u.onend = off;
+                u.onerror = off;
+                speechSynthesis.speak(u);
+            } catch (e) { /* 唸不出來就算了，不要跳錯誤打斷作答 */ }
+        }
+
+        /* 喇叭鈕的 HTML（單字列表用；測驗那一顆是寫死在畫面裡的）。
+           ★ 裝置沒有語音引擎就回空字串：畫一顆按了不會有事的鈕，
+             比沒有那顆鈕還糟——使用者會以為是自己的手機壞了。 */
+        const speakBtnHTML = (word) => (SPEAK_OK && word)
+            ? `<button data-action="speak-word" data-word="${escapeHTML(word)}" class="speak-btn" aria-label="唸「${escapeHTML(word)}」"><i data-lucide="volume-2" class="w-4 h-4 pointer-events-none"></i></button>`
+            : '';
+
+        /* ==========================================================
+         * 3.6 跟瀏覽器要「別把我的離線資料清掉」
+         *
+         * 這是什麼：瀏覽器把每個網站存的東西（離線用的那份快取、localStorage）
+         * 都當成**可以回收的**。空間不夠、或很久沒來的時候它會整包清掉，
+         * 而且**不會有任何錯誤訊息**——症狀是使用者說「裝成 App 之後打不開了」
+         * 「我的單字要重抓一次」。`navigator.storage.persist()` 就是跟瀏覽器申請
+         * 把這個站標成常駐，標到的排在最後才被回收。
+         *
+         * ★ 為什麼只在「已經裝成 App」的時候問：Chrome 自己看條件決定，
+         *   不會跳任何東西問人；但 **Firefox 會跳一個權限視窗**。第一次進站
+         *   就跳一個看不懂的「允許儲存資料？」，多數人會按拒絕，而拒絕之後
+         *   要不回來。已經把站裝到主畫面的人才問，時機才對得上他的意圖。
+         *   （iOS 的 Safari 也是自己判斷，而它的判斷條件之一正是「有沒有加到
+         *   主畫面」——所以同一條線在兩邊都說得通。）
+         *
+         * ⚠️ 被拒絕就不要每次開站再問一次（Firefox 會每次跳窗）。問過就記在
+         *   localStorage，這支一台裝置只會問一次。
+         * ⚠️ 不要拿它的回傳值去畫面上顯示什麼：給不給是瀏覽器自己的啟發式規則，
+         *   回 false 也不代表資料明天就會不見。
+         * ========================================================== */
+        async function askPersistentStorage() {
+            try {
+                if (!navigator.storage || !navigator.storage.persist) return;
+                if (await navigator.storage.persisted()) return;   // 已經是常駐就不必問
+                /* ★ 這裡**不共用** `isStandalone`：那個常數宣告在後面的
+                   「上課提醒」那一段，在這裡引用會落進暫時性死區，
+                   而症狀是一載入就整片白畫面（見 CLAUDE.md 的第一條）。 */
+                const installed = matchMedia('(display-mode: standalone)').matches
+                               || window.navigator.standalone === true;
+                if (!installed) return;
+                if (localStorage.getItem('eeblackcat-persist-asked') === '1') return;
+                localStorage.setItem('eeblackcat-persist-asked', '1');   // 先記再問：問一半失敗也不要下次再問一次
+                await navigator.storage.persist();
+            } catch (e) { /* 要不到就算了，功能一切照舊 */ }
+        }
 
         /* ==========================================================
          * A6：空狀態
@@ -5740,6 +5899,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-01',
+                title: '單字可以按著聽了',
+                items: [
+                    ['單字庫裡每個字的旁邊多了一顆喇叭', '按下去就唸那個字。唸的是你手機或電腦內建的英文語音，所以不用連網、也不會多花流量，聲音跟你平常聽 Siri 或 Google 小姐是同一套。看得懂但不確定怎麼唸的字，現在按一下就知道了。'],
+                    ['背單字、單字冊測驗的題目也可以按著聽', '喇叭在題目旁邊。⚠️ 挖空的句子唸出來時，空格那裡是一個停頓，不會偷偷把答案唸給你聽；等你答完之後再按一次，唸的才是把答案填回去的完整句子。'],
+                    ['沒有喇叭的裝置就不會出現那顆鈕', '少數電腦沒有裝英文語音，那種情況下按了也不會有聲音，所以乾脆不顯示——按了沒反應的鈕會讓人以為是自己的裝置壞了。'],
+                    ['裝成 App 的人，離線資料不會再被默默清掉', '手機空間不夠的時候，瀏覽器本來會把網站存在你裝置上的東西整包丟掉，症狀是離線打不開、或者單字要重抓一次，而且不會有任何提示。現在會先跟系統打一聲招呼，把小黑貓排在最後才清。'],
+                ]
+            },
             {
                 date: '2026-09-01',
                 title: '錯題複習可以自己決定一場考幾題，還多了「全部」',
@@ -10751,7 +10920,7 @@
                         <button data-action="edit-vocab-word" data-id="${escapeHTML(w.id)}" class="p-2 text-slate-300 hover:text-emerald-500 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                         <button data-action="delete" data-type="vocabWord" data-id="${escapeHTML(w.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
-                    <h4 class="text-2xl font-black text-blue-700 mb-1 pr-14 flex items-start gap-2">${vocabSrsMark(stageOf(w.english))}<span class="break-words min-w-0">${escapeHTML(w.english)}</span></h4>
+                    <h4 class="text-2xl font-black text-blue-700 mb-1 pr-14 flex items-start gap-2">${vocabSrsMark(stageOf(w.english))}<span class="break-words min-w-0">${escapeHTML(w.english)}</span>${speakBtnHTML(w.english)}</h4>
                     ${vocabTagRow(w)}
                     <p class="text-slate-700 font-bold mb-3 text-sm leading-relaxed">${escapeHTML(w.engDef)}</p>
                     ${w.chinese ? `<p class="text-sm text-slate-600 mb-1"><span class="font-bold mr-2 text-slate-400">中文</span>${escapeHTML(w.chinese)}</p>` :''}
@@ -12949,6 +13118,12 @@
             $('kahootScoreDisplay').textContent = kahootScoreText();
             $('kahootQNum').textContent = currentQIndex + 1;
             $('kahootQuestionDisplay').textContent = qData.q;
+            /* 唸題目只給英文的那幾種測驗（克漏字／今日測驗／錯題複習／單字冊）。
+               ★ 判準借 `kahootFeedsSrs()`：會寫回記憶曲線的，就是那幾種英文測驗。
+                 公有／我的測驗的題目是自己打的中文，掛一顆英文喇叭上去
+                 只會唸出一串怪聲，而使用者不會知道是自己按錯。 */
+            kahootSpeakText = kahootFeedsSrs() ? qData.q : '';
+            $('kahootSpeakBtn').classList.toggle('hidden', !(SPEAK_OK && kahootSpeakText));
             renderPlayOptions(qData);
         }
 
@@ -12977,6 +13152,12 @@
                     i === qData.correctIdx ?'is-correct' :
                     i === selectedIdx      ?'is-wrong' :'is-muted');
             });
+            /* 答完了，喇叭改唸「填好的完整句子」。
+               ★ 作答前唸的是挖空的版本，不然那顆喇叭就是一顆答案鈕。
+               ★ 只有克漏字那種題目有空格；單字冊的題目本來就是那個字，
+                 換不換都一樣，所以用 `includes` 判一次就好。 */
+            if (kahootSpeakText && qData.q.includes(CLOZE_BLANK))
+                kahootSpeakText = qData.q.split(CLOZE_BLANK).join(qData.options[qData.correctIdx] || '');
             $('kahootScoreDisplay').textContent = kahootScoreText();
             showToast(correct ?"答對了" : `答錯了，正解是「${qData.options[qData.correctIdx]}」`);
 
@@ -14605,6 +14786,8 @@
 'toggle-cloze-unknown': (t) => toggleClozeUnknown(t.dataset.word),
 'start-srs-review':() => startSrsReview(),
 'start-srs':       () => startSrsQuiz(),
+'speak-word':      (t) => speakEnglish(t.dataset.word, t),
+'speak-question':  (t) => speakEnglish(kahootSpeakText, t),
 'toggle-srs-scope': (t) => toggleSrsScope(t.dataset.scope),
 'set-srs-count':   (t) => setSrsCount(t.dataset.count),
 'set-srs-rev-count': (t) => setSrsRevCount(t.dataset.count),
@@ -15338,6 +15521,7 @@
             renderReviewWizard();
             renderChangelog();
             updateClassReminderUI();
+            askPersistentStorage();   // 裝成 App 的人才會真的問（見 3.6）
 
             onAuthStateChanged(auth, handleAuthState);
             /* 走整頁跳轉的 Google 登入，結果要在開站時領一次。
