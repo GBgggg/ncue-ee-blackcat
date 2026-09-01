@@ -72,6 +72,15 @@
          ★ Tailwind 還在外面。它是 JIT 編譯器不是一支函式庫，換掉要重排版，
          而排版對不對只能用眼睛看。待辦寫在 架構.md。 -->
     <script src="vendor/lucide.min.js"></script>
+    <!-- ★ ts-fsrs 5.4.1 從這裡拿掉了（2026-09-01，`blackcat-v115`）。
+         每日測驗 2026-08-29 換成 FSRS、2026-09-01 又退回五階 Leitner，
+         所以這支 71 KB 的排程器現在沒有人載、也不在 `sw.js` 的 CORE 裡。
+         ⚠️ **檔案本人還留在 `public/vendor/ts-fsrs.umd.js`，不要刪。**
+           留著的成本是 GitHub Pages 上多一支沒有人請求的檔案（零流量），
+           刪掉的成本是「哪天想換回去要重新走一次 vendor 流程」。
+         要換回 FSRS 的話：把下面這一行的註解拿掉，並且把
+         `./vendor/ts-fsrs.umd.js` 加回 `sw.js` 的 CORE。
+         <script src="vendor/ts-fsrs.umd.js"></script> -->
     <style>
         /* ★ 字重從 7 個砍到 5 個（Sans 去掉 500、Serif 去掉 500）。
            這是整頁最大的一筆資產（約 231 KB，見 使用量評估.md）。
@@ -164,6 +173,34 @@
         .quiz-opt.is-wrong .quiz-opt-text    { color: #7d2b26; text-decoration: line-through; }
         html.dark .quiz-opt.is-wrong .quiz-opt-text { color: #e59892; }
         .quiz-opt.is-muted { opacity: .38; }
+
+        /* ---- 「我其實不確定」（2026-08-29）----
+           ★ 為什麼要有這一顆：四選一有 25% 的猜對底，而排程只看得到「選對了」，
+             於是「不會但猜中」的字也會一路被推去畢業。按下它，那個字的複習重來一次。
+             `tools/fsrsgrad.mjs` 量到假畢業率 3.8% → 0.8%。
+           ★★ 刻意做得比選項小、比選項淡，而且**在選項下面**。
+             做得跟選項一樣大的話它會變成「第五個選項」，猶豫的人會先按它再選，
+             於是每一題都不算數——那比沒有這顆按鈕還糟。
+           ⚠️ 按下去**不變綠、不慶祝、不加分**：任何「按了有好處」的暗示都會
+             讓它被亂按，而亂按的結果是複習節奏整個變慢，畫面上卻看不出原因。
+             按下的樣子是「凹進去」，跟站上其他被按住的東西同一個語彙。
+           ⚠️ 它只在會寫回記憶曲線的那幾種測驗出現（克漏字、今日測驗、單字冊）。
+             公有／我的測驗按了沒有任何東西會用到它，那是一顆騙人的按鈕。 */
+        .quiz-unsure {
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            width: 100%; padding: 9px 12px;
+            background: transparent; border: 1.5px dashed var(--rule);
+            border-radius: var(--radius);
+            color: var(--ink-3); font-size: .82rem; font-weight: 800;
+            transition: background var(--dur-base) var(--ease),
+                        border-color var(--dur-base) var(--ease),
+                        color var(--dur-base) var(--ease);
+        }
+        @media (hover: hover) { .quiz-unsure:hover { background: var(--paper-sunk); } }
+        .quiz-unsure.is-on {
+            background: var(--paper-sunk); border-style: solid;
+            border-color: var(--ink-3); color: var(--ink-2);
+        }
 
         /* 作答畫面是整頁接管，底色一定要不透明。
            不能借 .bg-white——它在深色模式是半透明的 --paper-raised，
@@ -4130,6 +4167,15 @@
             <div id="kahootOptionsGrid" class="flex flex-col gap-1">
                 <!-- JS 依每題實際選項數動態生成 A～D -->
             </div>
+            <!-- 猜對的時候讓使用者自己說出來。只有會寫回記憶曲線的測驗才顯示，
+                 顯示與否由 renderPlayQuestion 決定（`kahootFeedsSrs()`）。 -->
+            <div id="kahootUnsureWrap" class="hidden mt-4">
+                <button id="kahootUnsureBtn" data-action="toggle-unsure" class="quiz-unsure">
+                    <i data-lucide="help-circle" class="w-4 h-4 pointer-events-none"></i>
+                    <span class="pointer-events-none">我其實不確定</span>
+                </button>
+                <p class="text-center text-slate-400 text-xs font-bold mt-2">先按這裡再作答：就算選對，這個字也會早一點回來找你</p>
+            </div>
             <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
             <div id="kahootNextWrap" class="hidden mt-7">
                 <button id="kahootNextBtn" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
@@ -4480,28 +4526,127 @@
             { id:'toefl', label:'托福', set:'toefl' }
         ];
 
-        /* ---- 每日測驗：艾賓浩斯排程（2026-08-20）----
-           五階擴張間隔。答對升一階、答錯掉回第一階（Leitner 盒子）。
-           ★ 查過才選這一套，不是圖方便：擴張間隔在實驗裡贏等距間隔
-             （同樣的總複習次數，八週後的遺忘顯著較少）；而 SM-2／FSRS
-             吃的是使用者自評的四級評分，這裡只有「選對／選錯」，
-             餵進去等於把它們最主要的輸入抽掉。理由全文在 `路線圖-技術細節.md`。
-           ⚠️ 改這串數字會改變所有人的下一次複習日，但**不會動到已經排好的
-             `due`**（那是存下來的日期，不是每次重算的）——所以改完之後
-             舊的到期日會照舊，新的才用新間隔。 */
-        const SRS_STEPS = [1, 3, 7, 14, 30];   // 第 1～5 階各自隔幾天
+        /* ---- 每日測驗：五階 Leitner 排程（2026-09-01 從 FSRS 退回來）----
+         *
+         * 排程是**寫死的五階階梯**：第 N 階就是「隔 SRS_STEPS[N-1] 天再考一次」。
+         * 答對升一階、**答錯只降一階**（不是掉回第一階），爬到門檻階之後再答對
+         * 一次就畢業，移出排程進「已學會」。
+         *
+         * ★ 為什麼退回來（2026-08-29 才換成 FSRS，2026-09-01 換回來）：
+         *   「FSRS 排得比五階準」這件事沒有被推翻——被推翻的是「準」是不是
+         *   這一站要的那個東西。FSRS 一路答對排出來的間隔是 2 → 11 → 46 → 163 天，
+         *   要爬到那麼開平均得答對十四、五次，於是「整本字表走得完」跟
+         *   「畢業時真的記得住」變成二選一：`tools/fsrsgrad.mjs` 量過，
+         *   天數門檻的「全部學會」一律在 3,000 天以上（8 年），而 2026-08-31
+         *   把門檻改成次數之後走得完了，代價是假畢業率 93%。
+         *   五階的間隔上限只有 30 天，所以它天生就站在「走得完」那一邊；
+         *   而且**階數是使用者看得懂的東西**——「第 3 階、七天後回來」講得出來，
+         *   「穩定度 46 天」講不出來。
+         *
+         * ⚠️⚠️ 三件跟著換回來、看起來一樣其實不一樣的事：
+         *   1. `SRS_STEPS` 又是**真的間隔**了（2026-08-29～09-01 之間它只是畫面刻度）。
+         *      改這串就是改所有人的下一次複習日。
+         *   2. `box`（第幾階）又是**排程的狀態**了，不再是從間隔推回來的快取。
+         *   3. 畢業門檻是「答題前已經在第 `srsGradBox` 階，而且這次答對」，
+         *      門檻階照字的價值分 3／4／5 階（愈常用愈高）。
+         *
+         * ★ `s`（穩定度）與 `d`（難度）兩個欄位**留著不刪**，只是再也沒有人寫它。
+         *   留著是為了「哪天想換回 FSRS，那批人的複習歷史還接得上」——
+         *   刪掉的話那筆資訊就永遠沒有了，而它一筆只佔 16 bytes。
+         *   ⚠️ 但**不要讀它**：從 2026-09-01 起它是凍住的舊值，
+         *     拿它算任何東西都是拿舊的數字回答今天的問題。
+         */
+        /* 五階的間隔，單位是天。**這是真的排程間隔**（同時也是熟練度長條的刻度）。
+           ⚠️⚠️ 改這串會改變**所有人的下一次複習日**。
+           ⚠️ 2026-08-29～2026-09-01 之間這串只是畫面上的刻度（那時候間隔由 FSRS 算），
+             那段期間留下來的註解如果還有殘影，以這一行為準。 */
+        const SRS_STEPS = [1, 3, 7, 14, 30];
         const SRS_DAILY_COUNT = 20;            // 每日測驗一場幾題（預設值，使用者可改）
         const SRS_DAILY_CHOICES = [20, 50, 100];
-        const SRS_KEEP = 800;                  // 排程最多記幾個字
-        /* ★ 800 是**排程效率**算出來的，不是容量算出來的。
-             （原本這一行寫「一份文件裝得下」，那是錯的理由，會讓下一個人往錯的方向找：
-             排程 800 滿、而且整個單字庫都畢業了也才 146KB，是單份文件上限的 14%。）
-             真正的理由是：排程裡同時活著的字數大約是「每日題數 × 9」，
-             所以 20 與 50 完全碰不到 800，100 剛好站在邊上——
-             `記憶曲線試算.md` 第六節那張表是唯一看得見這件事的地方。
-           ⚠️ 這個數字跟 `SRS_DAILY_CHOICES` 綁在一起。要加第四個題數選項（150、200），
-             得同時把它放大到「最大題數 × 12」，否則被擠掉的字會回去當新字重教一次，
-             每個字平均要考的次數從 9.6 漲到 17.7（200 題／天），而畫面上完全看不出來。 */
+        /* ★ 目標保留率 `SRS_RETENTION` 2026-09-01 拿掉了：那是 FSRS 唯一要自己
+           決定的旋鈕，五階沒有它（間隔是寫死的）。當時訂 0.90 的理由與兩支
+           模擬的轉折點記在 `架構.md`，換回 FSRS 的話從那裡抄回來。 */
+        /* ---- 畢業門檻（2026-09-01：從「連續答對幾次」換回「爬到第幾階」）----
+         *
+         * 答題前已經在第「門檻階」，而且**這次答對** → 移出排程進「已學會」。
+         * ⚠️ 沒有畢業出口的話排程只進不出，很快被到期的字塞滿、新字再也進不來
+         *   （見 `srsApplyResult` 那段）。
+         *
+         * 門檻階 = clamp(round(MIN × RATE^(v−1)), MIN, MAX)，v 是價值分
+         * （`srsValueOf`，愈常用、學測考過愈多年愈高）。RATE > 1，所以
+         * **出現頻率愈低、門檻階愈低**：
+         *   v1～v2 第 3 階（7 天）／v3 第 4 階（14 天）／v4 以上第 5 階（30 天）
+         *   （內建 3,461 字裡：第 3 階 1,642 字、第 4 階 653 字、第 5 階 1,166 字）。
+         *
+         * ★★ 方向跟 2026-08-31 的次數型一樣：常用字接下來每一篇文章、每一份考卷
+         *   都還會用到，值得多爬兩階；冷僻字確認到會了就該讓位，
+         *   別一直佔著每天那二十題。（2026-08-29 那一輪是反過來的，理由是
+         *   「冷僻字離開站上就再也不會遇到」——那個理由本身沒錯，
+         *   錯的是它讓冷僻字塞住每天的名額。）
+         *
+         * ★ 為什麼是 3／4／5 而不是「大家都第 5 階」：`tools/leitgrad.mjs` 量的
+         *   （20 題／天、四選一、沒有「我其實不確定」鈕的保守情況）
+         *     第 3→5 階 RATE 1.15（現在）  全部學會 1,169 天 ✓  假畢業率 79.0%
+         *     第 3→5 階 RATE 1.12          全部學會 1,106 天 ✓  假畢業率 94.3%
+         *     第 3→5 階 RATE 1.07          全部學會 1,047 天 ✓  假畢業率 95.0%
+         *     大家都第 5 階                全部學會 1,611 天 ✗  假畢業率 76.4%
+         *   「四年（1,460 天）內走得完整本字表」是使用者訂的線。大家都第 5 階
+         *   就出線了，所以一定要分層；而 RATE 從 1.12 走到 1.15 的時候假畢業率
+         *   從 94% 掉到 79%（第 5 階的字從 494 個變成 1,166 個），
+         *   1.15 是那個斷崖的第一格，而且還在線內。
+         *
+         * ⚠️⚠️ **假畢業率 79% 是結構性的，不要當成 bug 去「修」。**
+         *   「假畢業」＝畢業那一刻真實穩定度還不到 60 天。五階的間隔上限是 30 天，
+         *   所以畢業頂多證明「隔 30 天還答得出來」，本來就到不了 60 天那條線。
+         *   ⚠️ 這個數字**不能拿去跟 `tools/fsrsgrad.mjs` 那張表的 5.7% 比**：
+         *     那一組的間隔排到 80 天以上，兩張表量的不是同一件事。
+         *   所以 2026-09-01 之後**「已學會」的意思是「隔 7／14／30 天還答得出來」**，
+         *   不是「三個月後還記得」。⚠️ 畫面上的文案要照這個意思寫。
+         *
+         * ★ 答錯只降一階（不是掉回第一階），所以次數型那個坑
+         *   （最倒楣的一批字湊不滿連續答對、永遠畢不了業）在這裡不會發生：
+         *   掉一階爬回去只要答對一次。⚠️ 但還是要看 `tools/leitgrad.mjs`
+         *   的「全部學會」那一欄——印 `>4000` 就是又踩到了。
+         *
+         * ⚠️ 價值分 0（使用者自己建的字、查不到級數與詞頻的字）走**上限**那一格
+         *   （第 5 階，最嚴）。0 的意思是「沒有資料排它」不是「它不重要」，
+         *   沒有資料就退到嚴的那一邊——退錯邊會多發一批畢業證書，
+         *   而畫面上完全正常。
+         */
+        const SRS_GRAD_BOX_MIN  = 3;     // 價值分 1（最冷僻）要爬到第幾階，同時也是下限
+        const SRS_GRAD_BOX_RATE = 1.15;  // 價值分每多一分，階數乘的倍率（> 1 ＝ 愈常用要愈高階）
+        const SRS_GRAD_BOX_MAX  = 5;     // 上限。⚠️ 改之前先跑 tools/leitgrad.mjs 看「全部學會」
+        const SRS_KEEP = 2000;                 // 排程最多記幾個字
+        /* ★ 2000 是**排程效率**算出來的，不是容量算出來的。
+             （原本這一行寫「一份文件裝得下」，那是錯的理由，會讓下一個人往錯的方向找。）
+           ⚠️ 2026-08-29 從 800 拉上來：那時候門檻是天數型（最長 80 天），
+             `tools/fsrsgrad.mjs` 量到排程裡同時活著的字最多 20 題／天 434 個、
+             50 題／天 1,044 個、100 題／天 2,092 個。
+           ⚠️⚠️ 2026-08-31 門檻改成次數型（3～5 次）之後這個數字掉了一大截
+             （20 題／天 130 個、50 題／天 311 個、100 題／天 542 個）；
+             2026-09-01 退回五階、門檻改成第 3～5 階之後又回升一些——
+             `tools/leitgrad.mjs` 量到 20 題／天 154 個、50 題／天 361 個、
+             100 題／天 679 個。**但 2000 不要跟著調小**：調小的那一刻，
+             舊帳號裡超過新上限的字會被 `srsTrim` 當場擠掉，
+             擠掉的字回去當新字重教一次，而**畫面上完全正常**。
+             這一格現在是純粹的保險絲，不是設計參數。
+           ⚠️ 理由是**流量不是空間**：
+             一筆排程實測 111 bytes（`{w,f,s,d,iv,box,due,at,miss,hit}` 的 JSON；
+             2026-09-01 拿掉 `hit` 之後略小，這裡沿用大的那個數字比較安全），
+             2,000 筆 ＝ 216 KB，而 `words` 這一欄只要動過就是整條重傳
+             （`saveSrs` 的 merge 合併的是欄位，不是陣列裡的元素）。
+             也就是**每考完一場就上傳 216 KB**，手機用行動網路會有感。
+             空間本身還很寬：216 KB ＋ 已學會最壞 131 KB ＝ 347 KB，
+             是 Firestore 單份文件 1 MiB 的 34%。
+           ⚠️ 這個數字跟 `SRS_DAILY_CHOICES` 綁在一起：加第四個題數選項之前，
+             先用 `tools/leitgrad.mjs` 量一次那個題數的「排程最多同時幾個字」。 */
+        /* ★ `srsFsrs`（FSRS 排程器的實體）2026-09-01 拿掉了。當時那段長註解
+           記著三件事：`enable_fuzz: false`（間隔不要隨機抖，不然
+           `tests/cloze.mjs` 那些「應該排到哪一天」的檢查會變成擲骰子）、
+           `enable_short_term: false`（不要排「今天稍後再考一次」）、
+           以及「走 deps 不走全域」（測試在 Node 裡跑，沒有 `FSRS` 全域）。
+           要換回 FSRS 的話那三件事一起抄回來，全文在 `架構.md`。 */
+
         /* 已學會的字最多記幾個。★ 只存字串，一個字平均 9.6 bytes（實際量的，
            不是估的：`node tools/srssim.mjs size`），整個內建單字庫 10,596 個字
            也才 100KB 上下，離 Firestore 的
@@ -4515,7 +4660,7 @@
            要做學習曲線的話那是另一份資料，不要偷偷把這一份養大。 */
         const SRS_DAYS_KEEP = 120;
         /* 快刷最多幾輪。★ 不是「直到全對」的字面實作：同一個字連錯五輪的人
-           再刷下去只是挫折，而那個字明天本來就會被排出來（答錯＝掉回第一階）。 */
+           再刷下去只是挫折，而那個字明天本來就會被排出來（答錯＝降一階，明天回來）。 */
         const SRS_DRILL_MAX = 5;
         /* ---- 排不進排程的字（2026-08-27）----
            排程裡有一種字會**永遠卡住**：它到期了，但每日測驗抓不到它的單字本體，
@@ -4891,6 +5036,11 @@
 
         let draftQuestions = [], editingDraftQIndex = null;
         let activeKahoot = null, currentQIndex = 0, currentScore = 0, isKahootTransitioning = false;
+        /* 這一題有沒有按過「我其實不確定」。⚠️ 每一題都要歸零（`renderPlayQuestion`），
+           不歸零的話按過一次就整場都不算數，而畫面上只是那顆按鈕看起來一直亮著。
+           ★ 宣告在狀態區不是習慣問題：`renderPlayQuestion` 會碰到它，
+             寫在函式旁邊就是暫時性死區——一載入就掛、畫面全白（CLAUDE.md 第一條）。 */
+        let kahootUnsure = false;
         /* ★ 作答流程真正讀的是這兩個（activeKahoot 只拿來顯示標題）。
            原本宣告在「作答流程」那一節裡，離單字測驗（那時候叫「單字擂台」）
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
@@ -5572,6 +5722,42 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-01',
+                title: '每日測驗回到「1、3、7、14、30 天」五階，答錯不再打回原點',
+                items: [
+                    ['複習的間隔又是固定的五階了', '八月底換上的那套會替每個字各自算間隔，準是準，但它算出來的天數愈拉愈開（一路答對會變成隔兩個月、五個月才回來一次），結果是整本三千多個字怎麼算都走不完。現在回到五階：第 1 階隔 1 天、第 2 階 3 天、第 3 階 7 天、第 4 階 14 天、第 5 階 30 天，答對就往上一階。好處是你在畫面上看得到自己在第幾階、下次什麼時候回來。'],
+                    ['答錯只退一階，不是退回最開始', '以前答錯一次就掉回第 1 階，等於「錯一次就當你從來沒背過」。現在只退一階：本來第 4 階的字錯了會變第 3 階，七天後再來一次。試算過兩種寫法學完的天數與品質幾乎一樣，那就選比較不會讓人洩氣的那一種。'],
+                    ['「已學會」的意思：爬到你的門檻階，而且那一次還答得對', '門檻看那個字常不常用。像 tomorrow 這種接下來每篇文章、每份考卷都會用到的字，要爬到第 5 階（也就是隔了 30 天還答得出來）才畢業；平常幾乎遇不到的冷僻字，爬到第 3 階（隔 7 天）就放它走，把每天那二十題讓給還沒背過的字。中間的字是第 4 階。'],
+                    ['照現在的設定，三千多個字會在四年內全部走完', '前提是每天 20 題、而且真的每天做（大約三年兩個月，比上一版再快一點）。一半的字大約一年半。想更快的話調的是「一場幾題」：每天 50 題大約一年十個月走完，100 題大約一年兩個月。'],
+                    ['「已學會」還是「這一輪我確認過了」，不是「這輩子都會了」', '它現在的意思是「隔了 7 到 30 天，你還答得出來」。五階最長就排到 30 天，所以它證明得了的事情就到這裡——真的想記久，隔一陣子還是要自己回來再考一次。'],
+                    ['背到一半的進度不會被歸零，複習日也不會跳', '你每個字現在排在哪一天，換過來之後一天都不會動；階數則照原本排給你的間隔換算回來。已經學會的字當然還是學會的。'],
+                ]
+            },
+            {
+                date: '2026-08-31',
+                title: '「已學會」改成看你連續答對幾次，整本字表走得完了',
+                items: [
+                    ['以前看的是「這個字要隔多久才回來」，現在看的是「你連續答對幾次」', '舊的標準是：這個字要排到隔三十天到八十天才回來，而且那一次還答得對，才算學會。它比較嚴，但有兩個問題——那個天數你在畫面上根本看不到，所以永遠不知道自己離「學會」還差多遠；而且照那個標準，三千多個字要全部走完得花九年半。現在改成數次數：連續答對幾次就算學會，中間答錯一次，次數就從頭數起。'],
+                    ['常用的字要多答對幾次，冷僻的字早一點放它走', '像 tomorrow 這種接下來每篇文章、每份考卷都還會用到的字，要連續答對五次；平常幾乎遇不到的冷僻字，連續答對三次就放它畢業，把每天那二十題讓給還沒背過的字。其他的字是四次。'],
+                    ['照現在的設定，三千多個字會在四年內全部走完', '前提是每天 20 題、而且真的每天做（大約三年九個月）。想更快的話調的是「一場幾題」：每天 50 題大約兩年兩個月，100 題大約一年八個月。'],
+                    ['但「已學會」現在的意思變了，這件事要講清楚', '它現在的意思是「你連續答對了三到五次」，不是「你三個月後還記得」。試算起來，剛畢業的字平均大概還記得住三個禮拜。所以它比較像「這一輪我確認過了」，不是「這輩子都會了」——真的想記久，隔一陣子還是要自己回來再考一次。這是這次刻意換掉的：換來的是整本走得完，而不是走到一半就卡在那裡。'],
+                    ['背到一半的字不會被歸零', '你之前已經連續答對過幾次，會照原本排給你的複習間隔換算回來接著算，不會從頭重數。'],
+                ]
+            },
+            {
+                date: '2026-08-29',
+                title: '每日測驗換了一套排複習日的方法，會照每個字對你的難易度來安排',
+                items: [
+                    ['以前每個字走的都是同一條路：1 天、3 天、7 天、14 天、30 天', '不管那個字你一看就會，還是每次都想不起來，答對就往前走一格、答錯就退回第一格，五格走完就算學會。好處是好懂，壞處是它完全不看「這個字對你來說難不難」——很簡單的字要陪你走完整整五關，很難的字走完五關其實還是不會。'],
+                    ['現在會依照你自己的作答，替每個字算出下一次該隔多久', '換上的是一套叫 FSRS 的方法，Anki（世界上最多人用的背單字軟體）現在也是用它。它替每個字記著「你大概還能記多久」，每次作答完就重算一次：一直答對的字會愈隔愈開，可以隔到好幾個月才回來一次；一直忘記的字會一直回來找你。你會感覺到的是，同樣是「第 3 階」的兩個字，一個可能 7 天後回來、另一個 13 天後——因為它們對你來說本來就不一樣難。'],
+                    ['現在的複習進度原封不動接過去，你的複習日一天都不會跳', '換算是對得起來的：以前的「第 3 階」意思就是「七天後再考」，新的方法裡也是七天。所以換過去的那一天，每個字的下一次複習日跟原本排的是同一天，之後才開始各走各的。'],
+                    ['「已學會」變得比較難拿到，而且愈冷僻的字要泡愈久', '以前是「走到第 5 階再答對一次」就畢業。新方法裡間隔長得比較快，照舊標準的話會有很多其實還不會的字被算成學會（模擬起來每三個就有一個）。所以門檻改成「要排到夠開的間隔還答得對」，而且**愈冷僻的字門檻愈高**：像 tomorrow 這種常用字，你在課本、考題、看的影片裡本來就會一直遇到，那些相遇也在幫你複習，所以排到三十天就放它畢業；反過來說，離開這個網站之後幾乎不會再出現的冷僻字，要排到八十天還答得對才算學會。代價是「已學會」的數字長得比以前慢，但那個數字現在比較接近真的。'],
+                    ['照現在的設定，一半的字會在四年內學會', '前提是每天 20 題、而且真的每天做。想更快的話調的是「一場幾題」不是別的——每天 50 題的話，連九成的字都會在四年內學完。這不是我們偷懶：一個字從第一次看到到真的學會，平均要答對十四、五次，三千多個字乘下去，每天 20 題的四年就是不夠。'],
+                    ['作答時多了一顆「我其實不確定」', '四選一有四分之一的機會是矇對的，而畫面上矇對跟真的會長得一模一樣。按下這顆鈕再作答，就算你選對了，這個字也會早一點回來找你——分數不會扣，錯題本也不會收它。模擬起來，這一顆鈕能把「其實不會卻被算成學會」的字從二十五個裡的一個降到一百二十五個裡的一個。'],
+                    ['排程記得住的字從 800 個放寬到 2000 個', '因為間隔變長，同時在複習中的字會比以前多。額度不夠的話，最早背的那些會被擠掉、下次又被當成新字重教一次——那件事以前就會發生在每天做 50 題以上的人身上，只是看不出來。'],
+                ]
+            },
             {
                 date: '2026-08-29',
                 title: '每日測驗考完之後的存檔變輕了，用手機網路的時候感覺得到',
@@ -10484,15 +10670,24 @@
            ⚠ 手機沒有 hover，所以掛 `tabindex="0"`，CSS 那邊連
              `:focus-visible` 一起吃——只寫 `:hover` 的話這個提示在手機上
              等於不存在，而畫面上還是有一個看起來可以點的方塊。 */
-        function vocabSrsMark(stage) {
-            if (stage === 'done')
+        /* ⚠️ 吃的是 `srsStageIndex()` 回傳的東西：`'done'`、`0`，
+             或 `{ stage 第幾階, days 這個字現在排幾天回來一次 }`。
+             ★ `days` 是這個字**自己的**間隔。2026-09-01 退回五階之後它
+             正常情況就等於 `SRS_STEPS[階數-1]`，但**還是照這一筆自己的值寫**：
+             FSRS 那三天排出來的長間隔還在一些人的資料裡，那些字的階是第 5 階、
+             間隔卻可能是 163 天，寫死階數對應的天數就會變成一句假話。 */
+        function vocabSrsMark(mark) {
+            if (mark === 'done')
                 return `<span class="vocab-srs is-done" tabindex="0" role="img"
                         aria-label="熟練度：已學會"
                         data-tip="已學會 — 不再排進複習">✓</span>`;
-            if (Number(stage) >= 1)
+            const stage = Number(mark && mark.stage) || 0;
+            if (stage >= 1) {
+                const days = Math.floor(Number(mark && mark.days) || 0);
                 return `<span class="vocab-srs" tabindex="0" role="img"
                         aria-label="熟練度：第 ${stage} 階"
-                        data-tip="記憶曲線第 ${stage} 階 — 每 ${SRS_STEPS[stage - 1]} 天回來一次">${stage}</span>`;
+                        data-tip="記憶曲線第 ${stage} 階${days ? ` — 每 ${days} 天回來一次` :''}">${stage}</span>`;
+            }
             return `<span class="vocab-mark-gap" aria-hidden="true"></span>`;
         }
 
@@ -11163,28 +11358,24 @@
         /* ---- 克漏字：結束 ---- */
 
         /* ==========================================================
-         * 14.7 每日測驗：艾賓浩斯排程 ＋ 同一場的快刷（2026-08-20）
+         * 14.7 每日測驗：五階 Leitner 排程 ＋ 同一場的快刷
+         *      （2026-08-20；2026-08-29 換成 FSRS；2026-09-01 退回五階）
          *
-         * 排程是**五階擴張間隔**（1／3／7／14／30 天），答對升一階、
-         * 答錯掉回第一階——也就是 Leitner 盒子。
+         * 排程是寫死的五階階梯 `SRS_STEPS`＝1／3／7／14／30 天：
+         * 答對升一階、**答錯只降一階**、爬到門檻階之後再答對一次就畢業。
+         * 常數區那段長註解寫了為什麼 2026-08-29 換成 FSRS、又為什麼 09-01 換回來。
          *
-         * ★ 為什麼不是 FSRS（2026-08-27 重新查過，⚠️ 舊註解的兩個理由都不成立）：
-         *   **不是因為只有對錯**——官方教學說主要按 Again／Good 的人 FSRS 反而略準，
-         *   二值是正常用法。**也不是因為預設參數不能用**——benchmark 上沒最佳化的
-         *   FSRS-7 已經約等於最佳化過的 4.5，而且 Anki 24.06 之後沒有最低複習筆數門檻。
-         *   真正擋住**最佳化器**的是三件事：
-         *     (1) 四選一有 25% 猜對底，會把 6% 的字推成假畢業（`tools/guessfloor.mjs`），
-         *         保留率壓到 0.80 就變 12.7%；
-         *     (2) 最佳化器要複習歷史，而站上一筆都沒存（⚠️ 2026-08-29 更新：
-         *         原本這一條還說「塞進同一份文件等於每場上傳 117 KB」，那不再成立——
-         *         存檔改成只寫變動的欄位之後，歷史可以自己一個欄位。
-         *         ⚠️ 但歷史是**每一場都會長**的東西，所以真要存之前得先訂上限與
-         *         丟棄規則；沒訂的話它會變成下一個「每場整份重傳」）；
-         *     (3) `fsrs-browser`（最佳化器）是 WASM，CSP 沒有 `'wasm-unsafe-eval'`。
-         *   ⚠️ 這三條擋的都是**最佳化器**，不是排程器：`ts-fsrs` 有 UMD 版、零相依，
-         *   照 `vendor/` 那條既有流程抄一支檔就能用（`記憶與耐心曲線.md` 9.3 的路 2）。
-         *   ⚠️ 動之前先解決 `tests/cloze.mjs` 怎麼抽這一段的問題（同節但書 1）。
-         *   擴張間隔本身則是有實驗撐的：同樣的複習次數，八週後的遺忘較少。
+         * ⚠️⚠️ 2026-08-29～09-01 之間這裡是 FSRS，那三天留下三件容易誤讀的殘影：
+         *     1. `SRS_STEPS` 那時候只是畫面刻度，**現在又是真的間隔了**。
+         *     2. `box` 那時候是從間隔推回來的快取，**現在又是排程的狀態了**。
+         *     3. `s`（穩定度）／`d`（難度）兩個欄位還在，但**從 09-01 起沒有人寫它**，
+         *        也不要讀它——留著只是為了哪天想換回 FSRS 時歷史還接得上。
+         *
+         * ★ 一筆排程長這樣：{ w 單字, f 資料夾, box 第幾階, iv 這次排了幾天,
+         *   due 到期日, at 上次複習, miss 失蹤次數, s／d 凍住的 FSRS 遺產 }。
+         *   `box` 是真相，`iv` 是它推出來的（`SRS_STEPS[box-1]`）——
+         *   **只有 `srsNext` 與 `normalizeSrs` 可以寫這兩個**，
+         *   別的地方要用就用，不要自己再算一份。
          *
          * ★ 三件安靜會壞的事，下面各自有註記：
          *   1. 拿快刷的結果算升階 → 每個字都會一路升到第五階，
@@ -11196,11 +11387,46 @@
         /* ---- 每日測驗：排程核心（純函式，tests/cloze.mjs 直接抽這一段跑）---- */
         const srsKey = (w) => String(w ||'').trim().toLowerCase();
 
+        /* ★ `SRS_RATE_AGAIN`／`SRS_RATE_GOOD`（餵給 FSRS 的四級評分）
+           2026-09-01 拿掉了。當時最重要的那條警告記在 `架構.md`：
+           **答錯絕對不能對成 Hard**，FSRS 把 Hard 當成答對。換回去的話抄回來。 */
+
         /* 從「現在」往後推幾天的日鍵（日界跟全站一樣是凌晨四點）。 */
         function srsDayKeyAfter(days, now) {
             const d = dayBaseOf(now);
             d.setDate(d.getDate() + (Number(days) || 0));
             return dayKeyOfDate(d);
+        }
+
+        /* 小數留兩位。存進 Firestore 的每一個數字都是 8 bytes，留再多位也沒省，
+           但兩位讓 diff 與 console 看得懂——穩定度 2.31 天跟 2.3065 天沒有差別。 */
+        const srsRound = (x) => Math.round((Number(x) || 0) * 100) / 100;
+
+        /* 間隔幾天 → 第幾階。1～2 天第 1 階、3～6 第 2 階、7～13 第 3 階、
+           14～29 第 4 階、30 以上第 5 階。
+           ⚠️ 2026-09-01 退回五階之後，正常情況下 `iv` 一定是 SRS_STEPS 的其中一格，
+             所以這一支推出來的就是原本那一階。它還在，是因為**遷移**要用：
+             2026-08-29～09-01 那三天 FSRS 排出來的間隔（2、11、46、163 天…）
+             不在那五格裡，得靠它換回階數。 */
+        function srsBoxOf(days) {
+            const n = Number(days) || 0;
+            let box = 1;
+            for (let i = 0; i < SRS_STEPS.length; i++) if (n >= SRS_STEPS[i]) box = i + 1;
+            return box;
+        }
+
+        /* 這個價值分的字要爬到**第幾階**才算學會。指數型：愈常用（價值分愈高）
+           要爬愈高階，因為常用字接下來每一篇文章都還會用到，值得多確認兩輪；
+           冷僻字確認到會了就讓位，別一直佔著每天那二十題。
+           ⚠️⚠️ v=0（沒有資料）回**上限**，不是下限。0 是「沒有資料排它」不是
+             「它不重要」，沒有資料就退到嚴的那一邊——這一輪嚴的那一邊是
+             **最高階**（第 5 階）。 */
+        function srsGradBox(value) {
+            const v = Number(value) || 0;
+            if (!(v >= 1)) return SRS_GRAD_BOX_MAX;
+            return Math.max(SRS_GRAD_BOX_MIN,
+                   Math.min(SRS_GRAD_BOX_MAX,
+                            Math.round(SRS_GRAD_BOX_MIN * Math.pow(SRS_GRAD_BOX_RATE, v - 1))));
         }
 
         /* 一個字的「價值」＝該不該優先教它。愈高愈早出場。
@@ -11259,6 +11485,9 @@
              五年下來升到第五階的字是 **0**，因為每個字都在爬到第三階之前
              就被擠出去，接著又被當成新字重抽回來）。
            改成先丟第 1 階、同階丟 `at` 最舊的（沒複習過的 `at=0` 最先走）。
+           ★ 照 `box` 排＝照「排得多開」排＝照「學得多熟」排。
+             （2026-08-29～09-01 那三天 `box` 是從 FSRS 間隔推回來的快取，
+             這一支照樣沒事，因為那時候它排的也還是同一件事。）
            ★ 活下來的維持原本的順序，不要順手排序：`words` 的順序在別的地方
              沒有意義，但「淘汰一次就整份重排」會讓 diff 與除錯都變難。 */
         function srsTrim(words) {
@@ -11315,12 +11544,44 @@
                 const k = srsKey(x.w);
                 if (!k || seen.has(k) || dseen.has(k)) continue;   // 同一個字只留一筆；已學會的不排
                 seen.add(k);
+                const at = Number(x.at) > 0 ? Number(x.at) : 0;
+                const oldBox = Math.min(SRS_STEPS.length, Math.max(1, Math.floor(Number(x.box)) || 1));
+                /* ---- FSRS → 五階 Leitner 的遷移（2026-09-01）----
+                   ⚠️⚠️ 這一段**只跑一次**（跑完 `iv` 就會落回五階的其中一格），
+                     而且**沒有回頭路**。遷移錯了不會報錯，只會變成
+                     「所有人的複習節奏突然變了」。
+
+                   ★ 階數從**間隔**推回來（`srsBoxOf`），不是讀存下來的那一份。
+                     兩個時代都對得上：2026-08-29～09-01 之間 `box` 本來就是
+                     FSRS 間隔推出來的快取（推回來一定一樣）；更舊的五階資料
+                     `iv` 本來就是 `SRS_STEPS` 的其中一格（推回來剛好是原本那一階）。
+                   ★★ **到期日原封不動。** FSRS 可能把某個字排到 163 天後，
+                     退回五階之後它只有第 5 階（30 天），但**那一天不改**：
+                     改了的話所有人的下一次複習日會當場跳動，而那是使用者
+                     唯一感覺得到、卻完全解釋不了的東西。它下次答完就回到五階的節奏。
+                   ★ `s`（穩定度）／`d`（難度）留著不刪，但**從此沒有人寫它**
+                     （理由見常數區那段）。這裡只是把格式不對的洗成 0。
+                   ⚠️ `at === 0`（從錯題本搬進來、還沒考過）的字沒有間隔可推，
+                     維持存下來的那一階（正常情況就是第 1 階）。
+                   ⚠️ `hit`（連續答對幾次）那一欄 2026-09-01 起不再產生，
+                     也不從舊資料讀進來——它是次數型門檻的狀態，階數型用不到。
+                     舊帳號裡殘留的那一欄會在下一次存檔時自然消失。 */
+                const iv = Number(x.iv) > 0 ? Math.max(1, Math.floor(Number(x.iv))) : 0;
+                const keepDue = /^\d{4}-\d{2}-\d{2}$/.test(x.due) ? x.due :'';
                 out.push({
                     w: x.w,
                     f: typeof x.f ==='string' ? x.f :'',
-                    box: Math.min(SRS_STEPS.length, Math.max(1, Math.floor(Number(x.box)) || 1)),
-                    due: /^\d{4}-\d{2}-\d{2}$/.test(x.due) ? x.due :'',
-                    at: Number(x.at) > 0 ? Number(x.at) : 0,
+                    /* 凍住的 FSRS 遺產（2026-09-01 起唯讀，留給「哪天想換回去」）。 */
+                    s: srsRound(Number(x.s) > 0 ? Number(x.s) : 0),
+                    d: srsRound((Number(x.d) >= 1 && Number(x.d) <= 10) ? Number(x.d) : 0),
+                    iv,
+                    /* 熟練度階數。★ 2026-09-01 起它又是排程的真相了，
+                       但**這裡仍然從間隔推回來**，因為要吃得下 FSRS 那三天的資料。
+                       ⚠️ 只有這一支與 `srsNext` 可以寫 `box`。 */
+                    box: (at && iv) ? srsBoxOf(iv) : oldBox,
+                    /* 到期日。★ 原封不動——退回五階不動任何人的下一次複習日。 */
+                    due: keepDue,
+                    at,
                     /* 連續幾次排出來卻抓不到單字本體（見 SRS_MISS_MAX）。
                        舊資料沒有這一欄，當作 0 ——也就是「還沒失蹤過」，
                        所以升級之後不會有人的字被立刻搬走。 */
@@ -11359,11 +11620,26 @@
                      last: /^\d{4}-\d{2}-\d{2}$/.test(d && d.last) ? d.last :'' };
         }
 
-        /* 答對升一階、答錯掉回第一階。 */
+        /* ★ `srsInitDifficulty`（FSRS 的難度初值）2026-09-01 拿掉了：
+           五階沒有難度這個東西。 */
+        /* 一次複習之後，這個字的下一站（五階 Leitner）。
+           **答對升一階、答錯只降一階**（2026-09-01；2026-08-29 之前是掉回第一階）。
+           ★ 為什麼只降一階：掉回第一階等於說「錯一次就當你從來沒背過」，
+             對「昨天還會、今天想不起來」的字太重了。而且 `tools/leitgrad.mjs`
+             量過兩種寫法（現行門檻、20 題／天）：降一階是全部學會 1,169 天、
+             假畢業率 79.0%，掉回第一階是 1,237 天、75.9%。
+             **掉回第一階並沒有比較好到值得那個挫折感**——它多花 68 天，
+             換到的是 3 個百分點的假畢業率，而那三個百分點在 79% 的底噪裡
+             （見常數區：五階的假畢業率是結構性的）根本分不出來。
+           ★ `s`／`d` 用 `...entry` 原封不動帶過去，**這裡不寫它們**：
+             它們是 2026-09-01 凍住的 FSRS 遺產。
+           ⚠️ `box` 是這一支與 `normalizeSrs` 的專屬欄位，別的地方只讀不寫。 */
         function srsNext(entry, correct, now) {
             const box = correct
-                ? Math.min(SRS_STEPS.length, (Number(entry.box) || 1) + 1) : 1;
-            return { ...entry, box, due: srsDayKeyAfter(SRS_STEPS[box - 1], now), at: now };
+                ? Math.min(SRS_STEPS.length, (Number(entry.box) || 1) + 1)
+                : Math.max(1, (Number(entry.box) || 1) - 1);
+            const iv = SRS_STEPS[box - 1];
+            return { ...entry, box, iv, due: srsDayKeyAfter(iv, now), at: now };
         }
 
         /* 今天要複習哪些：到期的排前面，欠最久的先，同一天到期的低階先。 */
@@ -11403,7 +11679,10 @@
             for (const x of ((wrong && wrong.words) ||[])) {
                 const k = srsKey(x && x.w);
                 if (!k || at.has(k)) continue;
-                const e = { w: x.w, f: folderOf(x.w) ||'', box: 1,
+                /* ★ `iv` 是 0、`box` 是 1 ＝「排進來了，但還沒考過」，
+                   明天（第 1 階）就會被排出來。
+                   ★ `s`／`d` 給 0：它們是凍住的 FSRS 遺產，新進來的字沒有。 */
+                const e = { w: x.w, f: folderOf(x.w) ||'', s: 0, d: 0, iv: 0, box: 1,
                             due: srsDayKeyAfter(SRS_STEPS[0], now), at: 0 };
                 at.set(k, e); words.push(e); changed = true;
                 if (dkeys.has(k)) dkeys.delete(k);
@@ -11527,8 +11806,13 @@
         }
 
         /* 非內建單字冊（自己的／公有的）考過的字：**只記階數，不進排程**。
-           升降階跟排程同一條規矩（答對升一階、答錯掉回第一階），這樣單字卡上
-           那顆圈的意思在兩邊是同一件事。
+           ⚠️ 這些字沒有排程、沒有到期日，方塊只是一個「我練得怎麼樣」的計數。
+             ★ 2026-09-01 之後升降階的規則跟排程那邊**一模一樣**了
+               （答對升一階、答錯降一階），因為排程也退回五階了。
+               2026-08-29～09-01 之間兩邊不一樣（那邊 FSRS、這邊五階），
+               那是刻意的，不是漏改——現在不必再分。
+           ★ 兩邊的方塊讀起來是同一件事：第 N 階＝「愈大愈熟」。
+             ⚠️ 但這邊沒有到期日，所以**不要拿它們互相比較或加總**。
            ⚠️ 已經在排程裡、或已經學會的字一律不碰：同一個字兩邊各有一份階數的話，
              圈裡的數字會跟每日測驗實際考它的階數對不上，而且不報錯。 */
         function srsMarkResult(sched, answers) {
@@ -11542,7 +11826,8 @@
                 if (!k || at.has(k) || done.has(k)) continue;
                 const cur = marks.get(k) ||{ w: a.word, box: 1 };
                 const box = a.correct
-                    ? Math.min(SRS_STEPS.length, (Number(cur.box) || 1) + 1) : 1;
+                    ? Math.min(SRS_STEPS.length, (Number(cur.box) || 1) + 1)
+                    : Math.max(1, (Number(cur.box) || 1) - 1);
                 if (marks.has(k) && (Number(cur.box) || 1) === box) continue;
                 marks.set(k, { w: cur.w || a.word, box });
                 changed = true;
@@ -11555,7 +11840,7 @@
            ⚠️⚠️ 餵進來的只能是**第一輪**的作答。快刷輪保證最後全對，
              拿它算升階的話每個字都會一路升到第五階，而症狀是
              「排程從此每天都說沒有到期的字」——完全不會報錯。 */
-        function srsApplyResult(sched, answers, folderOf, now) {
+        function srsApplyResult(sched, answers, folderOf, now, valueOf) {
             const at = new Map(((sched && sched.words) ||[]).map(x => [srsKey(x.w), { ...x }]));
             /* ★ 「已學會」用 Map 存（key 是正規化過的字），不是陣列＋Set：
                  陣列的話「先拿掉再放回去」會留下兩筆一模一樣的字，
@@ -11568,17 +11853,25 @@
                 /* 已經畢業的字又被考到（使用者自己再開一場練），
                    那就當它重新進場：從「已學會」拿掉，照第一階重排。 */
                 done.delete(k);
-                const cur = at.get(k) ||{ w: a.word, f:'', box: 1, due:'', at: 0 };
-                /* ★★ 畢業出口：已經在最後一階、這次又答對 → 移出排程，記進「已學會」。
-                     ⚠️ 沒有這一條的話第 5 階不是終點，是「每 30 天回來一次」的
-                       無限迴圈：字只進不出，排程很快被到期的字塞滿，新字再也
-                       進不來，而卡片上只會寫「今天有 20 個字到期」。
-                       **「學完」在數學上不存在**，題數加到多少都一樣
-                       （試算在 `記憶曲線試算.md`：20 題／天的天花板是 415 個字）。
-                     ★ 判斷用的是**答題前**的階數（`cur.box`），不是 `srsNext` 之後的：
-                       `srsNext` 在第 5 階答對會回傳同樣的 5，拿它判的話
-                       第 4 階升上來的那一次就會直接畢業，等於少考 30 天那一關。 */
-                if (a.correct && (Number(cur.box) || 1) >= SRS_STEPS.length) {
+                const cur = at.get(k) ||{ w: a.word, f:'', s: 0, d: 0, iv: 0, box: 1, due:'', at: 0 };
+                /* ★★ 畢業出口（2026-09-01 換回階數型）：**答題前**已經在第
+                     `srsGradBox` 階，而且這次答對 → 移出排程，記進「已學會」。
+                   ⚠️ 沒有這一條的話排程只進不出：字愈排愈開但永遠回來，
+                     排程被到期的字塞滿、新字再也進不來，而卡片上只會寫
+                     「今天有 20 個字到期」。**「學完」在數學上不存在**
+                     （`記憶曲線試算.md`：20 題／天的天花板是 415 個字）。
+                   ⚠️⚠️ 讀的是 `cur.box`（**答題前**的階），不是升階之後的。
+                     讀升階後的那一個等於門檻整個少一階（第 4 階答對一次就畢業），
+                     而畫面上只會是「怎麼這麼快就學會了」——不會報錯。
+                   ★ 門檻照字的價值算（`srsGradBox`，愈常用要爬愈高），所以要查價值——
+                     查不到就回 0，而 0 走的是**上限**那一格（第 5 階，最嚴）。
+                     ⚠️ 查不到只會發生在「單字檔沒載到」，而字要被問到就一定載到了，
+                       所以實際上查得到；退到最嚴是**安全的方向**——
+                       退錯邊會多發一批畢業證書，而畫面上完全正常。
+                   ⚠️⚠️ 這一條擋不住「同一本連按五次」，擋那件事的是 `srsGradable`
+                     （只有**到期**的答對才餵進來）。 */
+                const needBox = srsGradBox(valueOf ? valueOf(a.word) : 0);
+                if (a.correct && (Number(cur.box) || 1) >= needBox) {
                     at.delete(k);
                     done.set(k, cur.w || a.word);
                     continue;
@@ -11626,6 +11919,22 @@
                      optionWords: pick(q.optionWords), optionChinese: pick(q.optionChinese),
                      correctIdx: idx.indexOf(q.correctIdx) };
         }
+        /* 「我其實不確定」：選對但按了那顆鈕 → **排程當成答錯**（2026-08-29）。
+           ★★ 為什麼要有它：這一站是四選一，有 25% 的猜對底。排程只看得到
+             「選對了」，於是「其實不會但猜中」的那一筆會把穩定度往上推，
+             一路推到畢業。`tools/fsrsgrad.mjs` 量到假畢業率 3.8% → 0.8%。
+           ★★ 這一支**只給排程用**，不要拿去改分數、錯題本或快刷：
+             使用者按那顆鈕的意思是「我選對了，但別給我記功」，不是「我答錯了」。
+             算成答錯的話分數會掉、錯題本會收它、快刷會考它——三件他沒有要求的事，
+             而下次他就不敢按了，這顆鈕也就白做。
+           ⚠️ 誠實度是**未知數**，不是常數。模擬裡假設七成的人猜中會按，
+             那是拍的、不是量的。真的要知道它有沒有用，只能上線之後看
+             「按過這顆鈕的人」跟沒按過的人畢業率差多少——站上現在量不了這件事。 */
+        function srsHonest(answers) {
+            return (answers ||[]).map(a =>
+                (a && a.unsure && a.correct) ? { ...a, correct: false } : a);
+        }
+
         /* 從單字冊開的那一場，哪幾題算得上一次「複習」（2026-08-26）。
 
            ⚠️⚠️ **沒有這一條的話，同一本連按五次就能把整本推到第五階畢業**，
@@ -11723,6 +12032,21 @@
                 if (k && !m.has(k)) m.set(k, folderOfBook.get(w.bookId) ||'');
             }
             return (word) => m.get(srsKey(word)) ||'';
+        }
+
+        /* 單字 → 它的價值分（`srsValueOf`）。畢業門檻照這個分層，
+           所以判畢業之前要查得到它。
+           ★ 跟 `builtinFolderIndex` 分開兩支、各建一份 Map，是因為兩者的
+             呼叫時機不同（`f` 在字進排程時就要，價值只有判畢業時要），
+             而且合成一支會讓「查不到就回什麼」變成兩個預設值擠在同一個回傳裡。
+           ⚠️ 查不到回 0，落在最低那一層（60 天）——門檻變嚴，不會多發畢業證書。 */
+        function builtinValueIndex() {
+            const m = new Map();
+            for (const w of state.builtinVocabWords ||[]) {
+                const k = srsKey(w && w.english);
+                if (k && !m.has(k)) m.set(k, srsValueOf(w));
+            }
+            return (word) => m.get(srsKey(word)) || 0;
         }
 
         /* 錯題本裡有、排程裡沒有的字搬過來。兩邊都讀到了才做。 */
@@ -11963,10 +12287,14 @@
 
         /* 一場結束後寫回排程。★ 跟錯題本同一條：**呼叫端不 await**。 */
         function recordSrsResult(answers) {
-            const list = (answers ||[]).filter(a => a && a.word);
+            /* ⚠️ `srsHonest` 要在**這裡**套，不是在 `submitKahootAnswer` 裡：
+               那一支記下來的 `playAnswers` 還要餵給分數、錯題本與快刷，
+               在源頭就改掉的話那三個地方會一起被改到（見 `srsHonest` 的註記）。 */
+            const list = srsHonest((answers ||[]).filter(a => a && a.word));
             if (!list.length) return Promise.resolve();
             const now = Date.now();
-            srsSched = srsApplyResult(srsSched, list, builtinFolderIndex(), now);
+            srsSched = srsApplyResult(srsSched, list, builtinFolderIndex(), now,
+                                      builtinValueIndex());
             const today = dayKeyOf(now);
             srsSched.last = today;
             /* ★ 完成日另外記一份（`last` 只留得住最後一天，
@@ -12007,14 +12335,18 @@
              但它不進到期清單（見 SRS_MISS_MAX）。 */
         function recordVocabSrsResult(answers) {
             const now = Date.now();
-            const list = srsGradable(srsSched, answers, dayKeyOf(now));
+            /* ★ 先套「我其實不確定」再問「這一題算不算複習」：`srsGradable` 的
+               第一條是「答錯一律算數」，順序反過來的話，按了鈕又剛好還沒到期的字
+               會被判成「不算複習」而整筆跳過——按了等於沒按，而且不報錯。 */
+            const list = srsGradable(srsSched, srsHonest(answers), dayKeyOf(now));
             if (!list.length) return Promise.resolve();
             const folderOf = builtinFolderIndex();
             /* ★ 分兩堆的判準是 `folderOf(w)` 有沒有值，不是「這一場是哪本冊子」：
                內建冊子裡的字就算是從單字冊那一場考到的，照樣該排進每日測驗。 */
             const inLib = list.filter(a => folderOf(a && a.word));
             const outLib = list.filter(a => !folderOf(a && a.word));
-            if (inLib.length) srsSched = srsApplyResult(srsSched, inLib, folderOf, now);
+            if (inLib.length) srsSched = srsApplyResult(srsSched, inLib, folderOf, now,
+                                                        builtinValueIndex());
             if (outLib.length) srsSched = srsMarkResult(srsSched, outLib);
             renderSrsCard();
             /* 單字冊那一頁還開著，圈裡的階數要當場換掉——
@@ -12037,10 +12369,22 @@
             for (const x of (srsSched && srsSched.words) ||[])
                 box.set(srsKey(x.w), Math.max(1, Math.floor(Number(x.box)) || 1));
             const done = new Set(((srsSched && srsSched.done) ||[]).map(srsKey));
+            /* ★ 連「這個字現在排幾天回來一次」一起回傳，講的是**它自己的**天數，
+               不是拿 `SRS_STEPS[階數-1]` 當答案。2026-09-01 退回五階之後
+               兩者正常情況一樣，但 2026-08-29～09-01 那三天 FSRS 排出來的
+               長間隔還留在一些人的資料裡（第 5 階、間隔 163 天），
+               寫死階數對應的天數對那些字就是一句寫得很肯定的假話。
+               ⚠️ `marks` 那批沒有間隔（它們不在排程裡），回 0，提示框那時候
+                 就不寫天數，只寫階數。 */
+            const iv = new Map();
+            for (const x of (srsSched && srsSched.words) ||[])
+                iv.set(srsKey(x.w), Math.max(0, Math.floor(Number(x.iv)) || 0));
             return (word) => {
                 const k = srsKey(word);
                 if (!k) return 0;
-                return done.has(k) ? 'done' : (box.get(k) || 0);
+                if (done.has(k)) return 'done';
+                const b = box.get(k) || 0;
+                return b ? { stage: b, days: iv.get(k) || 0 } : 0;
             };
         }
 
@@ -12378,9 +12722,21 @@
                 </button>`).join('');
         }
 
+        /* 這一場考完會不會寫回記憶曲線。★ 判準跟 `recordKahootResult` 分派的那三種
+           一致：克漏字（`cloze`，今日測驗也帶著它）與單字冊（`vocabSrs`）。
+           ⚠️ 公有／我的測驗不寫回排程，那裡出現「我其實不確定」是一顆騙人的按鈕：
+             按了什麼都不會發生，而使用者不會知道。 */
+        function kahootFeedsSrs() {
+            return !!(activeKahoot && (activeKahoot.cloze || activeKahoot.vocabSrs));
+        }
+
         function renderPlayQuestion() {
             $('kahootNextWrap').classList.add('hidden');
             if (!activeKahoot || currentQIndex >= playQuestions.length) return showKahootResult();
+            /* ⚠️ 每一題歸零。漏掉的話按過一次就整場都不算數（見宣告處）。 */
+            kahootUnsure = false;
+            $('kahootUnsureBtn').classList.remove('is-on');
+            $('kahootUnsureWrap').classList.toggle('hidden', !kahootFeedsSrs());
             const qData = playQuestions[currentQIndex];
             const total = playQuestions.length;
             $('kahootProgress').textContent = `${currentQIndex + 1} / ${total}`;
@@ -12400,7 +12756,13 @@
             isKahootTransitioning = true;
             const correct = selectedIdx === qData.correctIdx;
             if (correct) currentScore++;
-            playAnswers.push({ ...qData, selectedIdx, correct });
+            /* ★★ `unsure` 只跟著作答走，**不影響分數、不影響畫面上的對錯**。
+               只有排程會理它（`srsHonest`）：選對但按了「不確定」＝排程當成答錯。
+               ⚠️ 不要順手把它算成答錯：那樣分數會掉、錯題本會收它、快刷會考它，
+                 而使用者按那顆鈕的意思是「我選對了，但別給我記功」，不是「我錯了」。 */
+            playAnswers.push({ ...qData, selectedIdx, correct, unsure: kahootUnsure });
+            /* 作答之後那顆鈕就沒有意義了（這一題已經定案），收起來免得被按。 */
+            $('kahootUnsureWrap').classList.add('hidden');
 
             // 直接在選項上給回饋。三個狀態各自是一個 class，不再去改寫
             // className 字串——上一版為了蓋掉底色會先用正規表示式把
@@ -14036,6 +14398,9 @@
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
 'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
+'toggle-unsure':   ()  => { if (isKahootTransitioning) return;
+                            kahootUnsure = !kahootUnsure;
+                            $('kahootUnsureBtn').classList.toggle('is-on', kahootUnsure); },
 'remove-draft-q':  (t) => removeDraftQ(parseInt(t.dataset.index)),
 'edit-draft-q':    (t) => editDraftQ(parseInt(t.dataset.index)),
 'open-add-course': () => {

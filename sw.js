@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v112';
+const CACHE = 'blackcat-v115';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -48,6 +48,12 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './vendor/lucide.min.js',
               './vendor/marked.min.js',
               './vendor/purify.min.js',
+              /* ⚠️ 2026-09-01：ts-fsrs（每日測驗的排程器）從 CORE 拿掉了。
+                 每日測驗那三天用的是 FSRS，09-01 退回五階 Leitner，
+                 主站的 <script> 也一起拿掉了，所以再放進 CORE 只是叫每一個
+                 裝成 App 的人白抓 71KB。
+                 ★ 檔案本人還留在 public/vendor/，要換回去的話這一行跟主站
+                   <head> 那一行一起加回來。 */
               /* 筆記那張紙（亮／夜兩張，共約 35KB）。跟背景畫同一個理由要進 CORE：
                  它不是「翻到才需要」的內容，是紙本身。少了它筆記還是有橫線
                  （CSS 漸層接得住），但頁首與紙紋會不見——而那看起來很像
