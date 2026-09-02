@@ -1210,7 +1210,7 @@ function renderMdList(){
     const list = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
     if (!list.length){ box.innerHTML = '<div class="hint">還沒有筆記</div>'; return; }
     box.innerHTML = list.map(n => `
-        <button class="md-item${n.id === currentNoteId ? ' is-open' : ''}" data-id="${n.id}">
+        <button class="md-item${n.id === currentNoteId ? ' is-open' : ''}" data-id="${escapeHTML(n.id)}">
             <b>${escapeHTML(n.title || '未命名')}</b>
             <small>${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</small>
         </button>`).join('');
@@ -1270,11 +1270,11 @@ function renderTabs(){
        畫出來是一個點不開的死分頁。 */
     const rows = openTabs.map(id => notes.find(n => n.id === id)).filter(Boolean);
     strip.innerHTML = rows.map(n => `
-        <div class="md-tab${n.id === currentNoteId ? ' is-open' : ''}" data-id="${n.id}">
-          <button class="tab-go" data-id="${n.id}" role="tab"
+        <div class="md-tab${n.id === currentNoteId ? ' is-open' : ''}" data-id="${escapeHTML(n.id)}">
+          <button class="tab-go" data-id="${escapeHTML(n.id)}" role="tab"
                   aria-selected="${n.id === currentNoteId}"
                   >${escapeHTML(n.title || '未命名')}</button>
-          <button class="tab-x" data-id="${n.id}"
+          <button class="tab-x" data-id="${escapeHTML(n.id)}"
                   aria-label="關閉 ${escapeHTML(n.title || '未命名')}">&#215;</button>
         </div>`).join('');
     /* ★ 分頁多到捲出畫面時，切過去要讓它自己捲回來看得見的地方。

@@ -1171,6 +1171,53 @@ const esc = v => String(v == null ? '' : v)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 
+/* ★ 外面餵得進來的字在這一頁的落點太多，補落點補不完。
+   （2026-09-02 資安體檢驗過：分享連結裡把元件名稱填成
+     `" autofocus onfocus="…`，收到連結的人點一下那顆元件，
+     那段程式就會用他的登入身分跑起來——這一頁跟主站同網域，
+     拿得到 Firebase 的登入狀態，課表、記帳、持股、筆記全部進得去。）
+
+   落點包括：參數面板的 value=、真值表表頭、解題卡、掃描下拉、
+   執行模擬時 toNetlist() 的警告訊息、匯入成功提示裡的檔名……
+   這一輪把落點補乾淨了，但下一次新增一個落點還是會漏，
+   所以真正的防線在**入口**：進得來的字先過白名單，出去的字再跳脫一次。
+
+   ⚠️ 不要跟 sanitizeVerilogName（3300 附近）共用。
+   那支的目標是「編得過的 Verilog 識別字」，會把中文整個吃掉；
+   拿它來做顯示用的清理，畫面上所有中文元件名會直接消失。 */
+const REF_MAX = 40, VAL_MAX = 120;
+/* 名稱留中日韓文字——使用者真的會把元件命名成「開關1」。
+   空白一律拿掉，跟參數面板打字時的 replace(/\s/g,'') 保持同一個規則，
+   不然同一個名字從連結進來跟自己打進去會長得不一樣。 */
+const cleanRef = v => String(v == null ? '' : v)
+    .replace(/[^\w.\-\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/g, '')
+    .slice(0, REF_MAX);
+/* 數值要留得下 SIN(0 1 1k)、PULSE(0 5 0 1n 1n 1u 2u)、1meg 這些寫法，
+   所以空白、括號、逗號都得留；擋掉的是 HTML 有意義的那幾個字元。 */
+const cleanVal = v => String(v == null ? '' : v)
+    .replace(/[^A-Za-z0-9 ()+\-.,*\/=:_%]/g, '')
+    .slice(0, VAL_MAX);
+/* 型別是查表用的鍵（R、C、EE、GND、AND2…），但它也會落進畫面：
+   解題卡在元件沒有名字的時候顯示的就是型別。 */
+const cleanType = v => String(v == null ? '' : v).replace(/[^A-Za-z0-9_]/g,'').slice(0,8);
+/* 分析參數（anaVals）一樣是分享連結帶進來的，落點是 buildAna() 的 value=。 */
+const cleanVals = o => {
+    const out = {};
+    if (o && typeof o === 'object')
+        for (const k of Object.keys(o)) if (/^\w{1,20}$/.test(k)) out[k] = cleanVal(o[k]);
+    return out;
+};
+/* 一顆元件的每一個欄位都過一次。座標另外轉成數字：
+   分享連結裡塞一個字串進去不會報錯，只會讓整張圖畫在看不見的地方。 */
+function cleanPart(p){
+    p.type = cleanType(p.type);
+    p.ref  = cleanRef(p.ref);
+    p.val  = cleanVal(p.val);
+    if (p.ctrl) p.ctrl = cleanRef(p.ctrl);
+    p.x = +p.x || 0; p.y = +p.y || 0; p.rot = p.rot | 0;
+    return p;
+}
+
 /* ==========================================================
    算式排版（KaTeX）
 
@@ -1729,7 +1776,7 @@ function buildAna(){
              <option value="dec">十倍頻 dec</option><option value="oct">八倍頻 oct</option>
              <option value="lin">線性 lin</option></select></div>`
         : `<div class="field"><label for="f_${k}">${lab}</label>
-             <input id="f_${k}" class="mono" value="${anaVals[k] ?? def}"></div>`).join('');
+             <input id="f_${k}" class="mono" value="${esc(anaVals[k] ?? def)}"></div>`).join('');
     a.f.forEach(([k,,def]) => { const el = $('f_'+k); if (!el) return;
         el.value = anaVals[k] ?? def;
         el.oninput = el.onchange = () => { anaVals[k] = el.value; syncDirective(); }; });
@@ -2634,10 +2681,10 @@ function inspect(){
         const RANGE = { V:'直流／交流電壓（並聯）', A:'電流（串聯）', R:'電阻（電源歸零）' };
         box.innerHTML = `
           <div class="field"><label for="ip_ref">名稱</label>
-            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+            <input id="ip_ref" class="mono" value="${esc(p.ref)}"></div>
           <div class="field"><label for="ip_val">檔位</label>
             <select id="ip_val">${Object.entries(RANGE).map(([k,v]) =>
-              `<option value="${k}"${p.val===k?' selected':''}>${v}</option>`).join('')}</select></div>
+              `<option value="${esc(k)}"${p.val===k?' selected':''}>${esc(v)}</option>`).join('')}</select></div>
           <p class="sub">${METER_HINT[p.val] || ''}</p>
           ${p.val === 'R' ? '<button class="btn" id="ip_ohm" style="margin-top:6px">量電阻</button>' +
             '<div id="ohmOut" class="sub"></div>' : ''}
@@ -2668,13 +2715,13 @@ function inspect(){
                 .map(q => ({ name:`V_${q.ref}`, label:`${q.ref}（電流檔）` })));
         box.innerHTML = `
           <div class="field"><label for="ip_ref">名稱</label>
-            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+            <input id="ip_ref" class="mono" value="${esc(p.ref)}"></div>
           ${isCC ? `<div class="field"><label for="ip_ctrl">控制源</label>
             <select id="ip_ctrl">${
-              vs.length ? vs.map(q => `<option value="${q.name}"${q.name===p.ctrl?' selected':''}>${q.label}</option>`).join('')
+              vs.length ? vs.map(q => `<option value="${esc(q.name)}"${q.name===p.ctrl?' selected':''}>${esc(q.label)}</option>`).join('')
                         : '<option value="">（電路裡沒有電壓源或電流表）</option>'}</select></div>` : ''}
           <div class="field"><label for="ip_val">${T.unitName}</label>
-            <input id="ip_val" class="mono" value="${p.val}"></div>
+            <input id="ip_val" class="mono" value="${esc(p.val)}"></div>
           <p class="sub">${DEP_HINT[p.type]}</p>
           <div class="palette" style="margin-top:8px">
             <button class="btn" id="ip_rot">旋轉</button>
@@ -2695,7 +2742,7 @@ function inspect(){
         const open = p.val === 'off';
         box.innerHTML = `
           <div class="field"><label for="ip_ref">名稱</label>
-            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+            <input id="ip_ref" class="mono" value="${esc(p.ref)}"></div>
           <p class="sub">目前是<b>${open ? '斷開' : '閉合'}</b>。
              在電路圖上<b>連點兩下</b>也可以切換。<br>
              ${scope.on ? '示波器模式開著，切換之後會自動重跑。'
@@ -2723,7 +2770,7 @@ function inspect(){
         const d = DEF(p.type);
         box.innerHTML = `
           <div class="field"><label for="ip_ref">名稱</label>
-            <input id="ip_ref" class="mono" value="${p.ref}"></div>
+            <input id="ip_ref" class="mono" value="${esc(p.ref)}"></div>
           ${d.logic === 'in' ? `
             <p class="sub">目前是 <b>${String(p.val)==='1'?'1':'0'}</b>。
                在電路圖上<b>連點兩下</b>可以直接切換，真值表會跟著標到對應的那一列。</p>
@@ -2744,9 +2791,9 @@ function inspect(){
     const canOff = p.type === 'V' || p.type === 'I';
     box.innerHTML = `
       <div class="field"><label for="ip_ref">名稱</label>
-        <input id="ip_ref" class="mono" value="${p.ref}"></div>
+        <input id="ip_ref" class="mono" value="${esc(p.ref)}"></div>
       <div class="field"><label for="ip_val">數值</label>
-        <input id="ip_val" class="mono" value="${p.val}"></div>
+        <input id="ip_val" class="mono" value="${esc(p.val)}"></div>
       ${canOff ? `<label class="chk"><input type="checkbox" id="ip_off"${p.off?' checked':''}>
          暫時停用（重疊定理）</label>
          <p class="sub">${p.type === 'V'
@@ -2986,7 +3033,7 @@ function exTable(){ return isLogic() ? LOGIC_EX : EXAMPLES; }
 function fillExamples(){
     const tbl = exTable();
     $('exSel').innerHTML = `<option value="">範例電路…</option>` +
-        Object.keys(tbl).map(k => `<option value="${k}">${k}</option>`).join('');
+        Object.keys(tbl).map(k => `<option value="${esc(k)}">${esc(k)}</option>`).join('');
 }
 $('exSel').onchange = () => { if ($('exSel').value) loadExample($('exSel').value); };
 function loadExample(k){
@@ -3256,14 +3303,19 @@ const ERR_MAP = [
 ];
 const NOISE = /can't find the initialization file spinit/i;
 const explain = t => ERR_MAP.filter(e => e.re.test(t));
+/* ★ 跳脫做在這兩支**裡面**，不做在呼叫點。
+   全站有六十幾個呼叫點，其中好幾個夾著元件名稱（toNetlist() 的警告）
+   或匯入檔的檔名——一個一個改的話，下一次新增一個呼叫又會漏掉。
+   代價是這兩支從此不能傳 HTML 進來（現在一個呼叫點都沒有在傳，
+   tests/spicexss.mjs 會盯著）；真的要排版的訊息請另外寫一支。 */
 function show(kind, title, lines){
-    $('msg').innerHTML = `<div class="msg ${kind}"><b>${title}</b>${
-        lines && lines.length ? '<ul>'+lines.map(l=>`<li>${l}</li>`).join('')+'</ul>' : ''}</div>`;
+    $('msg').innerHTML = `<div class="msg ${kind}"><b>${esc(title)}</b>${
+        lines && lines.length ? '<ul>'+lines.map(l=>`<li>${esc(l)}</li>`).join('')+'</ul>' : ''}</div>`;
 }
 function showHints(hints, title){
-    $('msg').innerHTML = `<div class="msg err"><b>${title}</b>` + hints.map(h =>
-        `<b style="margin-top:8px">${h.t}</b><ul>${h.why.map(w=>`<li>${w}</li>`).join('')}</ul>` +
-        `<div style="color:var(--ink-2);margin-top:4px">👉 ${h.fix}</div>`).join('') + '</div>';
+    $('msg').innerHTML = `<div class="msg err"><b>${esc(title)}</b>` + hints.map(h =>
+        `<b style="margin-top:8px">${esc(h.t)}</b><ul>${h.why.map(w=>`<li>${esc(w)}</li>`).join('')}</ul>` +
+        `<div style="color:var(--ink-2);margin-top:4px">👉 ${esc(h.fix)}</div>`).join('') + '</div>';
 }
 
 /* ---------- FPGA 分頁：摘要、執行、真值表 ---------- */
@@ -4523,7 +4575,7 @@ async function refreshLoadEq(){
 function ansThevenin(){
     const ns = allNodeNames();
     if (ns.length < 2) return '';
-    const opt = sel => ns.map(n => `<option value="${n}"${n===sel?' selected':''}>${
+    const opt = sel => ns.map(n => `<option value="${esc(n)}"${n===sel?' selected':''}>${
         n === '0' ? '接地 (0)' : 'V(' + n + ')'}</option>`).join('');
     return `<h4>戴維寧／諾頓等效</h4>
       <div class="palette" style="gap:6px;align-items:center">
@@ -5104,7 +5156,7 @@ function fillSweepUI(){
     const keep = sel.value, keepOut = out.value;
     const parts = sch.parts.filter(p => p.ref && SWEEPABLE.includes(p.type));
     sel.innerHTML = parts.length
-        ? parts.map(p => `<option value="${p.ref}">${p.ref}（目前 ${p.val}）</option>`).join('')
+        ? parts.map(p => `<option value="${esc(p.ref)}">${esc(p.ref)}（目前 ${esc(p.val)}）</option>`).join('')
         : '<option value="">（電路裡沒有可以掃的元件）</option>';
     if (parts.some(p => p.ref === keep)) sel.value = keep;
 
@@ -5112,12 +5164,13 @@ function fillSweepUI(){
     sch.parts.forEach(p => { if (p.type === 'GND') return;
         pinsOf(p).forEach(([x,y]) => { const n = nd.nameOf(nd.key(x,y));
             if (n !== '0' && !seen.includes(n)) seen.push(n); }); });
-    const opts = seen.map(n => `<option value="v:${n}">V(${n})</option>`)
+    const opts = seen.map(n => `<option value="v:${esc(n)}">V(${esc(n)})</option>`)
         .concat(sch.parts.filter(p => p.ref && p.type !== 'GND')
-            .flatMap(p => [`<option value="p:${p.ref}">P(${p.ref}) 功率</option>`,
-                           `<option value="i:${p.ref}">I(${p.ref}) 電流</option>`]));
+            .flatMap(p => [`<option value="p:${esc(p.ref)}">P(${esc(p.ref)}) 功率</option>`,
+                           `<option value="i:${esc(p.ref)}">I(${esc(p.ref)}) 電流</option>`]));
     out.innerHTML = opts.join('');
-    if (opts.some(o => o.includes(`value="${keepOut}"`))) out.value = keepOut;
+    /* opts 裡的值是跳脫過的，比對字串要跳脫成同一個樣子，不然選擇記不住。 */
+    if (opts.some(o => o.includes(`value="${esc(keepOut)}"`))) out.value = keepOut;
 }
 /** 從一次 .op 的結果取出要看的那個量。暫時借用 simData，用完立刻還回去。 */
 function sweepPick(idx, kind, target){
@@ -5651,16 +5704,23 @@ const packSch = () => [
     }),
     sch.wires.map(w => [w.x1, w.y1, w.x2, w.y2]),
 ];
+/* ★ 這支是外面的字進來的那扇門：分享連結 ?c= 跟匯入的 .json 都走這裡。
+   舊格式那一條本來是「原樣放行」的，而舊格式的分享連結一樣造得出來——
+   兩條路都要過 cleanPart，只堵一條等於沒堵。 */
 function unpackSch(o){
-    if (!Array.isArray(o)) return o || { parts:[], wires:[] };   // 舊格式：原樣就是 sch
+    if (!Array.isArray(o)){                                      // 舊格式：原樣就是 sch
+        const s = o || { parts:[], wires:[] };
+        (s.parts||[]).forEach(cleanPart);
+        return s;
+    }
     const [ps, ws] = o;
     return {
         parts: (ps||[]).map(a => {
             const p = { type:a[0], x:a[1], y:a[2], rot:a[3]|0, ref:a[4]||'', val:a[5]||'' };
             if (a.length > 6){ if (a[6]) p.off = true; if (a[7]) p.ctrl = a[7]; }
-            return p;
+            return cleanPart(p);
         }),
-        wires: (ws||[]).map(a => ({ x1:a[0], y1:a[1], x2:a[2], y2:a[3] })),
+        wires: (ws||[]).map(a => ({ x1:+a[0]||0, y1:+a[1]||0, x2:+a[2]||0, y2:+a[3]||0 })),
     };
 }
 const packObj = () => ({ s:packSch(), a:$('anaSel').value, v:anaVals, m:tab, r:ROT_N });
@@ -5673,7 +5733,7 @@ function unpack(str){
     upgradeRot(o);
     sch = o.s || {parts:[],wires:[]};        // 舊存檔裡的 probes 欄位直接忽略
     seq = (sch.parts.length||0)+1; sel = [];
-    $('anaSel').value = o.a || 'tran'; anaVals = o.v || {}; buildAna();
+    $('anaSel').value = o.a || 'tran'; anaVals = cleanVals(o.v); buildAna();
     /* 分享連結帶著它是哪個分頁的電路。舊連結的 m 是 'ideal'／'real'，
        剛好跟分頁名相同，所以不必特別轉換；認不得的一律當理想。 */
     if (TABS.includes(o.m) && o.m !== tab){ tab = o.m; realMode = tab === 'real';
@@ -5744,7 +5804,7 @@ $('impFile').onchange = async e => {
         if (!(o.s.parts||[]).length) throw new Error('這個檔案裡一個元件都沒有');
         pushUndo();
         sch = o.s; seq = sch.parts.length + 1; sel = [];
-        if (o.a){ $('anaSel').value = o.a; anaVals = o.v || {}; buildAna(); }
+        if (o.a){ $('anaSel').value = o.a; anaVals = cleanVals(o.v); buildAna(); }
         inspect(); refreshNet(); drawSheet(); fit(); autosave.flush();
         show('ok', `已匯入 ${f.name}`,
              [`${sch.parts.length} 個元件、${sch.wires.length} 段線，放在${TAB_LABEL[tab]}分頁。`,

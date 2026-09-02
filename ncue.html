@@ -3545,6 +3545,18 @@
                     <input type="text" id="editScheduleCourse" maxlength="20" placeholder="課程名稱（打字可搜尋）" autocomplete="off" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-lg text-center" aria-label="課程名稱（打字可搜尋）">
                     <div id="editScheduleCourseResults" class="hidden absolute z-10 left-0 right-0 mt-1 max-h-44 overflow-y-auto bg-white rounded-2xl shadow-xl border-2 border-teal-100 text-left"></div>
                 </div>
+                <!-- 彰師電子系的課程庫開關（2026-09-02）。
+                     ★ 預設關閉：這個站不是只有彰師電子的人在用。別人打「微」
+                       就跳出一排電子系的「微積分（王）」，看起來像這個站
+                       預設你是電子系的——而他其實只是想自己打課名。
+                       彰師電子那一份（ncue.html）預設開啟，那一側的使用者就是他們。 -->
+                <label class="flex items-center gap-3 px-1 cursor-pointer text-left">
+                    <input type="checkbox" id="eeCourseSearchOpt" class="w-5 h-5 rounded accent-teal-400 shrink-0">
+                    <span class="text-sm font-bold text-slate-600">
+                        搜尋彰師電子系的課程
+                        <span class="block text-xs font-medium text-slate-400 mt-0.5">打字時從系上的課程庫帶入課名與老師；不開就是自己打</span>
+                    </span>
+                </label>
                 <div class="grid grid-cols-2 gap-3">
                     <input type="text" id="editScheduleBuilding" maxlength="20" placeholder="大樓" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500" aria-label="上課大樓">
                     <input type="text" id="editScheduleRoom" maxlength="20" placeholder="教室" class="w-full px-4 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-500" aria-label="教室">
@@ -4795,6 +4807,22 @@
             userSlotTimes = Array.isArray(slots) ? slots : [];
             timeSlots = buildTimeSlots(userSlotTimes);
         }
+        /* 編輯課表時，課名要不要去搜尋彰師電子系的課程庫。
+           ★ 為什麼要有：課程庫是彰師電子那一側的教材，但課表是每個人都在用的。
+             不是電子系的人打字時跳出一排電子系的課，是雜訊也是誤導。
+           ★ 存在課表那一份文件裡（users/{uid}/settings/schedule），
+             所以 savePrivateSchedule 那個 setDoc **一定要把它一起寫回去**——
+             漏掉的話每存一次課表就把開關關掉一次，而且要重新整理才看得出來。
+             `slots` 踩過一模一樣的坑，就在下面那支函式的註解裡。
+           ★ 宣告在這裡而不是函式旁邊：openScheduleCellModal 與
+             renderScheduleCourseResults 都會碰到它（暫時性死區已踩六次）。 */
+        let eeCourseSearch = PRODUCT ==='ncue';
+        function applyEeCourseOpt(v) {
+            /* undefined／null＝這個帳號還沒表示過意見，用產品的預設值。
+               ★ 不能寫成 `v || 預設`：那樣的話「存過的 false」每次讀回來
+                 都會被當成沒設定，在彰師電子那一側等於關不掉。 */
+            eeCourseSearch = (v === undefined || v === null) ? (PRODUCT ==='ncue') : v === true;
+        }
 
         const reviewQuestions = [
             { id:'courseDiff', title:"Q1. 這門課的難度如何？" },
@@ -5921,6 +5949,25 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-02',
+                title: '別人傳來的電路分享連結，不會再夾帶東西了',
+                items: [
+                    ['收到電路分享連結可以放心打開了', '以前有一種做得到的壞事：把電路裡某顆元件的**名字**改成一段程式碼，再把連結傳給你。你打開連結、點一下那顆元件看它的參數（收到連結之後最自然的動作），那段程式就會用**你的身分**跑起來，你的課表、記帳、持股、筆記它全都看得到。匯入電路檔也一樣，連檔名都算數。現在不管是連結還是檔案，帶進來的字一律只當成字，元件名裡放不進任何會動的東西。'],
+                    ['中文的元件名字照樣可以用', '「開關1」「電阻二」這種名字都留著，SPICE 的數值寫法也全部照舊。擋掉的只有拿來寫程式的那幾個符號。'],
+                    ['以前發出去的分享連結還是打得開', '如果那條連結裡的元件名剛好有奇怪的符號，打開之後那幾個符號會不見——電路本身、接法、數值都不受影響。'],
+                    ['更新股價現在要登入', '報價那項服務是要付錢的，而它以前誰都能打，任何人連打就能把額度用光——用光的樣子是「股價有時候查不到」，什麼訊息都沒有。現在只有登入的人叫得動，而且每個帳號一天有次數上限（正常用完全用不到）。理財頁本來就要登入才有東西，所以你不會感覺到差別。'],
+                ]
+            },
+            {
+                date: '2026-09-02',
+                title: '編輯課表時，要不要出現電子系的課由你決定',
+                items: [
+                    ['編輯課表的視窗裡多了一顆「搜尋彰師電子系的課程」', '以前在課名那格打字，會直接跳出一排彰師電子系的課讓你選。對電子系的同學很方便，對其他人來說是雜訊，還會讓人以為這個網站預設你是電子系的。現在預設是關的，需要的人自己打開。'],
+                    ['打開之後跟以前一模一樣', '打字就從系上的課程資料裡找，選一門會把課名與老師一起帶進來。撥一下就存，換一台裝置登入還是記得。'],
+                    ['從彰師電子小黑貓那一邊進來的話，預設是開的', '那一側本來就是給電子系的同學用的。當然一樣可以自己關掉。'],
+                ]
+            },
             {
                 date: '2026-09-01',
                 title: '按下「開始今日測驗」不會再卡住了，整個站也順一點',
@@ -10267,12 +10314,28 @@
 
             const btn = $('refreshPricesBtn'); btn.disabled = true;
             const orig = btn.innerHTML; btn.textContent ='更新中…';
-            let ok = 0, fail = 0;
+            /* ★ 帶 ID Token。報價那支 Worker 2026-09-02 起要登入——
+               它在公開網址上，而一次請求最多往上游查 25 次，不擋的話
+               任何人拿指令連打就能把額度燒光，症狀是「股價有時候查不到」，
+               沒有任何錯誤訊息。理財頁本來就只有登入的人用得到
+               （持股存在 PU('holdings')），所以這一層不會擋到任何人。
+               ★ getIdToken() 自己處理過期換發，不要自己快取那串字。 */
+            const tok = auth.currentUser ? await auth.currentUser.getIdToken() :'';
+            let ok = 0, fail = 0, denied = '';
             for (const [type, list] of Object.entries(groups)) {
                 if (!list.length) continue;
                 try {
                     const syms = [...new Set(list.map(h => h.symbol.trim()))].join(',');
-                    const r = await fetch(`${QUOTE_API}/?type=${type}&symbols=${encodeURIComponent(syms)}`);
+                    const r = await fetch(`${QUOTE_API}/?type=${type}&symbols=${encodeURIComponent(syms)}`,
+                                         { headers: {'Authorization':`Bearer ${tok}` } });
+                    /* ★ 401 與 429 要分開講，跟 AI 補全同一條理由：兩個都是
+                       「按了沒反應」，但使用者要做的事完全不同——一個是去登入，
+                       一個是明天再來。混成一句「更新失敗」的話，他只會一直重按。 */
+                    if (r.status === 401 || r.status === 429) {
+                        denied = r.status === 401 ?'要先登入才能更新現價'
+                                                  :'今天的更新次數用完了，明天再試';
+                        fail += list.length; continue;
+                    }
                     const d = await r.json();
                     if (!d || !d.ok) throw new Error(d && d.error ||'bad response');
                     for (const h of list) {
@@ -10287,7 +10350,8 @@
                 } catch (e) { console.error(type, e); fail += list.length; }
             }
             btn.disabled = false; btn.innerHTML = orig; icons();
-            showToast(ok ? `已更新 ${ok} 檔現價${fail ? `，${fail} 檔失敗` :''}` :"更新失敗，請確認代號與 Worker 設定");
+            showToast(ok ? `已更新 ${ok} 檔現價${fail ? `，${fail} 檔失敗` :''}`
+                         : denied ||"更新失敗，請確認代號與 Worker 設定");
         }
 
         async function deleteFinanceDoc(col, id) {
@@ -14208,7 +14272,9 @@
         }
 
         function openScheduleCellModal(cellId) {
-            ensureLoaded('courses');
+            /* 開關關著就不必去載課程庫——那是一整個集合的讀取，
+               載了也沒有人看得到。 */
+            if (eeCourseSearch) ensureLoaded('courses');
             const data = userSchedule[cellId] || { courseName:'', location:'', courseId:'' };
             // 依剩餘節次動態產生「連上幾節」選項（不跨中午：1~4、5~9 各自為界）
             const day = cellId.split('-')[0];
@@ -14217,6 +14283,7 @@
             $('editScheduleDuration').innerHTML = Array.from({ length: maxDur }, (_, i) =>
                 `<option value="${i + 1}">連上 ${i + 1} 節</option>`).join('');
             $('editScheduleCourseResults').classList.add('hidden');
+            $('eeCourseSearchOpt').checked = eeCourseSearch;
             // 自動偵測既有連堂節數，開啟時整段一起編輯
             const existingSpan = isNaN(p) ? 1 : Math.min(scheduleSpanLength(day, p), maxDur);
             /* 舊資料沒有 building／room，用 splitLocation 拆一次給它填。 */
@@ -14231,6 +14298,8 @@
         // 課名搜尋課程庫：即時過濾結果清單
         function renderScheduleCourseResults(q) {
             const box = $('editScheduleCourseResults');
+            /* 開關關著＝這個人不是電子系的，課名一律照他打的存。 */
+            if (!eeCourseSearch) { box.innerHTML =''; box.classList.add('hidden'); return; }
             const ql = (q ||'').trim().toLowerCase();
             /* ★ 沒打字就不列課：這個站不是只有彰師電子的人在用，
                一聚焦就吐出整份電子系課程庫，對其他人來說是雜訊，
@@ -14561,6 +14630,7 @@
                 if (snap.exists()) {
                     scheduleLoaded = true;
                     applySlotTimes(snap.data().slots);   // 節次時間跟課表同一份文件
+                    applyEeCourseOpt(snap.data().eeCourses);   // 課程庫開關也在同一份
                     return snap.data().cells || {};
                 }
 
@@ -14596,7 +14666,8 @@
             /* ★ slots 一定要一起寫：這是 setDoc 不是 update，
                漏掉它等於每存一次課表就把使用者改過的節次時間清成預設，
                而且畫面上要等下次重新整理才看得出來。 */
-            await setDoc(doc(db, p,'schedule'), { cells, slots: userSlotTimes, updatedAt: Date.now() });
+            await setDoc(doc(db, p,'schedule'),
+                         { cells, slots: userSlotTimes, eeCourses: eeCourseSearch, updatedAt: Date.now() });
         }
 
         /* 這一層只做一件事：不管走哪條路（成功、讀不到資料、丟例外），
@@ -15375,6 +15446,17 @@
             bind('resetSlotTimes', () => { $('slotTimeRows').innerHTML = slotRowsHTML(buildTimeSlots(null)); showToast('已填回預設時間，記得按儲存'); });
             bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleBuilding:'', editScheduleRoom:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
             // 課名可搜尋課程庫：聚焦/輸入時顯示過濾結果，手動打字則解除連動
+            /* 開關一撥就存，不等按「儲存課表」——使用者可能只是想關掉那排結果，
+               關掉之後直接按取消，那樣的話下次打開又是開著的。
+               ★ 存不進去（沒登入、或這台裝置沒讀到雲端課表）不擋畫面：
+                 這一格只是偏好，當下就照新的設定跑，下次再存。 */
+            $('eeCourseSearchOpt').addEventListener('change', async (e) => {
+                eeCourseSearch = e.target.checked;
+                if (eeCourseSearch) ensureLoaded('courses');
+                renderScheduleCourseResults(getVal('editScheduleCourse'));
+                try { await savePrivateSchedule(userSchedule); }
+                catch (err) { console.warn('課程庫開關沒存進雲端（畫面上照新的設定跑）', err); }
+            });
             $('editScheduleCourse').addEventListener('focus', (e) => renderScheduleCourseResults(e.target.value));
             $('editScheduleCourse').addEventListener('input', (e) => { $('editScheduleCourseId').value =''; renderScheduleCourseResults(e.target.value); });
 
