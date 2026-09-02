@@ -24,6 +24,15 @@
     base-uri 'self';
     object-src 'none';
     form-action 'self'">
+<!-- ★ 防點擊劫持。理由與完整說明在 publicnew.html 同一段：
+     正式站在 GitHub Pages 設不了 HTTP 標頭，而 frame-ancestors 放在
+     <meta> 裡規格上無效，所以只剩這一段 JS。三頁各有一份。 -->
+<script>
+    if (top !== self) {
+        document.documentElement.style.display = 'none';
+        try { top.location = self.location; } catch (e) {}
+    }
+</script>
 
 <!-- ★ 三支原本是**跨來源**資源（cdnjs），現在搬進 vendor/ 自己 host。
      搬的理由是資安：沒有 SRI 的第三方 script 等於「上游哪天被換掉，
