@@ -29,10 +29,17 @@
            firebaseapp.com      signInWithRedirect 用的隱藏 iframe
            fonts.*              Noto Sans/Serif TC（CSS 裡的 @import）
            dictionaryapi.dev    查字典的英英解釋（單字庫那一頁）
-           workers.dev          報價、推播與 AI 的 Worker -->
+           workers.dev          報價、推播與 AI 的 Worker
+
+           ★ script-src 多了 'wasm-unsafe-eval'：站內閱覽 PDF 用的 pdf.js，
+             掃描檔裡的 JBIG2／JPEG2000 影像是交給 WebAssembly 解的。
+             少了它**只有那一類 PDF 會壞**，而且壞法是整頁空白、
+             console 裡一句 CSP 阻擋——不會有人把這兩件事連起來。
+             刻意用 'wasm-unsafe-eval' 而不是 'unsafe-eval'：
+             前者只放行 WebAssembly，後者連 eval() 都一起開了。 -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://www.gstatic.com https://apis.google.com;
+        script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.tailwindcss.com https://www.gstatic.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' data: https://fonts.gstatic.com;
         img-src 'self' data: blob:;
@@ -3536,7 +3543,7 @@
                     <div class="space-y-3">
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-slate-400 text-white border border-slate-500 shrink-0 mt-0.5">見習生</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">註冊就是見習生。課表、計劃、提醒、記帳、單字冊、自己的測驗都能用，再加上「資料」分頁的<span class="font-bold text-slate-800">見習生資料</span>。</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">註冊就是見習生。課表、計劃、提醒、記帳、單字冊、自己的測驗都能用，再加上「資料」分頁的<span class="font-bold text-slate-800">見習生資料</span>（PDF 可以在站內看，下載要戰士以上）。</p>
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white border border-rose-600 shrink-0 mt-0.5">戰士</span>
@@ -3568,6 +3575,24 @@
     </main>
 
     <!-- ======================== Modal 區塊 ======================== -->
+    <!-- PDF 站內閱覽
+         ★ 這裡刻意不用 <iframe> 也不用 <embed>：那兩種是交給瀏覽器內建的
+         PDF 檢視器畫，而它自己的工具列上就有下載與列印，
+         「見習生只能看不能下載」會直接被繞過。所以是自己畫到 canvas。
+         （站上的 CSP 本來就有 object-src 'none'，<embed> 那條路本來也走不通。） -->
+    <div id="pdfViewModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2rem] w-full max-w-4xl h-[90vh] flex flex-col shadow-2xl border-t-8 border-emerald-500 overflow-hidden">
+            <div class="flex items-center gap-3 px-5 py-4 border-b border-slate-100 shrink-0">
+                <i data-lucide="file-text" class="w-5 h-5 text-emerald-500 shrink-0"></i>
+                <h3 id="pdfViewTitle" class="font-black text-slate-900 truncate flex-1">資料</h3>
+                <span id="pdfViewStatus" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
+                <button id="pdfViewDownload" data-action="download-material-file" class="hidden px-4 py-2 bg-slate-900 text-white rounded-full font-bold text-xs hover:bg-slate-800 transition-colors shrink-0">下載</button>
+                <button data-action="close-pdf-view" aria-label="關閉" class="p-2 text-slate-300 hover:text-slate-600 rounded-xl shrink-0"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            </div>
+            <div id="pdfViewPages" class="flex-1 overflow-y-auto bg-slate-100 p-4 space-y-4"></div>
+        </div>
+    </div>
+
     <!-- 編輯課表 -->
     <div id="scheduleModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-sm p-6 md:p-8 shadow-2xl border-t-8 border-teal-400 text-center">
@@ -4903,6 +4928,9 @@
            ★ 宣告在這裡而不是表單旁邊：它會被 renderMaterials 之外的
            事件委派碰到，而這個檔案在暫時性死區上已經踩過六次。 */
         let materialSourceIsFile = false;
+        /* 站內閱覽中的那一份（只有戰士以上才會被填進去，見 openCabinetFile）。
+           ★ 跟上面同一個理由宣告在這裡：事件委派會碰到它。 */
+        let pdfViewFile = null;
 
         const state = {
             courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
@@ -6004,7 +6032,9 @@
                 title: '資料分頁多了見習生區，而且資料可以直接是一份 PDF 了',
                 items: [
                     ['註冊就看得到東西了', '以前打開「資料」分頁，兩區都是鎖頭——一個剛註冊的人進去，那一頁的作用只剩下告訴他「你還不夠格」。現在最上面多了一區見習生資料，註冊就看得到。原本的戰士資料與族長資料完全沒變。'],
-                    ['資料不再只能是一條連結', '以前每一筆資料都是一條連往雲端硬碟的連結，檔案在別人的硬碟上，連結一失效就沒了。現在可以直接把 PDF 放進小黑貓自己的檔案櫃，卡片上那顆按鈕會直接把它打開。'],
+                    ['資料不再只能是一條連結', '以前每一筆資料都是一條連往雲端硬碟的連結，檔案在別人的硬碟上，連結一失效就沒了。現在可以直接把 PDF 放進小黑貓自己的檔案櫃。'],
+                    ['PDF 直接在站內翻，不用跳出去', '按下去就在小黑貓裡面一頁一頁看，手機也一樣，不會被彈出視窗擋掉，也不會把你丟到另一個分頁。第一次開會多等一下下（要先把閱讀器抓下來），之後就很快。'],
+                    ['見習生可以看，戰士以上可以下載', '見習生資料裡的 PDF，見習生在站內看得到，但沒有下載按鈕；戰士以上多一顆「下載」，可以把檔案存回自己電腦。'],
                     ['放進檔案櫃的檔案，階級是真的擋得住的', '連結那一種，只要有人把網址轉出去，誰都打得開。放進檔案櫃的不一樣：每一次開啟都會先確認你是誰、你是第幾階，階級不到就是拿不到那份檔案——不是介面上把它藏起來而已。'],
                     ['一份檔案最大 25 MB', '超過的話還是可以用貼連結的老方法。卡片上會寫出檔案多大，點下去之前就知道。'],
                     ['你原本看到的資料一筆都沒有變', '以前用連結存的照樣是連結，開法跟以前一模一樣。'],
@@ -9602,7 +9632,7 @@
             const isFile = !!m.fileId;
             const size = isFile && m.fileSize ? ` · ${(m.fileSize / 1048576).toFixed(1)} MB` :'';
             const opener = isFile
-                ? `<button data-action="open-material-file" data-id="${escapeHTML(m.fileId)}" data-name="${escapeHTML(m.fileName || m.title)}" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">開啟 PDF</button>`
+                ? `<button data-action="open-material-file" data-id="${escapeHTML(m.fileId)}" data-name="${escapeHTML(m.fileName || m.title)}" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">${currentUserLevel >= 2 ?'開啟 PDF' :'站內閱覽'}</button>`
                 : `<a href="${escapeHTML(m.url ||'')}" target="_blank" rel="noopener noreferrer" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>`;
             return `
                 <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center hover:border-emerald-200 transition-colors">
@@ -9651,33 +9681,118 @@
               :"上傳失敗…" };
         }
 
+        /* pdf.js 是**延後載入**的：程式 1.7 MB，加上四包資料檔共五百多萬位元組，
+           而絕大多數人不會開 PDF。
+           ★ 刻意不進 sw.js 的 CORE，跟 KaTeX 同一個判斷（見 sw.js 那段註解）：
+           它走「同源靜態資源快取優先」那條路，誰用過一次就留在誰的快取裡。 */
+        let pdfjsLib = null;
+        async function loadPdfjs() {
+            if (pdfjsLib) return pdfjsLib;
+            const m = await import('./vendor/pdfjs/pdf.min.mjs');
+            m.GlobalWorkerOptions.workerSrc = './vendor/pdfjs/pdf.worker.min.mjs';
+            pdfjsLib = m;
+            return m;
+        }
+
+        /* 為什麼是自己畫到 canvas，而不是丟給瀏覽器內建的 PDF 檢視器：
+           內建檢視器**自己的工具列上就有下載與列印**，那就直接繞過
+           「見習生只能看不能下載」了。`#toolbar=0` 只有 Chrome 系吃，
+           Firefox 與 Safari 不理它——那種「在我的電腦上有效」的作法
+           最後會變成「某些人可以下載而我們不知道是誰」。 */
+        async function renderPdfInto(box, data, status) {
+            const pdfjs = await loadPdfjs();
+            const doc = await pdfjs.getDocument({
+                data,
+                /* ★ 這四包資料檔少了任何一包，症狀都是「某些 PDF 缺字或整頁空白」，
+                   而且不會有錯誤訊息：
+                   cMapUrl 沒有內嵌編碼的中文字型對照表／
+                   standardFontDataUrl 沒有內嵌的那十四種標準字型／
+                   wasmUrl 掃描檔的 JBIG2 與 JPEG2000 解碼器／iccUrl 色彩描述檔。
+                   考古題很多是掃描的，所以 wasm 那一包對這個站特別重要。 */
+                cMapUrl:'./vendor/pdfjs/cmaps/',
+                cMapPacked: true,
+                standardFontDataUrl:'./vendor/pdfjs/standard_fonts/',
+                wasmUrl:'./vendor/pdfjs/wasm/',
+                iccUrl:'./vendor/pdfjs/iccs/',
+            }).promise;
+
+            box.innerHTML ='';
+            const width = Math.max(280, Math.min(box.clientWidth - 32, 1000));
+            for (let n = 1; n <= doc.numPages; n++) {
+                const page = await doc.getPage(n);
+                const base = page.getViewport({ scale: 1 });
+                /* ★ 手機的 devicePixelRatio 是 2～3，照 CSS 像素畫會糊成一片。
+                   但也不能照單全收：3 倍的點陣圖是 2 倍的 2.25 倍記憶體，
+                   一份三十頁的講義就足以讓手機把整個分頁殺掉。2 已經夠清楚。 */
+                const dpr = Math.min(window.devicePixelRatio || 1, 2);
+                const vp = page.getViewport({ scale: (width / base.width) * dpr });
+                const cv = document.createElement('canvas');
+                cv.width = Math.floor(vp.width);
+                cv.height = Math.floor(vp.height);
+                cv.className ='block mx-auto bg-white rounded-xl shadow-sm w-full h-auto';
+                box.appendChild(cv);
+                await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+                if (status) status.textContent = `${n} / ${doc.numPages} 頁`;
+            }
+        }
+
         async function openCabinetFile(fileId, name) {
-            /* ★ window.open 必須在使用者按下去的那一瞬間就開，不能等 fetch 回來。
-               await 之後才開的話，瀏覽器已經不認為這是使用者的動作，
-               會當成廣告彈窗擋掉——而症狀是「按了完全沒反應」。 */
-            const w = window.open('','_blank');
+            const box = $('pdfViewPages'), status = $('pdfViewStatus');
+            if (!box) return;
+            $('pdfViewTitle').textContent = name ||'資料';
+            box.innerHTML ='';
+            status.textContent ="載入中…";
+            /* ★ 下載鈕只給戰士以上；見習生看得到這一份，但沒有存檔的入口。
+               這是**刻意的減速丘**——畫得出來就表示位元組已經在他的瀏覽器裡，
+               擋不住真的想存的人。真正是鎖的是 Worker 那一層的階級判斷。 */
+            pdfViewFile = currentUserLevel >= 2 ? { fileId, name } : null;
+            $('pdfViewDownload').classList.toggle('hidden', !pdfViewFile);
+            openModal('pdfViewModal');
             try {
                 const h = await workerAuthHeader();
-                if (!h) { if (w) w.close(); return showToast("請先登入"); }
+                if (!h) { closePdfView(); return showToast("請先登入"); }
                 const r = await fetch(`${FILES_API}/${encodeURIComponent(fileId)}`, { headers: h });
                 if (!r.ok) {
-                    if (w) w.close();
+                    closePdfView();
                     return showToast(r.status === 403 ?"你的階級看不到這一份"
                                    : r.status === 404 ?"這個檔案已經不在了"
                                    :"開啟失敗…");
                 }
-                const blobUrl = URL.createObjectURL(await r.blob());
-                if (w) w.location = blobUrl;
-                else {
-                    // 彈窗被擋掉時的退路：直接存下來，至少東西拿得到
-                    const a = document.createElement('a');
-                    a.href = blobUrl; a.download = name ||'資料.pdf';
-                    document.body.appendChild(a); a.click(); a.remove();
-                }
-                /* ★ 一分鐘後才回收。立刻 revokeObjectURL 的話新分頁還沒讀完就斷線，
-                   症狀是開出來一片空白，而且沒有任何錯誤訊息。 */
-                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
-            } catch { if (w) w.close(); showToast("開啟失敗…"); }
+                await renderPdfInto(box, new Uint8Array(await r.arrayBuffer()), status);
+            } catch (e) {
+                /* ★ 畫不出來要講出來。沉默地留一片空白的話，使用者會以為是
+                   自己的網路慢，一直等下去。 */
+                console.warn('PDF 站內閱覽失敗', e);
+                status.textContent ='';
+                box.innerHTML = `<div class="text-center py-16 px-6 text-slate-400 font-medium leading-relaxed">這份 PDF 站內顯示不出來。${currentUserLevel >= 2 ?'可以按右上角的下載，用電腦開。' :'請找管理員。'}</div>`;
+            }
+        }
+
+        function closePdfView() {
+            closeModal('pdfViewModal');
+            /* ★ 一定要把 canvas 清掉。留著的話每開一份 PDF 就多幾十張
+               全解析度的點陣圖掛在記憶體裡，手機開個三四份就會被系統把分頁殺掉——
+               而症狀是「這個網站有時候會自己重新整理」，最難查的那一種。 */
+            $('pdfViewPages').innerHTML ='';
+            $('pdfViewStatus').textContent ='';
+            pdfViewFile = null;
+        }
+
+        async function downloadCabinetFile() {
+            /* pdfViewFile 只有戰士以上會被填進去，所以這裡是空的就等於沒有權限。
+               ★ 但前端這一層只是不給入口，真正擋下來的是 Worker 的 ?dl=1。 */
+            if (!pdfViewFile) return showToast("你的階級只能在站內看");
+            try {
+                const h = await workerAuthHeader();
+                if (!h) return showToast("請先登入");
+                const r = await fetch(`${FILES_API}/${encodeURIComponent(pdfViewFile.fileId)}?dl=1`, { headers: h });
+                if (!r.ok) return showToast(r.status === 403 ?"你的階級只能在站內看" :"下載失敗…");
+                const u = URL.createObjectURL(await r.blob());
+                const a = document.createElement('a');
+                a.href = u; a.download = pdfViewFile.name ||'資料.pdf';
+                document.body.appendChild(a); a.click(); a.remove();
+                setTimeout(() => URL.revokeObjectURL(u), 60000);
+            } catch { showToast("下載失敗…"); }
         }
 
         async function deleteCabinetFile(fileId) {
@@ -15139,6 +15254,8 @@
         const clickActions = {
 'delete':          (t) => confirmDeleteUI(t.dataset.type, t.dataset.id),
 'open-material-file': (t) => openCabinetFile(t.dataset.id, t.dataset.name),
+'close-pdf-view':  () => closePdfView(),
+'download-material-file': () => downloadCabinetFile(),
 'material-src':    (t) => setMaterialSource(t.dataset.src ==='file'),
 'toggle-course':   (t, e) => { if (!['SELECT','OPTION'].includes(e.target.tagName)) openCourseDetails(t.dataset.id); },
 'open-ss-course':  (t) => openSelfStudyDetails(t.dataset.id),
