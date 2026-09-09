@@ -3078,6 +3078,12 @@
                 <span id="dataCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
             </div>
             <div class="space-y-6" id="materialsSection">
+                <div class="bg-slate-50/50 p-4 rounded-3xl border border-slate-200">
+                    <h4 class="text-sm font-black text-slate-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                        <i data-lucide="paw-print" class="w-4 h-4"></i> 見習生資料
+                    </h4>
+                    <div id="noviceMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                </div>
                 <div class="bg-rose-50/50 p-4 rounded-3xl border border-rose-100">
                     <h4 class="text-sm font-black text-rose-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
                         <i data-lucide="sword" class="w-4 h-4"></i> 戰士資料
@@ -3225,10 +3231,21 @@
                                     <option value="" disabled selected>選擇關聯課程...</option>
                                 </select>
                                 <select id="materialLevelSelect" aria-label="資料的公開範圍" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
+                                    <option value="1">🐾 見習生資料 (註冊就看得到)</option>
                                     <option value="2" selected>🛡️ 戰士資料 (戰士以上可見)</option>
                                     <option value="3">👑 族長資料 (族長以上可見)</option>
                                 </select>
+                                <!-- 兩種來源：貼一條連結，或把 PDF 直接傳進檔案櫃。
+                                     ★ 檔案櫃那一種才擋得住階級——連結是誰拿到誰打得開。 -->
+                                <div class="flex gap-2">
+                                    <button type="button" id="matSrcLinkBtn" data-action="material-src" data-src="link" aria-pressed="true" class="flex-1 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs">🔗 貼連結</button>
+                                    <button type="button" id="matSrcFileBtn" data-action="material-src" data-src="file" aria-pressed="false" class="flex-1 py-2 bg-white text-slate-500 rounded-xl font-bold text-xs">📄 上傳 PDF</button>
+                                </div>
                                 <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="雲端硬碟共用連結">
+                                <div id="matFileBox" class="hidden">
+                                    <input type="file" id="matFileInput" accept="application/pdf,.pdf" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="選擇要上傳的 PDF">
+                                    <p class="text-[11px] font-bold text-white/80 mt-2 leading-relaxed">單檔上限 25 MB，全部加起來 1 GB。檔案存在自己的檔案櫃，每次下載都會先驗階級。</p>
+                                </div>
                                 <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium" aria-label="檔案名稱 (如: 期中考考古)">
                                 <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors">確認存檔</button>
                             </div>
@@ -3519,7 +3536,7 @@
                     <div class="space-y-3">
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-slate-400 text-white border border-slate-500 shrink-0 mt-0.5">見習生</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">註冊就是見習生。課表、計劃、提醒、記帳、單字冊、自己的測驗都能用。</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">註冊就是見習生。課表、計劃、提醒、記帳、單字冊、自己的測驗都能用，再加上「資料」分頁的<span class="font-bold text-slate-800">見習生資料</span>。</p>
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white border border-rose-600 shrink-0 mt-0.5">戰士</span>
@@ -4386,14 +4403,25 @@
             messagingSenderId:"1012329411307",
             appId:"1:1012329411307:web:63b87debbbc3e4778044ae"
         };
+        /* 這支 Worker 同時是報價代理、推播、AI 與「檔案櫃」。
+           ★ 網址只寫在這一個地方。理財那一頁原本自己存了一份，
+           換網域時一定會漏掉另一份，而漏掉的症狀是那一頁靜靜不動、不報錯。 */
+        const WORKER_BASE ='https://blackcat-quote.cctsai03.workers.dev';
+        const FILES_API = WORKER_BASE +'/files';
+        // Workers KV 單筆值的硬上限，前端先擋一次才不會傳完才被拒
+        const MATERIAL_FILE_MAX = 25 * 1024 * 1024;
+
         const appId ="eeblackcat-c605d";
         const P = (name) => `artifacts/${appId}/public/data/${name}`;
         // 個人私密資料（理財）：僅本人可讀寫
         const PU = (name) => auth.currentUser ? `artifacts/${appId}/users/${auth.currentUser.uid}/${name}` : null;
         const PATHS = {
             courses: P('courses'),     reviews: P('reviews'),
-            // 🔒 分級教材拆成兩個集合，讓 Firestore 規則能真正擋住讀取
+            // 🔒 分級教材拆成三個集合，讓 Firestore 規則能真正擋住讀取
             // （放在同一集合用 requiredRole 欄位過濾，只是前端障眼法，任何人都能整包撈走）
+            // ★ materialsNovice 是後來補的：見習生（註冊就有的最低階）進資料分頁
+            //   兩區都是鎖頭，等於有一整個分頁專門告訴他「你還不夠格」。
+            matNovice: P('materialsNovice'),
             matWarrior: P('materialsWarrior'), matLeader: P('materialsLeader'),
             kahoots: P('kahoots'),     users: P('users'),
             ssCourses: P('selfStudyCourses'), ssUnits: P('selfStudyUnits'),
@@ -4871,8 +4899,13 @@
         /* ==========================================================
          * 2. 應用程式狀態
          * ========================================================== */
+        /* 上傳資料的表單有兩種來源：貼連結，或直接傳一份 PDF 進檔案櫃。
+           ★ 宣告在這裡而不是表單旁邊：它會被 renderMaterials 之外的
+           事件委派碰到，而這個檔案在暫時性死區上已經踩過六次。 */
+        let materialSourceIsFile = false;
+
         const state = {
-            courses: [], reviews: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
+            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [],
             /* 內建單字庫（7000 單字 3,461 ＋多益 6,925 ＋托福 210，共 10,596 字）：
@@ -5966,6 +5999,17 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-09',
+                title: '資料分頁多了見習生區，而且資料可以直接是一份 PDF 了',
+                items: [
+                    ['註冊就看得到東西了', '以前打開「資料」分頁，兩區都是鎖頭——一個剛註冊的人進去，那一頁的作用只剩下告訴他「你還不夠格」。現在最上面多了一區見習生資料，註冊就看得到。原本的戰士資料與族長資料完全沒變。'],
+                    ['資料不再只能是一條連結', '以前每一筆資料都是一條連往雲端硬碟的連結，檔案在別人的硬碟上，連結一失效就沒了。現在可以直接把 PDF 放進小黑貓自己的檔案櫃，卡片上那顆按鈕會直接把它打開。'],
+                    ['放進檔案櫃的檔案，階級是真的擋得住的', '連結那一種，只要有人把網址轉出去，誰都打得開。放進檔案櫃的不一樣：每一次開啟都會先確認你是誰、你是第幾階，階級不到就是拿不到那份檔案——不是介面上把它藏起來而已。'],
+                    ['一份檔案最大 25 MB', '超過的話還是可以用貼連結的老方法。卡片上會寫出檔案多大，點下去之前就知道。'],
+                    ['你原本看到的資料一筆都沒有變', '以前用連結存的照樣是連結，開法跟以前一模一樣。'],
+                ]
+            },
             {
                 date: '2026-09-02',
                 title: '別人沒辦法把小黑貓藏進他自己的網頁裡了',
@@ -9551,27 +9595,118 @@
          * 11. 評價：寶藏庫 / 評價列表
          * ========================================================== */
         function materialCardHTML(m, tierKey) {
+            /* 一筆資料有兩種形態：外部連結（url），或存在檔案櫃裡的 PDF（fileId）。
+               ★ 檔案那一種**不能**做成 <a href>：檔案櫃要 Authorization 標頭才給檔案，
+               而瀏覽器不會幫 <a>、<img>、<iframe> 帶標頭。做成連結的症狀是
+               點下去拿到一頁 401 的 JSON——看起來像網站壞了，而不是像權限不足。 */
+            const isFile = !!m.fileId;
+            const size = isFile && m.fileSize ? ` · ${(m.fileSize / 1048576).toFixed(1)} MB` :'';
+            const opener = isFile
+                ? `<button data-action="open-material-file" data-id="${escapeHTML(m.fileId)}" data-name="${escapeHTML(m.fileName || m.title)}" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">開啟 PDF</button>`
+                : `<a href="${escapeHTML(m.url ||'')}" target="_blank" rel="noopener noreferrer" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>`;
             return `
                 <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center hover:border-emerald-200 transition-colors">
                     <div class="flex items-center gap-4">
-                        <div class="bg-emerald-50 text-emerald-500 p-3 rounded-2xl"><i data-lucide="link-2" class="w-6 h-6"></i></div>
+                        <div class="bg-emerald-50 text-emerald-500 p-3 rounded-2xl"><i data-lucide="${isFile ?'file-text' :'link-2'}" class="w-6 h-6"></i></div>
                         <div>
                             <h4 class="font-bold text-slate-900">${escapeHTML(m.title)}</h4>
-                            <p class="text-xs text-slate-500 font-medium tracking-tight">${escapeHTML(m.courseName)}</p>
+                            <p class="text-xs text-slate-500 font-medium tracking-tight">${escapeHTML(m.courseName)}${size}</p>
                         </div>
                     </div>
                     <div class="flex items-center gap-2">
-                        <a href="${escapeHTML(m.url)}" target="_blank" class="px-5 py-2 bg-slate-900 text-white font-bold rounded-full hover:bg-slate-800 transition-colors text-xs">下載資源</a>
+                        ${opener}
                         ${isAdmin ? `<button data-action="delete" data-type="${tierKey}" data-id="${escapeHTML(m.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` :''}
                     </div>
                 </div>`;
         }
 
+        /* ---------- 檔案櫃（分級 PDF 的存取）----------
+           檔案本體放在 Cloudflare Workers KV，不在 Firestore（單份文件只有 1 MB），
+           也不在 GitHub Pages（那裡拿到的是一條誰點誰下載的公開網址，
+           族長資料的鎖就只剩畫面上那個圖示）。
+           每一次存取都先經過 Worker 驗身分與階級，所以「階級」在檔案上也是真的。 */
+        async function workerAuthHeader() {
+            /* ★ getIdToken() 自己處理過期換發，不要自己快取那串字。 */
+            const tok = auth.currentUser ? await auth.currentUser.getIdToken() :'';
+            return tok ? {'Authorization':`Bearer ${tok}` } : null;
+        }
+
+        async function uploadCabinetFile(file, tier) {
+            const h = await workerAuthHeader();
+            if (!h) return { ok: false, msg:"請先登入" };
+            const r = await fetch(`${FILES_API}/put?tier=${tier}&name=${encodeURIComponent(file.name)}`,
+                { method:'POST', headers: { ...h,'Content-Type':'application/pdf' }, body: file });
+            let d = {}; try { d = await r.json(); } catch {}
+            if (r.ok && d.ok) return { ok: true, fileId: d.fileId };
+            /* ★ 五種失敗要講五句不同的話。全部收斂成「上傳失敗…」的話，
+               「還沒建檔案櫃」「檔案太大」「不是 PDF」「階級不夠」「沒登入」
+               在畫面上長得一模一樣，而這五種要做的事完全不同。
+               最容易遇到的是第一種——Cloudflare 那邊還沒加 KV 繫結。 */
+            return { ok: false, msg:
+                r.status === 401 ?"請先登入"
+              : r.status === 403 ?"你的階級不能上傳資料"
+              : r.status === 413 ?"檔案太大了（單檔上限 25 MB）"
+              : d.error ==='not a pdf' ?"這不是 PDF 檔"
+              : d.error ==='kv not configured' ?"檔案櫃還沒建好（Cloudflare 那邊要先加一個 KV 繫結）"
+              :"上傳失敗…" };
+        }
+
+        async function openCabinetFile(fileId, name) {
+            /* ★ window.open 必須在使用者按下去的那一瞬間就開，不能等 fetch 回來。
+               await 之後才開的話，瀏覽器已經不認為這是使用者的動作，
+               會當成廣告彈窗擋掉——而症狀是「按了完全沒反應」。 */
+            const w = window.open('','_blank');
+            try {
+                const h = await workerAuthHeader();
+                if (!h) { if (w) w.close(); return showToast("請先登入"); }
+                const r = await fetch(`${FILES_API}/${encodeURIComponent(fileId)}`, { headers: h });
+                if (!r.ok) {
+                    if (w) w.close();
+                    return showToast(r.status === 403 ?"你的階級看不到這一份"
+                                   : r.status === 404 ?"這個檔案已經不在了"
+                                   :"開啟失敗…");
+                }
+                const blobUrl = URL.createObjectURL(await r.blob());
+                if (w) w.location = blobUrl;
+                else {
+                    // 彈窗被擋掉時的退路：直接存下來，至少東西拿得到
+                    const a = document.createElement('a');
+                    a.href = blobUrl; a.download = name ||'資料.pdf';
+                    document.body.appendChild(a); a.click(); a.remove();
+                }
+                /* ★ 一分鐘後才回收。立刻 revokeObjectURL 的話新分頁還沒讀完就斷線，
+                   症狀是開出來一片空白，而且沒有任何錯誤訊息。 */
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 60000);
+            } catch { if (w) w.close(); showToast("開啟失敗…"); }
+        }
+
+        async function deleteCabinetFile(fileId) {
+            try {
+                const h = await workerAuthHeader();
+                if (h) await fetch(`${FILES_API}/del?id=${encodeURIComponent(fileId)}`, { method:'POST', headers: h });
+            } catch { /* 刪不掉只是白佔額度，不該讓整個刪除流程跟著失敗 */ }
+        }
+
+        function setMaterialSource(useFile) {
+            materialSourceIsFile = !!useFile;
+            $('pdfUrlInput').classList.toggle('hidden', materialSourceIsFile);
+            $('matFileBox').classList.toggle('hidden', !materialSourceIsFile);
+            const paint = (el, on) => {
+                el.classList.toggle('bg-slate-900', on);
+                el.classList.toggle('text-white', on);
+                el.classList.toggle('bg-white', !on);
+                el.classList.toggle('text-slate-500', !on);
+                el.setAttribute('aria-pressed', String(on));
+            };
+            paint($('matSrcLinkBtn'), !materialSourceIsFile);
+            paint($('matSrcFileBtn'), materialSourceIsFile);
+        }
+
         function renderMaterials() {
             /* 資料頁的元素在彰師電子那一份才有。★ 直接讀 .value 的話，
                小黑貓那一頁一進來就 null.value，整個模組掛掉、畫面全白。 */
-            const wBox = $('warriorMaterialsList'), lBox = $('leaderMaterialsList');
-            if (!wBox || !lBox) return;
+            const nBox = $('noviceMaterialsList'), wBox = $('warriorMaterialsList'), lBox = $('leaderMaterialsList');
+            if (!nBox || !wBox || !lBox) return;
 
             /* ★ 這一頁用自己的搜尋框，不吃課程評價那一個，也不看
                selectedFilterCourseId。資料已經是獨立分頁，跟著別頁的
@@ -9585,14 +9720,22 @@
             //    state.matLeader 會是空陣列，就算改 currentUserLevel 也變不出資料。
             const lockedHTML = (roleName, color) =>
                 `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 ${color}"></i> 升級為【${roleName}】後解鎖${roleName ==='戰士' ?'戰士資料' :'族長資料'}</div>`;
+            /* ★ 見習生區對「還沒登入的訪客」要講另一句話。
+               沿用上面那一句會變成「升級為【見習生】後解鎖」——而見習生不是升上去的，
+               是註冊就有的。照抄的話訪客會去找一顆根本不存在的升級按鈕，
+               而畫面上沒有任何東西會糾正他。 */
+            const signInHTML = () =>
+                `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="log-in" class="w-5 h-5 mx-auto mb-1 text-slate-300"></i> 登入之後就看得到見習生資料</div>`;
             /* ★ 「搜不到」跟「這一區真的沒東西」要講不同的話。
                講同一句的話，打錯字的人會以為資料整個消失了。 */
             const emptyHTML = (zone) => q
                 ? `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}沒有符合「${escapeHTML(q)}」的資料。</div>`
                 : `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}目前沒有資料。</div>`;
 
-            const wAll = state.matWarrior, lAll = state.matLeader;
-            const wItems = wAll.filter(hit), lItems = lAll.filter(hit);
+            const nAll = state.matNovice, wAll = state.matWarrior, lAll = state.matLeader;
+            const nItems = nAll.filter(hit), wItems = wAll.filter(hit), lItems = lAll.filter(hit);
+            nBox.innerHTML = currentUserLevel < 1 ? signInHTML()
+                : (nItems.length === 0 ? emptyHTML('見習生區') : nItems.map(m => materialCardHTML(m,'matNovice')).join(''));
             wBox.innerHTML = currentUserLevel < 2 ? lockedHTML('戰士','text-rose-300')
                 : (wItems.length === 0 ? emptyHTML('戰士區') : wItems.map(m => materialCardHTML(m,'matWarrior')).join(''));
             lBox.innerHTML = currentUserLevel < 3 ? lockedHTML('族長','text-amber-300')
@@ -9601,7 +9744,7 @@
             /* 幾筆／共幾筆常駐顯示。★ 跟星族大會那個計數同一個理由：
                搜不到的空白跟「真的沒有資料」長得一模一樣。 */
             const cnt = $('dataCount');
-            if (cnt) cnt.textContent = `${wItems.length + lItems.length} 筆／共 ${wAll.length + lAll.length} 筆`;
+            if (cnt) cnt.textContent = `${nItems.length + wItems.length + lItems.length} 筆／共 ${nAll.length + wAll.length + lAll.length} 筆`;
             icons();
         }
 
@@ -10320,7 +10463,7 @@
         }
         // --- 自動更新現價（透過 Cloudflare Worker 報價代理）---
         // 部署 Worker 後把網址填在這裡，例如'https://blackcat-quote.xxx.workers.dev'
-        const QUOTE_API ='https://blackcat-quote.cctsai03.workers.dev';
+        const QUOTE_API = WORKER_BASE;
 
         const symbolKind = (h) => {
             const s = (h.symbol ||'').trim();
@@ -14172,7 +14315,7 @@
          * ========================================================== */
         const SIMPLE_DELETE_PATHS = {
             review: PATHS.reviews, kahoot: PATHS.kahoots,
-            matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
+            matNovice: PATHS.matNovice, matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
             news: PATHS.news, quickLink: PATHS.links,
             /* 回報沒有子資料，所以走這條簡單刪除。
@@ -14205,6 +14348,7 @@
                 if (currentDeleteType ==='course') {
                     await cascadeDelete(PATHS.courses, [
                         { path: PATHS.reviews, field:'courseId' },
+                        { path: PATHS.matNovice, field:'courseId' },
                         { path: PATHS.matWarrior, field:'courseId' },
                         { path: PATHS.matLeader, field:'courseId' },
                         { path: PATHS.kahoots, field:'courseId' }
@@ -14246,6 +14390,13 @@
                     await deleteDoc(doc(db, vocabWordPath(currentViewVocabScope), id));
                 } else if (currentDeleteType ==='kahoot') {
                     await deleteDoc(doc(db, kahootPath(kahootScope), id));
+                } else if (['matNovice','matWarrior','matLeader'].includes(currentDeleteType)) {
+                    /* ★ 順序不能反：先問 Firestore 那筆有沒有 fileId，再刪。
+                       先刪文件的話 fileId 就沒地方查了，那個檔案會永遠躺在
+                       1 GB 的額度裡，而且站上沒有任何畫面看得到它。 */
+                    const m = (state[currentDeleteType] || []).find(x => x.id === id);
+                    if (m && m.fileId) await deleteCabinetFile(m.fileId);
+                    await deleteDoc(doc(db, SIMPLE_DELETE_PATHS[currentDeleteType], id));
                 } else {
                     await deleteDoc(doc(db, SIMPLE_DELETE_PATHS[currentDeleteType], id));
                 }
@@ -14415,20 +14566,48 @@
 
         async function saveMaterial() {
             const courseId = $('uploadCourseSelect').value;
-            const url = getVal('pdfUrlInput');
             const title = getVal('pdfTitleInput');
             const requiredRole = parseInt($('materialLevelSelect').value);
-            if (!courseId || !url || !title) return showToast("請填寫完整喔！");
-            // 規則只收 http/https 連結，先在前端擋下來才不會只看到「失敗」
-            if (!isValidUrl(url)) return showToast("連結格式錯誤！(必需包含 http/https)");
+            const fileEl = $('matFileInput');
+            const file = materialSourceIsFile && fileEl && fileEl.files ? fileEl.files[0] : null;
+            const url = materialSourceIsFile ?'' : getVal('pdfUrlInput');
+            if (!courseId || !title) return showToast("請填寫完整喔！");
+            if (materialSourceIsFile) {
+                if (!file) return showToast("請先選一個 PDF 檔");
+                // 先在這裡擋，才不會整份傳上去之後才被 Worker 拒絕
+                if (file.size > MATERIAL_FILE_MAX) return showToast("檔案太大了（單檔上限 25 MB）");
+            } else {
+                if (!url) return showToast("請填寫完整喔！");
+                // 規則只收 http/https 連結，先在前端擋下來才不會只看到「失敗」
+                if (!isValidUrl(url)) return showToast("連結格式錯誤！(必需包含 http/https)");
+            }
+            const btn = $('uploadPdfBtn');
+            btn.disabled = true;
+            btn.textContent = file ?"上傳中…" :"存檔中…";
             try {
                 const course = state.courses.find(c => c.id === courseId);
+                /* ★ 順序不能反：檔案先進檔案櫃，拿到 fileId 才寫 Firestore。
+                   反過來的話，上傳失敗會留下一筆指向不存在檔案的資料，
+                   而畫面上那張卡片看起來完全正常，直到有人按下去。 */
+                let fileId = '', fileName = '', fileSize = 0;
+                if (file) {
+                    const up = await uploadCabinetFile(file, requiredRole);
+                    if (!up.ok) { showToast(up.msg); return; }
+                    fileId = up.fileId; fileName = file.name; fileSize = file.size;
+                }
                 // 🔒 依階級寫進不同集合，權限由 Firestore 規則決定，而非文件欄位
-                const targetPath = requiredRole >= 3 ? PATHS.matLeader : PATHS.matWarrior;
-                await setDoc(doc(collection(db, targetPath)), { courseId, courseName: course.name, title, url, requiredRole, createdAt: Date.now() });
-                showToast(`考題已存入${requiredRole >= 3 ?'族長' :'戰士'}寶藏庫`);
+                const targetPath = requiredRole >= 3 ? PATHS.matLeader
+                                 : requiredRole >= 2 ? PATHS.matWarrior : PATHS.matNovice;
+                const zoneName = requiredRole >= 3 ?'族長' : requiredRole >= 2 ?'戰士' :'見習生';
+                await setDoc(doc(collection(db, targetPath)), { courseId, courseName: course.name, title, url, fileId, fileName, fileSize, requiredRole, createdAt: Date.now() });
+                showToast(`資料已存入${zoneName}區`);
                 setVals({ pdfUrlInput:'', pdfTitleInput:'' });
+                if (fileEl) fileEl.value ='';
             } catch { showToast("失敗…"); }
+            finally {
+                btn.disabled = false;
+                btn.textContent ="確認存檔";
+            }
         }
 
         function renderCourseSelect() {
@@ -14959,6 +15138,8 @@
          * ========================================================== */
         const clickActions = {
 'delete':          (t) => confirmDeleteUI(t.dataset.type, t.dataset.id),
+'open-material-file': (t) => openCabinetFile(t.dataset.id, t.dataset.name),
+'material-src':    (t) => setMaterialSource(t.dataset.src ==='file'),
 'toggle-course':   (t, e) => { if (!['SELECT','OPTION'].includes(e.target.tagName)) openCourseDetails(t.dataset.id); },
 'open-ss-course':  (t) => openSelfStudyDetails(t.dataset.id),
 'edit-ss-course':  (t) => openSSCourseModal(t.dataset.id),
@@ -15555,6 +15736,7 @@
             { key:'courses',    path: PATHS.courses,    sort: null,     render: () => { renderCourseSelect(); renderCourseGrid(); if (reviewWizardStep === 0) renderReviewWizard(); if (auth.currentUser && !auth.currentUser.isAnonymous) renderSchedule(); } },
             { key:'reviews',    path: PATHS.reviews,    sort: byNewest, render: () => { renderReviews(); renderCourseGrid(); } },
             // 🔒 分級教材：minLevel 不足就不訂閱（硬訂閱會被規則擋下並讓 listener 直接報錯）
+            { key:'matNovice',  path: PATHS.matNovice,  sort: byNewest, minLevel: 1, render: () => renderMaterials() },
             { key:'matWarrior', path: PATHS.matWarrior, sort: byNewest, minLevel: 2, render: () => renderMaterials() },
             { key:'matLeader',  path: PATHS.matLeader,  sort: byNewest, minLevel: 3, render: () => renderMaterials() },
             { key:'kahoots',    path: PATHS.kahoots,    sort: byNewest, minLevel: 2, render: () => renderKahoots() },
@@ -15624,7 +15806,7 @@
             /* ★ 資料（原寶藏庫）搬出課程詳情之後，matWarrior/matLeader
                就不該再掛在課程評價底下——留著的話每個看評價的人都白讀兩份。 */
 'evaluation': ['courses','reviews'],
-'data':       ['matWarrior','matLeader'],
+'data':       ['matNovice','matWarrior','matLeader'],
             /* 設定頁：內容管理要的 courses 由 switchTab 按權限補訂。
                `feedback` 對非管理員會被 minTier 擋掉，所以列在這裡是安全的。 */
 'settings':   ['feedback'],
