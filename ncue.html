@@ -84,6 +84,14 @@
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#f6f3ec" media="(prefers-color-scheme: light)">
     <meta name="theme-color" content="#070b18" media="(prefers-color-scheme: dark)">
+    <!-- 「加到主畫面之後要不要全螢幕」這件事有兩個名字。
+         ★ 兩行都要留，不是二選一：`mobile-web-app-capable` 是現在的標準寫法
+           （Chrome 從 2023 起會對只寫 apple 那一行的頁面在主控台印 deprecated 警告），
+           而 `apple-` 那一行還不能拿掉——舊一點的 iOS Safari 只認得它。
+         ★ 症狀很輕但不是沒有：漏掉標準那一行只是主控台多一行警告；
+           反過來把 apple 那一行拿掉，iOS 上「加到主畫面」會變成開在
+           有網址列的分頁裡，而且**不會有任何錯誤訊息**。 -->
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="小黑貓">
