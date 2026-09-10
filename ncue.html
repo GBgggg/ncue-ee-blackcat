@@ -3130,7 +3130,7 @@
                             <button data-action="set-schedule-mode" data-mode="read" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="eye" class="w-3.5 h-3.5 pointer-events-none"></i> 閱讀</button>
                             <button data-action="set-schedule-mode" data-mode="edit" class="sched-mode-opt px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center gap-1"><i data-lucide="pencil" class="w-3.5 h-3.5 pointer-events-none"></i> 編輯</button>
                         </div>
-                        <button data-action="edit-slot-times" class="px-3 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-500 hover:bg-teal-50 hover:text-teal-600 transition-all flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 pointer-events-none"></i> 時間</button>
+                        <button data-action="edit-slot-times" class="px-3 py-2 rounded-xl text-xs font-black bg-slate-100 text-slate-500 hover:bg-teal-50 hover:text-teal-600 transition-all flex items-center gap-1"><i data-lucide="clock" class="w-3.5 h-3.5 pointer-events-none"></i> 節次與時間</button>
                     </div>
                 </div>
                 <div class="overflow-x-auto scrollbar-hide schedule-scroll">
@@ -5168,7 +5168,7 @@
 
         /* 節次時間
            ★ 這一張是「彰師的鐘點」，不是全世界的鐘點。使用者可以在課表上方
-           「時間」自己改，改過的那一份存在私人課表文件的 slots 欄位。
+           「節次與時間」自己改，改過的那一份存在私人課表文件的 slots 欄位。
            timeStr 一律由 start/end 算出來，**不另外存一份字串**——
            存兩份的下場是「表頭寫 08:10、高亮卻拉到別節」，而且不會報錯。
 
@@ -5181,7 +5181,7 @@
               `'{day}-noon'` 這種格子。
            2. **第 10–13 節是 `optional`，預設不出現。** 這是這一輪的重點：
               晚上沒課的人打開課表要跟以前一模一樣，不是「大家一起多四列空白」。
-              誰要誰自己在「時間」裡加開，加開的名單存在自己的私人文件裡。
+              誰要誰自己在「節次與時間」裡加開，加開的名單存在自己的私人文件裡。
 
            ★ `block` 是「連堂不能跨過去的界線」（上午／中午／下午／晚上）。
            原本「不跨中午」是寫死的 `p <= 4`／`p + len >= 5` 兩個數字，
@@ -6419,10 +6419,10 @@
                 title: '課表可以自己加晚上的節次了，中午那一節也能填課',
                 items: [
                     ['中午那一列現在可以填課了', '以前中午是一條空白的分隔線，點也點不下去。現在它是第 14 節，跟其他節一樣點一下就能填課名跟教室——有些老師真的把課排在中午。'],
-                    ['晚上的第 10 到 13 節，要的人自己加', '按課表右上角的「時間」，最下面有四顆按鈕：第 10、11、12、13 節。按一下那一節就會出現在你的課表上，再按儲存。'],
+                    ['晚上的第 10 到 13 節，要的人自己加', '按課表右上角的「節次與時間」，最下面有四顆按鈕：第 10、11、12、13 節。按一下那一節就會出現在你的課表上，再按儲存。'],
                     ['加了只有你自己看得到', '這是你自己的設定，跟你的課表存在一起。晚上沒課的人打開課表，看到的跟以前一模一樣，不會憑空多出四列空白。'],
                     ['中午沒課的話，那一列還是細細的一條', '只有真的填了課，中午那一列才會跟其他節一樣高，不會平白讓課表變長。'],
-                    ['不要的時候可以收起來', '在「時間」裡按那一節右邊的 ✕ 就收起來了。如果那一節還有課，會先提醒你「先把那幾格清空」——不會讓你把課弄丟。'],
+                    ['不要的時候可以收起來', '在「節次與時間」裡按那一節右邊的 ✕ 就收起來了。如果那一節還有課，會先提醒你「先把那幾格清空」——不會讓你把課弄丟。'],
                     ['晚上的課一樣會提醒', '上課提醒、「現在／下一堂」都認得新加的節次，中午的課也一樣。時間跟你的學校不一樣的話，在同一個地方改就好。'],
                 ]
             },
