@@ -3966,12 +3966,14 @@
         </div>
     </div>
 
-    <!-- 調整每一節的上課時間（個人設定，跟課表存在同一份私人文件） -->
+    <!-- 調整節次與上課時間（個人設定，跟課表存在同一份私人文件） -->
     <div id="slotTimeModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-teal-400">
-            <h3 class="text-2xl font-bold mb-1 text-slate-900 text-center">上課時間</h3>
-            <p class="text-xs font-bold text-slate-400 mb-5 text-center">每間學校的鐘點不一樣，這裡改成你自己的</p>
+            <h3 class="text-2xl font-bold mb-1 text-slate-900 text-center">節次與時間</h3>
+            <p class="text-xs font-bold text-slate-400 mb-5 text-center">每間學校的鐘點不一樣，這裡改成你自己的；晚上有課再自己加上去</p>
             <div id="slotTimeRows" class="space-y-2"></div>
+            <p class="text-xs font-bold text-slate-400 mt-5 mb-2">晚上有課的話，自己加上去（只有你自己看得到）</p>
+            <div id="slotTimeAdd" class="flex flex-wrap items-center gap-2"></div>
             <div class="flex gap-4 pt-5">
                 <button data-close="slotTimeModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
                 <button id="confirmSaveSlotTimes" class="flex-1 py-3 bg-teal-400 text-white rounded-xl font-bold shadow-lg shadow-teal-200 hover:bg-teal-500 transition-colors">儲存</button>
@@ -5168,19 +5170,44 @@
            ★ 這一張是「彰師的鐘點」，不是全世界的鐘點。使用者可以在課表上方
            「時間」自己改，改過的那一份存在私人課表文件的 slots 欄位。
            timeStr 一律由 start/end 算出來，**不另外存一份字串**——
-           存兩份的下場是「表頭寫 08:10、高亮卻拉到別節」，而且不會報錯。 */
+           存兩份的下場是「表頭寫 08:10、高亮卻拉到別節」，而且不會報錯。
+
+           ★★ 2026-09-10：中午那一列從「不能點的分隔線」變成第 14 節，
+           並且補上夜間的第 10–13 節。兩件事都要留意：
+
+           1. **中午那一節本來的 id 是字串 `'noon'`**，現在是數字 `14`。
+              舊帳號存過的 slots 裡可能還留著 `'noon'`，buildTimeSlots 會搬。
+              課表格子沒有這個問題——中午本來就不能填，所以雲端不可能有
+              `'{day}-noon'` 這種格子。
+           2. **第 10–13 節是 `optional`，預設不出現。** 這是這一輪的重點：
+              晚上沒課的人打開課表要跟以前一模一樣，不是「大家一起多四列空白」。
+              誰要誰自己在「時間」裡加開，加開的名單存在自己的私人文件裡。
+
+           ★ `block` 是「連堂不能跨過去的界線」（上午／中午／下午／晚上）。
+           原本「不跨中午」是寫死的 `p <= 4`／`p + len >= 5` 兩個數字，
+           中午自己變成一節、後面又多四節之後那兩個數字寫不完，改成看這一欄。
+
+           ★ 節次的號碼照的是選課系統那一套（下午從第 5 節 13:10 開始，
+           夜間第 10 節 18:20 起，中午是第 14 節），**不是教務處那張
+           「第 5 節 12:05」的舊對照表**。號碼不同、時間格子是同一張。 */
         const DEFAULT_SLOT_TIMES = [
-            { id: 1, label:'1', start: 8 * 60 + 10, end: 9 * 60 },
-            { id: 2, label:'2', start: 9 * 60 + 5, end: 9 * 60 + 55 },
-            { id: 3, label:'3', start: 10 * 60 + 15, end: 11 * 60 + 5 },
-            { id: 4, label:'4', start: 11 * 60 + 10, end: 12 * 60 },
-            { id:'noon', label:'中午', start: 12 * 60 + 5, end: 12 * 60 + 55 },
-            { id: 5, label:'5', start: 13 * 60 + 10, end: 14 * 60 },
-            { id: 6, label:'6', start: 14 * 60 + 5, end: 14 * 60 + 55 },
-            { id: 7, label:'7', start: 15 * 60 + 15, end: 16 * 60 + 5 },
-            { id: 8, label:'8', start: 16 * 60 + 10, end: 17 * 60 },
-            { id: 9, label:'9', start: 17 * 60 + 10, end: 18 * 60 }
+            { id: 1, label:'1', start: 8 * 60 + 10, end: 9 * 60, block:'am' },
+            { id: 2, label:'2', start: 9 * 60 + 5, end: 9 * 60 + 55, block:'am' },
+            { id: 3, label:'3', start: 10 * 60 + 15, end: 11 * 60 + 5, block:'am' },
+            { id: 4, label:'4', start: 11 * 60 + 10, end: 12 * 60, block:'am' },
+            { id: 14, label:'14', start: 12 * 60 + 5, end: 12 * 60 + 55, block:'noon' },
+            { id: 5, label:'5', start: 13 * 60 + 10, end: 14 * 60, block:'pm' },
+            { id: 6, label:'6', start: 14 * 60 + 5, end: 14 * 60 + 55, block:'pm' },
+            { id: 7, label:'7', start: 15 * 60 + 15, end: 16 * 60 + 5, block:'pm' },
+            { id: 8, label:'8', start: 16 * 60 + 10, end: 17 * 60, block:'pm' },
+            { id: 9, label:'9', start: 17 * 60 + 10, end: 18 * 60, block:'pm' },
+            { id: 10, label:'10', start: 18 * 60 + 20, end: 19 * 60 + 10, block:'night', optional: true },
+            { id: 11, label:'11', start: 19 * 60 + 15, end: 20 * 60 + 5, block:'night', optional: true },
+            { id: 12, label:'12', start: 20 * 60 + 10, end: 21 * 60, block:'night', optional: true },
+            { id: 13, label:'13', start: 21 * 60 + 5, end: 21 * 60 + 55, block:'night', optional: true }
         ];
+        // 可以自己加開的那幾節（照畫面上的順序）
+        const OPTIONAL_SLOT_IDS = DEFAULT_SLOT_TIMES.filter(d => d.optional).map(d => d.id);
         const minToHHMM = (m) => `${String(Math.floor(m / 60)).padStart(2,'0')}:${String(m % 60).padStart(2,'0')}`;
         const hhmmToMin = (v) => {
             const m = /^(\d{1,2}):(\d{2})$/.exec(String(v ||'').trim());
@@ -5190,26 +5217,52 @@
         };
         // custom 是「只覆寫有改過的那幾節」，其餘一律回預設；
         // 空陣列／非陣列等於「沒改過」。
-        function buildTimeSlots(custom) {
+        // extra 是「自己加開了哪幾節」，沒加開的 optional 節次整列不存在。
+        function buildTimeSlots(custom, extra) {
             const by = {};
             (Array.isArray(custom) ? custom : []).forEach(c => {
                 if (c && Number.isFinite(c.start) && Number.isFinite(c.end)) by[String(c.id)] = c;
             });
-            return DEFAULT_SLOT_TIMES.map(d => {
+            /* 中午那一節以前的 id 是 'noon'，2026-09-10 起是第 14 節。
+               不搬的話，早就把中午時間改成自己學校鐘點的人，
+               會發現它某一天悄悄跳回 12:05——而畫面上不會說一個字。 */
+            if (by['noon'] && !by['14']) by['14'] = by['noon'];
+            const on = new Set((Array.isArray(extra) ? extra : []).map(String));
+            return DEFAULT_SLOT_TIMES.filter(d => !d.optional || on.has(String(d.id))).map(d => {
                 const c = by[String(d.id)];
                 const start = c ? c.start : d.start;
                 const end = c ? c.end : d.end;
-                return { id: d.id, label: d.label, start, end, timeStr: `${minToHHMM(start)}-<br>${minToHHMM(end)}` };
+                return { id: d.id, label: d.label, block: d.block, start, end,
+                         timeStr: `${minToHHMM(start)}-<br>${minToHHMM(end)}` };
             });
+        }
+        /* 「這個人的課表上有哪幾節」。除了他自己加開的那幾節，
+           ★ **格子裡已經有課的節次一律算加開**：不然會出現
+           「雲端有這門課、畫面上沒有那一列」——資料還在但看不見，
+           而且完全不會報錯。這也是加開／收起來唯一的判準，
+           所以收起來一節還有課的節次時要先擋下來（見 dropSlotFromModal）。 */
+        function visibleExtraSlots(extra, cells) {
+            const on = new Set((Array.isArray(extra) ? extra : []).map(Number).filter(Number.isFinite));
+            for (const key of Object.keys(cells || {})) {
+                const c = cells[key];
+                if (!c || (!c.courseName && !cellLocation(c))) continue;
+                const id = Number(String(key).split('-')[1]);
+                if (OPTIONAL_SLOT_IDS.includes(id)) on.add(id);
+            }
+            return OPTIONAL_SLOT_IDS.filter(id => on.has(id));   // 照畫面順序，而且不會重複
         }
         /* ★ 宣告在常數區並且是 let：讀到雲端的設定之後整張換掉，
            renderSchedule／highlightCurrentClass／buildReminderItems 都是當下才查，
            所以换一次就全部跟著走。別把它拆進別的區塊（暫時性死區踩過六次）。 */
-        let timeSlots = buildTimeSlots(null);
+        let timeSlots = buildTimeSlots(null, null);
         let userSlotTimes = [];          // 使用者改過的那幾節（空 = 全部預設）
-        function applySlotTimes(slots) {
+        let userExtraSlots = [];         // 使用者自己加開的那幾節（空 = 只有預設那幾節）
+        /* cells 要明著傳進來，不要在裡面讀 userSchedule：
+           這支在讀雲端的當下就會被呼叫，那時候 userSchedule 還是舊的那一份。 */
+        function applySlotTimes(slots, extra, cells) {
             userSlotTimes = Array.isArray(slots) ? slots : [];
-            timeSlots = buildTimeSlots(userSlotTimes);
+            userExtraSlots = visibleExtraSlots(extra, cells);
+            timeSlots = buildTimeSlots(userSlotTimes, userExtraSlots);
         }
         /* 編輯課表時，課名要不要去搜尋彰師電子系的課程庫。
            ★ 為什麼要有：課程庫是彰師電子那一側的教材，但課表是每個人都在用的。
@@ -6362,6 +6415,18 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-09-10',
+                title: '課表可以自己加晚上的節次了，中午那一節也能填課',
+                items: [
+                    ['中午那一列現在可以填課了', '以前中午是一條空白的分隔線，點也點不下去。現在它是第 14 節，跟其他節一樣點一下就能填課名跟教室——有些老師真的把課排在中午。'],
+                    ['晚上的第 10 到 13 節，要的人自己加', '按課表右上角的「時間」，最下面有四顆按鈕：第 10、11、12、13 節。按一下那一節就會出現在你的課表上，再按儲存。'],
+                    ['加了只有你自己看得到', '這是你自己的設定，跟你的課表存在一起。晚上沒課的人打開課表，看到的跟以前一模一樣，不會憑空多出四列空白。'],
+                    ['中午沒課的話，那一列還是細細的一條', '只有真的填了課，中午那一列才會跟其他節一樣高，不會平白讓課表變長。'],
+                    ['不要的時候可以收起來', '在「時間」裡按那一節右邊的 ✕ 就收起來了。如果那一節還有課，會先提醒你「先把那幾格清空」——不會讓你把課弄丟。'],
+                    ['晚上的課一樣會提醒', '上課提醒、「現在／下一堂」都認得新加的節次，中午的課也一樣。時間跟你的學校不一樣的話，在同一個地方改就好。'],
+                ]
+            },
+            {
                 date: '2026-09-09',
                 title: '彰師電子的深色模式換成一整套霓虹夜城',
                 items: [
@@ -7064,26 +7129,42 @@
         const sameScheduleEntry = (a, b) => a && b && (a.courseName || cellLocation(a)) &&
             a.courseName === b.courseName && cellLocation(a) === cellLocation(b) && (a.courseId ||'') === (b.courseId ||'');
 
-        // 從第 p 節往下算連續同一堂課的節數（不跨越中午：1~4 與 5~9 分開）
+        /* 從第 p 節往下、同一個時段區塊裡還有哪幾節（含自己），照畫面上的順序。
+           ★ 連堂只能在同一個區塊裡：上午 1–4、中午 14、下午 5–9、晚上 10–13。
+             以前這件事寫成 `p <= 4 && p + len >= 5`（不跨中午）＋ `p + len <= 9`，
+             靠的是「節次號碼跟畫面順序剛好一樣」。中午變成第 14 節之後
+             這個假設就不成立了（畫面上 14 在 4 跟 5 中間），
+             再用加減法算下一節會算到別的地方去，而且不會報錯。
+           ★ 也順便回答了封存文件裡那個沒答過的問題：夜間第 10 節不跟第 9 節連堂
+             （中間隔 20 分鐘，跟中午同一個道理）。 */
+        function slotRunFrom(id) {
+            const i = timeSlots.findIndex(s => String(s.id) === String(id));
+            if (i < 0) return [];
+            const run = [];
+            for (let j = i; j < timeSlots.length && timeSlots[j].block === timeSlots[i].block; j++) run.push(timeSlots[j]);
+            return run;
+        }
+
+        // 從第 p 節往下算連續同一堂課的節數（不跨區塊）
         function scheduleSpanLength(day, p) {
             const base = userSchedule[`${day}-${p}`];
             if (!base || (!base.courseName && !cellLocation(base))) return 1;
+            const run = slotRunFrom(p);
             let len = 1;
-            while (p + len <= 9) {
-                if (p <= 4 && (p + len) >= 5) break; // 不跨中午
-                if (sameScheduleEntry(userSchedule[`${day}-${p + len}`], base)) len++;
-                else break;
-            }
+            while (len < run.length && sameScheduleEntry(userSchedule[`${day}-${run[len].id}`], base)) len++;
             return len;
         }
 
         // 取得涵蓋 (day, period) 的實際格子元素（合併後只有起始格存在）
+        // ★ 往上找也要照畫面順序走，不能用 pp-- ——第 14 節上面是第 4 節。
         function scheduleCellEl(day, period) {
-            for (let pp = period; pp >= 1; pp--) {
-                const el = $(`cell-${day}-${pp}`);
+            const i = timeSlots.findIndex(s => String(s.id) === String(period));
+            if (i < 0) return null;
+            for (let j = i; j >= 0; j--) {
+                const el = $(`cell-${day}-${timeSlots[j].id}`);
                 if (el) {
                     const rs = parseInt(el.getAttribute('rowspan') ||'1');
-                    return (pp + rs - 1 >= period) ? el : null;
+                    return (j + rs - 1 >= i) ? el : null;
                 }
             }
             return null;
@@ -7102,9 +7183,6 @@
                         </div></td>`;
 
                 const cells = [1, 2, 3, 4, 5].map(day => {
-                    if (p.id ==='noon') {
-                        return `<td id="cell-${day}-noon" class="schedule-cell bg-slate-50/50 rounded-xl p-1 text-center transition-all border border-slate-100"></td>`;
-                    }
                     const cellId = `${day}-${p.id}`;
                     if (covered.has(cellId)) return''; // 已被上方合併格涵蓋
                     const cell = userSchedule[cellId] || { courseName:'', location:'' };
@@ -7112,7 +7190,8 @@
                     let span = 1;
                     if (hasContent) {
                         span = scheduleSpanLength(day, p.id);
-                        for (let i = 1; i < span; i++) covered.add(`${day}-${p.id + i}`);
+                        const run = slotRunFrom(p.id);
+                        for (let i = 1; i < span; i++) covered.add(`${day}-${run[i].id}`);
                     }
                     // 地點：優先用手動填的，否則從連動課程的教室對照表自動帶入
                     let loc = cellLocation(cell);
@@ -7125,15 +7204,19 @@
                         ? `<div class="sched-name font-black text-slate-800 text-xs md:text-sm mb-1 break-words leading-tight">${escapeHTML(cell.courseName)}</div>` +
                           (loc ? `<div class="sched-loc text-[10px] md:text-xs text-teal-700 font-bold bg-white/80 border border-teal-200 rounded-md inline-block px-1.5 py-0.5">@ ${escapeHTML(loc)}</div>` :'')
                         : (editable ? `<div class="text-slate-200 group-hover:text-teal-400 text-lg font-black transition-colors pointer-events-none">＋</div>` :'');
+                    /* 中午空著的時候那一列要矮一點——它原本就是一條分隔線，
+                       整列跟著長高的話，每一個中午沒課的人都會覺得課表變胖了。
+                       中午有課就跟其他節一樣高。 */
+                    const h = (p.block ==='noon' && !hasContent) ?'h-10 md:h-14' :'h-16 md:h-24';
                     let tdClass;
                     if (hasContent) {
                         tdClass = editable
-                            ?'schedule-cell cursor-pointer bg-teal-50 rounded-xl p-1.5 md:p-2 text-center transition-all hover:bg-teal-100 hover:shadow-lg border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 relative group min-w-[100px] h-16 md:h-24 align-middle'
-                            :'schedule-cell bg-teal-50 rounded-xl p-1.5 md:p-2 text-center border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 min-w-[100px] h-16 md:h-24 align-middle';
+                            ? `schedule-cell cursor-pointer bg-teal-50 rounded-xl p-1.5 md:p-2 text-center transition-all hover:bg-teal-100 hover:shadow-lg border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 relative group min-w-[100px] ${h} align-middle`
+                            : `schedule-cell bg-teal-50 rounded-xl p-1.5 md:p-2 text-center border-2 border-teal-300 shadow-sm ring-1 ring-teal-200/50 min-w-[100px] ${h} align-middle`;
                     } else {
                         tdClass = editable
-                            ?'schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-colors hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] h-16 md:h-24 align-middle'
-                            :'schedule-cell bg-slate-50/40 rounded-xl p-1 md:p-2 text-center border border-slate-100 min-w-[100px] h-16 md:h-24 align-middle';
+                            ? `schedule-cell cursor-pointer bg-white rounded-xl p-1 md:p-2 text-center transition-colors hover:bg-teal-50 hover:border-teal-200 border-2 border-dashed border-slate-200 relative group min-w-[100px] ${h} align-middle`
+                            : `schedule-cell bg-slate-50/40 rounded-xl p-1 md:p-2 text-center border border-slate-100 min-w-[100px] ${h} align-middle`;
                     }
                     const action = editable ? `data-action="edit-schedule" data-cell="${cellId}"` :'';
                     return `<td id="cell-${cellId}" ${action} ${span > 1 ? `rowspan="${span}"` :''}
@@ -7166,7 +7249,7 @@
 
             if (day >= 1 && day <= 5) {
                 const slot = timeSlots.find(s => mins >= s.start && mins <= s.end);
-                if (slot && slot.id !=='noon') {
+                if (slot) {
                     const cell = scheduleCellEl(day, slot.id);
                     if (cell) cell.classList.add('ring-4','ring-emerald-400','bg-emerald-50','transform','scale-105','z-10');
                 }
@@ -7186,7 +7269,9 @@
                 box.innerHTML = `<i data-lucide="coffee" class="w-4 h-4 text-teal-500"></i> 週${WEEKDAY_NAMES[day]}愉快，今天沒有排課，好好休息`;
                 icons(); return;
             }
-            const teaching = timeSlots.filter(s => s.id !=='noon');
+            /* 中午（第 14 節）從 2026-09-10 起也是一節正常的課，
+               所以這裡不再把它挑掉——有人真的中午有課。 */
+            const teaching = timeSlots;
             const cur = teaching.find(s => mins >= s.start && mins <= s.end);
             const curCourse = cur ? named(cur.id) : null;
             const next = teaching.find(s => s.start > mins && named(s.id));
@@ -7207,42 +7292,104 @@
         setInterval(highlightCurrentClass, 60000);
 
         /* ----------------------------------------------------------
-           調整每一節的上課時間
+           節次與上課時間
            ★ 為什麼要有：DEFAULT_SLOT_TIMES 是彰師的鐘點，但這個站的
            使用者不是只有彰師的人。時間對不上的話，「現在／下一堂」與
            上課提醒會整天指錯節，而畫面上完全不會說它錯了。
+           ★ 2026-09-10 這裡多了「加開節次」：夜間第 10–13 節預設不存在，
+             要的人自己加。加開是**個人設定**（存在自己的私人課表文件裡），
+             所以晚上沒課的人課表長得跟以前一模一樣。
            ---------------------------------------------------------- */
-        function slotRowsHTML(slots) {
-            return slots.map(s => `
+        /* 視窗裡「目前加開了哪幾節」。按儲存才寫回去——
+           所以在視窗裡加了又按取消，等於什麼都沒發生。 */
+        let slotModalExtras = [];
+
+        function slotRowsHTML(slots, vals) {
+            /* 沒有任何加開的節次時，連那一欄的空位都不留——
+               不然沒加開過的人只是打開來看一眼，輸入框就莫名其妙變窄了。 */
+            const anyDrop = slots.some(s => OPTIONAL_SLOT_IDS.includes(s.id));
+            return slots.map(s => {
+                const v = (vals && vals[String(s.id)]) || {};
+                const start = v.start || minToHHMM(s.start);
+                const end = v.end || minToHHMM(s.end);
+                const canDrop = OPTIONAL_SLOT_IDS.includes(s.id);
+                return `
                 <div class="flex items-center gap-2">
                     <span class="w-14 shrink-0 text-sm font-black text-slate-600 text-center">${escapeHTML(String(s.label))}</span>
-                    <input type="time" data-slot="start" data-id="${escapeHTML(String(s.id))}" value="${minToHHMM(s.start)}"
+                    <input type="time" data-slot="start" data-id="${escapeHTML(String(s.id))}" value="${escapeHTML(start)}"
                         aria-label="第 ${escapeHTML(String(s.label))} 節開始時間"
                         class="flex-1 min-w-0 px-3 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-700">
                     <span class="text-slate-300 font-black">–</span>
-                    <input type="time" data-slot="end" data-id="${escapeHTML(String(s.id))}" value="${minToHHMM(s.end)}"
+                    <input type="time" data-slot="end" data-id="${escapeHTML(String(s.id))}" value="${escapeHTML(end)}"
                         aria-label="第 ${escapeHTML(String(s.label))} 節結束時間"
                         class="flex-1 min-w-0 px-3 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-teal-400 font-bold text-sm text-center text-slate-700">
-                </div>`).join('');
+                    ${canDrop
+                        ? `<button type="button" data-action="drop-slot" data-slot-id="${escapeHTML(String(s.id))}"
+                             aria-label="收起第 ${escapeHTML(String(s.label))} 節"
+                             class="w-8 h-8 shrink-0 rounded-xl text-slate-300 hover:bg-slate-100 hover:text-slate-500 font-black transition-colors">✕</button>`
+                        : (anyDrop ? `<span class="w-8 shrink-0" aria-hidden="true"></span>` :'')}
+                </div>`;
+            }).join('');
+        }
+
+        /* 目前欄位裡打的字。切換加開節次時整段重畫，
+           不留住的話「打到一半按了＋」就會把前面打的洗掉。 */
+        function readSlotRowValues() {
+            const rows = {};
+            $('slotTimeRows').querySelectorAll('input[data-slot]').forEach(el => {
+                (rows[el.dataset.id] = rows[el.dataset.id] || {})[el.dataset.slot] = el.value;
+            });
+            return rows;
+        }
+
+        function renderSlotTimeModal(vals) {
+            $('slotTimeRows').innerHTML = slotRowsHTML(buildTimeSlots(userSlotTimes, slotModalExtras), vals);
+            const rest = DEFAULT_SLOT_TIMES.filter(d => d.optional && !slotModalExtras.includes(d.id));
+            $('slotTimeAdd').innerHTML = rest.length
+                ? rest.map(d => `<button type="button" data-action="add-slot" data-slot-id="${escapeHTML(String(d.id))}"
+                        class="px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 text-slate-500 hover:bg-teal-50 hover:text-teal-600 transition-colors">＋ 第 ${escapeHTML(String(d.label))} 節</button>`).join('')
+                : `<span class="text-xs font-bold text-slate-300">晚上的節次都加上了</span>`;
         }
 
         function openSlotTimeModal() {
-            $('slotTimeRows').innerHTML = slotRowsHTML(timeSlots);
+            slotModalExtras = [...userExtraSlots];
+            renderSlotTimeModal(null);
             openModal('slotTimeModal');
         }
 
-        // 把畫面上那十組輸入讀回來；不合法就回傳 null 並吐司說是哪一節
+        function addSlotInModal(id) {
+            const n = Number(id);
+            if (!OPTIONAL_SLOT_IDS.includes(n) || slotModalExtras.includes(n)) return;
+            slotModalExtras = OPTIONAL_SLOT_IDS.filter(x => x === n || slotModalExtras.includes(x));
+            renderSlotTimeModal(readSlotRowValues());
+        }
+
+        function dropSlotInModal(id) {
+            const n = Number(id);
+            if (!slotModalExtras.includes(n)) return;
+            /* ★ 還有課的節次不能收起來。收起來的話那幾格在雲端還在、
+               畫面上卻沒有那一列——「資料還在但看不見」正是這個專案
+               最常踩、也最不會報錯的那一類。 */
+            const used = [1, 2, 3, 4, 5].some(day => {
+                const c = userSchedule[`${day}-${n}`];
+                return c && (c.courseName || cellLocation(c));
+            });
+            if (used) return showToast(`第 ${n} 節還有課，先把那幾格清空才收得起來`);
+            slotModalExtras = slotModalExtras.filter(x => x !== n);
+            renderSlotTimeModal(readSlotRowValues());
+        }
+
+        // 把畫面上那幾組輸入讀回來；不合法就回傳 null 並吐司說是哪一節
         function readSlotTimeInputs() {
             const out = [];
             /* ★ 先把輸入框收成一張表，不要用 `[data-id="${...}"]` 這種
                「屬性裡插值」的選擇器——那個形狀正是 tests/security.mjs 在盯的，
                寫成那樣等於每次都要有人來判斷「這個欄位到底是不是使用者資料」。 */
-            const rows = {};
-            $('slotTimeRows').querySelectorAll('input[data-slot]').forEach(el => {
-                (rows[el.dataset.id] = rows[el.dataset.id] || {})[el.dataset.slot] = el.value;
-            });
+            const rows = readSlotRowValues();
             let prevEnd = -1, prevLabel = '';
-            for (const d of DEFAULT_SLOT_TIMES) {
+            /* ★ 只走「這個人現在看得到的那幾節」，不是整張 DEFAULT_SLOT_TIMES：
+               沒加開的節次畫面上沒有那一列，照整張走會在第一節就說「格式不對」。 */
+            for (const d of buildTimeSlots(null, slotModalExtras)) {
                 const r = rows[String(d.id)] || {};
                 const start = hhmmToMin(r.start);
                 const end = hhmmToMin(r.end);
@@ -7261,18 +7408,18 @@
             });
         }
 
-        async function commitSlotTimes(slots) {
-            const before = userSlotTimes;
-            applySlotTimes(slots);
+        async function commitSlotTimes(slots, extras) {
+            const beforeTimes = userSlotTimes, beforeExtras = userExtraSlots;
+            applySlotTimes(slots, extras, userSchedule);
             try {
                 await savePrivateSchedule(userSchedule);
                 renderSchedule();
                 syncReminderSubscription();   // 提醒清單帶的是每一節的開始時間
                 closeModal('slotTimeModal');
-                showToast('上課時間已更新');
+                showToast('節次與時間已更新');
             } catch (e) {
                 // 存不起來就把畫面也退回去，不要讓使用者以為改成功了
-                applySlotTimes(before);
+                applySlotTimes(beforeTimes, beforeExtras, userSchedule);
                 console.warn('節次時間存檔失敗', e);
                 showToast(scheduleLoaded ? '儲存失敗…' : '讀不到雲端的課表，這次先不存（避免蓋掉原本的）');
             }
@@ -7281,7 +7428,7 @@
         async function saveSlotTimes() {
             const slots = readSlotTimeInputs();
             if (!slots) return;
-            await commitSlotTimes(slots);
+            await commitSlotTimes(slots, slotModalExtras);
         }
 
         /* ==========================================================
@@ -7316,10 +7463,13 @@
         function buildReminderItems() {
             const items = [];
             for (let day = 1; day <= 5; day++) {
-                // prev 記錄「上一節」的教室；null 代表上一節沒課（含中午休息）
+                /* prev 記錄「上一節」的教室；null 代表上一節沒課。
+                   ★ 中午（第 14 節）本來是永遠 null，現在它是一節正常的課：
+                     中午沒排課還是 null（跟以前一樣），中午有排課就跟其他節一樣
+                     參與「同一間教室就不重複提醒」。 */
                 let prev = null;
                 for (const s of timeSlots) {
-                    const cell = s.id ==='noon' ? null : userSchedule[`${day}-${s.id}`];
+                    const cell = userSchedule[`${day}-${s.id}`];
                     if (!cell || !cell.courseName) { prev = null; continue; }
 
                     let loc = cellLocation(cell);
@@ -14914,10 +15064,12 @@
                載了也沒有人看得到。 */
             if (eeCourseSearch) ensureLoaded('courses');
             const data = userSchedule[cellId] || { courseName:'', location:'', courseId:'' };
-            // 依剩餘節次動態產生「連上幾節」選項（不跨中午：1~4、5~9 各自為界）
+            /* 依剩餘節次動態產生「連上幾節」選項。
+               ★ 界線是時段區塊（上午／中午／下午／晚上），不是節次的號碼——
+                 中午是第 14 節，畫面上排在第 4 與第 5 節中間，用號碼加減會算錯。 */
             const day = cellId.split('-')[0];
             const p = parseInt(cellId.split('-')[1]);
-            const maxDur = isNaN(p) ? 1 : (p <= 4 ? (4 - p + 1) : (9 - p + 1));
+            const maxDur = Math.max(1, slotRunFrom(p).length);
             $('editScheduleDuration').innerHTML = Array.from({ length: maxDur }, (_, i) =>
                 `<option value="${i + 1}">連上 ${i + 1} 節</option>`).join('');
             $('editScheduleCourseResults').classList.add('hidden');
@@ -14962,15 +15114,16 @@
                             location: joinLocation(building, room), courseId: getVal('editScheduleCourseId') ||'' };
             const isEmpty = !entry.courseName && !entry.location;
             const newSchedule = { ...userSchedule };
-            if (!isNaN(p)) {
+            /* ★ 往下填哪幾格由 slotRunFrom 決定，不要再用 `p + i`：
+               節次的號碼跟畫面上的順序已經不是同一件事（中午是第 14 節）。
+               run 本身就停在區塊的邊界，所以「不跨中午」不必再各寫一次。 */
+            const run = slotRunFrom(p);
+            if (run.length) {
                 // 先清掉原本這段連堂（避免縮短時殘留），再依新節數往下填
                 const oldSpan = scheduleSpanLength(day, p);
-                for (let i = 0; i < oldSpan && (p + i) <= 9; i++) delete newSchedule[`${day}-${p + i}`];
+                for (let i = 0; i < oldSpan && i < run.length; i++) delete newSchedule[`${day}-${run[i].id}`];
                 if (!isEmpty) {
-                    for (let i = 0; i < dur && (p + i) <= 9; i++) {
-                        if (p <= 4 && (p + i) >= 5) break; // 不跨中午
-                        newSchedule[`${day}-${p + i}`] = { ...entry };
-                    }
+                    for (let i = 0; i < dur && i < run.length; i++) newSchedule[`${day}-${run[i].id}`] = { ...entry };
                 }
             } else {
                 if (isEmpty) delete newSchedule[cellId]; else newSchedule[cellId] = { ...entry };
@@ -15295,9 +15448,13 @@
                 const snap = await getDoc(doc(db, p,'schedule'));
                 if (snap.exists()) {
                     scheduleLoaded = true;
-                    applySlotTimes(snap.data().slots);   // 節次時間跟課表同一份文件
-                    applyEeCourseOpt(snap.data().eeCourses);   // 課程庫開關也在同一份
-                    return snap.data().cells || {};
+                    const cells = snap.data().cells || {};
+                    /* 節次時間、加開的節次、課程庫開關都跟課表在同一份文件。
+                       ★ cells 要一起傳進去：加開的節次除了自己勾的那幾節，
+                         還要把「已經有課的節次」算進來（見 visibleExtraSlots）。 */
+                    applySlotTimes(snap.data().slots, snap.data().extraSlots, cells);
+                    applyEeCourseOpt(snap.data().eeCourses);
+                    return cells;
                 }
 
                 // 舊帳號的課表還留在個人資料文件裡 → 搬到私人區，並從舊位置刪掉
@@ -15331,9 +15488,12 @@
             if (!scheduleLoaded) throw new Error('schedule not loaded');
             /* ★ slots 一定要一起寫：這是 setDoc 不是 update，
                漏掉它等於每存一次課表就把使用者改過的節次時間清成預設，
-               而且畫面上要等下次重新整理才看得出來。 */
+               而且畫面上要等下次重新整理才看得出來。
+               ★ extraSlots（自己加開的夜間節次）同一條規則，漏掉的症狀是
+               「每存一次課表，晚上那幾列就少一次」。 */
             await setDoc(doc(db, p,'schedule'),
-                         { cells, slots: userSlotTimes, eeCourses: eeCourseSearch, updatedAt: Date.now() });
+                         { cells, slots: userSlotTimes, extraSlots: userExtraSlots,
+                           eeCourses: eeCourseSearch, updatedAt: Date.now() });
         }
 
         /* 這一層只做一件事：不管走哪條路（成功、讀不到資料、丟例外），
@@ -15365,7 +15525,7 @@
                         currentUserTierField = null;      // 新帳號不寫 tier，走後備換算
                         userDisplayName ='無名小貓';
                         userSchedule = {};
-                        applySlotTimes([]);
+                        applySlotTimes([], [], {});
                         scheduleLoaded = true;   // 新帳號本來就沒有課表，不是讀不到
                     } else {
                         const data = userSnap.data();
@@ -15532,7 +15692,7 @@
                 currentUserTierField = null;
                 userDisplayName ="無名小貓";
                 userSchedule = {};
-                applySlotTimes([]);   // 節次時間是個人設定，換人就要換掉
+                applySlotTimes([], [], {});   // 節次時間是個人設定，換人就要換掉
                 /* ★ 跟計劃同一條：留著 true 的話，登出後（或下一個人登入的空窗裡）
                    任何一次存檔都會拿這張空課表覆蓋雲端。 */
                 scheduleLoaded = false;
@@ -15616,6 +15776,8 @@
 'back-to-vocab-folders': () => backToVocabFolders(),
 'edit-schedule':   (t) => openScheduleCellModal(t.dataset.cell),
 'edit-slot-times': () => openSlotTimeModal(),
+'add-slot':        (t) => addSlotInModal(t.dataset.slotId),
+'drop-slot':       (t) => dropSlotInModal(t.dataset.slotId),
 'pick-schedule-course': (t) => {
                 const c = state.courses.find(x => x.id === t.dataset.id);
                 if (!c) return;
@@ -16113,7 +16275,9 @@
             bind('addCountdownBtn', () => openCountdownModal(null));
             bind('confirmSaveCountdown', saveCountdownFromModal);
             bind('confirmSaveSlotTimes', saveSlotTimes);
-            bind('resetSlotTimes', () => { $('slotTimeRows').innerHTML = slotRowsHTML(buildTimeSlots(null)); showToast('已填回預設時間，記得按儲存'); });
+            /* 只把時間填回預設，加開的節次留著——
+               按「回復預設時間」的人要的是時間，不是把晚上的課表收掉。 */
+            bind('resetSlotTimes', () => { $('slotTimeRows').innerHTML = slotRowsHTML(buildTimeSlots(null, slotModalExtras), null); showToast('已填回預設時間，記得按儲存'); });
             bind('clearScheduleCell', () => { setVals({ editScheduleCourse:'', editScheduleBuilding:'', editScheduleRoom:'', editScheduleCourseId:'', editScheduleDuration:'1' }); $('editScheduleCourseResults').classList.add('hidden'); saveScheduleCell(); });
             // 課名可搜尋課程庫：聚焦/輸入時顯示過濾結果，手動打字則解除連動
             /* 開關一撥就存，不等按「儲存課表」——使用者可能只是想關掉那排結果，
