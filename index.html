@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-TW" data-product="cat">
 <head>
     <!-- ★ 字型從 Google 來，@import 要先解析 DNS 再握手才開始下載。
          preconnect 把那兩趟提前到 HTML 一進來就開始做——
@@ -1217,7 +1217,14 @@
             background-size: auto 100%;
             -webkit-mask-image: none !important;
             mask-image: none !important;
-            height: 4px; bottom: -3px; background-color: transparent !important;
+            /* ★ 高度、位置與外發光走變數：`tests/design.mjs` 釘著
+               「`#mainHeader::after` 只能有一條規則」——兩條同特異性的規則會
+               靜靜地互相覆蓋，那條坑上面那段註解記過。所以彰師電子的霓虹版
+               不新增規則，只換這三個值（在檔案最後的霓虹主題那一段）。
+               ★ 後備值就是星夜那版：4px 的波浪、往下探 3px、不發光。 */
+            height: var(--hdr-rule-h, 4px); bottom: var(--hdr-rule-b, -3px);
+            filter: var(--hdr-rule-glow, none);
+            background-color: transparent !important;
         }
 
         /* ---- 麥田：這裡本來有一段「分隔線流動起來」（2026-08-12 加，同月移除）----
@@ -2474,6 +2481,333 @@
 
         /* 小標籤：字距拉開的編輯體例 */
         .uppercase.tracking-widest { letter-spacing: 0.2em !important; }
+
+        /* ==========================================================
+           彰師電子的深色模式：霓虹夜城（2026-09-09）
+
+           小黑貓的深色模式是「靛藍星夜」（梵谷那張夜景＋月亮金＋厚塗筆觸）。
+           彰師電子改成賽博龐克的霓虹夜城：近黑帶紫的底、洋紅／青／黃三色霓虹、
+           細發光外框、切角面板、背後是網格與城市光暈。淺色模式兩個產品都不動。
+
+           ★★ 為什麼整段只換 token，不去改那幾百條規則：
+           上面那套設計系統把「顏色」與「材質」全部收進變數了——
+           底色走 --paper*／字走 --ink*／線走 --rule／強調色四階走 --accent*，
+           而梵谷的織理、厚塗、漸層、刷痕全部走 --vg-*。
+           所以換風格＝換一組變數的值，畫面上每一個用到它們的地方會自己跟著換。
+           下面只有六條是真的改規則（背景兩層、墨塊、切角、標題線、圓角），
+           那幾條是因為它們要改的不是顏色而是**形狀**。
+
+           ★★ 為什麼是 `[data-product="ncue"]` 而不是加一個 CSS 類別：
+           兩個產品共用同一份原始碼（`tools/mkpages.mjs` 從 publicnew.html
+           產生 ncue.html），而深色模式在 `<html>` 上是 `.dark` 這個類別。
+           產品要能在**同一個地方**分辨，才寫得出「彰師電子的深色模式」這個條件。
+           用 JS 事後掛類別不行：那是在畫面畫出來之後才發生的，
+           彰師電子會先閃一下星夜再跳成霓虹——跟 logo 那件事同一個理由
+           （見 mkpages.mjs 裡那段註解）。所以屬性直接寫在 HTML 上、由產生器換掉。
+
+           ★ 特異性：`html.dark[data-product="ncue"]` 是 (0,2,1)，
+             上面的 `html.dark` 是 (0,1,1)，所以不必補 !important 也贏得了。
+             只有原本就寫了 !important 的那幾條（墨塊底色、圓角、頁首那條線）
+             才跟著寫 !important——那是為了打平，不是為了保險。
+
+           ★★ 每一個色值都量過對比，不是挑好看的。量法跟上面同一套：
+             取**最壞的那一個像素**（所有光暈疊在一起、再加一條網格線的地方）
+             當底去算，含網格與掃描線的濃度。
+               頁面背景最壞 rgb(39,33,63)、卡片最壞 rgb(27,25,52)、
+               墨塊最壞 rgb(65,52,87)（光暈峰值＋掃描線）
+             主文字 15.2／次要 8.7／第三階 4.95（最壞的頁面背景上）、
+             強調色 5.4、墨塊上的霓虹粉 4.91、實心底＋白字最亮端 5.75。
+             全部過 4.5，非文字的那幾個過 3.0。
+           ⚠️ 想把光暈加濃或把網格加亮，要回頭重算——它們是**背景變亮**，
+             而背景變亮就是字的對比變差，而且不會報錯，只會讓人覺得「有點糊」。
+           ========================================================== */
+        html.dark[data-product="ncue"] {
+            /* ---- 底與字 ---- */
+            --paper:        #08040f;   /* 整站的底：近黑，帶一點紫 */
+            /* 卡片比星夜那組更不透明（0.90 對 0.82）：背後不再是一張畫，
+               而是會發光的光暈，透太多會讓卡片裡的小字被光暈拉亮的那幾塊吃掉。 */
+            --paper-raised: rgba(20, 12, 38, 0.90);
+            --paper-sunk:   rgba(12, 7, 24, 0.86);
+            --ink:          #f0ebff;
+            --ink-2:        #b9afe0;
+            --ink-3:        #968cc0;   /* 最壞的背景上 4.95 */
+            /* 細線帶霓虹的紫。★ 不用純洋紅：全站每一條分隔線都走這個變數，
+               純洋紅會讓畫面上到處都是亮線，反而看不出哪裡是重點。 */
+            --rule:         rgba(190, 140, 255, 0.22);
+
+            /* ---- 霓虹粉：四個階，門檻跟星夜那組一樣各自不同 ---- */
+            --accent:        #ff5cb8;  /* 文字／圖示／線：卡片 6.3、最壞背景 5.4 */
+            --accent-fill:   #c2186f;  /* 實心底＋白字：5.75（含漸層最亮端 5.75） */
+            --accent-bright: #ff7ecb;  /* 非文字：外框、圈選、捲軸、焦點框 */
+            --accent-tab:    #c2186f;  /* 選中的分頁：白字壓在上面 5.75 */
+            --accent-tab-ink: #ffffff;
+            --accent-soft:   rgba(255, 92, 184, 0.14);
+            --panel:         #150c28;  /* 對話框：一定不透明 */
+
+            /* ---- 墨塊上的字（Hero、播放畫面）----
+               ★ 這三個原本只寫在 :root、兩個模式共用，理由是「墨塊在兩個模式下
+                 都是深的」。那個前提在這裡仍然成立，但**墨塊本身換人了**：
+                 彰師電子的深色墨塊底下是霓虹光暈，不是星夜。
+                 所以這裡要覆蓋，而且是照新的墨塊重算的。 */
+            --ink-3-on-ink:  #d7d0ee;  /* 墨塊最壞處 7.63 */
+            --accent-on-ink: #ff7ecb;  /* 墨塊最壞處 4.91 */
+            --danger-on-ink: #ffb3c8;  /* 墨塊最壞處 6.76 */
+
+            /* ---- 圓角：霓虹介面是硬邊的 ----
+               星夜那組是 14／18px 的「編輯感」。這裡收到 4／6px：
+               再小就會變成純方角，而方角在有發光外框的時候看起來像沒做完。 */
+            --radius:    4px;
+            --radius-lg: 6px;
+
+            /* ---- 背景不再是照片 ----
+               ★ 設成 none 不只是「不顯示」，是**不下載**：
+                 nightcomputer.jpg 有 285 KB，彰師電子的深色模式現在完全不碰它。
+                 光暈與網格是用漸層畫的，一個位元組都不用載。 */
+            --bg-art:  none;
+            --bg-wash: rgba(6, 3, 13, 0.55);
+        }
+
+        /* ==========================================================
+           材質：從「油畫顏料」換成「發光的玻璃與網格」
+           上面那批 --vg-* 原本畫的是畫布織理、顏料厚度、筆觸方向。
+           這裡換成霓虹介面的三種材質：網格、掃描線、霓虹漸層。
+           變數名沿用不改——它們是「材質」這個角色的名字，
+           改名要動二十幾條規則，而那幾條規則跟風格無關。
+           ========================================================== */
+        html.dark[data-product="ncue"] {
+            /* 面板上的網格。★ 亮線壓在暗底上會**把底提亮**，而底一亮字就變糊——
+               這正是星夜那組刻意用暗線的理由。這裡要網格看得見，所以走回亮線，
+               但濃度是算過的：交叉點（兩條線疊在同一格）是最壞的一格，
+               在那裡第三階文字仍有 5.0。想加濃就得回頭把 --ink-3 再提亮。 */
+            --vg-tooth: repeating-linear-gradient(0deg,
+                    rgba(120, 220, 255, 0.030) 0px, rgba(120, 220, 255, 0.030) 1px,
+                    rgba(120, 220, 255, 0)     1px, rgba(120, 220, 255, 0)     26px),
+                repeating-linear-gradient(90deg,
+                    rgba(120, 220, 255, 0.026) 0px, rgba(120, 220, 255, 0.026) 1px,
+                    rgba(120, 220, 255, 0)     1px, rgba(120, 220, 255, 0)     26px);
+            /* 內凹區塊與輸入框：格子更小、更淡，才看得出「這裡是凹下去的」 */
+            --vg-tooth-alt: repeating-linear-gradient(0deg,
+                    rgba(120, 220, 255, 0.022) 0px, rgba(120, 220, 255, 0.022) 1px,
+                    rgba(120, 220, 255, 0)     1px, rgba(120, 220, 255, 0)     16px),
+                repeating-linear-gradient(90deg,
+                    rgba(120, 220, 255, 0.020) 0px, rgba(120, 220, 255, 0.020) 1px,
+                    rgba(120, 220, 255, 0)     1px, rgba(120, 220, 255, 0)     16px);
+            /* 實心色塊上的掃描線（CRT 螢幕那種橫紋）。
+               ★ 用**暗**線不是亮線：這些色塊上壓的是白字，暗紋把底壓暗＝對比往上，
+                 是順風。亮紋會把底提亮，白字反而變難讀。 */
+            --vg-impasto: repeating-linear-gradient(0deg,
+                rgba(0, 0, 0, 0.22) 0px, rgba(0, 0, 0, 0.22) 1px,
+                rgba(0, 0, 0, 0)    1px, rgba(0, 0, 0, 0)    3px);
+            --vg-impasto-soft: repeating-linear-gradient(0deg,
+                rgba(0, 0, 0, 0.12) 0px, rgba(0, 0, 0, 0.12) 1px,
+                rgba(0, 0, 0, 0)    1px, rgba(0, 0, 0, 0)    4px);
+            /* 沿色塊變色的漸層：洋紅走到紫。
+               ★ **最亮的那一端**才是白字的最壞情況，所以停止點是照它挑的
+                 （#c2186f 白字 5.75）。不能為了更亮把中段換成 #e0249a——
+                 那個顏色白字只有 4.30，破線而且只有在漸層中間那一段破。 */
+            --vg-grad-fill:   linear-gradient(102deg, #a01560 0%, #c2186f 40%, #8f1a86 100%);
+            --vg-grad-tab:    linear-gradient(102deg, #a81a63 0%, #c2186f 42%, #6e28c8 100%);
+            /* 進度條專用：條子裡沒有字，所以可以一路亮到洋紅→紫→青的全霓虹掃色 */
+            --vg-grad-bright: linear-gradient(90deg, #ff2d95 0%, #b14dff 55%, #22e2ff 100%);
+
+            /* ---- 面板的邊：從「顏料的高低差」換成「發光的邊」----
+               星夜那組是 inset 亮邊＋暗溝＋群青外圈，模擬顏料堆起來的厚度。
+               霓虹介面的邊是**光**：1px 的實線外圈＋往外散的暈。
+               ★ 仍然走 box-shadow 不走 border：border 會佔版面，
+                 全站幾百張卡片同時多 1px 會把每一個排版都推開一點點。 */
+            --vg-relief:
+                inset 0 1px 0 rgba(255, 255, 255, 0.06),
+                inset 0 -1px 0 rgba(0, 0, 0, 0.55),
+                0 0 0 1px rgba(255, 92, 184, 0.30),
+                0 0 10px -2px rgba(255, 45, 149, 0.30),
+                0 6px 20px -8px rgba(0, 0, 0, 0.75);
+
+            /* ---- 刷痕的形狀換成切角 ----
+               --vg-swatch 是一塊遮罩，原本畫的是「一筆刷到一半停住」的邊。
+               這裡換成左上、右下各切一角的六邊形——霓虹介面的招牌形狀。
+               用的地方有兩個：選中的分頁、進度條的右端（刻意共用同一塊形狀，
+               不然並排時會看起來像兩種材質）。
+               ★ preserveAspectRatio='none' 表示它會被拉成元素的長寬，
+                 所以切角的大小是**比例**不是固定 px：寬的元素切得多一點。 */
+            --vg-swatch: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 60' preserveAspectRatio='none'%3E%3Cpath d='M12 0 H200 V44 L188 60 H0 V16 Z' fill='%23000'/%3E%3C/svg%3E");
+
+            /* ---- 藍：原本是群青（畫裡的天空），換成霓虹青 ----
+               它只出現在裝飾用的落影與外圈，所以可以很濃。 */
+            --vg-blue:       #35e6ff;
+            --vg-blue-soft:  rgba(255, 45, 149, 0.55);   /* 分頁的落影：洋紅的光 */
+            --vg-blue-faint: rgba(53, 230, 255, 0.20);
+
+            /* ---- 墨塊（Hero、播放畫面）底下那層：從星夜換成城市光暈 ----
+               兩層疊著：--vg-stars 在上（掃描線＋直向網格），--vg-swirl 在下（光暈）。
+               ★ 光暈的濃度 0.22／0.15 與掃描線的 0.030 是**一起**算的：
+                 三者疊在同一格的那個像素就是墨塊最亮的地方，
+                 而墨塊上的霓虹粉（--accent-on-ink）在那裡剛好 4.91。 */
+            --vg-swirl: radial-gradient(120% 90% at 18% 115%,
+                    rgba(255, 45, 149, 0.22), rgba(255, 45, 149, 0) 62%),
+                radial-gradient(110% 85% at 86% 110%,
+                    rgba(34, 226, 255, 0.15), rgba(34, 226, 255, 0) 64%);
+            --vg-stars: repeating-linear-gradient(0deg,
+                    rgba(255, 255, 255, 0.030) 0px, rgba(255, 255, 255, 0.030) 1px,
+                    rgba(255, 255, 255, 0)     1px, rgba(255, 255, 255, 0)     4px),
+                repeating-linear-gradient(90deg,
+                    rgba(120, 220, 255, 0.05) 0px, rgba(120, 220, 255, 0.05) 1px,
+                    rgba(120, 220, 255, 0)    1px, rgba(120, 220, 255, 0)    40px);
+
+            /* ---- 標題底下那一筆、頁首那條線 ----
+               原本是兩張 SVG 的乾筆刷痕。這裡改成漸層，因為霓虹的線是**均勻發光**的，
+               乾筆的濃淡在發光的語彙裡會被讀成「這條線畫壞了」。
+               ★ 仍然是 background-image，所以上面那幾條規則一行都不用改。 */
+            --vg-heading:     linear-gradient(90deg, #ff2d95 0%, #b14dff 45%, rgba(53, 230, 255, 0) 100%);
+            --vg-heading-ink: linear-gradient(90deg, #ff5cb8 0%, #35e6ff 55%, rgba(53, 230, 255, 0) 100%);
+            --vg-wave:        linear-gradient(90deg, rgba(255, 45, 149, 0) 0%, #ff2d95 18%, #b14dff 50%, #35e6ff 82%, rgba(53, 230, 255, 0) 100%);
+            /* 空狀態原本是一朵向日葵。這裡換成一個霓虹的六邊形記號——
+               一樣是「這裡是空的，而且是故意的」，只是換了語彙。 */
+            --vg-sunflower: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%23ff5cb8' stroke-width='4' stroke-linejoin='round'%3E%3Cpath d='M80 20 L132 50 V110 L80 140 L28 110 V50 Z'/%3E%3C/g%3E%3Cg stroke='%2335e6ff' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M54 68 h52 M54 92 h52'/%3E%3C/g%3E%3Ccircle cx='80' cy='80' r='6' fill='%23ffd54a'/%3E%3C/svg%3E");
+        }
+
+        /* ---- 背景兩層：光暈在下，遮罩＋網格在上 ----
+           ★ 這兩條是規則不是變數，因為要換的是**圖層本身**：
+             星夜那版的 ::before 是一張照片（所以只要換 --bg-art 就好），
+             這裡是三團光暈疊出來的，沒有一個變數裝得下。
+           ★ filter 要明寫 none：上面有一條 `html.dark body::before { filter: saturate(1.15) }`，
+             那是為了讓夜景的星空更濃。漸層本來就是我們自己挑的顏色，
+             再加飽和只會讓它跑掉——而且不會報錯，只會「顏色跟寫的不一樣」。 */
+        html.dark[data-product="ncue"] body::before {
+            background-color: #06030d;
+            background-image:
+                radial-gradient(90% 60% at 15% 105%, rgba(255, 45, 149, 0.22), rgba(255, 45, 149, 0) 60%),
+                radial-gradient(80% 55% at 88% 100%, rgba(34, 226, 255, 0.16), rgba(34, 226, 255, 0) 62%),
+                radial-gradient(70% 50% at 50% -10%, rgba(150, 60, 255, 0.14), rgba(150, 60, 255, 0) 65%);
+            filter: none;
+        }
+        /* 透視網格。★ 它鋪在遮罩那一層（::after），不是光暈那層——
+           遮罩的工作是「把底壓暗到字讀得了」，網格必須在它**之後**才不會被壓掉。
+           濃度 0.05 已經含在最壞情況的計算裡（背景最亮處 rgb(39,33,63)）。 */
+        html.dark[data-product="ncue"] body::after {
+            background-image:
+                repeating-linear-gradient(90deg,
+                    rgba(120, 220, 255, 0.05) 0px, rgba(120, 220, 255, 0.05) 1px,
+                    rgba(120, 220, 255, 0)    1px, rgba(120, 220, 255, 0)    44px),
+                repeating-linear-gradient(0deg,
+                    rgba(120, 220, 255, 0.045) 0px, rgba(120, 220, 255, 0.045) 1px,
+                    rgba(120, 220, 255, 0)     1px, rgba(120, 220, 255, 0)     44px);
+        }
+
+        /* ---- 墨塊：底色與切角 ----
+           ★ 選擇器沿用檔案裡既有的那條 Hero 選擇器
+             （`.bg-slate-900.relative.overflow-hidden:not(#mainHeader)`）。
+             不能寫成 `.bg-slate-900`：`#mainHeader` 也掛著這個類別，
+             而頁首切角會讓右上角的帳號選單被切掉一塊。那條坑上面記過兩次。 */
+        html.dark[data-product="ncue"] .bg-slate-900,
+        html.dark[data-product="ncue"] .bg-slate-800 { background-color: #0a0518 !important; }
+        html.dark[data-product="ncue"] .bg-slate-900.relative.overflow-hidden:not(#mainHeader) {
+            /* 左上、右下各切一角。★ 用 px 不用百分比：百分比會讓寬的區塊
+               切出一條很長的斜邊，看起來像版面歪了。
+               ★ clip-path 會連 box-shadow 一起切掉，所以墨塊沒有外發光——
+                 它自己就是發光的那一塊，不需要再往外暈。 */
+            clip-path: polygon(20px 0, 100% 0, 100% calc(100% - 20px),
+                               calc(100% - 20px) 100%, 0 100%, 0 20px);
+        }
+        /* ★ 會動的天空（WebGL 那層）在霓虹夜城裡要關掉：
+           它畫的是梵谷的流場，顏色與筆法都是另一套語彙，疊在光暈上會變成兩張畫。
+           用 display:none 不去改 JS 的理由是**深淺模式可以隨時切換**——
+           JS 只在載入時掛一次，CSS 才跟得上使用者按下切換的那一刻。
+           （它本來就有一支 IntersectionObserver 在「看不見就停」，
+             所以藏起來之後也不會繼續吃 GPU。） */
+        html.dark[data-product="ncue"] .vg-sky-gl { display: none; }
+
+        /* ---- 標題底下那一筆改細、加光 ----
+           漸層填滿 7px 會變成一整塊色帶（原本那張 SVG 自己帶了濃淡所以不會）。
+           收成 2px 才是「一條霓虹燈管」。 */
+        html.dark[data-product="ncue"] h2 {
+            background-size: 100% 2px;
+            padding-bottom: 8px;
+            text-shadow: 0 0 18px rgba(255, 45, 149, 0.35);
+        }
+        html.dark[data-product="ncue"] #mainHeader h2,
+        html.dark[data-product="ncue"] .quiz-screen h2 { text-shadow: none; }
+        /* 頁首那條線同理：4px 的漸層太厚，收成 2px 再往外發光。
+           ★ 這裡只換值不寫規則——`#mainHeader::after` 全站只能有一條規則
+             （兩條會靜靜地互相覆蓋，`tests/design.mjs` 有一條在釘它）。 */
+        html.dark[data-product="ncue"] {
+            --hdr-rule-h: 2px;
+            --hdr-rule-b: -1px;
+            --hdr-rule-glow: drop-shadow(0 0 6px rgba(255, 45, 149, 0.55));
+        }
+
+        /* ---- 圓角：這一條原本寫死 10px，token 蓋不到它 ---- */
+        html.dark[data-product="ncue"] .rounded-xl,
+        html.dark[data-product="ncue"] .rounded-lg { border-radius: 3px !important; }
+
+        /* ---- 剩下這些是「上面那批規則寫死了顏色」的地方 ----
+           它們沒有走 token，所以換 token 換不到，只能一條一條對。
+           ★ 漏掉任何一個的症狀都一樣：畫面上冒出一塊星夜的月亮金或暗紅，
+             在霓虹配色裡像貼上去的。 */
+        /* 資訊用色：四項指標要彼此分得開（最接近的一對 ΔE 也在 30 以上） */
+        html.dark[data-product="ncue"] .bg-data-1 { background-color: #ff5cb8 !important; }
+        html.dark[data-product="ncue"] .text-data-1 { color: #ff5cb8 !important; }
+        html.dark[data-product="ncue"] .bg-data-2 { background-color: #35e6ff !important; }
+        html.dark[data-product="ncue"] .text-data-2 { color: #35e6ff !important; }
+        html.dark[data-product="ncue"] .bg-data-3 { background-color: #ffd54a !important; }
+        html.dark[data-product="ncue"] .text-data-3 { color: #ffd54a !important; }
+        html.dark[data-product="ncue"] .bg-data-4 { background-color: #a78bfa !important; }
+        html.dark[data-product="ncue"] .text-data-4 { color: #a78bfa !important; }
+        /* 熟練度那條線的六段。⚠️ 這是一條**有順序**的線（生 → 熟），
+           色相必須一路從暖走到冷，不能為了把顏色拉開就跳來跳去——
+           跳開之後每一段都看得很清楚，但「哪邊是進步的方向」就沒了。 */
+        html.dark[data-product="ncue"] .bg-tier-1 { background-color: #ff3d7f !important; }
+        html.dark[data-product="ncue"] .bg-tier-2 { background-color: #ff7a45 !important; }
+        html.dark[data-product="ncue"] .bg-tier-3 { background-color: #ffd54a !important; }
+        html.dark[data-product="ncue"] .bg-tier-4 { background-color: #7ef29d !important; }
+        html.dark[data-product="ncue"] .bg-tier-5 { background-color: #35e6ff !important; }
+        html.dark[data-product="ncue"] .bg-tier-6 { background-color: #a78bfa !important; }
+        /* 單字冊的七個封面。★ 這七個**不能**用上面那批亮霓虹：
+           封面上壓的是白字，亮底配白字等於看不見（#ffd54a 配白只有 1.6）。
+           所以取同樣色相的**深**一階，白字最差 8.6，兩兩最接近的一對 ΔE 23.7。 */
+        html.dark[data-product="ncue"] .bg-sw-1 { background-color: #8c1155 !important; }
+        html.dark[data-product="ncue"] .bg-sw-2 { background-color: #0f4a66 !important; }
+        html.dark[data-product="ncue"] .bg-sw-3 { background-color: #7a3a08 !important; }
+        html.dark[data-product="ncue"] .bg-sw-4 { background-color: #4a1f7a !important; }
+        html.dark[data-product="ncue"] .bg-sw-5 { background-color: #0d4f3a !important; }
+        html.dark[data-product="ncue"] .bg-sw-6 { background-color: #7a1220 !important; }
+        html.dark[data-product="ncue"] .bg-sw-7 { background-color: #33305e !important; }
+        /* 計劃的五個區塊 */
+        html.dark[data-product="ncue"] .plan-zone[data-zone="yesterday"] { --zone: #ff5c7a; }
+        html.dark[data-product="ncue"] .plan-zone[data-zone="today"]     { --zone: #ff5cb8; }
+        html.dark[data-product="ncue"] .plan-zone[data-zone="tomorrow"]  { --zone: #35e6ff; }
+        html.dark[data-product="ncue"] .plan-zone[data-zone="week"]      { --zone: #a78bfa; }
+        html.dark[data-product="ncue"] .plan-zone[data-zone="later"]     { --zone: #7ef29d; }
+        /* 記帳的漲跌。★ 紅漲綠跌是台股的慣例，只換色不換方向。 */
+        html.dark[data-product="ncue"] .val-up   { color: #ff5c7a !important; }
+        html.dark[data-product="ncue"] .val-down { color: #35e6a0 !important; }
+        /* 琥珀與玫瑰那兩批（提示框、答錯的回饋） */
+        html.dark[data-product="ncue"] .text-amber-300,
+        html.dark[data-product="ncue"] .text-amber-400 { color: #ffd54a !important; }
+        html.dark[data-product="ncue"] .text-rose-300,
+        html.dark[data-product="ncue"] .text-rose-400 { color: #ff8098 !important; }
+        html.dark[data-product="ncue"] .quiz-opt.is-wrong .quiz-opt-text { color: #ff8098; }
+        /* 更新紀錄裡的兩種提示框 */
+        html.dark[data-product="ncue"] .bg-rose-50\/50 {
+            background-color: rgba(140, 17, 60, 0.22) !important;
+            border-color: rgba(255, 92, 138, 0.38) !important;
+        }
+        html.dark[data-product="ncue"] .bg-rose-50\/50 h4 { color: #ff8098 !important; }
+        html.dark[data-product="ncue"] .bg-amber-50\/50 {
+            background-color: rgba(122, 90, 8, 0.22) !important;
+            border-color: rgba(255, 213, 74, 0.34) !important;
+        }
+        html.dark[data-product="ncue"] .bg-amber-50\/50 h4 { color: #ffd54a !important; }
+        /* 查字典小卡的 hover */
+        html.dark[data-product="ncue"] .lw:hover { background-color: rgba(255, 92, 184, 0.18); }
+        /* 開站畫面：底色跟著 --paper 走，那隻貓的剪影也要跟著換色相 */
+        html.dark[data-product="ncue"] #splash { background-color: #08040f; }
+        html.dark[data-product="ncue"] .cat-svg { color: #150c26; }
+
+        /* ---- 數字對齊 ----
+           霓虹介面上到處都是數字（時間、金額、進度、統計）。
+           等寬數字的意思是「每個數字佔一樣寬」，這樣秒數從 9 跳到 10 的時候
+           整排字不會跟著抖一下——那個抖動在會發光的介面上特別明顯。 */
+        html.dark[data-product="ncue"] body { font-variant-numeric: tabular-nums; }
 
     </style>
     <script>
@@ -6027,6 +6361,18 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-09',
+                title: '彰師電子的深色模式換成一整套霓虹夜城',
+                items: [
+                    ['換的是彰師電子，而且只有深色', '要切到深色模式才看得到。小黑貓那邊維持原本的靛藍星夜，兩邊的淺色模式也一個字都沒動——同一個帳號在兩個站之間走，會看到兩種不一樣的夜晚。'],
+                    ['底色從星夜換成近黑的紫', '原本深色模式的背景是一張雪山夜景的畫。現在換成一片近黑，左下角透著洋紅的光、右邊透著青色的光，上面鋪一層很淡的方格線，像從高處看夜裡的城市。'],
+                    ['重點顏色從月亮的金換成霓虹粉', '按鈕、連結、選中的分頁、各種標記，原本是金色的地方全部換成霓虹粉；進度條會從粉色一路掃到青色。'],
+                    ['卡片的邊會發光，角變硬了', '每一張卡片外面多一圈很細的粉色光，圓角收得比原本方很多。大的深色區塊還會在左上跟右下各切掉一角。'],
+                    ['背景那張畫不用再下載了', '深色模式的光暈跟格線都是畫出來的，不是圖片。所以彰師電子的深色模式少載一張將近三百 KB 的背景圖，開站快一點，用行動網路的時候更明顯。'],
+                    ['字一樣看得清楚', '每一個顏色都是照「最暗的那一格背景配最亮的那一團光」挑的，不是挑好看的就放上去。小字、次要說明、壓在深色大區塊上的字，都還在看得清楚的標準之上。'],
+                ]
+            },
             {
                 date: '2026-09-09',
                 title: '資料分頁多了見習生區，而且資料可以直接是一份 PDF 了',
