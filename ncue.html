@@ -4935,7 +4935,7 @@
     <script type="module">
         import { initializeApp } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs, enableIndexedDbPersistence } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
          * 1. 常數與設定
@@ -6081,9 +6081,44 @@
         }
 
         const auth = getAuth(app);
-        const db = getFirestore(app);
-        // 離線持久化：讓已載入的文章/課程等資料在離線時仍可讀（多分頁或不支援時會失敗，忽略即可）
-        enableIndexedDbPersistence(db).catch(() => {});
+
+        /* ----------------------------------------------------------
+           離線快取：讓已經載入過的課程、文章、單字在離線時仍然讀得到。
+
+           ★ 這裡的「快取」是 Firestore 自己在瀏覽器裡留的一份副本，
+             存在 IndexedDB（瀏覽器內建的小資料庫）。有它，斷網或訊號差的時候
+             畫面還讀得出東西；沒有它就只剩這一個分頁的記憶體，關掉就沒了。
+
+           ★ 2026-09-10 從 `enableIndexedDbPersistence(db)` 換成
+             `initializeFirestore(..., { localCache })`。換的理由**不是**舊寫法被標成
+             deprecated（那只是提醒），是舊寫法真的少一件事：
+             它拿的是**獨占**的鎖，所以只有第一個分頁拿得到離線快取，
+             第二個分頁一律退回記憶體，而且會在主控台印一行紅字
+             （`failed-precondition: Failed to obtain exclusive access`）。
+             這個站的使用者很常同時開兩三個分頁（課表一個、單字一個），
+             所以「第二個分頁沒有離線能力」不是邊角情況，是常態。
+             `persistentMultipleTabManager` 讓所有分頁**共用同一份**快取，
+             那行紅字會消失，而且每個分頁都有離線能力。
+
+           ⚠️ 為什麼要 try／catch ＋ 退回 `getFirestore(app)`：
+             `db` 是全站每一次讀寫的入口。這一行只要丟例外，
+             整個 `<script type="module">` 就停在這裡——症狀是**畫面全白**，
+             正是 `CLAUDE.md` 第一條那個坑。退回去的那條路沒有離線快取，
+             但站是活的；離線能力可以沒有，站不能開不起來。
+           ⚠️ `initializeFirestore` 一定要在**任何** `getFirestore(app)` 之前叫。
+             反過來的話它會丟「Firestore has already been initialized」，
+             而且是在使用者的瀏覽器上才丟。所以整份檔案裡
+             `getFirestore(app)` 只有下面那一處（失敗才走的那條）。
+           ---------------------------------------------------------- */
+        let db;
+        try {
+            db = initializeFirestore(app, {
+                localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+            });
+        } catch (e) {
+            console.warn('離線快取開不起來，改用只留在這個分頁記憶體裡的快取', e);
+            db = getFirestore(app);
+        }
 
         /* ==========================================================
          * 5. Header 自動收合
@@ -6610,6 +6645,15 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-10',
+                title: '同時開好幾個分頁的時候，每一個分頁離線都讀得到東西了',
+                items: [
+                    ['以前只有「最先打開的那一個」有離線能力', '網站會把你載入過的課程、文章、單字在你的瀏覽器裡留一份，斷網或訊號很差的時候還讀得出來。但以前那一份同時只有一個分頁抓得住，第二個分頁一離線就整個空掉。'],
+                    ['現在所有分頁共用同一份', '課表開一個分頁、背單字開另一個分頁，兩邊都會留下來。'],
+                    ['這件事你平常不會注意到，但捷運上會', '進隧道、電梯、地下室的那幾秒，畫面不會再突然變成空的。'],
+                ]
+            },
             {
                 date: '2026-09-10',
                 title: '手機上看課表，現在看得到每一節幾點上課，課名也放大了',
