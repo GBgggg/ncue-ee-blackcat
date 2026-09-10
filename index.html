@@ -30,6 +30,17 @@
            fonts.*              Noto Sans/Serif TC（CSS 裡的 @import）
            dictionaryapi.dev    查字典的英英解釋（單字庫那一頁）
            workers.dev          報價、推播與 AI 的 Worker
+           localhost:11434      解題的「自己跑的模型」（Ollama 的預設埠）
+
+           ★ 那兩行 http:// 不是寫錯，也不是安全漏洞。
+             `http://localhost` 與 `http://127.0.0.1` 被瀏覽器規格明定為
+             「可信來源」——因為它指的是使用者自己那台機器，中間沒有網路可以被竊聽。
+             所以 HTTPS 的頁面打它**不會**被混合內容擋掉（打你家對外的 IP 才會）。
+             少了這兩行的症狀是：Ollama 明明開著，解題卻一直說連不上，
+             而 Console 裡只有一句 CSP 阻擋——沒有人會把這兩件事連起來。
+           ⚠️ 只放行預設埠 11434。改過埠號的人得自己改這一行，這是刻意的：
+             connect-src 沒辦法放行「使用者等一下才會打的任意網址」，
+             而為了它開成萬用字元等於把整條 CSP 拆掉。
 
            ★ script-src 多了 'wasm-unsafe-eval'：站內閱覽 PDF 用的 pdf.js，
              掃描檔裡的 JBIG2／JPEG2000 影像是交給 WebAssembly 解的。
@@ -43,7 +54,7 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' data: https://fonts.gstatic.com;
         img-src 'self' data: blob:;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev;
+        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev http://localhost:11434 http://127.0.0.1:11434;
         frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
         worker-src 'self';
         manifest-src 'self';
@@ -284,6 +295,13 @@
             color: var(--accent) !important;                        /* 字，走 4.5 那階 */
             box-shadow: inset 0 -2px 0 var(--accent-bright) !important;  /* 底線是裝飾，走 3.0 那階 */
         }
+        /* 節次欄的起訖時間拆成三塊（開始／中間那一格／結束）。
+           ★ 為什麼不是一串 `08:10-<br>09:00`：手機閱讀模式要把中間那個
+             連字號換成一小段垂直細線（見下面的手機版那一段），
+             而字串裡的 `<br>` 只能換行，換不了樣子。
+           ★ 拆開之後桌機**要長得跟原本一模一樣**，所以結束時間預設就是
+             獨立一行——這一條就是原本那個 `<br>` 的替身，不是新版面。 */
+        .sched-period-t2 { display: block; }
 
         /* ==========================================================
            View Transitions：分頁切換的原生轉場
@@ -372,19 +390,62 @@
         details.chg > summary:hover { background-color: rgba(15, 23, 42, 0.03); }
         html.dark details.chg > summary:hover { background-color: rgba(255, 255, 255, 0.04); }
 
-        /* 閱讀模式手機版：整週(一~五)塞進一個畫面，免左右滑 */
+        /* 閱讀模式手機版：整週(一~五)塞進一個畫面，免左右滑
+
+           ★ 2026-09-10 從「縮小的桌機課表」改成「手機課表 App 那個格式」。
+             在這之前這一段做的事是把整張表等比縮到 9px，並且**把節次欄的
+             起訖時間整欄藏起來**——省下來的空間確實讓週一~五排得進一個畫面，
+             但代價是「這節幾點上課」在手機上完全問不到，
+             而課表最常被問的就是那個問題。9px 的課名也已經不是「小」，
+             是要瞇著眼睛猜。
+           ★ 換成的格式：節次欄放回起訖時間（節次／開始／一條細線／結束），
+             課名與教室各放大一階到讀得完，格子高度跟著長一階。
+             免左右滑那個前提沒有動，動的是「省下來的空間要花在哪裡」。
+           ★ 量過的高度（393px 寬、預設十列）：整張表從 323px 長到 593px，
+             列高 25px → 52px，週一~五那幾欄只從 56px 縮到 53px——
+             也就是**這一階全部是從節次欄與行距擠出來的，不是從課名那一欄**。
+             593px 在 393×852 的手機上仍然一個畫面看完。
+             自己加開夜間第 10–13 節的人會多四列、需要往下滑一點——
+             那是他自己多開了四列，不是版面壞了。
+
+           ⚠️ **`min-height` 對 `<td>` 沒有作用。** 這一段原本寫
+             `.schedule-cell { min-height: 3.2rem }`，看起來是在訂格子的最小高度，
+             其實 CSS 規格裡表格單元格會忽略 `min-height`——那條從第一天就是空包彈，
+             而它「沒有報錯、畫面也不難看」，所以一直沒人發現。
+             現在手機上每一列的高度地板是**節次欄自己的內容**
+             （節次 13px ＋ 兩個 8px 的時間 ＋ 中間那條線 = 52px），
+             格子只要不超過它就跟著它走，所以空白列也不會塌成一條縫。
+             要訂死列高的話寫 `height:`（表格的 `height` 才是「至少」）——
+             但現在不需要，內容撐出來的 52px 剛好。
+           ⚠️ 同一個原因：`renderSchedule` 給「中午沒課」那一格的 `h-10`
+             在手機上也是無效的（被這裡的 `height:auto` 蓋掉），
+             於是中午沒課那一列跟其他列一樣高。這是把時間放回節次欄的代價
+             （那一欄現在自己就要 52px），**不是漏改**——截圖裡那個 App 也一樣高。 */
         @media (max-width: 767px) {
             #scheduleTable.sched-compact { min-width: 0 !important; width: 100% !important; border-spacing: 3px !important; }
             .sched-compact td { min-width: 0 !important; }
-            .sched-compact .schedule-cell { min-width: 0 !important; height: auto !important; min-height: 3.2rem !important; padding: 2px !important; }
-            .sched-compact .sched-name { font-size: 9px !important; line-height: 1.05 !important; margin-bottom: 1px !important; }
-            .sched-compact .sched-loc { font-size: 8px !important; line-height: 1.05 !important; padding: 0 !important; border: none !important; background: transparent !important; display: block !important; margin-top: 0 !important; }
+            .sched-compact .schedule-cell { min-width: 0 !important; height: auto !important; padding: 3px 2px !important; }
+            .sched-compact .sched-name { font-size: 11px !important; line-height: 1.15 !important; margin-bottom: 2px !important; }
+            .sched-compact .sched-loc { font-size: 9px !important; line-height: 1.1 !important; padding: 0 !important; border: none !important; background: transparent !important; display: block !important; margin-top: 0 !important; }
             .sched-compact thead th { padding: 4px 0 !important; }
-            .sched-compact .sched-period-time { display: none !important; }
-            /* 節次欄壓到最窄，把空間讓給週一~五 */
-            .sched-compact .sched-period-col { width: 1.6rem !important; min-width: 1.6rem !important; padding: 2px 0 !important; }
-            .sched-compact .sched-period-label { font-size: 10px !important; }
-            .sched-compact th.sched-period-col { font-size: 10px !important; }
+            /* 節次欄：仍然是窄的那一欄，但要放得下 hh:mm */
+            .sched-compact .sched-period-col { width: 2.6rem !important; min-width: 2.6rem !important; padding: 2px 0 !important; }
+            .sched-compact .sched-period-label { font-size: 13px !important; }
+            .sched-compact th.sched-period-col { font-size: 11px !important; }
+            .sched-compact .sched-period-time { display: block !important; font-size: 8px !important; line-height: 1.25 !important; opacity: 0.75 !important; }
+            /* 開始與結束中間那一格：桌機是連字號（「08:10-」換行「09:00」），
+               手機換成一小段垂直細線，兩個時間才讀得出來是「一段」而不是兩件事。
+               ★ 用 font-size:0 把連字號本人縮掉、線畫在 ::before，
+                 不是 display:none——整格拿掉的話兩個時間會貼在一起，
+                 而貼在一起的 `08:10` `09:00` 看起來像兩節課。 */
+            .sched-compact .sched-period-sep {
+                display: block !important; font-size: 0 !important;
+                height: 5px !important; position: relative !important;
+            }
+            .sched-compact .sched-period-sep::before {
+                content: ''; position: absolute; left: 50%; top: 0; bottom: 0;
+                border-left: 1px solid currentColor; opacity: 0.45;
+            }
         }
 
         /* ★ 這裡原本有一段「手機版分頁列左右淡出」的遮罩，用意是暗示還能水平捲動。
@@ -3645,6 +3706,73 @@
                 </div>
             </div>
             </div>
+            <!-- 子分頁：解題（拍題目問 AI）
+                 ★ 答案區刻意是純文字（white-space: pre-wrap）不是 Markdown。
+                 主站只載入 lucide，沒有 marked／DOMPurify／KaTeX——為了排版
+                 把那三套拉進來要同時改 sw.js 的 CORE 與發布腳本，
+                 而模型的輸出本來就是別人（模型）產生的字，丟進 innerHTML
+                 正是 CLAUDE.md 第四條那個坑。所以提示詞叫模型寫純文字，
+                 這裡用 textContent 填。要升級成數學排版是之後的事，
+                 vendor/ 裡的 KaTeX 已經在了。 -->
+            <div id="study-sub-solve" class="hidden">
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                    <div class="relative z-10">
+                        <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">解題 <span class="animate-bounce">🔍</span></h2>
+                        <p class="text-slate-400 text-sm mt-2">拍一張卡住的題目上來，再打一句話說你卡在哪裡。它會先把題目讀給你聽一次，再一步一步算下去。照片只會送去算，不會存在網站上。</p>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl border border-slate-100 p-5 mb-5 shadow-sm">
+                    <!-- 圖片：點、拖、貼上三種都要能用。手機是 capture 直接開相機。 -->
+                    <div id="solveDrop" class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
+                        <input type="file" id="solveFile" accept="image/*" class="hidden">
+                        <div id="solveDropHint">
+                            <i data-lucide="image-plus" class="w-8 h-8 mx-auto text-slate-300 mb-2"></i>
+                            <p class="text-sm font-bold text-slate-500">點一下選照片，或直接拖進來、貼上</p>
+                            <p class="text-xs text-slate-400 mt-1">手機點了會直接開相機</p>
+                        </div>
+                        <div id="solvePreviewWrap" class="hidden">
+                            <img id="solvePreview" alt="你上傳的題目" class="max-h-64 mx-auto rounded-xl shadow-sm">
+                            <p id="solveImgInfo" class="text-xs text-slate-400 mt-2"></p>
+                        </div>
+                    </div>
+                    <div id="solveImgActions" class="hidden mt-3 flex justify-center">
+                        <button data-action="solve-clear" class="px-4 py-2 text-sm font-bold bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition flex items-center gap-2">
+                            <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i> 換一張
+                        </button>
+                    </div>
+
+                    <textarea id="solveText" rows="2" maxlength="1000" placeholder="卡在哪裡？例如：第 3 小題不會，我算到 I₁ 就卡住了（不打字也可以）"
+                        class="w-full mt-4 px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:border-emerald-400 transition-colors resize-none"></textarea>
+
+                    <div class="mt-4 flex flex-wrap items-center gap-3">
+                        <button data-action="solve-run" id="solveRunBtn" class="px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i data-lucide="sparkles" class="w-5 h-5 pointer-events-none"></i> 開始解題
+                        </button>
+                        <span id="solveEngine" class="text-xs font-bold text-slate-400"></span>
+                        <button data-action="solve-settings" class="ml-auto px-4 py-2 text-sm font-bold bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition flex items-center gap-2">
+                            <i data-lucide="settings-2" class="w-4 h-4 pointer-events-none"></i> 模型設定
+                        </button>
+                    </div>
+                </div>
+
+                <div id="solveResult" class="hidden bg-white rounded-3xl border border-slate-100 p-5 mb-5 shadow-sm">
+                    <div class="flex items-center gap-2 mb-3">
+                        <i data-lucide="graduation-cap" class="w-5 h-5 text-emerald-500"></i>
+                        <h3 class="font-black text-slate-700">解題過程</h3>
+                        <span id="solveResultEngine" class="ml-auto text-xs font-bold text-slate-400"></span>
+                    </div>
+                    <!-- ⚠️ 這一格只准用 textContent 填，不要改成 innerHTML。
+                         裡面是模型產生的字，模型會照著使用者照片上的內容講話——
+                         等於「別人打的字」，是 CLAUDE.md 第四條那個落點。 -->
+                    <div id="solveAnswer" class="text-sm text-slate-700 leading-relaxed" style="white-space: pre-wrap;"></div>
+                    <p class="text-xs text-amber-600 mt-4 flex items-start gap-1.5">
+                        <i data-lucide="alert-triangle" class="w-3.5 h-3.5 shrink-0 mt-0.5"></i>
+                        <span>AI 會看錯數字，也會算錯。第 1 段是它讀到的題目，先拿它對一次你的照片再往下看。</span>
+                    </p>
+                </div>
+            </div>
+
             <!-- 子分頁：背單字
                  ★ 2026-08-19 這一格原本是「英文閱讀」，後來是「克漏字」。
                  2026-09-01 克漏字測驗那張卡整張換成「錯題複習」，這一頁
@@ -3983,6 +4111,54 @@
     </div>
 
     <!-- 從查字典小卡把單字加進單字冊（欄位由 AI 自動填，存檔前可自行修改） -->
+    <!-- 解題的模型設定。
+         ★ 這個設定存在 localStorage，**不存 Firestore**，而且這是刻意的：
+         「我自己那台電腦跑的模型」跟著**裝置**走，不跟著帳號走。
+         存雲端的話，同一個帳號在手機上會拿到電腦上的 localhost 網址，
+         而手機上沒有 Ollama——症狀是手機解題永遠連不上，
+         而且使用者完全想不到那是因為他在電腦上設過一次。 -->
+    <!-- ★ 這個遮罩刻意沒有背景模糊的那個 class：設計系統 A5 就是
+         「全螢幕遮罩不做背景模糊」，而那個 class 在 CSS 裡已經被
+         `backdrop-filter: none !important` 關掉了，寫上去只是多一個不做事的 class。
+         ⚠️ `tests/design.mjs` 數的是**原始碼裡那個字串出現幾次**，而且是上限型
+         （只能往下不能往上）。所以連註解裡都不要寫出那個 class 的全名——
+         我第一次就是這樣：class 拿掉了，卻因為註解提了它兩次，
+         數字反而從 22 變成 23。測試沒抓錯，是註解把它弄紅的。 -->
+    <div id="solveSettingsModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[70] p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-lg p-6 md:p-8 shadow-2xl border-t-8 border-emerald-400">
+            <h3 class="text-2xl font-black mb-1 text-slate-900">解題用哪個模型</h3>
+            <p class="text-xs text-slate-400 font-medium mb-5">不填的話就用雲端的，登入就能用。想自己跑模型的話填下面這格。這個設定只留在這台裝置上。</p>
+
+            <div class="space-y-3">
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="solveLocalUrl">自己跑的模型網址</label>
+                    <input type="text" id="solveLocalUrl" maxlength="200" placeholder="http://localhost:11434"
+                        class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-bold text-sm text-slate-700 outline-none">
+                </div>
+                <div>
+                    <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest" for="solveLocalModel">模型名稱</label>
+                    <input type="text" id="solveLocalModel" maxlength="100" placeholder="qwen3-vl:4b"
+                        class="w-full mt-1 px-4 py-3 bg-slate-50 rounded-2xl border-none font-bold text-sm text-slate-700 outline-none">
+                </div>
+            </div>
+
+            <div class="mt-4 p-4 bg-slate-50 rounded-2xl text-xs text-slate-500 leading-relaxed">
+                <p class="font-black text-slate-600 mb-2">要先做兩件事，少做一件都會連不上</p>
+                <p class="mb-1">一、Ollama 預設只理會自己電腦上的網頁。要讓這個網站叫得動它，先設一個叫 <code class="px-1 bg-white rounded font-mono">OLLAMA_ORIGINS</code> 的環境變數，值填 <code class="px-1 bg-white rounded font-mono">https://gbgggg.github.io</code>，然後把 Ollama 重開。</p>
+                <p>二、瀏覽器第一次會跳一個視窗問「要不要讓這個網站連你的區域網路」，按允許。按拒絕之後不會再問，要去網址列左邊的鎖頭圖示裡改回來。</p>
+            </div>
+
+            <div class="flex gap-3 mt-5">
+                <button data-action="solve-settings-test" class="flex-1 px-4 py-3 font-bold bg-slate-100 text-slate-600 rounded-2xl hover:bg-slate-200 transition flex items-center justify-center gap-2">
+                    <i data-lucide="plug-zap" class="w-4 h-4 pointer-events-none"></i> 測試連線
+                </button>
+                <button data-action="solve-settings-save" class="flex-1 px-4 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition shadow-lg">儲存</button>
+            </div>
+            <p id="solveSettingsStatus" class="text-xs font-bold text-slate-400 mt-3 min-h-[1rem]"></p>
+            <button data-action="solve-settings-close" class="w-full mt-3 px-4 py-2 text-sm font-bold text-slate-400 hover:text-slate-600 transition">關閉</button>
+        </div>
+    </div>
+
     <div id="addWordModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-[70] p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-blue-400">
             <h3 class="text-2xl font-black mb-1 text-slate-900">加入單字冊</h3>
@@ -5273,6 +5449,18 @@
              `slots` 踩過一模一樣的坑，就在下面那支函式的註解裡。
            ★ 宣告在這裡而不是函式旁邊：openScheduleCellModal 與
              renderScheduleCourseResults 都會碰到它（暫時性死區已踩六次）。 */
+        /* 解題（學習分頁）的狀態。
+           ★ 宣告在狀態區不是為了整齊——switchStudySub() 會呼叫 renderSolve()，
+           而 switchStudySub() 在啟動時就會跑到。宣告在下面用到的地方附近的話，
+           這幾個變數會落進暫時性死區，症狀是**一載入就整頁全白**，
+           `node --check` 看不出來（見 CLAUDE.md 第一條，已經踩過六次）。
+           ★ solveImage 存的是縮好的 data: 字串，只活在記憶體裡：
+           不寫 localStorage、不寫 Firestore。理由是課本那條紅線——
+           照片存起來就從「使用者自己的照片」變成站上的重製。 */
+        let solveImage = '';      // 縮圖後的 data: URL，''＝還沒選圖
+        let solveBusy = false;    // 正在算，用來擋連按（連按＝重複扣配額）
+        let solveLastEngine = ''; // 上一次真的是誰算的，顯示給使用者看
+
         let eeCourseSearch = PRODUCT ==='ncue';
         function applyEeCourseOpt(v) {
             /* undefined／null＝這個帳號還沒表示過意見，用產品的預設值。
@@ -6416,6 +6604,28 @@
         const CHANGELOG = [
             {
                 date: '2026-09-10',
+                title: '手機上看課表，現在看得到每一節幾點上課，課名也放大了',
+                items: [
+                    ['左邊那一欄現在會寫時間', '以前手機上只寫「第 3 節」，得自己記得那是幾點。現在節次底下就寫著 10:15 到 11:05，中間一條細線，跟一般手機課表 App 一樣。'],
+                    ['課名跟教室都放大了一階', '原本手機上的字小到要瞇著眼睛看，現在正常距離就讀得完。'],
+                    ['一~五還是一次看得完，不用左右滑', '放大的空間是從左邊那一欄跟行距擠出來的，每一天那幾欄幾乎沒有變窄。整張課表也還在一個畫面裡，不用上下滑（自己有加晚上第 10 到 13 節的話會多幾列，那時要往下滑一點）。'],
+                    ['只有手機上的「閱讀」會變', '按課表右上角切到「編輯」去填課、或是用電腦看，都跟以前一模一樣。'],
+                ]
+            },
+            {
+                date: '2026-09-10',
+                title: '「學習」裡多了解題：拍一張卡住的題目，它會一步一步算給你看',
+                items: [
+                    ['在「學習」分頁裡，自學課程的旁邊', '點進去，把卡住的題目拍一張上傳，再打一句話說你卡在哪裡（不打也可以），按「開始解題」。'],
+                    ['數學、物理、電路、化學都可以問', '不限科目。手機點一下就直接開相機；電腦上可以拖進來，或截圖之後直接貼上。'],
+                    ['它會先把題目讀一次給你看', '第一段是「我從圖上讀到的題目」。先用那一段對一次你的照片——AI 有時候會把數字看錯，而看錯之後後面每一步都會跟著錯，卻錯得很像真的。這一段就是讓你抓出這種錯。'],
+                    ['照片不會存在網站上', '照片只是拿去算，算完就沒了。網站不會留著，也不會給別人看到。'],
+                    ['一天有次數限制', '用完了明天會回來。想不受限的話，「模型設定」裡可以接自己電腦上跑的 AI，那個不佔次數也不用登入——設定視窗裡寫了要先做哪兩件事。'],
+                    ['它會算錯，不要照抄', '這是拿來幫你看懂卡住的那一步，不是拿來抄答案的。每一步的式子都寫出來了，看得懂再往下走。'],
+                ]
+            },
+            {
+                date: '2026-09-10',
                 title: '課表可以自己加晚上的節次了，中午那一節也能填課',
                 items: [
                     ['中午那一列現在可以填課了', '以前中午是一條空白的分隔線，點也點不下去。現在它是第 14 節，跟其他節一樣點一下就能填課名跟教室——有些老師真的把課排在中午。'],
@@ -7176,10 +7386,15 @@
 
             const covered = new Set(); // 被上方 rowspan 涵蓋、不再輸出的格子
             tbody.innerHTML = timeSlots.map(p => {
+                /* 起訖時間拆成三塊而不是直接用 p.timeStr：手機閱讀模式要把
+                   中間那個連字號畫成一小段垂直細線（CSS 那邊的 .sched-period-sep）。
+                   ★ p.timeStr **不能**改成帶標籤的字串：上課提醒的清單也在讀它
+                     （那裡是純文字，只會把 `<br>` 拿掉），塞進 span 之後
+                     提醒的文字裡就會出現一串標籤，而且不會報錯。 */
                 const head = `<td class="sched-period-col sched-head p-1 md:p-2 text-center align-middle w-16 md:w-24">
                         <div class="flex flex-col items-center justify-center leading-tight">
                             <span class="sched-period-label font-black text-sm md:text-xl">${p.label}</span>
-                            <span class="sched-period-time opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter">${p.timeStr}</span>
+                            <span class="sched-period-time opacity-90 text-[8px] md:text-[10px] mt-0.5 whitespace-nowrap tracking-tighter"><span class="sched-period-t1">${minToHHMM(p.start)}</span><span class="sched-period-sep">-</span><span class="sched-period-t2">${minToHHMM(p.end)}</span></span>
                         </div></td>`;
 
                 const cells = [1, 2, 3, 4, 5].map(day => {
@@ -7207,6 +7422,9 @@
                     /* 中午空著的時候那一列要矮一點——它原本就是一條分隔線，
                        整列跟著長高的話，每一個中午沒課的人都會覺得課表變胖了。
                        中午有課就跟其他節一樣高。 */
+                    /* ⚠️ 這個 h-10 只有**桌機**看得到。手機閱讀模式那一段
+                       設了 `height:auto !important`，會把它蓋掉，所以手機上
+                       中午沒課那一列跟其他列一樣高（理由寫在 <style> 那一段）。 */
                     const h = (p.block ==='noon' && !hasContent) ?'h-10 md:h-14' :'h-16 md:h-24';
                     let tdClass;
                     if (hasContent) {
@@ -10662,7 +10880,7 @@
            STUDY_SUBS 就成了第二份答案——留著不會報錯，只會在下次有人改其中一份時
            安靜地分岔，所以直接刪掉。ALL_STUDY_SUBS 留著是另一個用途：
            它是 switchStudySub 的白名單（認不得的參數退回預設）。 */
-        const ALL_STUDY_SUBS = ['schedule','missions','plan','timer','countdown','course','cloze','kahoot','vocab'];
+        const ALL_STUDY_SUBS = ['schedule','missions','plan','timer','countdown','course','solve','cloze','kahoot','vocab'];
 
         /* ★ 每一個子分頁住在哪個 page-section、哪個區塊。
            這張表取代原本那串寫死的 toggle——六個子分頁散在三個 page-section，
@@ -10679,6 +10897,7 @@
 'timer':     { section:'page-home',       block:'home-sub-timer'     },
 'countdown': { section:'page-home',       block:'home-sub-countdown' },
 'course':    { section:'page-self-study', block:'study-sub-course'   },
+'solve':     { section:'page-self-study', block:'study-sub-solve'    },
 'cloze':     { section:'page-self-study', block:'study-sub-cloze'    },
 'kahoot':    { section:'page-quiz',       block:'quiz-sub-kahoot'    },
 'vocab':     { section:'page-quiz',       block:'quiz-sub-vocab'     }
@@ -10697,6 +10916,7 @@
 'timer':     { label:'讀書計時', icon:'timer'          },
 'countdown': { label:'倒數',     icon:'hourglass'      },
 'course':    { label:'自學課程', icon:'book-open'  },
+'solve':     { label:'解題',     icon:'scan-search'},
 'cloze':     { label:'背單字',   icon:'pencil-line'},
 'vocab':     { label:'單字庫',   icon:'library'    },
 'kahoot':    { label:'測驗',     icon:'gamepad-2'  }
@@ -10704,7 +10924,7 @@
         const TAB_SUBS = {
 'home':       ['schedule','missions','countdown'], // 主頁＝課表＋任務＋倒數（任務 2026-08-20 從「壓在計劃上面」搬進來）
 'plan':       ['plan','timer'],          // 計劃＋讀書計時（★ 計時器整站只能有一個，就是這一個）
-'self-study': ['course','kahoot'],       // 學習＝自學課程＋（自己出的）測驗
+'self-study': ['course','solve','kahoot'], // 學習＝自學課程＋解題＋（自己出的）測驗
 'english':    ['vocab','cloze'],         // 英文＝單字庫＋克漏字（單字庫在前：先有字才練克漏字）
 'quiz':       ['kahoot']                 // 彰師電子的測驗（只有公有的）
         };
@@ -10773,6 +10993,8 @@
                 closeModalView('page-self-study-details','page-self-study-main');
                 currentViewSSCourseId = null;
                 renderSelfStudyCourses();
+            } else if (studySub ==='solve') {
+                renderSolve();
             } else if (studySub ==='cloze') {
                 /* 這兩張卡吃的是內建單字庫的索引，而那份不是 Firestore 訂閱，
                    沒人幫它「等資料進來就重畫」——所以跟單字庫那一頁一樣，
@@ -10807,6 +11029,269 @@
             updatePlanTicker();
             updateStudyTicker();
             icons();
+        }
+
+        /* ==========================================================
+         * 14.3 解題：拍一張題目，AI 讀完自己算
+         *
+         * ★ 兩條路，依序試：
+         *   1. 自己跑的模型（使用者在設定裡填的網址，通常是本機的 Ollama）
+         *   2. 雲端（Worker 的 /ai/ask，登入就能用，吃每日 80 次的配額）
+         *   沒設第一條就直接走第二條。這跟 Worker 裡 AI_MODELS 依序試
+         *   是同一個形狀，理由也一樣：任何一層掛掉都不該讓整個功能死掉。
+         *
+         * ★★ 照片絕對不存。不寫 localStorage、不寫 Firestore、不上傳到
+         *   除了「算它」以外的任何地方。學生拍的多半是課本，
+         *   而課本原文一旦存進站上就從「他自己的照片」變成公開重製——
+         *   那是 CLAUDE.md 開頭那條紅線。這件事沒有測試擋得住
+         *   （存哪裡都不會報錯），只能守。
+         * ========================================================== */
+
+        /* ⚠️⚠️ 這份提示詞在 `cloudflare-worker/worker.js` 有一模一樣的第二份
+           （那邊叫 ASK_PROMPT）。為什麼要有兩份、以及為什麼不能只留一份，
+           寫在 worker.js 那一段的註解裡（簡短版：走本地模型時瀏覽器
+           根本不會經過 Worker，拿不到那邊的字串）。
+           `tests/askprompt.mjs` 會把兩份逐字比對，改一邊忘了改另一邊會紅。
+           ⚠️ 改這裡就要去改 worker.js，不要只改一邊再把測試改綠。 */
+        const SOLVE_PROMPT =
+'你是一位大學助教，面對的是台灣的大學生。用繁體中文回答。\n' +
+'學生會上傳一張題目的照片，可能再加一句話說他卡在哪裡。\n' +
+'科目不限：數學、物理、電路、化學、程式都可能。\n\n' +
+'★ 最重要的一條：先把題目讀出來再開始算。\n' +
+'第一步一定是複述你從圖上看到的已知條件與所求，並且照抄數字與單位。\n' +
+'這一步不是廢話——你看錯一個數字，後面整串推導都會是錯的，\n' +
+'而錯得很有道理，學生看不出來。讓他能一眼對照圖片檢查你有沒有看錯。\n' +
+'★ 圖片看不清楚、或關鍵數字糊掉時，直接說看不清楚哪一個，\n' +
+'不要猜一個數字填進去。猜錯比不答更糟。\n\n' +
+'請照這個結構寫，不要用 Markdown 標題、不要用星號粗體：\n' +
+'1. 我從圖上讀到的題目（已知、所求，照抄數字與單位）\n' +
+'2. 這題在考什麼觀念，用哪個方法最快\n' +
+'3. 推導步驟——每一步寫出式子再代入數字，不要跳步\n' +
+'4. 答案（含單位）\n' +
+'5. 一句話的檢查：換個角度驗算，或看極限情況合不合理\n\n' +
+'數學式用一般文字寫（像 I = V / R、R_eq = 4.7 kΩ），不要用 LaTeX。\n' +
+'全部控制在 600 字以內。';
+
+        /* 縮圖的長邊。1024 是「OCR 還讀得清楚」與「4B 模型在 6GB 顯示卡上
+           還跑得動」的交界：再大一點，圖片本身佔掉的記憶體會把模型擠到
+           CPU 上跑，症狀不是報錯而是**慢十倍**。 */
+        const SOLVE_MAX_EDGE = 1024;
+
+        const solveCfg = () => {
+            /* localStorage 在某些情況下讀了會直接丟例外（隱私模式、
+               或使用者把網站資料整個關掉），所以一律包起來。
+               讀不到就當成沒設定，走雲端——功能還在，只是少一條路。 */
+            try {
+                return {
+                    url:   localStorage.getItem('solveLocalUrl')   ||'',
+                    model: localStorage.getItem('solveLocalModel') ||'',
+                };
+            } catch { return { url:'', model:'' }; }
+        };
+
+        function renderSolve() {
+            const cfg = solveCfg();
+            const el = $('solveEngine');
+            if (el) {
+                el.textContent = cfg.url
+                    ? `用你自己的模型：${cfg.model ||'（還沒填模型名稱）'}`
+                    :'用雲端模型（登入就能用）';
+            }
+            $('solveRunBtn').disabled = solveBusy;
+            icons();
+        }
+
+        /* 把圖縮小再轉成 data: 字串。
+           ★ 一定要縮。原圖直接送上去有兩個壞處，而且都不會報錯：
+             雲端那邊會被 Worker 的上限擋掉（回 413，看起來像「壞了」），
+             本地那邊則是把顯示卡的記憶體吃光，掉到 CPU 上慢慢跑。 */
+        function solveShrink(file) {
+            return new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const img = new Image();
+                img.onload = () => {
+                    URL.revokeObjectURL(url);
+                    const scale = Math.min(1, SOLVE_MAX_EDGE / Math.max(img.width, img.height));
+                    const c = document.createElement('canvas');
+                    c.width  = Math.round(img.width  * scale);
+                    c.height = Math.round(img.height * scale);
+                    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+                    // 一律轉 JPEG：題目照片是照片不是圖表，PNG 會大三四倍
+                    resolve(c.toDataURL('image/jpeg', 0.85));
+                };
+                img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('這個檔案不是圖片')); };
+                img.src = url;
+            });
+        }
+
+        async function solveSetImage(file) {
+            if (!file || !file.type.startsWith('image/')) return showToast("請選一張圖片");
+            try {
+                solveImage = await solveShrink(file);
+            } catch (e) {
+                return showToast("這張圖讀不進來，換一張試試");
+            }
+            $('solvePreview').src = solveImage;
+            $('solveDropHint').classList.add('hidden');
+            $('solvePreviewWrap').classList.remove('hidden');
+            $('solveImgActions').classList.remove('hidden');
+            // 讓使用者看得到「縮過了」，省得懷疑是不是傳了原圖
+            $('solveImgInfo').textContent = `已縮到長邊 ${SOLVE_MAX_EDGE}px，約 ${Math.round(solveImage.length / 1024)} KB`;
+            icons();
+        }
+
+        function solveClearImage() {
+            solveImage ='';
+            $('solveFile').value ='';
+            $('solvePreview').removeAttribute('src');
+            $('solveDropHint').classList.remove('hidden');
+            $('solvePreviewWrap').classList.add('hidden');
+            $('solveImgActions').classList.add('hidden');
+            icons();
+        }
+
+        /* 本地模型（Ollama 的原生 /api/chat）。
+           ★ 圖要去掉 `data:image/jpeg;base64,` 那個前綴——Ollama 的 images
+           陣列只吃純 base64。留著前綴不會報錯，模型會收到一張爛圖，
+           然後開始胡說八道，看起來像模型很笨。 */
+        async function solveCallLocal(cfg, text) {
+            const messages = [{
+                role:'user',
+                content: SOLVE_PROMPT + (text ? '\n\n【學生說的】\n' + text :''),
+            }];
+            if (solveImage) messages[0].images = [solveImage.replace(/^data:image\/\w+;base64,/,'')];
+
+            const r = await fetch(cfg.url.replace(/\/+$/,'') +'/api/chat', {
+                method:'POST',
+                headers: {'Content-Type':'application/json' },
+                body: JSON.stringify({ model: cfg.model, stream: false, messages }),
+            });
+            if (!r.ok) throw new Error('local ' + r.status);
+            const j = await r.json();
+            const out = j && j.message && j.message.content;
+            if (!out || !out.trim()) throw new Error('local empty');
+            return out.trim();
+        }
+
+        /* 雲端（Worker）。錯誤碼要分開講，理由跟 /ai/word 那邊一樣：
+           401 與 429 都是「按了沒反應」，但使用者要做的事完全不同。 */
+        async function solveCallCloud(text) {
+            const tok = auth.currentUser ? await auth.currentUser.getIdToken() :'';
+            if (!tok) { const e = new Error('login'); e.code ='login'; throw e; }
+            const r = await fetch(`${QUOTE_API}/ai/ask`, {
+                method:'POST',
+                headers: {'Content-Type':'application/json','Authorization':`Bearer ${tok}` },
+                body: JSON.stringify({ text, image: solveImage }),
+            });
+            if (r.status === 401) { const e = new Error('login'); e.code ='login'; throw e; }
+            if (r.status === 429) { const e = new Error('quota'); e.code ='quota'; throw e; }
+            const j = await r.json().catch(() => null);
+            if (!j || !j.ok || !j.text) { const e = new Error('cloud'); e.code ='cloud'; throw e; }
+            solveLastEngine ='雲端 · ' + (j.model ||'');
+            return j.text;
+        }
+
+        async function runSolve() {
+            if (solveBusy) return;                       // 連按會重複扣配額
+            const text = ($('solveText').value ||'').trim().slice(0, 1000);
+            if (!solveImage && !text) return showToast("先拍一張題目，或打一句話問問題");
+
+            solveBusy = true;
+            $('solveRunBtn').disabled = true;
+            const box = $('solveResult'), ans = $('solveAnswer');
+            box.classList.remove('hidden');
+            // ⚠️ textContent 不是 innerHTML，理由見這一格 HTML 上面的註解
+            ans.textContent ='正在讀你的題目…';
+            $('solveResultEngine').textContent ='';
+
+            const cfg = solveCfg();
+            let out ='', err = null;
+
+            if (cfg.url && cfg.model) {
+                try {
+                    out = await solveCallLocal(cfg, text);
+                    solveLastEngine ='你自己的模型 · ' + cfg.model;
+                } catch (e) {
+                    /* ★ 本地失敗不要直接放棄，退到雲端——但要讓使用者知道
+                       剛剛退過一次，否則「我明明設了本地模型」跟
+                       「怎麼會扣到雲端次數」這兩件事他永遠連不起來。 */
+                    showToast("連不上你自己的模型，改用雲端這一次");
+                }
+            }
+
+            if (!out) {
+                try { out = await solveCallCloud(text); }
+                catch (e) { err = e.code ||'cloud'; }
+            }
+
+            solveBusy = false;
+            $('solveRunBtn').disabled = false;
+
+            if (!out) {
+                ans.textContent =
+                    err ==='login' ?'要先登入才能用雲端的解題。或者在「模型設定」裡填你自己跑的模型，那個不必登入。'
+                  : err ==='quota' ?'今天的解題次數用完了，明天再來。想不受限的話可以在「模型設定」裡接自己跑的模型。'
+                  :'雲端模型暫時不可用，等一下再試一次。';
+                icons();
+                return;
+            }
+
+            ans.textContent = out;
+            $('solveResultEngine').textContent = solveLastEngine;
+            icons();
+        }
+
+        function openSolveSettings() {
+            const cfg = solveCfg();
+            setVals({ solveLocalUrl: cfg.url, solveLocalModel: cfg.model });
+            $('solveSettingsStatus').textContent ='';
+            openModal('solveSettingsModal');
+            icons();
+        }
+
+        function saveSolveSettings() {
+            const url = getVal('solveLocalUrl').trim().replace(/\/+$/,'');
+            const model = getVal('solveLocalModel').trim();
+            /* ★ 只收 http://localhost 與 http://127.0.0.1。不是為了刁難：
+               CSP 的 connect-src 只放行了這兩個，填別的**存得進去但打不出去**，
+               而畫面上只會是「按了沒反應」。與其讓人卡在那裡，不如現在就講。 */
+            if (url && !/^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(url)) {
+                $('solveSettingsStatus').textContent ='網址只能是 http://localhost:11434 或 http://127.0.0.1:11434（其他網址會被瀏覽器的安全設定擋掉）';
+                return;
+            }
+            try {
+                localStorage.setItem('solveLocalUrl', url);
+                localStorage.setItem('solveLocalModel', model);
+            } catch { return showToast("這台裝置存不了設定"); }
+            closeModal('solveSettingsModal');
+            showToast(url ?"已改用你自己跑的模型" :"已改回雲端模型");
+            renderSolve();
+        }
+
+        /* 測試連線。★ 這顆按鈕存在的唯一理由是：不測的話，
+           「Ollama 沒開」「OLLAMA_ORIGINS 沒設」「權限按了拒絕」三種
+           完全不同的問題，在解題頁上長得一模一樣（都是連不上），
+           而使用者不知道要去查哪一個。 */
+        async function testSolveSettings() {
+            const url = getVal('solveLocalUrl').trim().replace(/\/+$/,'');
+            const st = $('solveSettingsStatus');
+            if (!url) { st.textContent ='沒填網址，解題會走雲端模型'; return; }
+            st.textContent ='正在連…';
+            try {
+                const r = await fetch(url +'/api/tags');
+                if (!r.ok) { st.textContent = `連得到，但它回了 ${r.status}`; return; }
+                const j = await r.json();
+                const names = (j.models ||[]).map(m => m.name);
+                if (!names.length) { st.textContent ='連上了，但這台還沒下載任何模型'; return; }
+                const want = getVal('solveLocalModel').trim();
+                st.textContent = want && !names.includes(want)
+                    ? `連上了，但找不到「${want}」。這台有：${names.slice(0, 5).join('、')}`
+                    : `連上了，可以用的有：${names.slice(0, 5).join('、')}`;
+            } catch {
+                /* fetch 失敗分不出是哪一種原因——瀏覽器為了不洩漏內網資訊，
+                   CORS 被擋跟主機不存在回傳的是同一個錯。所以把三種可能都列出來。 */
+                st.textContent ='連不上。三個可能：Ollama 沒開、OLLAMA_ORIGINS 沒設好、或剛剛那個區域網路權限按了拒絕';
+            }
         }
 
         /* ==========================================================
@@ -15792,6 +16277,12 @@
                 setVals(vals);
                 $('editScheduleCourseResults').classList.add('hidden');
             },
+'solve-run':            () => runSolve(),
+'solve-clear':          () => solveClearImage(),
+'solve-settings':       () => openSolveSettings(),
+'solve-settings-save':  () => saveSolveSettings(),
+'solve-settings-test':  () => testSolveSettings(),
+'solve-settings-close': () => closeModal('solveSettingsModal'),
 'start-kahoot':    (t) => startKahoot(t.dataset.id),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
@@ -16031,6 +16522,47 @@
         /* ==========================================================
          * 21. 固定按鈕綁定
          * ========================================================== */
+        /* 解題的取圖：點、拖、貼上三種。
+           ★ 三種都要有，不是貪心：手機只會用「點」（直接開相機），
+           桌機截圖之後最自然的動作是「貼上」，而從檔案總管過來的人會「拖」。
+           少了貼上那一種，桌機使用者得先把截圖存成檔案再選一次。
+           ★ 綁在 document 上而不是那一格上：貼上事件不會送到一個
+           沒有焦點的 div，綁在那格上等於永遠不會觸發，而且不會報錯。 */
+        (function bindSolveInputs() {
+            const drop = $('solveDrop'), file = $('solveFile');
+            if (!drop || !file) return;
+
+            drop.addEventListener('click', () => file.click());
+            file.addEventListener('change', () => { if (file.files[0]) solveSetImage(file.files[0]); });
+
+            ['dragover','dragenter'].forEach(ev => drop.addEventListener(ev, (e) => {
+                e.preventDefault();
+                drop.classList.add('border-emerald-400','bg-emerald-50/40');
+            }));
+            ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, () => {
+                drop.classList.remove('border-emerald-400','bg-emerald-50/40');
+            }));
+            drop.addEventListener('drop', (e) => {
+                e.preventDefault();
+                const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+                if (f) solveSetImage(f);
+            });
+
+            /* 只有人真的在解題那一頁時才接管貼上——不然在別的分頁
+               貼一張圖會莫名其妙跑進解題，而且畫面上看不出發生了什麼。 */
+            document.addEventListener('paste', (e) => {
+                if (studySub !=='solve') return;
+                const items = (e.clipboardData && e.clipboardData.items) ||[];
+                for (const it of items) {
+                    if (it.type && it.type.startsWith('image/')) {
+                        const f = it.getAsFile();
+                        if (f) { e.preventDefault(); solveSetImage(f); }
+                        return;
+                    }
+                }
+            });
+        })();
+
         /* ==========================================================
          * 21.5 電子系課程一次性匯入（資料來源：教務系統 OB010，115-1）
          *      教師姓名僅保留第一個字；未排定教師者標示「未定」。
