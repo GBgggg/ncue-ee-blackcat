@@ -4969,6 +4969,12 @@
             matNovice: P('materialsNovice'),
             matWarrior: P('materialsWarrior'), matLeader: P('materialsLeader'),
             kahoots: P('kahoots'),     users: P('users'),
+            /* 內建題庫（小黑貓）：站方自己放的題目，來源 TMMLU+（MIT 授權）。
+               ⚠️ 跟 `kahoots` 是**兩個集合**，不是同一個集合加欄位——
+               規則是逐份文件判斷的，但整個集合的訂閱必須事先證明
+               「只會拿到讀得到的文件」，併在一起就得改發帶條件的查詢。
+               規則見 firestore.rules 的 builtinQuizzes 那一段。 */
+            builtinQuizzes: P('builtinQuizzes'),
             ssCourses: P('selfStudyCourses'), ssUnits: P('selfStudyUnits'),
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
             vocabFolders: P('vocabFolders'),
@@ -5516,7 +5522,7 @@
         let pdfViewFile = null;
 
         const state = {
-            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
+            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], builtinQuizzes: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [],
             /* 內建單字庫（7000 單字 3,461 ＋多益 6,925 ＋托福 210，共 10,596 字）：
@@ -7120,8 +7126,10 @@
 
             /* 測驗頁現在只顯示一種，要講清楚是哪一種——不然使用者會以為
                「我出的測驗不見了」或「大家的測驗怎麼只有一題」。 */
+            /* ★ 小黑貓那一頁現在有兩種來源：站上內建的題庫，加上你自己出的。
+               只寫「只有你看得到」會變成假訊息——內建那些是大家都看得到的。 */
             if ($('kahootScopeNote')) $('kahootScopeNote').textContent =
-                KAHOOT_SCOPE ==='mine' ?'🔒 只有你看得到的測驗'
+                KAHOOT_SCOPE ==='mine' ?'🏫 站上內建題庫 ＋ 🔒 你自己出的測驗'
                                        :'🌐 公有測驗（巫醫以上維護）';
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
@@ -14309,7 +14317,15 @@
            `users/{uid}/kahoots`（私有）本來就只有本人讀得到。改的是介面歸屬。 */
         const KAHOOT_SCOPE = PRODUCT ==='cat' ?'mine' :'public';
         let kahootScope = KAHOOT_SCOPE;   //'public'（彰師電子）|'mine'（小黑貓）
-        const kahootsOf = (scope) => scope ==='mine' ? state.myKahoots : state.kahoots;
+        /* ★ 小黑貓那一頁的清單 ＝ 內建題庫 ＋ 你自己出的測驗。
+           內建的排前面（有東西可做比空清單好），並且標記 `_builtin`，
+           讓卡片知道不要長出編輯／刪除鈕——那不是使用者的文件，
+           按下去只會被規則拒絕，而畫面上看不出原因。
+           ⚠️ 這裡**沒有動 KAHOOT_SCOPE**：測驗對半拆那個決定原封不動
+           （公有測驗＝使用者出的題，仍然只在彰師電子）。內建題庫是第三種
+           東西，有自己的集合與自己的規則，不是「把公有測驗搬過來」。 */
+        const kahootsOf = (scope) => scope !=='mine' ? state.kahoots
+            : [...state.builtinQuizzes.map(k => ({ ...k, _builtin: true })), ...state.myKahoots];
         const kahootPath = (scope) => scope ==='mine' ? PU('kahoots') : PATHS.kahoots;
         /* 兩邊的「能不能出題」走各自的階梯：
              公有（彰師電子）— 貓族階級巫醫(4)以上
@@ -14375,7 +14391,7 @@
                     <div>
                         <div class="flex justify-between items-start mb-2 gap-2">
                             <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
-                            ${editable ? `
+                            ${editable && !k._builtin ? `
                             <div class="flex gap-2 shrink-0">
                                 <button data-action="edit-kahoot" data-id="${escapeHTML(k.id)}" class="text-slate-300 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                                 <button data-action="delete" data-type="kahoot" data-id="${escapeHTML(k.id)}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
@@ -14384,7 +14400,8 @@
                         <p class="text-sm text-emerald-600 font-bold mb-2 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName ||'未指定課程')}</p>
                         <div class="flex items-center gap-2 mb-4">
                             <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">${n} 題</span>
-                            ${kahootScope ==='mine' ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' :''}
+                            ${k._builtin ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-amber-50 text-amber-600">🏫 站上內建</span>'
+                              : kahootScope ==='mine' ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' :''}
                         </div>
                     </div>
                     <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
@@ -16951,6 +16968,13 @@
             { key:'matWarrior', path: PATHS.matWarrior, sort: byNewest, minLevel: 2, render: () => renderMaterials() },
             { key:'matLeader',  path: PATHS.matLeader,  sort: byNewest, minLevel: 3, render: () => renderMaterials() },
             { key:'kahoots',    path: PATHS.kahoots,    sort: byNewest, minLevel: 2, render: () => renderKahoots() },
+            /* 內建題庫：規則是 `isMember()`，登入就讀得到。
+               ⚠️ **不要設 minLevel**——那是貓族階級，跟這一份無關；設了就等於
+               把剛剛刻意避開的門檻又加回來。用 minTier: 1（訪客是 0）擋掉
+               未登入者，理由跟 feedback 那一條一樣：硬訂閱只會發一個註定被
+               規則拒絕的 listener，沒有畫面症狀，但 console 會一直印
+               permission-denied，把真的有問題的訊息淹掉。 */
+            { key:'builtinQuizzes', path: PATHS.builtinQuizzes, sort: byNewest, minTier: 1, render: () => renderKahoots() },
             { key:'ssCourses',  path: PATHS.ssCourses,  sort: byOldest, render: () => renderSelfStudyCourses() },
             { key:'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key:'vocabFolders', path: PATHS.vocabFolders, sort: byOldest, render: () => renderVocabBooks() },
@@ -17028,7 +17052,7 @@
                而空清單跟「你還沒建過測驗」長得一模一樣，不會有錯誤訊息。
                這份資料在這一輪已經搬過一次家（self-study → quiz → self-study），
                每次搬都要記得把訂閱一起帶走。 */
-'self-study': ['ssCourses','ssUnits','courses','myKahoots'],
+'self-study': ['ssCourses','ssUnits','courses','myKahoots','builtinQuizzes'],
             /* 英文分頁：克漏字與單字庫。★ 這一組是從 self-study 拆出來的——
                拆的時候要真的把資料集跟著搬，不然畫面切過去了、清單卻是空的，
                而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。
