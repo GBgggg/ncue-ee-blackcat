@@ -3858,6 +3858,10 @@
                 <p class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-5">
                     這一頁會直接顯示每一題的正解。想測自己的話，先回去按「開始測驗」。
                 </p>
+                <!-- 只有管理員看得到：這一科的雲端詳解用量與待審投稿數。
+                     ⚠️ 用量條不是裝飾。一份文件撞到 Firestore 的 1 MiB 上限之後
+                     症狀是「按儲存沒反應」，而那天之前完全沒有徵兆——這條就是徵兆。 -->
+                <div id="kahootDetailAdminBar"></div>
                 <div id="kahootDetailList" class="flex flex-col gap-4"></div>
                 <div id="kahootDetailCredit" class="mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4"></div>
             </div>
@@ -4514,6 +4518,37 @@
         </div>
     </div>
 
+    <!-- 寫詳解／投稿詳解。★ 管理員與一般使用者共用同一張表單，差別只有
+         「按下去之後去哪裡」：管理員直接寫進正式表，其他人寫進投稿等核准。
+         共用的理由是那兩條路的輸入完全一樣；拆成兩張的話，改了一邊忘了另一邊
+         不會報錯，只會變成兩種人被不同的規則檢查。 -->
+    <div id="explainModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-lg p-6 md:p-8 shadow-2xl border-t-8 border-sky-500">
+            <h3 id="explainModalTitle" class="text-2xl font-bold mb-1 text-slate-900">寫詳解</h3>
+            <p id="explainModalHint" class="text-sm font-bold text-slate-400 mb-5"></p>
+            <div id="explainModalQuestion" class="bg-slate-50 rounded-2xl px-4 py-3 mb-4 text-sm font-bold text-slate-600 whitespace-pre-wrap break-words max-h-32 overflow-y-auto"></div>
+            <div class="space-y-4">
+                <div>
+                    <textarea id="explainText" rows="8" maxlength="600" placeholder="這一題為什麼選這個答案？把想法寫下來，換行會照原樣顯示。" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-medium leading-relaxed" aria-label="詳解內容"></textarea>
+                    <p id="explainCount" class="text-right text-xs font-bold text-slate-400 mt-1">0 / 600</p>
+                </div>
+                <!-- 圖片只有管理員填得到。一般使用者填得進來的只會是外站網址，
+                     而那是站上唯一一個「別人的圖直接出現在教材裡」的入口——
+                     圖換掉、圖站掛掉、圖記下每個讀者的 IP，這裡都管不到。 -->
+                <div id="explainImgBox" class="hidden">
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="explainImages">圖片（一行一張，可留空）</label>
+                    <textarea id="explainImages" rows="3" placeholder="img/cidr.png&#10;https://example.com/pic.png" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-mono text-xs" aria-label="詳解圖片"></textarea>
+                    <p class="text-[11px] font-bold text-slate-400 ml-2 mt-1">相對路徑放 public/data/quiz/img/，或整個 https 網址。最多 4 張。</p>
+                </div>
+                <div id="explainCapBar" class="text-xs font-bold text-slate-400"></div>
+                <div class="flex gap-4 pt-2">
+                    <button data-close="explainModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="confirmSaveExplain" class="flex-1 py-4 bg-sky-500 text-white rounded-2xl font-bold shadow-lg shadow-sky-200">儲存</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <div id="ssCourseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-fuchsia-500">
             <h3 id="ssCourseModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學課程</h3>
@@ -5021,7 +5056,16 @@
                那裡連管理員都進不去，等於寫了沒人看得到。 */
             feedback: P('feedback'),
             /* 任務定義：公開唯讀（訪客也看得到有哪些任務），只有管理員維護。 */
-            missions: P('missions')
+            missions: P('missions'),
+            /* 🔒 雲端詳解：**一科一份文件**，公開唯讀，只有小黑貓管理員寫得進去。
+               ★ 「一科一份」不是為了整齊，是讀取量：一則一份的話，打開計概
+                  那一科就是 168 次讀取，而免費額度是每天五萬次。一科一份
+                  不管幾題都是一次。算式與各科裝得下幾則見 tools/explaincap.mjs。 */
+            quizExplains: P('quizExplains'),
+            /* 🔒 詳解投稿：一般與會員寫得進來，但**只有自己與管理員讀得到**。
+               文件 id 刻意釘成 `{uid}_{qid}`，一個人對同一題只會有一則——
+               那是這一格唯一的防洗版機制（規則裡釘著同一條）。 */
+            quizDrafts: P('quizExplainDrafts')
         };
 
         const ROLE_LEVELS = {'星族': 5,'巫醫': 4,'族長': 3,'戰士': 2,'見習生': 1,'訪客': 0 };
@@ -5842,6 +5886,16 @@
         let builtinQuizState ='idle';            //'idle' |'loading' |'ready' |'error'
         let builtinQuizCredit = null;            // 索引裡的出處與授權，畫在分頁最下方
         const builtinQuizLoaded = new Set();     // 已經抓過題目的題庫 id
+        /* ---- 雲端詳解（宣告在這裡不是為了整齊）----
+           renderQuizDetail()／explainHTML() 一載入就可能碰到這幾個。
+           宣告在使用它的函式後面會落進暫時性死區，症狀是一進站整頁全白，
+           而 `node --check` 看不出來——這是這個專案第七次的同一顆地雷。 */
+        let quizExplainDocs = {};                // quizId → 雲端那份**原始**的表（短欄位名 t／i）
+        let quizExplainAll = {};                 // 攤平成 qid → { text, images }，畫面查這一份
+        const quizExplainLoaded = new Set();     // 已經讀過雲端詳解的題庫 id
+        let myQuizDrafts = {};                   // qid → 我自己那一則投稿（一般／會員）
+        let quizDraftQueue = [];                 // 管理員：這一科所有待審投稿
+        let explainEditing = null;               // 正在編輯的 { quizId, qid, admin }
 
         /* ==========================================================
          * 3. 通用工具函式
@@ -6700,6 +6754,17 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-16',
+                title: '內建題庫的詳解，現在可以在站上寫了——而且你也可以幫忙寫',
+                items: [
+                    ['管理員直接在站上寫，存下去就生效', '打開「內建題庫 → 點卡片」那一頁，每一題底下都有一顆可以按的鈕。以前詳解要等網站更新才會出現，現在不用等了。'],
+                    ['其他人也寫得了，寫完會先送給管理員看過', '不用是會員，註冊就可以寫。送出之後那一題底下會顯示「正在等管理員看過」，通過之後就變成大家都看得到的那一則。'],
+                    ['沒有被採用也看得到，還可以改寫再送', '被退回的時候，你寫的那一則會留在原地並標起來，不會默默消失。改一改再送一次就好。'],
+                    ['同一題你只會有一則', '再按一次是改寫原本那一則，不是多送一則——所以不用擔心送重複。'],
+                    ['答錯的時候一樣會當場展開', '上一次更新說「位置留好了，暫時看不到」，這一次開始只要那一題有人寫過，答錯就讀得到。'],
+                ]
+            },
             {
                 date: '2026-09-15',
                 title: '測驗裡多了「內建題庫」：站上直接給你題目，不用自己出',
@@ -14481,6 +14546,10 @@
             $('page-kahoot-details').classList.remove('hidden');
             renderQuizDetail();
             scrollTopSmooth();
+            /* 投稿狀態晚一點到沒關係——先把題目畫出來，回來再補那幾張卡片。
+               ⚠️ 回來的時候要確認人還在這一頁：不確認的話，使用者按了返回
+                  又點進另一份題庫時，這一輪會對著別的畫面重畫。 */
+            refreshExplainDrafts(id).then(() => { if (viewingQuizId === id) renderQuizDetail(); });
         }
 
         function closeQuizDetail() {
@@ -14496,6 +14565,7 @@
             $('kahootDetailTitle').textContent = rec.title ||'';
             const qs = rec.questions ||[];
             $('kahootDetailMeta').textContent = `${rec.courseName ||'未指定課程'}・${qs.length} 題`;
+            $('kahootDetailAdminBar').innerHTML = explainAdminBarHTML(rec.id);
             list.innerHTML = qs.map((q, i) => `
                 <div class="bg-white rounded-3xl p-5 border-2 border-slate-100">
                     <div class="flex items-start gap-3 mb-3">
@@ -14512,16 +14582,9 @@
                             </div>`;
                         }).join('')}
                     </div>
-                    ${explainHTML(q) ||
-                      /* ★ 沒有詳解就留一個看得見的空位，而且**把 qid 印出來**。
-                         這一頁是寫詳解的人會來看的地方：空位本身是「這裡還缺
-                         一段」的清單，qid 則是他要拿去當鍵的那一串——不印的話
-                         他得自己去算題幹的 SHA-1，那條路沒有人會走。
-                         格式與該寫在哪個檔案，見 tools/quizdata.mjs 的檔頭。 */
-                      `<div class="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-3 text-xs font-bold text-slate-300 flex flex-wrap items-center gap-2">
-                          <span>還沒有詳解</span>
-                          <code class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-mono text-[11px] select-all">${escapeHTML(q.qid ||'')}</code>
-                      </div>`}
+                    ${/* 詳解那一塊：內容、空位（含 qid）、以及這個人按得到的鈕與投稿。
+                         三種身分看到三種東西，細節在 explainBlockHTML()。 */
+                      explainBlockHTML(q, rec.id)}
                 </div>`).join('');
             $('kahootDetailCredit').innerHTML = builtinQuizCreditHTML(builtinQuizCredit);
             icons();
@@ -14563,6 +14626,10 @@
                 const data = await res.json();
                 rec.questions = data.questions ||[];
                 builtinQuizLoaded.add(id);
+                /* 雲端詳解跟題目一起備好。★ 一定要在這裡，不能等到要顯示才讀：
+                   答錯的當下那一塊就要展開，那時候才去讀會變成「詳解慢一拍
+                   才冒出來」。讀失敗不算失敗——退回檔案裡那一份。 */
+                await loadQuizExplains(id);
                 return true;
             } catch { return false; }
         }
@@ -14587,7 +14654,10 @@
         /* 一題的詳解。沒有的話回空字串——呼叫的人自己決定要不要留位置：
            詳解頁留（那是給寫詳解的人看的空位），答錯的當下不留（那是雜訊）。 */
         function explainHTML(q) {
-            const ex = q && q.explain;
+            /* ★ 這裡刻意不是 `q.explain`：雲端那一則會蓋過靜態檔那一則，
+               而答錯當下展開的那一塊跟詳解頁用的是同一支函式——
+               只改其中一邊的話，兩個地方會顯示不同的詳解，而且都不報錯。 */
+            const ex = mergedExplain(q);
             if (!ex) return '';
             const text = String(ex.text ||'').trim();
             const imgs = (Array.isArray(ex.images) ? ex.images : [])
@@ -14598,6 +14668,377 @@
                 <div class="text-xs font-black text-sky-600 mb-2 flex items-center gap-1.5"><i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> 詳解</div>
                 ${text ? `<p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${escapeHTML(text)}</p>` :''}
                 ${imgs.map(im => `<img src="${escapeHTML(im.src)}" alt="${escapeHTML(im.alt)}" loading="lazy" class="mt-3 rounded-xl border border-sky-100 max-w-full">`).join('')}
+            </div>`;
+        }
+
+        /* ==========================================================
+         * 雲端詳解：管理員直接改，一般與會員寫完排隊等核准（2026-09-16）
+         *
+         * 原本補詳解只有一條路：寫進 tools/explain-<科目>.json，跑 quizdata.mjs，
+         * 再發布一次網站。那條路沒有壞，但它要求「每補一則就發布一次」，
+         * 而且只有拿得到原始碼的人補得了。這一段是第二條路。
+         *
+         * ★★ 形狀是「一科一份文件，裡面一張 qid → 詳解的表」，不是一則一份。
+         *   一則一份的話，打開計概那一科的詳解頁就是 168 次讀取，而 Firestore
+         *   免費額度是每天五萬次——三百個人逛一次就見底。一科一份不管幾題
+         *   都是**一次讀取**。同一個判斷讓題目本身變成靜態 JSON
+         *   （見 PATHS 那一段註解），這裡只是把它走完。
+         *
+         * ⚠️ 代價是 Firestore 的**單一文件 1 MiB 硬上限**，而撞到的症狀是
+         *   「按儲存沒反應」。所以這一段有三道：
+         *     1. 每一則有字數上限（EXPLAIN_TEXT_MAX，規則層釘同一個數字）
+         *     2. 寫進去之前先算整份文件多大，超過九成就拒絕並說清楚
+         *     3. 詳解頁最上面對管理員顯示用量條——不能只在撞到那天才知道
+         *   各科裝得下幾則：`node tools/explaincap.mjs`。
+         *   ★ explainDocBytes() 必須跟那支工具同一條公式。分岔的症狀是
+         *     「用量條說還有空間，按下去卻寫不進去」。
+         *
+         * ⚠️⚠️ 雲端那一則**整則蓋過**靜態檔那一則，不是逐欄合併。所以同一題
+         *   兩邊都寫的話，站上看到的是雲端這一份，而檔案裡那一份沒有任何
+         *   症狀地不見了。要退回檔案版，就在站上把雲端那一則刪掉。
+         * ========================================================== */
+        const EXPLAIN_TEXT_MAX  = 600;       // 一則詳解的字數上限（firestore.rules 同一個數字）
+        const EXPLAIN_TEXT_MIN  = 10;
+        const EXPLAIN_IMG_MAX   = 4;         // 一則最多幾張圖
+        const EXPLAIN_DOC_LIMIT = 1048576;   // Firestore 單一文件硬上限（1 MiB）
+        const EXPLAIN_DOC_SAFE  = 943718;    // 九成。超過這裡站上就不給寫，留一成給估不準的部分
+
+        const fmtKB = (n) => `${Math.round(n / 1024).toLocaleString()} KB`;
+        /* UTF-8 位元組數。★ 中文一個字是三個位元組——「600 字」在 Firestore
+           眼裡是 1,800，用字數直覺去估這份文件會差三倍。 */
+        const u8len = (v) => new TextEncoder().encode(String(v ?? '')).length;
+
+        /* 一份詳解表寫進 Firestore 之後佔多少位元組。
+           規則照抄官方文件，不是估的：
+             字串＝UTF-8 位元組 + 1／整數＝8／map＝每個鍵的字串大小 + 每個值的大小／
+             文件名稱＝每一段 + 1，最後再 + 16／文件＝名稱 + 各欄位 + 32
+           ⚠️ 吃的是**雲端那份原始的表**（短欄位名 t／i／s／a），不是畫面用的
+             那份。餵錯形狀不會報錯，只會讓用量條長期低報。 */
+        function explainDocBytes(quizId, raw) {
+            let n = ['artifacts', appId, 'public', 'data', 'quizExplains', String(quizId)]
+                        .reduce((a, seg) => a + u8len(seg) + 1, 0) + 16 + 32;
+            n += u8len('updatedAt') + 8;
+            n += u8len('e');
+            for (const [qid, ex] of Object.entries(raw || {})) {
+                n += u8len(qid) + 1;
+                n += u8len('t') + u8len(ex && ex.t) + 1;
+                const imgs = Array.isArray(ex && ex.i) ? ex.i : [];
+                if (imgs.length) {
+                    n += u8len('i');
+                    for (const im of imgs)
+                        n += u8len('s') + u8len(im && im.s) + 1 + u8len('a') + u8len(im && im.a) + 1;
+                }
+            }
+            return n;
+        }
+
+        /* 雲端那份文件的欄位名刻意很短（t／i／s／a）：它們每一則重複一次，
+           一科幾百則就是幾 KB，而這份文件正好是會撞到 1 MiB 的那一份。
+           ★ 短名字只活在 Firestore 裡。讀進來就換回 text／images／src／alt，
+             後面每一段程式看到的形狀都跟靜態檔那一份一樣——不換的話
+             explainHTML() 要同時認得兩種形狀，而那種分岔不會報錯。 */
+        const explainFromCloud = (v) => ({
+            text: String((v && v.t) || ''),
+            images: (Array.isArray(v && v.i) ? v.i : [])
+                .map(im => ({ src: String((im && im.s) || ''), alt: String((im && im.a) || '') }))
+        });
+        const explainToCloud = (v) => {
+            const o = { t: String(v.text || '') };
+            const imgs = (v.images || []).filter(im => im && im.src);
+            if (imgs.length) o.i = imgs.map(im => ({ s: String(im.src), a: String(im.alt || '') }));
+            return o;
+        };
+
+        /* 這一題最後顯示哪一則：**雲端蓋過靜態檔**。 */
+        function mergedExplain(q) {
+            const qid = String((q && q.qid) || '');
+            return (qid && quizExplainAll[qid]) || (q && q.explain) || null;
+        }
+
+        function rebuildExplainIndex() {
+            /* 整份重建，不是逐筆補。刪掉一則的時候「逐筆補」會把它留在
+               索引裡，於是畫面上那一則刪不掉——重來一次最省事。 */
+            quizExplainAll = {};
+            for (const raw of Object.values(quizExplainDocs))
+                for (const [qid, ex] of Object.entries(raw)) quizExplainAll[qid] = explainFromCloud(ex);
+        }
+
+        /* 讀一科的雲端詳解。**一次讀取**，而且讀過就不再讀。
+           ★ 刻意不訂閱（onSnapshot）：訂閱等於每有人核准一則，所有開著這一頁
+             的人就各多花一次讀取，而這份東西幾乎不動。自己改完自己更新。 */
+        async function loadQuizExplains(quizId) {
+            if (quizExplainLoaded.has(quizId)) return;
+            try {
+                const snap = await getDoc(doc(db, PATHS.quizExplains, quizId));
+                quizExplainDocs[quizId] = (snap.exists() && snap.data().e) || {};
+                rebuildExplainIndex();
+                quizExplainLoaded.add(quizId);
+            } catch (e) {
+                /* 讀不到就退回靜態檔那一份。⚠️ 這裡刻意不跳提示：使用者要的是
+                   做題，而這條路失敗只代表「少看到幾則雲端詳解」——
+                   為它跳一則吐司只會變成雜訊，而雜訊多了真的警告就沒人看。 */
+                console.warn('雲端詳解讀取失敗:', e.code || e);
+            }
+        }
+
+        /* 投稿：管理員撈這一科全部，其他人只撈自己的。
+           ⚠️ 本人那一條刻意只用 uid 一個條件。多加一個 quizId 就變成複合查詢，
+             Firestore 要另外建索引——沒建的症狀是整個查詢失敗，而失敗跟
+             「還沒投過稿」在畫面上長得一模一樣。科目在這裡自己濾。 */
+        async function refreshExplainDrafts(quizId) {
+            myQuizDrafts = {}; quizDraftQueue = [];
+            const user = auth.currentUser;
+            if (!user || user.isAnonymous) return;
+            try {
+                if (isCatAdmin()) {
+                    const snap = await getDocs(query(collection(db, PATHS.quizDrafts),
+                                                     where('quizId', '==', quizId)));
+                    snap.forEach(d => quizDraftQueue.push({ id: d.id, ...d.data() }));
+                    quizDraftQueue.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+                } else {
+                    const snap = await getDocs(query(collection(db, PATHS.quizDrafts),
+                                                     where('uid', '==', user.uid)));
+                    snap.forEach(d => {
+                        const v = d.data();
+                        if (v.quizId === quizId) myQuizDrafts[v.qid] = { id: d.id, ...v };
+                    });
+                }
+            } catch (e) { console.warn('詳解投稿讀取失敗:', e.code || e); }
+        }
+
+        /* ---- 寫正式表（只有管理員走得到）----
+           ⚠️ 寫之前一定要先算大小。1 MiB 是伺服器端的硬上限，超過的寫入
+             被拒絕之後前端拿到的只是一個 code，畫面上就是「按了沒反應」。
+           ★ 用 setDoc(..., {merge:true}) 而不是整份覆寫：兩個管理員同時在看
+             不同題的話，整份覆寫會把對方剛核准的那一則蓋掉。 */
+        async function saveQuizExplain(quizId, qid, entry) {
+            const raw = { ...(quizExplainDocs[quizId] || {}) };
+            if (entry) raw[qid] = explainToCloud(entry); else delete raw[qid];
+            const bytes = explainDocBytes(quizId, raw);
+            if (entry && bytes > EXPLAIN_DOC_SAFE)
+                return { ok: false, msg: `這一科的詳解快滿了（${fmtKB(bytes)}／${fmtKB(EXPLAIN_DOC_LIMIT)}），先刪掉幾則再寫` };
+            try {
+                if (entry) {
+                    await setDoc(doc(db, PATHS.quizExplains, quizId),
+                                 { e: { [qid]: raw[qid] }, updatedAt: Date.now() }, { merge: true });
+                } else {
+                    await updateDoc(doc(db, PATHS.quizExplains, quizId),
+                                    { [`e.${qid}`]: deleteField(), updatedAt: Date.now() });
+                }
+                quizExplainDocs[quizId] = raw;
+                rebuildExplainIndex();
+                return { ok: true };
+            } catch (e) {
+                console.warn('詳解儲存失敗:', e.code || e);
+                return { ok: false, msg: '儲存失敗…請檢查網路後再試一次' };
+            }
+        }
+
+        /* ---- 投稿（一般與會員）----
+           文件 id 釘死成 `{uid}_{qid}`：一個人對同一題只會有一則。
+           規則裡釘著同一條——那是這個集合唯一的防洗版機制。 */
+        async function submitExplainDraft(quizId, qid, text) {
+            const user = auth.currentUser;
+            if (!user || user.isAnonymous) return { ok: false, msg: '登入之後才能寫詳解喔！' };
+            const id = `${user.uid}_${qid}`;
+            /* ★ createdAt 是「最後一次送出的時間」，不是第一次。改寫也會重寫它，
+               因為規則的 freshTimestamp() 每次都要對得上本次請求的時間。 */
+            const payload = { uid: user.uid, qid, quizId, name: userDisplayName || '',
+                              text, status: 'pending', note: '', createdAt: Date.now() };
+            try {
+                await setDoc(doc(db, PATHS.quizDrafts, id), payload);
+                myQuizDrafts[qid] = { id, ...payload };
+                return { ok: true };
+            } catch (e) {
+                console.warn('詳解投稿失敗:', e.code || e);
+                return { ok: false, msg: '送不出去…請檢查網路後再試一次' };
+            }
+        }
+
+        /* ---- 核准 ----
+           ★ 先寫正式表，成功了才收掉投稿。反過來的話，正式表寫失敗就兩邊
+             都沒有，而那個人打的字已經不見了。 */
+        async function approveExplainDraft(draftId) {
+            if (!isCatAdmin()) return showToast('只有管理員能核准詳解');
+            const d = quizDraftQueue.find(x => x.id === draftId);
+            if (!d) return;
+            const r = await saveQuizExplain(d.quizId, d.qid, { text: d.text, images: [] });
+            if (!r.ok) return showToast(r.msg);
+            try { await deleteDoc(doc(db, PATHS.quizDrafts, draftId)); }
+            catch (e) { console.warn('投稿收不掉:', e.code || e); }
+            quizDraftQueue = quizDraftQueue.filter(x => x.id !== draftId);
+            renderQuizDetail();
+            showToast('採用了，這一則詳解已經上線');
+        }
+
+        /* 退回。★ 不刪掉，改成 rejected 留在原地：刪掉的話那個人只會發現
+           「我寫的東西不見了」，而「沒被採用」與「送出失敗」長得一模一樣。 */
+        async function rejectExplainDraft(draftId) {
+            if (!isCatAdmin()) return showToast('只有管理員能退回詳解');
+            try {
+                await updateDoc(doc(db, PATHS.quizDrafts, draftId), { status: 'rejected' });
+                const d = quizDraftQueue.find(x => x.id === draftId);
+                if (d) d.status = 'rejected';
+                renderQuizDetail();
+                showToast('已退回，對方可以改寫再送一次');
+            } catch (e) {
+                console.warn('退回失敗:', e.code || e);
+                showToast('退回失敗…請檢查網路後再試一次');
+            }
+        }
+
+        /* 撤回自己那一則 */
+        async function withdrawExplainDraft(draftId, qid) {
+            try {
+                await deleteDoc(doc(db, PATHS.quizDrafts, draftId));
+                delete myQuizDrafts[qid];
+                renderQuizDetail();
+                showToast('已撤回');
+            } catch (e) {
+                console.warn('撤回失敗:', e.code || e);
+                showToast('撤回失敗…請檢查網路後再試一次');
+            }
+        }
+
+        async function deleteQuizExplain(quizId, qid) {
+            if (!isCatAdmin()) return showToast('只有管理員能刪詳解');
+            if (!quizExplainAll[qid]) return;
+            const r = await saveQuizExplain(quizId, qid, null);
+            if (!r.ok) return showToast(r.msg);
+            renderQuizDetail();
+            /* ⚠️ 這句話要講清楚「退回檔案版」，不是「這題沒有詳解了」——
+               靜態檔那一份還在，刪掉雲端只是讓它重新露出來。 */
+            showToast('刪掉了。這一題會退回檔案裡那一份（如果有的話）');
+        }
+
+        /* ---- 表單 ---- */
+        function updateExplainCount() {
+            const box = $('explainText'), out = $('explainCount');
+            if (box && out) out.textContent = `${box.value.trim().length} / ${EXPLAIN_TEXT_MAX}`;
+        }
+
+        function openExplainModal(quizId, qid) {
+            if (!isSignedInMember()) return showToast('登入之後才能寫詳解喔！');
+            const rec = state.builtinQuizzes.find(x => x.id === quizId);
+            const q = rec && (rec.questions || []).find(x => x.qid === qid);
+            if (!q) return;
+            const admin = isCatAdmin();
+            explainEditing = { quizId, qid, admin };
+            $('explainModalTitle').textContent = admin ? '編輯詳解' : '寫一則詳解';
+            $('explainModalHint').textContent = admin
+                ? '存下去就直接上線，不用等任何人。'
+                : '寫完會先送給管理員看過，通過之後大家都看得到。';
+            $('explainModalQuestion').textContent = q.q || '';
+            /* 管理員編輯的底稿是「現在站上顯示的那一則」——可能來自雲端，
+               也可能來自靜態檔。從靜態檔改起的話，存下去會在雲端產生一份
+               蓋過它的副本（見這一段開頭的 ⚠️⚠️）。 */
+            const cur = admin ? mergedExplain(q) : myQuizDrafts[qid];
+            $('explainText').value = cur ? String(cur.text || '') : '';
+            $('explainImgBox').classList.toggle('hidden', !admin);
+            $('explainImages').value = (admin && cur && Array.isArray(cur.images))
+                ? cur.images.map(im => im.src).join('\n') : '';
+            /* 管理員才看得到剩多少——一般使用者投的稿不直接進那份文件。 */
+            $('explainCapBar').textContent = admin ? explainCapText(quizId) : '';
+            updateExplainCount();
+            openModal('explainModal');
+        }
+
+        function explainCapText(quizId) {
+            const bytes = explainDocBytes(quizId, quizExplainDocs[quizId] || {});
+            return `這一科的雲端詳解 ${fmtKB(bytes)}／${fmtKB(EXPLAIN_DOC_LIMIT)}`;
+        }
+
+        async function saveExplainFromModal() {
+            if (!explainEditing) return;
+            const { quizId, qid, admin } = explainEditing;
+            const text = getVal('explainText');
+            if (!isValidText(text, EXPLAIN_TEXT_MAX, EXPLAIN_TEXT_MIN))
+                return showToast(`字數要在 ${EXPLAIN_TEXT_MIN} 到 ${EXPLAIN_TEXT_MAX} 字之間`);
+            const btn = $('confirmSaveExplain');
+            if (btn) btn.disabled = true;
+            try {
+                let r;
+                if (admin) {
+                    /* ⚠️ 圖片先過 quizImgSrc()：進不了它的寫法畫面上本來就不顯示，
+                       存進去只會變成一筆「存了但看不到」的資料。 */
+                    const images = String($('explainImages').value || '').split('\n')
+                        .map(v => v.trim()).filter(v => v && quizImgSrc(v))
+                        .slice(0, EXPLAIN_IMG_MAX).map(src => ({ src, alt: '' }));
+                    r = await saveQuizExplain(quizId, qid, { text, images });
+                } else {
+                    r = await submitExplainDraft(quizId, qid, text);
+                }
+                if (!r.ok) return showToast(r.msg);
+                closeModal('explainModal');
+                renderQuizDetail();
+                showToast(admin ? '存好了' : '送出了，等管理員看過就會上線');
+            } finally {
+                if (btn) btn.disabled = false;
+            }
+        }
+
+        /* ---- 畫面：一題底下那一塊 ----
+           三種身分看到三種東西，但**位置與順序一樣**：
+             管理員　　＝ 內容 ＋ 改／刪 ＋ 這一題的投稿（採用／退回）
+             一般與會員＝ 內容 ＋ 投稿鈕 ＋ 自己那一則的狀態
+             訪客　　　＝ 只有內容 */
+        function explainBlockHTML(q, quizId) {
+            const qid = String((q && q.qid) || '');
+            const admin = isCatAdmin();
+            const body = explainHTML(q);
+            const mine = myQuizDrafts[qid];
+            const pend = admin ? quizDraftQueue.filter(d => d.qid === qid) : [];
+            const chip = (action, id, label, icon, cls) =>
+                `<button data-action="${action}" data-id="${escapeHTML(id)}" data-qid="${escapeHTML(qid)}" data-quiz="${escapeHTML(quizId)}" class="px-2.5 py-1 rounded-xl text-[11px] font-black flex items-center gap-1 ${cls}"><i data-lucide="${icon}" class="w-3 h-3 pointer-events-none"></i><span class="pointer-events-none">${label}</span></button>`;
+
+            /* 沒有詳解時的空位。⚠️ qid 要留著印出來：寫 tools/explain-*.json
+               的人拿它當鍵，不印的話他得自己去算題幹的 SHA-1，那條路沒有人會走。 */
+            const slot = body || `<div class="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-3 text-xs font-bold text-slate-300 flex flex-wrap items-center gap-2">
+                          <span>還沒有詳解</span>
+                          <code class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-mono text-[11px] select-all">${escapeHTML(qid)}</code>
+                      </div>`;
+
+            const tools = [];
+            if (admin) {
+                tools.push(chip('edit-explain', '', body ? '編輯詳解' : '寫詳解', body ? 'pencil' : 'plus', 'bg-sky-500 text-white'));
+                if (quizExplainAll[qid])
+                    tools.push(chip('delete-explain', '', '刪掉雲端這一則', 'trash-2', 'bg-slate-100 text-slate-500'));
+            } else if (isSignedInMember() && !mine) {
+                tools.push(chip('edit-explain', '', body ? '我有別的寫法' : '寫一則詳解', 'pencil',
+                                'bg-sky-50 text-sky-600 border border-sky-200'));
+            }
+
+            const mineCard = (!admin && mine) ? `<div class="mt-2 rounded-2xl border-2 ${mine.status === 'rejected' ? 'border-rose-100 bg-rose-50' : 'border-sky-100 bg-sky-50'} px-4 py-3">
+                    <div class="text-[11px] font-black ${mine.status === 'rejected' ? 'text-rose-500' : 'text-sky-500'} mb-1">${mine.status === 'rejected' ? '你這一則沒有被採用，改寫之後可以再送一次' : '你寫的這一則正在等管理員看過'}</div>
+                    <p class="text-xs text-slate-600 whitespace-pre-wrap break-words">${escapeHTML(mine.text || '')}</p>
+                    <div class="flex gap-2 mt-2">${chip('edit-explain', '', '改寫', 'pencil', 'bg-white text-slate-500 border border-slate-200')}${chip('withdraw-draft', mine.id, '撤回', 'x', 'bg-white text-slate-400 border border-slate-200')}</div>
+                </div>` : '';
+
+            const queue = pend.map(d => `<div class="mt-2 rounded-2xl border-2 ${d.status === 'rejected' ? 'border-slate-100 bg-slate-50 opacity-60' : 'border-sky-100 bg-sky-50'} px-4 py-3">
+                    <div class="text-[11px] font-black text-sky-500 mb-1">投稿 · ${escapeHTML(d.name || '無名小貓')}${d.status === 'rejected' ? '（已退回）' : ''}</div>
+                    <p class="text-xs text-slate-700 whitespace-pre-wrap break-words">${escapeHTML(d.text || '')}</p>
+                    <div class="flex gap-2 mt-2">${chip('approve-draft', d.id, '採用', 'check', 'bg-emerald-500 text-white')}${d.status === 'rejected' ? '' : chip('reject-draft', d.id, '退回', 'x', 'bg-white text-slate-400 border border-slate-200')}</div>
+                </div>`).join('');
+
+            return slot + (tools.length ? `<div class="flex flex-wrap gap-2 mt-2">${tools.join('')}</div>` : '') + mineCard + queue;
+        }
+
+        /* 只有管理員看得到的那一條：用量與待審數。 */
+        function explainAdminBarHTML(quizId) {
+            if (!isCatAdmin()) return '';
+            const raw = quizExplainDocs[quizId] || {};
+            const bytes = explainDocBytes(quizId, raw);
+            const pct = Math.min(100, bytes / EXPLAIN_DOC_LIMIT * 100);
+            const wait = quizDraftQueue.filter(d => d.status !== 'rejected').length;
+            const warn = bytes > EXPLAIN_DOC_SAFE * 0.8;
+            return `<div class="rounded-2xl border-2 ${warn ? 'border-amber-200 bg-amber-50' : 'border-slate-100 bg-white'} px-4 py-3 mb-5">
+                <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-black">
+                    <span class="text-slate-500">雲端詳解 ${Object.keys(raw).length} 則</span>
+                    <span class="${warn ? 'text-amber-600' : 'text-slate-400'}">${fmtKB(bytes)} / ${fmtKB(EXPLAIN_DOC_LIMIT)}（${pct.toFixed(1)}%）</span>
+                    ${wait ? `<span class="px-2 py-0.5 rounded-full bg-sky-500 text-white">${wait} 則投稿待審</span>` : ''}
+                </div>
+                <div class="mt-2 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full ${warn ? 'bg-amber-500' : 'bg-sky-500'}" style="width:${pct.toFixed(2)}%"></div></div>
+                ${warn ? '<p class="text-[11px] font-bold text-amber-600 mt-2">快滿了。一份文件的硬上限是 1 MiB，超過九成就存不進去——先刪幾則，或把這一科的詳解搬回 tools/explain-*.json 隨網站發布。</p>' : ''}
             </div>`;
         }
 
@@ -16560,6 +17001,11 @@
                 currentUserLevel = 0;
                 currentUserTier = 0;
                 currentUserTierField = null;
+                /* ⚠️ 投稿狀態要跟著清。留著的話，登出之後那幾張「等管理員看過」
+                   的卡片還掛在詳解頁上——而它們屬於剛剛登出的那個人。
+                   已核准的詳解不用清，那本來就是公開的。 */
+                myQuizDrafts = {};
+                quizDraftQueue = [];
                 userDisplayName ="無名小貓";
                 userSchedule = {};
                 applySlotTimes([], [], {});   // 節次時間是個人設定，換人就要換掉
@@ -16731,6 +17177,11 @@
 'claim-mission':     (t) => claimMission(t.dataset.id),
 'add-mission':       () => openMissionModal(),
 'edit-mission':      (t) => openMissionModal(t.dataset.id),
+'edit-explain':      (t) => openExplainModal(t.dataset.quiz, t.dataset.qid),
+'delete-explain':    (t) => deleteQuizExplain(t.dataset.quiz, t.dataset.qid),
+'approve-draft':     (t) => approveExplainDraft(t.dataset.id),
+'reject-draft':      (t) => rejectExplainDraft(t.dataset.id),
+'withdraw-draft':    (t) => withdrawExplainDraft(t.dataset.id, t.dataset.qid),
 'set-feedback-kind': (t) => setFeedbackKind(t.dataset.kind),
 'submit-feedback':   () => submitFeedback(),
 'feedback-done':     (t) => toggleFeedbackDone(t.dataset.id, t.dataset.done !=='1'),
@@ -17252,12 +17703,14 @@
 
             // 回報字數。用 input 而不是 keyup：貼上與注音選字都涵蓋得到
             if ($('feedbackText')) $('feedbackText').addEventListener('input', updateFeedbackCount);
+            if ($('explainText')) $('explainText').addEventListener('input', updateExplainCount);
 
             // 邊打邊篩。input 事件才涵蓋得到「按 × 清空」與貼上
             if ($('starclanSearch')) $('starclanSearch').addEventListener('input', renderStarclanPanel);
             /* 資料頁有自己的搜尋框（刻意不共用課程評價那一個，見該頁的註解）。 */
             if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
             bind('confirmSaveMission', saveMission);
+            bind('confirmSaveExplain', saveExplainFromModal);
             bind('confirmDelete', executeDelete);
 
             $('searchInput').addEventListener('input', (e) => $('searchClear').classList.toggle('hidden', !e.target.value));
