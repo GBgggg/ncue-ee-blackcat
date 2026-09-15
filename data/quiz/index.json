@@ -1,0 +1,1 @@
+{"source":{"name":"TMMLU+","repo":"ikala/tmmluplus","license":"MIT","credit":"iKala","cite":"arXiv:2403.01858","url":"https://huggingface.co/datasets/ikala/tmmluplus"},"quizzes":[{"id":"tmmlu-computer_science","subject":"computer_science","title":"計算機概論（內建題庫）","courseName":"計算機概論","count":168}]}

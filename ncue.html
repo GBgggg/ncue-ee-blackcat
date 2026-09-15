@@ -3820,17 +3820,24 @@
                     </button>
                 </div>
             </div>
-            <!-- ★ 原本這裡有一排「公有／我的」。測驗對半拆之後，
-                 看哪一種由產品決定（見 KAHOOT_SCOPE），不再是使用者按的開關。
-                 留著的話兩邊都看得到兩種，等於這件事沒做。
-                 這一行標示現在在看哪一種，文字由 buildStaticUI 依產品填。 -->
+            <!-- ★ 小黑貓這一頁分成「內建題庫」與「我的測驗」兩個分頁（2026-09-15）。
+                 彰師電子只有一種（公有），那邊 KAHOOT_SCOPES 只有一項，分頁列
+                 整個不顯示、退回原本那一行說明——一顆按鈕的分頁列沒有選擇的
+                 意義，只是佔掉一列高度（跟 renderStudySubNav 同一個判斷）。
+                 兩者的內容都由 buildStaticUI 依產品填。 -->
             <div class="flex flex-wrap items-center gap-2 mb-5">
+                <div id="kahootScopeTabs" class="flex gap-2"></div>
                 <span id="kahootScopeNote" class="px-4 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 flex items-center gap-2"></span>
                 <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="ml-auto px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
             </div>
             <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入中…</div>
             </div>
+            <!-- 內建題庫的出處與授權。★ 這一段不是裝飾：TMMLU+ 是 MIT 授權，
+                 條件就是保留原始著作權聲明，拿掉它這批題目就不能放在站上。
+                 內容由 renderBuiltinQuizCredit() 從索引檔的 source 填，不寫死在
+                 這裡——換資料來源的時候才不會留下一段錯的聲明。 -->
+            <div id="kahootBuiltinCredit" class="hidden mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4"></div>
             </div>
             <div id="quiz-sub-vocab" class="hidden">
             <div id="page-vocabulary-main">
@@ -4969,6 +4976,13 @@
             matNovice: P('materialsNovice'),
             matWarrior: P('materialsWarrior'), matLeader: P('materialsLeader'),
             kahoots: P('kahoots'),     users: P('users'),
+            /* ★ 內建題庫**不在這裡**（2026-09-15 改）：它是隨網站發布的靜態
+               JSON（public/data/quiz/），跟內建單字庫走同一條路，不是 Firestore
+               集合。改的理由是讀取量——全量訂閱一次瀏覽就是「有幾題算幾次讀取」，
+               而這批題目一個字都不會變，付這筆錢買不到任何東西
+               （同一個判斷寫在 tools/vocab7000.mjs 的註解裡）。
+               連帶：firestore.rules 的 builtinQuizzes 那段也一起拿掉了。
+               要找載入的程式，搜 QUIZ_BUILTIN_BASE。 */
             ssCourses: P('selfStudyCourses'), ssUnits: P('selfStudyUnits'),
             vocabBooks: P('vocabBooks'),      vocabWords: P('vocabWords'),
             vocabFolders: P('vocabFolders'),
@@ -5516,7 +5530,7 @@
         let pdfViewFile = null;
 
         const state = {
-            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], allUsers: [],
+            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], builtinQuizzes: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [],
             /* 內建單字庫（7000 單字 3,461 ＋多益 6,925 ＋托福 210，共 10,596 字）：
@@ -5787,6 +5801,19 @@
         // 題目亂序（記在本機，下次進來沿用）
         let shuffleQuestionsOn = true;
         try { shuffleQuestionsOn = localStorage.getItem('eeblackcat-quiz-shuffle') !=='0'; } catch (e) {}
+
+        /* ---- 內建題庫（靜態 JSON，2026-09-15）----
+           跟內建單字庫同一個形狀：索引進分頁就抓（很小，決定畫面上有幾張卡、
+           每張幾題），題目本體按下「開始測驗」才抓那一份。
+           ★ 宣告在狀態區不是為了整齊：renderKahoots() 會讀 builtinQuizState，
+             而 renderKahoots() 在啟動時就被 switchStudySub() 跑到。宣告在下面
+             用到的地方附近的話，模組載入當場就掛，症狀是整頁全白。
+           ⚠️ 抓不到一律收斂成 'error'，不要讓它拋出去——拋出去的話一次網路
+             不順就整個測驗頁打不開，而畫面上什麼都不會說。 */
+        const QUIZ_BUILTIN_BASE ='data/quiz/';
+        let builtinQuizState ='idle';            //'idle' |'loading' |'ready' |'error'
+        let builtinQuizCredit = null;            // 索引裡的出處與授權，畫在分頁最下方
+        const builtinQuizLoaded = new Set();     // 已經抓過題目的題庫 id
 
         /* ==========================================================
          * 3. 通用工具函式
@@ -6646,6 +6673,17 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-09-15',
+                title: '測驗裡多了「內建題庫」：站上直接給你題目，不用自己出',
+                items: [
+                    ['「學習 → 測驗」現在分成兩個分頁', '左邊「內建題庫」是站上準備好的題目，右邊「我的測驗」還是你自己出的那些——跟以前一樣，只有你看得到。'],
+                    ['第一批是計算機概論，168 題', '四選一，點「開始測驗」就開始。用起來跟你自己出的測驗一模一樣：可以開題目亂序，答錯會把正解亮出來，結束後再把錯過的題目連同答案列一次。'],
+                    ['題目是從公開題庫來的，出處就寫在分頁最下面', '來源是 TMMLU+，iKala 釋出的繁體中文題庫，MIT 授權。網址附在那一行旁邊，可以自己點過去看原始資料。'],
+                    ['題目是原樣收進來的，沒有改寫', '所以偶爾會遇到題目寫得不夠清楚、或是你覺得答案可以商榷的。那些就是原始題庫的樣子——當作練習用，不要當成標準答案背。'],
+                    ['離線也讀得到', '題目跟單字庫一樣，是隨網站一起發布的檔案，不是每次現連。開過一次之後就留在你的瀏覽器裡，捷運進隧道那幾秒也還在。'],
+                ]
+            },
+            {
                 date: '2026-09-10',
                 title: '同時開好幾個分頁的時候，每一個分頁離線都讀得到東西了',
                 items: [
@@ -7118,11 +7156,20 @@
             if ($('siteNameEn')) $('siteNameEn').textContent = meta.en;
             document.title = meta.title;
 
-            /* 測驗頁現在只顯示一種，要講清楚是哪一種——不然使用者會以為
-               「我出的測驗不見了」或「大家的測驗怎麼只有一題」。 */
-            if ($('kahootScopeNote')) $('kahootScopeNote').textContent =
-                KAHOOT_SCOPE ==='mine' ?'🔒 只有你看得到的測驗'
-                                       :'🌐 公有測驗（巫醫以上維護）';
+            /* 測驗頁有幾種來源由產品決定：兩種以上長成分頁列，只有一種就退回
+               一行說明——不然使用者會以為「我出的測驗不見了」。
+               ★ 分頁列在這裡建一次就好：它的內容不隨登入狀態變（誰能不能建是
+                 updateKahootScopeUI 在管的），跟著重畫只是白費工。 */
+            const kahootTabs = $('kahootScopeTabs'), kahootNote = $('kahootScopeNote');
+            if (kahootTabs && kahootNote) {
+                const manyScopes = KAHOOT_SCOPES.length > 1;
+                kahootTabs.innerHTML = !manyScopes ?'' : KAHOOT_SCOPES.map(s => `
+                    <button data-action="set-kahoot-scope" data-scope="${s}" class="kahoot-scope-opt shrink-0 px-5 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="${KAHOOT_SCOPE_META[s].icon}" class="w-3.5 h-3.5 pointer-events-none"></i> ${KAHOOT_SCOPE_META[s].label}</button>
+                `).join('');
+                kahootTabs.classList.toggle('hidden', !manyScopes);
+                kahootNote.classList.toggle('hidden', manyScopes);
+                if (!manyScopes) kahootNote.textContent ='🌐 公有測驗（巫醫以上維護）';
+            }
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
                 <button data-action="news-tab" data-cat="${cat}"
@@ -11074,6 +11121,10 @@
             } else if (studySub ==='countdown') {
                 renderCountdowns();
             } else {
+                /* 內建題庫跟內建單字庫一樣是靜態 JSON，不是 Firestore 訂閱，
+                   沒人幫它「等資料進來就重畫」——所以進這一頁就自己抓索引。
+                   ⚠️ 抓過就不會重抓，這一行不是每次切分頁都發一次請求。 */
+                if (kahootScope ==='builtin') loadBuiltinQuizIndex();
                 renderKahoots();
             }
             updateStudySubUI();
@@ -14307,15 +14358,36 @@
 
            ★ 規則一行都不用改：`kahoots`（公有）本來就看貓族階級，
            `users/{uid}/kahoots`（私有）本來就只有本人讀得到。改的是介面歸屬。 */
-        const KAHOOT_SCOPE = PRODUCT ==='cat' ?'mine' :'public';
-        let kahootScope = KAHOOT_SCOPE;   //'public'（彰師電子）|'mine'（小黑貓）
-        const kahootsOf = (scope) => scope ==='mine' ? state.myKahoots : state.kahoots;
-        const kahootPath = (scope) => scope ==='mine' ? PU('kahoots') : PATHS.kahoots;
-        /* 兩邊的「能不能出題」走各自的階梯：
+        /* ★ 小黑貓這一頁分成「內建題庫」與「我的測驗」兩個分頁（2026-09-15）。
+           原本是把兩種混在同一個清單裡、靠 `_builtin` 徽章分辨。改成分頁的理由：
+           它們的來源、能不能改、看得到的人完全不同，混在一起等於要使用者
+           每張卡片讀一次徽章才知道自己在看什麼。
+           ⚠️ 這裡**還是沒有動「測驗對半拆」那個決定**：公有測驗（使用者出的題）
+           仍然只在彰師電子。內建題庫是第三種東西，而且現在連 Firestore 都不碰。 */
+        const KAHOOT_SCOPES = PRODUCT ==='cat' ? ['builtin','mine'] : ['public'];
+        const KAHOOT_SCOPE = KAHOOT_SCOPES[0];
+        let kahootScope = KAHOOT_SCOPE;   //'builtin'|'mine'（小黑貓）|'public'（彰師電子）
+        const KAHOOT_SCOPE_META = {
+            builtin: { label:'內建題庫', icon:'school', empty:'內建題庫還沒有內容。' },
+            mine:    { label:'我的測驗', icon:'lock',   empty:'你還沒有自己的測驗，按上方「建立測驗」開始吧' },
+            public:  { label:'公有測驗', icon:'globe',  empty:'目前沒有相關測驗。' }
+        };
+        /* 內建那一份每次都重新包一層 `_builtin`：卡片靠它決定不要長出編輯／
+           刪除鈕。那不是使用者的文件，按下去只會失敗，而畫面上看不出原因。 */
+        const kahootsOf = (scope) => scope ==='builtin' ? state.builtinQuizzes.map(k => ({ ...k, _builtin: true }))
+            : scope ==='mine' ? state.myKahoots : state.kahoots;
+        /* 內建題庫沒有 Firestore 路徑——它是檔案。這裡回 null 是刻意的：
+           讓任何想拿它去寫入的程式當場壞掉，而不是安靜地寫到別的集合去。 */
+        const kahootPath = (scope) => scope ==='builtin' ? null
+            : scope ==='mine' ? PU('kahoots') : PATHS.kahoots;
+        /* 三種「能不能出題」走各自的階梯：
+             內建（小黑貓）  — 誰都不能改。要改是改 public/data/quiz/ 的檔案再發布，
+                               跟內建單字庫完全一樣（見 canEditVocab）。
              公有（彰師電子）— 貓族階級巫醫(4)以上
              私有（小黑貓）  — 登入就好。那是你自己出給自己的練習題，
                                不該再設門檻（isSignedInMember 等同 tier ≥ 1）。 */
-        const canEditKahoot = (scope) => scope ==='mine' ? isSignedInMember() : currentUserLevel >= 4;
+        const canEditKahoot = (scope) => scope ==='builtin' ? false
+            : scope ==='mine' ? isSignedInMember() : currentUserLevel >= 4;
 
         function updateShuffleToggleUI() {
             const btn = $('shuffleToggleBtn'), lbl = $('shuffleToggleLabel');
@@ -14338,6 +14410,90 @@
             updateShuffleToggleUI();
             const b = $('openCreateKahootBtn');
             if (b) b.classList.toggle('hidden', !canEditKahoot(kahootScope));
+            /* 亮起現在這一個分頁。跟 updateStudySubUI 同一套 class 切換，
+               兩排分頁在畫面上長得一樣不是巧合。 */
+            document.querySelectorAll('.kahoot-scope-opt').forEach(btn => {
+                const on = btn.dataset.scope === kahootScope;
+                btn.classList.toggle('bg-emerald-500', on);
+                btn.classList.toggle('text-white', on);
+                btn.classList.toggle('shadow-md', on);
+                btn.classList.toggle('bg-slate-100', !on);
+                btn.classList.toggle('text-slate-500', !on);
+            });
+        }
+
+        /* 切測驗分頁。★ 內建那一份不是訂閱，沒人幫它「等資料進來就重畫」，
+           所以切過去就自己抓一次索引（抓過不會重抓）。 */
+        function setKahootScope(scope) {
+            if (!KAHOOT_SCOPES.includes(scope)) return;
+            kahootScope = scope;
+            if (scope ==='builtin') loadBuiltinQuizIndex();
+            renderKahoots();
+            icons();
+        }
+
+        /* ---- 內建題庫：抓索引 ----
+           跟 loadBuiltinVocabIndex() 是同一個形狀，連失敗的處理都一樣：
+           任何錯都收斂成 state='error'，畫面上說一句話，不要拋出去。 */
+        async function loadBuiltinQuizIndex() {
+            if (builtinQuizState ==='loading' || builtinQuizState ==='ready') return;
+            builtinQuizState ='loading';
+            try {
+                const res = await fetch(QUIZ_BUILTIN_BASE +'index.json');
+                if (!res.ok) throw new Error(res.status);
+                const idx = await res.json();
+                /* ⚠️ 這是「挑欄位」的寫法，漏掉一個不會報錯，只會讓吃它的人拿到
+                   undefined 然後默默走退路。`count` 漏掉的話卡片上會寫「還沒有
+                   題目」並且把開始鈕鎖起來——題目其實好好地在檔案裡。 */
+                state.builtinQuizzes = (idx.quizzes ||[]).map(q => ({
+                    id: q.id, title: q.title, courseName: q.courseName,
+                    count: Number(q.count) || 0, questions: null
+                }));
+                builtinQuizCredit = idx.source || null;
+                builtinQuizState ='ready';
+            } catch { builtinQuizState ='error'; }
+            if (kahootScope ==='builtin') renderKahoots();
+        }
+
+        /* ---- 內建題庫：抓某一份的題目 ----
+           索引只有標題與題數，題目本體按下「開始測驗」才抓。理由跟單字庫一樣：
+           一份幾十 KB，全部先抓等於替使用者決定他要練哪一科。 */
+        async function loadBuiltinQuizQuestions(id) {
+            const rec = state.builtinQuizzes.find(q => q.id === id);
+            if (!rec) return false;
+            if (builtinQuizLoaded.has(id)) return true;
+            try {
+                const res = await fetch(`${QUIZ_BUILTIN_BASE}${encodeURIComponent(id)}.json`);
+                if (!res.ok) throw new Error(res.status);
+                const data = await res.json();
+                rec.questions = data.questions ||[];
+                builtinQuizLoaded.add(id);
+                return true;
+            } catch { return false; }
+        }
+
+        /* 出處與授權，畫在內建分頁的最下方。
+           ⚠️ 只在內建分頁顯示：掛在「我的測驗」底下的話，那句話會變成在替
+             使用者自己出的題目宣告授權——不是同一件事。
+           ⚠️⚠️ 網址先驗過再放進 href。這一份現在是我們自己的檔案，但
+             「資料檔裡的字串直接變成可點的連結」是一條會被將來的人沿用的路，
+             驗證留在這裡比留在記憶裡可靠。 */
+        function renderBuiltinQuizCredit() {
+            const box = $('kahootBuiltinCredit');
+            if (!box) return;
+            const s = builtinQuizCredit;
+            const show = kahootScope ==='builtin' && !!s;
+            box.classList.toggle('hidden', !show);
+            if (!show) return;
+            const url = /^https?:\/\//i.test(String(s.url ||'')) ? String(s.url) :'';
+            const bits = [
+                `題目來源：${escapeHTML(s.name ||'')}${s.credit ? `（${escapeHTML(s.credit)}）` :''}`,
+                s.license ? `${escapeHTML(s.license)} 授權` :'',
+                s.cite ? escapeHTML(s.cite) :''
+            ].filter(Boolean).join(' · ');
+            box.innerHTML = bits + (url
+                ? `<br><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="text-emerald-500 hover:underline break-all">${escapeHTML(url)}</a>`
+                :'');
         }
 
         function renderKahoots() {
@@ -14350,6 +14506,17 @@
                對半拆之後彰師電子這一頁已經沒有「我的」了，照舊寫的話
                會叫人去按一顆不存在的按鈕——沒有錯誤，只是指了一條死路。
                現在改成指到小黑貓那一邊，那才是私有測驗真正的所在。 */
+            /* 內建那一份是用抓的，會有「還沒回來」與「抓不到」兩種狀態。
+               少了這一段，索引還在路上的時候畫面會寫「內建題庫還沒有內容」——
+               那是假訊息，而且跟真的沒有內容長得一模一樣。 */
+            if (kahootScope ==='builtin' && builtinQuizState !=='ready') {
+                list.innerHTML = builtinQuizState ==='error'
+                    ? `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">內建題庫載入失敗<br><span class="text-xs">連線回來之後重新整理就會回來</span></div>`
+                    : `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入中…</div>`;
+                renderBuiltinQuizCredit();
+                icons();
+                return;
+            }
             if (kahootScope ==='public' && currentUserLevel < 2) {
                 list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖公有測驗！<br><span class="text-xs">想自己出題的話，到「${PRODUCT_META.cat.name}」的「學習 → 測驗」，那裡誰都能建，而且只有你看得到</span></div>`;
                 icons();
@@ -14364,18 +14531,22 @@
             const editable = canEditKahoot(kahootScope);
             const filtered = kahootsOf(kahootScope).filter(k => matchesSearch(k.title, k.courseName));
             if (filtered.length === 0) {
-                list.innerHTML = `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${kahootScope ==='mine' ?'你還沒有自己的測驗，按上方「建立測驗」開始吧' :'目前沒有相關測驗。'}</div>`;
+                list.innerHTML = `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${KAHOOT_SCOPE_META[kahootScope].empty}</div>`;
+                renderBuiltinQuizCredit();
                 icons();
                 return;
             }
             list.innerHTML = filtered.map(k => {
-                const n = k.questions ? k.questions.length : 0;
+                /* ⚠️ 內建那一份索引只給題數，題目要按下去才抓。寫死成
+                   `k.questions.length` 的話，卡片會全部顯示「還沒有題目」
+                   並且把開始鈕鎖起來——題目其實好好地在檔案裡。 */
+                const n = k.questions ? k.questions.length : (k.count || 0);
                 return `
                 <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-colors flex flex-col justify-between">
                     <div>
                         <div class="flex justify-between items-start mb-2 gap-2">
                             <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
-                            ${editable ? `
+                            ${editable && !k._builtin ? `
                             <div class="flex gap-2 shrink-0">
                                 <button data-action="edit-kahoot" data-id="${escapeHTML(k.id)}" class="text-slate-300 hover:text-blue-500"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                                 <button data-action="delete" data-type="kahoot" data-id="${escapeHTML(k.id)}" class="text-slate-300 hover:text-red-500"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
@@ -14384,7 +14555,8 @@
                         <p class="text-sm text-emerald-600 font-bold mb-2 flex items-center gap-1"><i data-lucide="book" class="w-3 h-3"></i> ${escapeHTML(k.courseName ||'未指定課程')}</p>
                         <div class="flex items-center gap-2 mb-4">
                             <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">${n} 題</span>
-                            ${kahootScope ==='mine' ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' :''}
+                            ${k._builtin ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-amber-50 text-amber-600">🏫 站上內建</span>'
+                              : kahootScope ==='mine' ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' :''}
                         </div>
                     </div>
                     <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
@@ -14392,6 +14564,7 @@
                     </button>
                 </div>`;
             }).join('');
+            renderBuiltinQuizCredit();
             icons();
         }
 
@@ -14560,7 +14733,13 @@
          * ========================================================== */
         /* playQuestions／playAnswers 宣告在狀態區（見「2. 應用程式狀態」） */
 
-        function startKahoot(kahootId) {
+        async function startKahoot(kahootId) {
+            /* ⚠️ 內建題庫的題目是按下去才抓的，索引裡只有題數。少了這一步，
+               卡片上明明寫著 168 題，按下去卻說「找不到測驗內容」——而且
+               看起來會像是題庫壞了，不是還沒載完。
+               ★ 順序不能換：抓完才取 kahootsOf()，那一份是每次重包的複本。 */
+            if (kahootScope ==='builtin' && !(await loadBuiltinQuizQuestions(kahootId)))
+                return showToast("題目載入失敗，等一下再試一次");
             const kahoot = kahootsOf(kahootScope).find(k => k.id === kahootId);
             if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) return showToast("找不到測驗內容");
             activeKahoot = kahoot;
@@ -16348,6 +16527,7 @@
 'set-srs-count':   (t) => setSrsCount(t.dataset.count),
 'set-srs-rev-count': (t) => setSrsRevCount(t.dataset.count),
 'toggle-shuffle':  () => toggleShuffle(),
+'set-kahoot-scope':(t) => setKahootScope(t.dataset.scope),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
 'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
