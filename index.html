@@ -3810,6 +3810,9 @@
                  決定顯示哪一個 page-section，使用者感覺是同一頁。 -->
             <div class="study-sub-row flex gap-2 mb-6 overflow-x-auto scrollbar-hide pb-1"></div>
             <div id="quiz-sub-kahoot">
+            <!-- 清單／詳解是同一個子分頁裡的兩個畫面，跟單字庫那邊
+                 （page-vocabulary-main / -details）同一個形狀。 -->
+            <div id="page-kahoot-main">
             <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                 <div class="relative z-10 flex flex-col md:flex-row items-center gap-5 md:gap-8">
                     <div class="flex-1">
@@ -3838,6 +3841,26 @@
                  內容由 renderBuiltinQuizCredit() 從索引檔的 source 填，不寫死在
                  這裡——換資料來源的時候才不會留下一段錯的聲明。 -->
             <div id="kahootBuiltinCredit" class="hidden mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4"></div>
+            </div>
+
+            <!-- 完整題目與解答。★ 只有內建題庫進得來：公有與我的測驗把答案
+                 攤開來是另一個決定（那些是拿來考自己的），不要順手一起做。 -->
+            <div id="page-kahoot-details" class="hidden">
+                <button data-action="close-quiz-detail" class="mb-5 px-4 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors flex items-center gap-2">
+                    <i data-lucide="arrow-left" class="w-3.5 h-3.5 pointer-events-none"></i> 回測驗列表
+                </button>
+                <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl border-4 border-slate-800">
+                    <h2 id="kahootDetailTitle" class="text-2xl md:text-3xl font-bold break-words">　</h2>
+                    <p id="kahootDetailMeta" class="text-slate-400 text-sm font-bold mt-1"></p>
+                </div>
+                <!-- ⚠️ 這一句不是客套話：這一頁把答案全部攤開，先看過再去測驗的話
+                     那一場測驗就只是在背位置。講清楚比事後才發現好。 -->
+                <p class="text-xs font-bold text-amber-600 bg-amber-50 border border-amber-100 rounded-2xl px-4 py-3 mb-5">
+                    這一頁會直接顯示每一題的正解。想測自己的話，先回去按「開始測驗」。
+                </p>
+                <div id="kahootDetailList" class="flex flex-col gap-4"></div>
+                <div id="kahootDetailCredit" class="mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4"></div>
+            </div>
             </div>
             <div id="quiz-sub-vocab" class="hidden">
             <div id="page-vocabulary-main">
@@ -4801,6 +4824,11 @@
                 </button>
                 <p class="text-center text-slate-400 text-xs font-bold mt-2">先按這裡再作答：就算選對，這個字也會早一點回來找你</p>
             </div>
+            <!-- 答錯時才出現：這一題的詳解。★ 放在「下一題」上面，
+                 因為它是要讀的東西，而那顆鈕是讀完才按的。
+                 ⚠️ 沒有詳解的題目**整塊不顯示**：每答錯一次就跳一句
+                 「這題還沒有詳解」，是拿雜訊填一個空位。 -->
+            <div id="kahootExplainWrap" class="hidden mt-6 text-left"></div>
             <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
             <div id="kahootNextWrap" class="hidden mt-7">
                 <button id="kahootNextBtn" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
@@ -6680,6 +6708,8 @@
                     ['第一批是計算機概論，168 題', '四選一，點「開始測驗」就開始。用起來跟你自己出的測驗一模一樣：可以開題目亂序，答錯會把正解亮出來，結束後再把錯過的題目連同答案列一次。'],
                     ['題目是從公開題庫來的，出處就寫在分頁最下面', '來源是 TMMLU+，iKala 釋出的繁體中文題庫，MIT 授權。網址附在那一行旁邊，可以自己點過去看原始資料。'],
                     ['題目是原樣收進來的，沒有改寫', '所以偶爾會遇到題目寫得不夠清楚、或是你覺得答案可以商榷的。那些就是原始題庫的樣子——當作練習用，不要當成標準答案背。'],
+                    ['點卡片可以看完整的題目與解答', '整張卡片點下去，會把這份題庫的每一題連同四個選項列出來，正解用綠色標著。測完回來對答案、或是當講義從頭翻一遍都可以——那一頁上面有提醒你它會直接顯示答案。'],
+                    ['答錯的時候，詳解會當場展開', '答錯本來就會停下來等你按「下一題」，詳解就接在那段停留裡。★ 不過現在還沒有任何一題寫好詳解，所以暫時看不到——位置已經留好了，之後會一題一題補上。'],
                     ['離線也讀得到', '題目跟單字庫一樣，是隨網站一起發布的檔案，不是每次現連。開過一次之後就留在你的瀏覽器裡，捷運進隧道那幾秒也還在。'],
                 ]
             },
@@ -11124,6 +11154,7 @@
                 /* 內建題庫跟內建單字庫一樣是靜態 JSON，不是 Firestore 訂閱，
                    沒人幫它「等資料進來就重畫」——所以進這一頁就自己抓索引。
                    ⚠️ 抓過就不會重抓，這一行不是每次切分頁都發一次請求。 */
+                if (viewingQuizId) closeQuizDetail();
                 if (kahootScope ==='builtin') loadBuiltinQuizIndex();
                 renderKahoots();
             }
@@ -14426,9 +14457,73 @@
            所以切過去就自己抓一次索引（抓過不會重抓）。 */
         function setKahootScope(scope) {
             if (!KAHOOT_SCOPES.includes(scope)) return;
+            /* 切到別的分頁要先回清單。不回的話詳解頁會留在畫面上，
+               而它顯示的是另一個分頁的東西。 */
+            if (viewingQuizId) closeQuizDetail();
             kahootScope = scope;
             if (scope ==='builtin') loadBuiltinQuizIndex();
             renderKahoots();
+            icons();
+        }
+
+        /* ---- 完整題目與解答 ---- */
+        let viewingQuizId = null;
+
+        /* ★ 這一頁要等題目抓回來才有東西畫（索引裡只有題數）。
+           抓不到就留在清單上並說一句話——**不要開一個空的詳解頁**，
+           那看起來會像「這份題庫是空的」。 */
+        async function openQuizDetail(id) {
+            if (kahootScope !=='builtin') return;
+            if (!(await loadBuiltinQuizQuestions(id)))
+                return showToast("題目載入失敗，等一下再試一次");
+            viewingQuizId = id;
+            $('page-kahoot-main').classList.add('hidden');
+            $('page-kahoot-details').classList.remove('hidden');
+            renderQuizDetail();
+            scrollTopSmooth();
+        }
+
+        function closeQuizDetail() {
+            viewingQuizId = null;
+            closeModalView('page-kahoot-details','page-kahoot-main');
+            scrollTopSmooth();
+        }
+
+        function renderQuizDetail() {
+            const rec = state.builtinQuizzes.find(q => q.id === viewingQuizId);
+            const list = $('kahootDetailList');
+            if (!rec || !list) return;
+            $('kahootDetailTitle').textContent = rec.title ||'';
+            const qs = rec.questions ||[];
+            $('kahootDetailMeta').textContent = `${rec.courseName ||'未指定課程'}・${qs.length} 題`;
+            list.innerHTML = qs.map((q, i) => `
+                <div class="bg-white rounded-3xl p-5 border-2 border-slate-100">
+                    <div class="flex items-start gap-3 mb-3">
+                        <span class="quiz-qnum shrink-0">${i + 1}</span>
+                        <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${escapeHTML(q.q ||'')}</p>
+                    </div>
+                    <div class="flex flex-col gap-1.5 mb-3">
+                        ${(q.options ||[]).map((opt, oi) => {
+                            const right = oi === q.correctIdx;
+                            return `<div class="flex items-start gap-2 px-3 py-2 rounded-xl text-sm break-words ${right ?'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' :'bg-slate-50 text-slate-600'}">
+                                <span class="shrink-0 font-black">${KAHOOT_LETTERS[oi] || (oi + 1)}</span>
+                                <span class="flex-1 min-w-0 whitespace-pre-wrap">${escapeHTML(opt)}</span>
+                                ${right ? '<i data-lucide="check" class="w-4 h-4 shrink-0 mt-0.5"></i>' :''}
+                            </div>`;
+                        }).join('')}
+                    </div>
+                    ${explainHTML(q) ||
+                      /* ★ 沒有詳解就留一個看得見的空位，而且**把 qid 印出來**。
+                         這一頁是寫詳解的人會來看的地方：空位本身是「這裡還缺
+                         一段」的清單，qid 則是他要拿去當鍵的那一串——不印的話
+                         他得自己去算題幹的 SHA-1，那條路沒有人會走。
+                         格式與該寫在哪個檔案，見 tools/quizdata.mjs 的檔頭。 */
+                      `<div class="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-3 text-xs font-bold text-slate-300 flex flex-wrap items-center gap-2">
+                          <span>還沒有詳解</span>
+                          <code class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-mono text-[11px] select-all">${escapeHTML(q.qid ||'')}</code>
+                      </div>`}
+                </div>`).join('');
+            $('kahootDetailCredit').innerHTML = builtinQuizCreditHTML(builtinQuizCredit);
             icons();
         }
 
@@ -14472,12 +14567,59 @@
             } catch { return false; }
         }
 
+        /* ---- 詳解（文字＋圖片）----
+           資料長這樣，兩個欄位都可以沒有：
+             explain: { text:'……', images:[{ src:'img/xxx.png', alt:'……' }] }
+           ★ 圖片的 src 有兩種寫法：相對路徑（相對於 data/quiz/，圖片就放在
+             public/data/quiz/img/ 底下，跟著網站一起發布），或整個 https 網址。
+           ⚠️⚠️ 其他寫法一律丟掉。這裡的字串來自資料檔，而「資料檔裡的字串
+             直接變成 <img src>」是一條會被將來的人沿用的路——今天這一份是我們
+             自己產的，明天可能不是。相對路徑另外擋掉 `..`，不然它可以指到
+             網站上任何一個檔案。 */
+        function quizImgSrc(src) {
+            const s = String(src ||'').trim();
+            if (/^https:\/\//i.test(s)) return s;
+            if (/^[\w.\-]+(\/[\w.\-]+)*$/.test(s) && !s.split('/').includes('..'))
+                return QUIZ_BUILTIN_BASE + s;
+            return '';
+        }
+
+        /* 一題的詳解。沒有的話回空字串——呼叫的人自己決定要不要留位置：
+           詳解頁留（那是給寫詳解的人看的空位），答錯的當下不留（那是雜訊）。 */
+        function explainHTML(q) {
+            const ex = q && q.explain;
+            if (!ex) return '';
+            const text = String(ex.text ||'').trim();
+            const imgs = (Array.isArray(ex.images) ? ex.images : [])
+                .map(im => ({ src: quizImgSrc(im && im.src), alt: String((im && im.alt) ||'') }))
+                .filter(im => im.src);
+            if (!text && !imgs.length) return '';
+            return `<div class="rounded-2xl bg-sky-50 border-2 border-sky-100 p-4">
+                <div class="text-xs font-black text-sky-600 mb-2 flex items-center gap-1.5"><i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> 詳解</div>
+                ${text ? `<p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${escapeHTML(text)}</p>` :''}
+                ${imgs.map(im => `<img src="${escapeHTML(im.src)}" alt="${escapeHTML(im.alt)}" loading="lazy" class="mt-3 rounded-xl border border-sky-100 max-w-full">`).join('')}
+            </div>`;
+        }
+
         /* 出處與授權，畫在內建分頁的最下方。
            ⚠️ 只在內建分頁顯示：掛在「我的測驗」底下的話，那句話會變成在替
              使用者自己出的題目宣告授權——不是同一件事。
            ⚠️⚠️ 網址先驗過再放進 href。這一份現在是我們自己的檔案，但
              「資料檔裡的字串直接變成可點的連結」是一條會被將來的人沿用的路，
              驗證留在這裡比留在記憶裡可靠。 */
+        function builtinQuizCreditHTML(s) {
+            if (!s) return '';
+            const url = /^https?:\/\//i.test(String(s.url ||'')) ? String(s.url) :'';
+            const bits = [
+                `題目來源：${escapeHTML(s.name ||'')}${s.credit ? `（${escapeHTML(s.credit)}）` :''}`,
+                s.license ? `${escapeHTML(s.license)} 授權` :'',
+                s.cite ? escapeHTML(s.cite) :''
+            ].filter(Boolean).join(' · ');
+            return bits + (url
+                ? `<br><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="text-emerald-500 hover:underline break-all">${escapeHTML(url)}</a>`
+                :'');
+        }
+
         function renderBuiltinQuizCredit() {
             const box = $('kahootBuiltinCredit');
             if (!box) return;
@@ -14485,15 +14627,7 @@
             const show = kahootScope ==='builtin' && !!s;
             box.classList.toggle('hidden', !show);
             if (!show) return;
-            const url = /^https?:\/\//i.test(String(s.url ||'')) ? String(s.url) :'';
-            const bits = [
-                `題目來源：${escapeHTML(s.name ||'')}${s.credit ? `（${escapeHTML(s.credit)}）` :''}`,
-                s.license ? `${escapeHTML(s.license)} 授權` :'',
-                s.cite ? escapeHTML(s.cite) :''
-            ].filter(Boolean).join(' · ');
-            box.innerHTML = bits + (url
-                ? `<br><a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="text-emerald-500 hover:underline break-all">${escapeHTML(url)}</a>`
-                :'');
+            box.innerHTML = builtinQuizCreditHTML(s);
         }
 
         function renderKahoots() {
@@ -14541,8 +14675,14 @@
                    `k.questions.length` 的話，卡片會全部顯示「還沒有題目」
                    並且把開始鈕鎖起來——題目其實好好地在檔案裡。 */
                 const n = k.questions ? k.questions.length : (k.count || 0);
+                /* 整張卡點下去 ＝ 看完整題目與解答。
+                   ★ 裡面那顆「開始測驗」照常運作：事件委派用
+                     closest('[data-action]') 找，所以裡面的贏（跟任務卡同一招）。
+                   ★ 只有內建題庫給這個入口：公有與我的測驗把答案攤開來
+                     是另一個決定，不要順手一起做。 */
+                const openable = k._builtin;
                 return `
-                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-colors flex flex-col justify-between">
+                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-colors flex flex-col justify-between ${openable ?'cursor-pointer' :''}"${openable ? ` data-action="open-quiz-detail" data-id="${escapeHTML(k.id)}"` :''}>
                     <div>
                         <div class="flex justify-between items-start mb-2 gap-2">
                             <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
@@ -14562,6 +14702,7 @@
                     <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
                         <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' :'開始測驗'}
                     </button>
+                    ${openable ? '<p class="text-center text-[11px] font-bold text-slate-400 mt-2 pointer-events-none">點卡片可以看完整題目與解答</p>' :''}
                 </div>`;
             }).join('');
             renderBuiltinQuizCredit();
@@ -14774,6 +14915,10 @@
 
         function renderPlayQuestion() {
             $('kahootNextWrap').classList.add('hidden');
+            /* ⚠️ 上一題的詳解要收掉。漏掉的話下一題的題目上方會掛著
+               前一題的解釋，而那看起來像是這一題的提示。 */
+            $('kahootExplainWrap').classList.add('hidden');
+            $('kahootExplainWrap').innerHTML = '';
             if (!activeKahoot || currentQIndex >= playQuestions.length) return showKahootResult();
             /* ⚠️ 每一題歸零。漏掉的話按過一次就整場都不算數（見宣告處）。 */
             kahootUnsure = false;
@@ -14844,6 +14989,15 @@
                 const last = currentQIndex >= playQuestions.length;
                 setTimeout(() => { renderPlayQuestion(); isKahootTransitioning = false; }, last ? 300 : 700);
             } else {
+                /* 答錯就把這一題的詳解攤開來。★ 這是這個功能存在的理由：
+                   答錯的當下是唯一會認真讀解釋的時刻，等到結果頁才給
+                   已經隔了十幾題。
+                   ⚠️ 沒有詳解的題目整塊不顯示（explainHTML 回空字串），
+                     不要拿「這題還沒有詳解」去填那個空位。 */
+                const ex = explainHTML(qData);
+                const wrap = $('kahootExplainWrap');
+                wrap.innerHTML = ex;
+                wrap.classList.toggle('hidden', !ex);
                 // 答錯不自動跳：每個人看懂正解需要的時間不一樣，交給使用者決定
                 $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ?'看結果' :'下一題';
                 $('kahootNextWrap').classList.remove('hidden');
@@ -16528,6 +16682,8 @@
 'set-srs-rev-count': (t) => setSrsRevCount(t.dataset.count),
 'toggle-shuffle':  () => toggleShuffle(),
 'set-kahoot-scope':(t) => setKahootScope(t.dataset.scope),
+'open-quiz-detail':(t) => openQuizDetail(t.dataset.id),
+'close-quiz-detail':() => closeQuizDetail(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
 'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
