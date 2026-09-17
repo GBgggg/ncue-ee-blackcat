@@ -3833,6 +3833,11 @@
                 <span id="kahootScopeNote" class="px-4 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 flex items-center gap-2"></span>
                 <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="ml-auto px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
             </div>
+            <!-- 客群段的篩選鏈（2026-09-17）。★ 由 renderKahootSegs() 從索引的
+                 segments 填，名字不寫死在這裡——那張表是資料不是版面
+                 （見 tools/segments.mjs）。只在內建分頁出現，而且每顆籤標著份數。
+                 舊的索引沒有 segments 那一欄時整列 hidden，不會留一列空籤。 -->
+            <div id="kahootSegBar" class="hidden flex flex-wrap items-center gap-2 mb-4"></div>
             <div id="kahootList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入中…</div>
             </div>
@@ -4841,6 +4846,11 @@
             <div class="flex items-start gap-3 mb-6 shrink-0">
                 <span id="kahootQNum" class="quiz-qnum">1</span>
                 <h2 id="kahootQuestionDisplay" class="flex-1 min-w-0 text-xl md:text-2xl font-black text-slate-900 leading-snug break-words">載入中...</h2>
+                <!-- 題目本身的圖（不是詳解的圖）。目前站上還沒有任何一題有圖，
+                     位置先留著：MedQA 那批有 472 題要看圖，圖補進
+                     tools/qimg-<科目>.json 之後那些題才有地方回來。
+                     由 renderPlayQuestion 填，沒有圖就整塊 hidden。 -->
+                <div id="kahootQImages" class="hidden w-full basis-full"></div>
                 <!-- 唸這一題。只有英文的那幾種測驗才出現（見 renderPlayQuestion）。
                      作答前唸的是題目本人：克漏字的題目是挖空的句子，
                      那一格唸出來是一個停頓，不會把答案唸給你聽；
@@ -5892,6 +5902,13 @@
            指過去——拿 A 的授權去標 B 不會報錯，只會在畫面上印一段錯的著作權聲明。
            ⚠️ 宣告在狀態區的理由跟上面 builtinQuizState 一樣（暫時性死區，第八次）。 */
         let builtinQuizSources = {};             // slug → { name, repo, license, credit, cite, url }
+        /* 客群段的定義（索引給的：[{ id, name }]）與目前選到的那一段。
+           `''` ＝ 全部；`'__none'` ＝「其他」，指沒有掛任何標籤的那幾份。
+           ⚠️ 宣告在狀態區：renderKahoots() 會讀它，而 renderKahoots() 在啟動時
+             就被 switchStudySub() 跑到——宣告在下面用到的地方附近的話，
+             模組載入當場就掛，症狀是整頁全白（這是第九次的同一顆地雷）。 */
+        let builtinQuizSegments = [];
+        let kahootSeg = '';
         const builtinQuizLoaded = new Set();     // 已經抓過題目的題庫 id
         /* ---- 雲端詳解（宣告在這裡不是為了整齊）----
            renderQuizDetail()／explainHTML() 一載入就可能碰到這幾個。
@@ -6778,6 +6795,17 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-17',
+                title: '測驗可以照「你要考什麼」來挑了',
+                items: [
+                    ['題庫上面多了一排標籤', '國中會考、高中學測、高中分科、大學必修選修、醫師國考、藥師國考、獸醫國考。點一下就只剩那一段的題庫，每個標籤後面的數字是有幾份。'],
+                    ['一份題庫可以同時掛在好幾段', '例如藥理學，大學要修、醫師國考要考、藥師國考也要考，所以三個標籤底下都找得到它。不用擔心挑了一段就漏掉別段的東西。'],
+                    ['標籤和搜尋可以一起用', '先點「醫師國考」再打字，就是在那一段裡面找。想看全部就點最左邊的「全部」。'],
+                    ['不屬於這七段的放在「其他」', '技職統測那幾科、公文、洗錢防制這些還在，只是收在「其他」底下，沒有拿掉。'],
+                    ['題目現在可以配圖了', '目前還沒有任何一題有圖，位置先做好。之後補上圖的題目，答題的時候和看詳解的時候都會顯示。'],
+                ]
+            },
             {
                 date: '2026-09-17',
                 title: '多了醫師國考題庫，20 張卡、13215 題',
@@ -14598,6 +14626,10 @@
         /* 切測驗分頁。★ 內建那一份不是訂閱，沒人幫它「等資料進來就重畫」，
            所以切過去就自己抓一次索引（抓過不會重抓）。 */
         function setKahootScope(scope) {
+            /* ⚠️ 換分頁把段歸零。不歸零的話：在「醫師國考」段切去「我的測驗」再切回來，
+               清單還停在醫師那一段，而籤在上面——看得出來，但切去「我的」那一趟
+               籤是收起來的，回來時使用者不記得自己選過。 */
+            kahootSeg = '';
             if (!KAHOOT_SCOPES.includes(scope)) return;
             /* 切到別的分頁要先回清單。不回的話詳解頁會留在畫面上，
                而它顯示的是另一個分頁的東西。 */
@@ -14654,6 +14686,9 @@
                         <span class="quiz-qnum shrink-0">${i + 1}</span>
                         <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${escapeHTML(q.q ||'')}</p>
                     </div>
+                    ${/* 題目本身的圖。★ 畫在選項上面：它是題幹的一部分，
+                         畫在選項下面的話會看起來像在解釋答案。 */
+                      questionImgHTML(q)}
                     <div class="flex flex-col gap-1.5 mb-3">
                         ${(q.options ||[]).map((opt, oi) => {
                             const right = oi === q.correctIdx;
@@ -14690,8 +14725,17 @@
                    題目」並且把開始鈕鎖起來——題目其實好好地在檔案裡。 */
                 state.builtinQuizzes = (idx.quizzes ||[]).map(q => ({
                     id: q.id, title: q.title, courseName: q.courseName,
-                    count: Number(q.count) || 0, src: q.src ||'tmmlu', note: q.note ||'', questions: null
+                    count: Number(q.count) || 0, src: q.src ||'tmmlu', note: q.note ||'',
+                    /* ⚠️ 一份題庫可以掛多個標籤（藥理學同時是大學、醫師、藥師）。
+                       這裡收成陣列不是字串——收成字串的話那種科目只會出現在一段裡，
+                       而畫面上看不出來少了什麼。 */
+                    segs: Array.isArray(q.segs) ? q.segs : [],
+                    questions: null
                 }));
+                /* 段的名字從索引來，不寫死在前端：那張表是資料不是版面
+                   （見 tools/segments.mjs）。舊的索引沒有這一欄，退回空陣列，
+                   那時篩選列整列不顯示——而不是顯示一列空的籤。 */
+                builtinQuizSegments = Array.isArray(idx.segments) ? idx.segments : [];
                 /* ⚠️ 退路是舊的單數 `source`：service worker 對 data/ 是快取優先，
                    HTML 卻是網路優先，所以會有「新的 HTML 配上舊的 index.json」那一瞬間。
                    少了這一行，那一瞬間整段授權聲明會整個消失，而且不會報錯。 */
@@ -14756,6 +14800,17 @@
             if (cab) return `<img data-cab="${escapeHTML(cab[1])}" alt="${alt}" class="mt-3 rounded-xl border border-sky-100 bg-sky-100/60 max-w-full w-full" style="min-height:7rem">`;
             const url = quizImgSrc(raw);
             return url ? `<img src="${escapeHTML(url)}" alt="${alt}" loading="lazy" class="mt-3 rounded-xl border border-sky-100 max-w-full">` :'';
+        }
+
+        /* 題目本身的圖（`q.img`，來自 tools/qimg-<科目>.json）。
+           ★ 跟詳解圖共用 quizImgTag()，所以路徑規則與跳脫只有一份。
+           ⚠️ 題目圖**不收檔案櫃那一種**（`cab:`）：題目是靜態 JSON 誰都抓得到，
+             配一張要登入才拿得到的圖，等於題目讀不完整而畫面上看不出原因。
+             擋在 tools/quizdata.mjs，這裡不用再判一次——但別在這裡放行。 */
+        function questionImgHTML(q) {
+            const list = Array.isArray(q && q.img) ? q.img : [];
+            if (!list.length) return '';
+            return list.map(quizImgTag).filter(Boolean).join('');
         }
 
         /* 把 `root` 這一塊裡還沒有位元組的詳解圖補齊（不給就是整份文件）。
@@ -15355,6 +15410,45 @@
             box.innerHTML = all.map(s => `<div class="mb-1">${builtinQuizCreditHTML(s)}</div>`).join('');
         }
 
+        /* 客群段的篩選鏈。只在內建分頁出現——「我的測驗」是使用者自己出的題，
+           沒有客群這回事。
+           ★ 每一顆籤都標著份數，0 份的段直接不畫：畫一顆按下去是空的籤，
+             使用者會以為壞了，而那只是這一段真的還沒有題庫。
+           ★ 「其他」＝沒有掛任何標籤的那幾份（技職四科、公文、洗錢防制、臺灣常識）。
+             ⚠️ 不要把它們藏起來：藏起來的話題庫總數對不上，
+               而使用者會以為自己的題庫掉了。 */
+        function renderKahootSegs() {
+            const bar = $('kahootSegBar');
+            if (!bar) return;
+            const all = kahootScope ==='builtin' ? (state.builtinQuizzes ||[]) : [];
+            const show = kahootScope ==='builtin' && builtinQuizSegments.length > 0 && all.length > 0;
+            bar.classList.toggle('hidden', !show);
+            if (!show) { bar.innerHTML =''; return; }
+            const chips = [{ id:'', name:'全部', n: all.length }];
+            for (const seg of builtinQuizSegments) {
+                const n = all.filter(k => (k.segs ||[]).includes(seg.id)).length;
+                if (n) chips.push({ id: seg.id, name: seg.name, n });
+            }
+            const none = all.filter(k => !(k.segs ||[]).length).length;
+            if (none) chips.push({ id:'__none', name:'其他', n: none });
+            bar.innerHTML = chips.map(c => {
+                const on = kahootSeg === c.id;
+                return `<button data-action="pick-quiz-seg" data-seg="${escapeHTML(c.id)}" class="px-3 py-1.5 rounded-2xl text-xs font-black transition-all ${on ?'bg-emerald-500 text-white shadow' :'bg-slate-100 text-slate-500 hover:bg-slate-200'}"><span class="pointer-events-none">${escapeHTML(c.name)} ${c.n}</span></button>`;
+            }).join('');
+        }
+
+        function setKahootSeg(seg) {
+            kahootSeg = String(seg ||'');
+            renderKahoots();
+        }
+
+        /* 這一份題庫在不在目前選到的段裡。`''` 全部過、`'__none'` 只過沒有標籤的。 */
+        function matchesKahootSeg(k) {
+            if (!kahootSeg) return true;
+            const segs = k.segs ||[];
+            return kahootSeg ==='__none' ? segs.length === 0 : segs.includes(kahootSeg);
+        }
+
         function renderKahoots() {
             const list = $('kahootList');
             if (!list) return;
@@ -15380,6 +15474,7 @@
             if (kahootScope ==='builtin' && !isSignedInMember()) {
                 list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="log-in" class="w-6 h-6 mx-auto mb-2 text-slate-300"></i> 登入之後就能做題，也看得到每一題的詳解</div>`;
                 renderBuiltinQuizCredit();
+                renderKahootSegs();
                 icons();
                 return;
             }
@@ -15388,6 +15483,7 @@
                     ? `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">內建題庫載入失敗<br><span class="text-xs">連線回來之後重新整理就會回來</span></div>`
                     : `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">載入中…</div>`;
                 renderBuiltinQuizCredit();
+                renderKahootSegs();
                 icons();
                 return;
             }
@@ -15403,10 +15499,14 @@
             }
 
             const editable = canEditKahoot(kahootScope);
-            const filtered = kahootsOf(kahootScope).filter(k => matchesSearch(k.title, k.courseName));
+            /* ⚠️ 段與搜尋是**相乘**不是二選一：先挑段，再在段裡搜。 */
+            const filtered = kahootsOf(kahootScope)
+                .filter(matchesKahootSeg)
+                .filter(k => matchesSearch(k.title, k.courseName));
             if (filtered.length === 0) {
                 list.innerHTML = `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${KAHOOT_SCOPE_META[kahootScope].empty}</div>`;
                 renderBuiltinQuizCredit();
+                renderKahootSegs();
                 icons();
                 return;
             }
@@ -15446,6 +15546,7 @@
                 </div>`;
             }).join('');
             renderBuiltinQuizCredit();
+            renderKahootSegs();
             icons();
         }
 
@@ -15675,6 +15776,15 @@
             $('kahootScoreDisplay').textContent = kahootScoreText();
             $('kahootQNum').textContent = currentQIndex + 1;
             $('kahootQuestionDisplay').textContent = qData.q;
+            /* 題目圖。⚠️ 用 innerHTML 是因為要放 <img>，內容經過 quizImgTag()
+               （src 驗過、alt 跳脫過）。沒有圖就整塊收起來——留一個空的 div
+               會在題目與選項之間撐出一段莫名其妙的空白。 */
+            const qImgs = $('kahootQImages');
+            if (qImgs) {
+                const html = questionImgHTML(qData);
+                qImgs.innerHTML = html;
+                qImgs.classList.toggle('hidden', !html);
+            }
             /* 唸題目只給英文的那幾種測驗（克漏字／今日測驗／錯題複習／單字冊）。
                ★ 判準借 `kahootFeedsSrs()`：會寫回記憶曲線的，就是那幾種英文測驗。
                  公有／我的測驗的題目是自己打的中文，掛一顆英文喇叭上去
@@ -17435,6 +17545,7 @@
 'set-srs-rev-count': (t) => setSrsRevCount(t.dataset.count),
 'toggle-shuffle':  () => toggleShuffle(),
 'set-kahoot-scope':(t) => setKahootScope(t.dataset.scope),
+'pick-quiz-seg':   (t) => setKahootSeg(t.dataset.seg),
 'open-quiz-detail':(t) => openQuizDetail(t.dataset.id),
 'close-quiz-detail':() => closeQuizDetail(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
