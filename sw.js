@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v131';
+const CACHE = 'blackcat-v132';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -90,7 +90,15 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
 /* ★ 內建單字庫（./data/vocab/*.json，約 3.8MB）**故意不放進 CORE**：
    放進去等於每個人安裝時都先下載整套，而多數人只會翻其中幾個資料夾。
    它走下面「靜態資源快取優先」那條路——開過的資料夾自然會留在快取裡，
-   之後離線也打得開；沒開過的就沒有，這是想要的行為。 */
+   之後離線也打得開；沒開過的就沒有，這是想要的行為。
+
+   ★ 內建題庫（./data/quiz/*.json）是同一個判斷，2026-09-17 之後更明顯：
+   那天從 1 科 51KB 變成 67 科約 6.9MB。放進 CORE 的話，每個人第一次開站
+   都要先扛下 67 科，而其中他大概只會點開一兩科。
+   ⚠️ 索引檔（./data/quiz/index.json，約 10KB）也沒有特別預快取。它一進
+   「測驗」分頁就會被抓，抓完就照同一條路留在快取裡；真要預快取的是它，
+   不是那 67 份題目，但那 10KB 省不出什麼，多一個進 CORE 的檔案反而多一個
+   「改了忘記換版本號」的機會。 */
 const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
 
 self.addEventListener('install', (e) => {
