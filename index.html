@@ -4532,13 +4532,16 @@
                     <textarea id="explainText" rows="8" maxlength="600" placeholder="這一題為什麼選這個答案？把想法寫下來，換行會照原樣顯示。" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-medium leading-relaxed" aria-label="詳解內容"></textarea>
                     <p id="explainCount" class="text-right text-xs font-bold text-slate-400 mt-1">0 / 600</p>
                 </div>
-                <!-- 圖片只有管理員填得到。一般使用者填得進來的只會是外站網址，
-                     而那是站上唯一一個「別人的圖直接出現在教材裡」的入口——
-                     圖換掉、圖站掛掉、圖記下每個讀者的 IP，這裡都管不到。 -->
+                <!-- 圖片只有管理員傳得了，而且是**把檔案本身傳進檔案櫃**，
+                     跟資料分頁那份 PDF 同一個櫃子、同一支端點。
+                     ★ 貼網址那條老路拿掉了：那是站上唯一一個「別人的圖直接
+                       出現在教材裡」的入口——圖換掉、圖站掛掉、圖記下每個
+                       讀者的 IP，這裡都管不到，而且壞掉的那天沒有人會收到通知。 -->
                 <div id="explainImgBox" class="hidden">
-                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="explainImages">圖片（一行一張，可留空）</label>
-                    <textarea id="explainImages" rows="3" placeholder="img/cidr.png&#10;https://example.com/pic.png" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-mono text-xs" aria-label="詳解圖片"></textarea>
-                    <p class="text-[11px] font-bold text-slate-400 ml-2 mt-1">相對路徑放 public/data/quiz/img/，或整個 https 網址。最多 4 張。</p>
+                    <label class="block text-sm font-bold text-slate-500 ml-2 mb-1" for="explainImgInput">圖片（可留空，最多 4 張）</label>
+                    <input type="file" id="explainImgInput" accept="image/png,image/jpeg,image/gif,image/webp" multiple class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none font-medium text-xs" aria-label="選擇詳解圖片">
+                    <div id="explainImgList" class="space-y-1.5 mt-2"></div>
+                    <p class="text-[11px] font-bold text-slate-400 ml-2 mt-1">PNG／JPG／GIF／WebP，單張 2 MB 以內。存下去就跟著詳解一起上線，不用等網站發布。</p>
                 </div>
                 <div id="explainCapBar" class="text-xs font-bold text-slate-400"></div>
                 <div class="flex gap-4 pt-2">
@@ -5896,6 +5899,18 @@
         let myQuizDrafts = {};                   // qid → 我自己那一則投稿（一般／會員）
         let quizDraftQueue = [];                 // 管理員：這一科所有待審投稿
         let explainEditing = null;               // 正在編輯的 { quizId, qid, admin }
+        /* 表單上那份圖片清單：已經在櫃子裡的是 { src }，剛選的檔案是 { file }。
+           ★ 兩種混在同一個陣列裡是刻意的——使用者眼中它們就是「這一則的圖」，
+             上傳與否是存檔那一刻才發生的事，還沒按儲存之前什麼都不該發生。 */
+        let explainImgDraft = [];
+        /* fileId → blob 網址。檔案櫃的圖要一張 ID Token 才拿得到，不能直接當 src，
+           而詳解頁每改一次就整份重畫——不記著的話，重畫一次就重抓一次。 */
+        const quizImgBlobs = new Map();
+        /* 檔案櫃那一張圖的寫法。★ 前面那三個字母（cab:）是刻意的：少了它，
+           一串 uuid 跟相對路徑長得一模一樣，quizImgSrc() 會把它當成
+           data/quiz/<uuid> 去抓——症狀是一個破掉的圖示加一筆 404，
+           看不出來是哪一條路走錯了。 */
+        const CAB_SRC_RE = /^cab:([0-9a-f-]{36})$/i;
 
         /* ==========================================================
          * 3. 通用工具函式
@@ -6754,6 +6769,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-16',
+                title: '詳解可以放圖了；內建題庫改成登入才能用',
+                items: [
+                    ['詳解裡可以放圖了', '管理員寫詳解的時候，可以直接選圖片檔傳上去——電路圖、算式、隨手畫的草圖都行，一則最多四張。'],
+                    ['圖存在小黑貓自己的櫃子裡，不是別人的網站', '以前只能貼一條連到別人網站的圖片網址，那張圖哪天被換掉、或那個站關了，這裡就只剩一個破掉的方框，而且不會有人發現。現在圖跟詳解存在一起。'],
+                    ['一打開詳解，圖就在那裡', '不用再多按一下才看得到。答錯停下來的那一刻，文字跟圖是一起出現的。'],
+                    ['內建題庫要先登入才用得到', '「開始測驗」跟每一題的詳解，現在都要登入。註冊是免費的，登入之後跟以前完全一樣。'],
+                ]
+            },
             {
                 date: '2026-09-16',
                 title: '內建題庫的詳解，現在可以在站上寫了——而且你也可以幫忙寫',
@@ -14539,6 +14564,9 @@
            那看起來會像「這份題庫是空的」。 */
         async function openQuizDetail(id) {
             if (kahootScope !=='builtin') return;
+            /* 清單那一層已經擋過一次，這裡是第二道。★ 留著是因為這支是
+               動作表上的一個名字，而動作表誰都叫得到（事件委派）。 */
+            if (!isSignedInMember()) return showToast("登入之後才看得到詳解");
             if (!(await loadBuiltinQuizQuestions(id)))
                 return showToast("題目載入失敗，等一下再試一次");
             viewingQuizId = id;
@@ -14588,6 +14616,10 @@
                 </div>`).join('');
             $('kahootDetailCredit').innerHTML = builtinQuizCreditHTML(builtinQuizCredit);
             icons();
+            /* 圖片**預設就展開**，不是等誰去點一下（見 hydrateExplainImages 的註解）。
+               ★ 不 await：那是幾十次網路來回，擋在這裡的話整頁要等最後一張
+                 圖回來才畫得出來，而文字早就準備好了。 */
+            hydrateExplainImages();
         }
 
         /* ---- 內建題庫：抓索引 ----
@@ -14636,9 +14668,13 @@
 
         /* ---- 詳解（文字＋圖片）----
            資料長這樣，兩個欄位都可以沒有：
-             explain: { text:'……', images:[{ src:'img/xxx.png', alt:'……' }] }
-           ★ 圖片的 src 有兩種寫法：相對路徑（相對於 data/quiz/，圖片就放在
-             public/data/quiz/img/ 底下，跟著網站一起發布），或整個 https 網址。
+             explain: { text:'……', images:[{ src:'cab:<uuid>', alt:'……' }] }
+           ★ 圖片的 src 有三種寫法：
+               cab:<uuid>  檔案櫃裡那一張（**站上現在只產生這一種**）
+               相對路徑    相對於 data/quiz/，圖放在 public/data/quiz/img/，跟著網站發布
+               https 網址  整條外部網址
+             後兩種是舊路，留著只是為了 tools/explain-<科目>.json 那條「隨網站發布」
+             的路還走得通；站上那張表單只剩上傳。
            ⚠️⚠️ 其他寫法一律丟掉。這裡的字串來自資料檔，而「資料檔裡的字串
              直接變成 <img src>」是一條會被將來的人沿用的路——今天這一份是我們
              自己產的，明天可能不是。相對路徑另外擋掉 `..`，不然它可以指到
@@ -14651,6 +14687,59 @@
             return '';
         }
 
+        /* 一張詳解圖的 <img>。檔案櫃那一種先留一個**空的**位置，位元組由
+           hydrateExplainImages() 補上去——它要一張 ID Token，拿不到就沒有 src。
+           ★ 空的那一張要先撐出高度與底色，不能是 0 高度：抓回來的瞬間畫面
+             會整個往下跳，而使用者正在讀上面那段文字。
+           ★ 認不得的 src 回空字串，讓呼叫的人整張丟掉——存了但畫不出來的圖
+             比沒有圖更難查，因為畫面上什麼都沒有。 */
+        function quizImgTag(im) {
+            const raw = String((im && im.src) ||'').trim();
+            const alt = escapeHTML(String((im && im.alt) ||''));
+            const cab = CAB_SRC_RE.exec(raw);
+            if (cab) return `<img data-cab="${escapeHTML(cab[1])}" alt="${alt}" class="mt-3 rounded-xl border border-sky-100 bg-sky-100/60 max-w-full w-full" style="min-height:7rem">`;
+            const url = quizImgSrc(raw);
+            return url ? `<img src="${escapeHTML(url)}" alt="${alt}" loading="lazy" class="mt-3 rounded-xl border border-sky-100 max-w-full">` :'';
+        }
+
+        /* 把畫面上還沒有位元組的詳解圖補齊。
+           ★★ **一畫出來就跑，不是等誰去點。** 圖是詳解的一部分，藏在一顆
+             「顯示圖片」後面的話，答錯的當下那一眼就只看得到文字——
+             而那一眼正是這整個功能存在的理由。
+           ★ 同一張只抓一次（quizImgBlobs）。詳解頁每改一則就整份重畫，
+             不記著的話重畫一次就重抓一次，而這些圖沒有公開快取
+             （Worker 回 private, no-store，分級檔案本來就不該被中間快取留下）。
+           ⚠️ 刻意不 revokeObjectURL：重畫之後同一個網址還要再用。一場測驗
+             最多幾十張圖，留著的記憶體遠小於「每次重畫都重抓」的流量。 */
+        async function hydrateExplainImages() {
+            const pend = Array.from(document.querySelectorAll('img[data-cab]'));
+            for (const el of pend) {
+                const id = el.dataset.cab;
+                /* ★ 先拔掉再去抓。留著的話，抓的期間又重畫一次就會有第二輪
+                   對著同一張圖再抓一次，而症狀只是「流量比預期多」。 */
+                el.removeAttribute('data-cab');
+                if (quizImgBlobs.has(id)) { el.src = quizImgBlobs.get(id); el.style.minHeight =''; continue; }
+                try {
+                    const h = await workerAuthHeader();
+                    if (!h) throw new Error('not signed in');
+                    const r = await fetch(`${FILES_API}/${encodeURIComponent(id)}`, { headers: h });
+                    if (!r.ok) throw new Error(String(r.status));
+                    const u = URL.createObjectURL(await r.blob());
+                    quizImgBlobs.set(id, u);
+                    el.src = u;
+                    el.style.minHeight ='';
+                } catch (e) {
+                    /* 抓不到要講出來。留一塊空白的話，使用者會以為圖還在路上，
+                       然後一直等下去（跟 PDF 站內閱覽那一段同一條判斷）。 */
+                    console.warn('詳解圖片載入失敗', e);
+                    const box = document.createElement('div');
+                    box.className ='mt-3 rounded-xl border-2 border-dashed border-sky-100 px-4 py-6 text-center text-xs font-bold text-slate-400';
+                    box.textContent ='這張圖載入失敗，重新整理看看';
+                    el.replaceWith(box);
+                }
+            }
+        }
+
         /* 一題的詳解。沒有的話回空字串——呼叫的人自己決定要不要留位置：
            詳解頁留（那是給寫詳解的人看的空位），答錯的當下不留（那是雜訊）。 */
         function explainHTML(q) {
@@ -14660,14 +14749,12 @@
             const ex = mergedExplain(q);
             if (!ex) return '';
             const text = String(ex.text ||'').trim();
-            const imgs = (Array.isArray(ex.images) ? ex.images : [])
-                .map(im => ({ src: quizImgSrc(im && im.src), alt: String((im && im.alt) ||'') }))
-                .filter(im => im.src);
+            const imgs = (Array.isArray(ex.images) ? ex.images : []).map(quizImgTag).filter(Boolean);
             if (!text && !imgs.length) return '';
             return `<div class="rounded-2xl bg-sky-50 border-2 border-sky-100 p-4">
                 <div class="text-xs font-black text-sky-600 mb-2 flex items-center gap-1.5"><i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> 詳解</div>
                 ${text ? `<p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${escapeHTML(text)}</p>` :''}
-                ${imgs.map(im => `<img src="${escapeHTML(im.src)}" alt="${escapeHTML(im.alt)}" loading="lazy" class="mt-3 rounded-xl border border-sky-100 max-w-full">`).join('')}
+                ${imgs.join('')}
             </div>`;
         }
 
@@ -14700,6 +14787,7 @@
         const EXPLAIN_TEXT_MAX  = 600;       // 一則詳解的字數上限（firestore.rules 同一個數字）
         const EXPLAIN_TEXT_MIN  = 10;
         const EXPLAIN_IMG_MAX   = 4;         // 一則最多幾張圖
+        const EXPLAIN_IMG_BYTES = 2097152;   // 一張圖的上限（2 MiB，跟 Worker 的 IMG_MAX_BYTES 同一個數字）
         const EXPLAIN_DOC_LIMIT = 1048576;   // Firestore 單一文件硬上限（1 MiB）
         const EXPLAIN_DOC_SAFE  = 943718;    // 九成。超過這裡站上就不給寫，留一成給估不準的部分
 
@@ -14935,12 +15023,74 @@
             const cur = admin ? mergedExplain(q) : myQuizDrafts[qid];
             $('explainText').value = cur ? String(cur.text || '') : '';
             $('explainImgBox').classList.toggle('hidden', !admin);
-            $('explainImages').value = (admin && cur && Array.isArray(cur.images))
-                ? cur.images.map(im => im.src).join('\n') : '';
+            /* 已經在這一則裡的圖先列出來。★ 存的是 src 字串不是元素：
+               這裡只是一份清單，使用者可能刪掉一張又按取消，
+               而那時候櫃子裡那張圖不該有任何事發生。 */
+            explainImgDraft = (admin && cur && Array.isArray(cur.images))
+                ? cur.images.filter(im => im && im.src).map(im => ({ src: String(im.src) })) : [];
+            renderExplainImgList();
             /* 管理員才看得到剩多少——一般使用者投的稿不直接進那份文件。 */
             $('explainCapBar').textContent = admin ? explainCapText(quizId) : '';
             updateExplainCount();
             openModal('explainModal');
+        }
+
+        /* 表單上那份清單。已經在櫃子裡的與剛選的檔案長得一樣，只差旁邊那行字——
+           使用者不需要知道這個分別，但看得出來「哪幾張會跟著存下去」。 */
+        function renderExplainImgList() {
+            const box = $('explainImgList'), picker = $('explainImgInput');
+            if (picker) { picker.value =''; picker.disabled = explainImgDraft.length >= EXPLAIN_IMG_MAX; }
+            if (!box) return;
+            box.innerHTML = explainImgDraft.map((im, i) => `
+                <div class="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-xl">
+                    <i data-lucide="image" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                    <span class="flex-1 min-w-0 truncate text-xs font-bold text-slate-600">${escapeHTML(im.file ? im.file.name :'已經在站上的圖')}</span>
+                    <span class="text-[10px] font-black shrink-0 ${im.file ?'text-sky-500' :'text-slate-300'}">${im.file ?'待上傳' :'已上線'}</span>
+                    <button type="button" data-action="remove-explain-img" data-index="${i}" aria-label="移除這張圖" class="p-1 text-slate-300 hover:text-rose-500 shrink-0"><i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+                </div>`).join('');
+            icons();
+        }
+
+        function addExplainImgFiles(files) {
+            for (const f of Array.from(files ||[])) {
+                if (explainImgDraft.length >= EXPLAIN_IMG_MAX) { showToast(`一則最多 ${EXPLAIN_IMG_MAX} 張圖`); break; }
+                /* 先在這裡擋型別與大小，才不會整張傳上去之後才被 Worker 拒絕。
+                   ★ 這裡看的是瀏覽器給的 MIME，只擋得住「明顯選錯檔」；
+                     真的認得出這是不是圖的是 Worker 那邊的前幾個位元組。 */
+                if (!/^image\/(png|jpeg|gif|webp)$/.test(f.type)) { showToast('只收 PNG／JPG／GIF／WebP'); continue; }
+                if (f.size > EXPLAIN_IMG_BYTES) { showToast(`「${f.name}」太大了（單張上限 2 MB）`); continue; }
+                explainImgDraft.push({ file: f });
+            }
+            renderExplainImgList();
+        }
+
+        function removeExplainImg(i) {
+            if (!(i >= 0 && i < explainImgDraft.length)) return;
+            explainImgDraft.splice(i, 1);
+            renderExplainImgList();
+        }
+
+        /* 把一張圖傳進檔案櫃，拿回 `cab:<uuid>`。
+           ★ 跟資料分頁那份 PDF 走同一支端點、同一個櫃子，差別只有 kind=img
+             與**擋的是另一條階梯**（小黑貓的 tier，不是貓族的 role）——
+             寫詳解的人是小黑貓管理員。
+           ★ 失敗要講幾句不同的話。全部收斂成「上傳失敗…」的話，
+             「沒登入」「階級不夠」「圖太大」「選到不是圖的檔」「櫃子還沒建」
+             在畫面上長得一模一樣，而這五種要做的事完全不同。 */
+        async function uploadExplainImage(file) {
+            const h = await workerAuthHeader();
+            if (!h) return { ok: false, msg:"請先登入" };
+            const r = await fetch(`${FILES_API}/put?kind=img&name=${encodeURIComponent(file.name)}`,
+                { method:'POST', headers: { ...h,'Content-Type': file.type ||'application/octet-stream' }, body: file });
+            let d = {}; try { d = await r.json(); } catch {}
+            if (r.ok && d.ok) return { ok: true, src:`cab:${d.fileId}` };
+            return { ok: false, msg:
+                r.status === 401 ?"請先登入"
+              : r.status === 403 ?"只有小黑貓管理員傳得了詳解的圖"
+              : r.status === 413 ?"這張圖太大了（單張上限 2 MB）"
+              : d.error ==='not an image' ?"這不是圖片檔"
+              : d.error ==='kv not configured' ?"檔案櫃還沒建好（Cloudflare 那邊要先加一個 KV 繫結）"
+              :"圖片上傳失敗…" };
         }
 
         function explainCapText(quizId) {
@@ -14959,11 +15109,20 @@
             try {
                 let r;
                 if (admin) {
-                    /* ⚠️ 圖片先過 quizImgSrc()：進不了它的寫法畫面上本來就不顯示，
-                       存進去只會變成一筆「存了但看不到」的資料。 */
-                    const images = String($('explainImages').value || '').split('\n')
-                        .map(v => v.trim()).filter(v => v && quizImgSrc(v))
-                        .slice(0, EXPLAIN_IMG_MAX).map(src => ({ src, alt: '' }));
+                    /* ★★ 順序不能反：圖先進檔案櫃，拿到 cab:<uuid> 才寫 Firestore。
+                       反過來的話，上傳失敗會留下一則指著不存在的圖的詳解，
+                       而畫面上那一塊看起來完全正常，直到有人打開它——
+                       跟資料分頁那份 PDF 同一條判斷。
+                       ⚠️ 中途失敗就整則不存：已經傳上去的那幾張會留在櫃子裡沒人指到。
+                         那是浪費幾百 KB，而「存了一半的詳解」是錯的內容，兩者不對等。 */
+                    if (btn && explainImgDraft.some(im => im.file)) btn.textContent ="上傳中…";
+                    const images = [];
+                    for (const im of explainImgDraft.slice(0, EXPLAIN_IMG_MAX)) {
+                        if (im.src) { images.push({ src: im.src, alt:'' }); continue; }
+                        const up = await uploadExplainImage(im.file);
+                        if (!up.ok) return showToast(up.msg);
+                        images.push({ src: up.src, alt:'' });
+                    }
                     r = await saveQuizExplain(quizId, qid, { text, images });
                 } else {
                     r = await submitExplainDraft(quizId, qid, text);
@@ -14973,7 +15132,7 @@
                 renderQuizDetail();
                 showToast(admin ? '存好了' : '送出了，等管理員看過就會上線');
             } finally {
-                if (btn) btn.disabled = false;
+                if (btn) { btn.disabled = false; btn.textContent ="儲存"; }
             }
         }
 
@@ -15084,6 +15243,21 @@
             /* 內建那一份是用抓的，會有「還沒回來」與「抓不到」兩種狀態。
                少了這一段，索引還在路上的時候畫面會寫「內建題庫還沒有內容」——
                那是假訊息，而且跟真的沒有內容長得一模一樣。 */
+            /* 內建題庫要登入。★ 擋在清單這一層，不是擋在按鈕上：擋按鈕的話，
+               訪客看得到一整排卡片，每一顆按下去都跳同一句話——那是把
+               「為什麼不行」藏在第二次點擊後面。
+               ⚠️ 這一條是**減速丘不是鎖**，而且一定要當成減速丘來維護：
+                 題目本身是 data/quiz/ 底下的靜態 JSON，誰都抓得到。
+                 真的只有登入的人拿得到的是**詳解的圖**——那些在檔案櫃裡，
+                 每一次讀取都要一張 Firebase ID Token（見 hydrateExplainImages）。
+                 所以不要把真的不能外流的東西放進內建題庫，然後以為這一行在保護它。
+                 （跟 Worker 那邊「站內閱覽 vs 下載」同一種寫法，同一個理由。） */
+            if (kahootScope ==='builtin' && !isSignedInMember()) {
+                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="log-in" class="w-6 h-6 mx-auto mb-2 text-slate-300"></i> 登入之後就能做題，也看得到每一題的詳解</div>`;
+                renderBuiltinQuizCredit();
+                icons();
+                return;
+            }
             if (kahootScope ==='builtin' && builtinQuizState !=='ready') {
                 list.innerHTML = builtinQuizState ==='error'
                     ? `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">內建題庫載入失敗<br><span class="text-xs">連線回來之後重新整理就會回來</span></div>`
@@ -15320,6 +15494,8 @@
                卡片上明明寫著 168 題，按下去卻說「找不到測驗內容」——而且
                看起來會像是題庫壞了，不是還沒載完。
                ★ 順序不能換：抓完才取 kahootsOf()，那一份是每次重包的複本。 */
+            if (kahootScope ==='builtin' && !isSignedInMember())
+                return showToast("登入之後就能做內建題庫");
             if (kahootScope ==='builtin' && !(await loadBuiltinQuizQuestions(kahootId)))
                 return showToast("題目載入失敗，等一下再試一次");
             const kahoot = kahootsOf(kahootScope).find(k => k.id === kahootId);
@@ -15443,6 +15619,9 @@
                 $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ?'看結果' :'下一題';
                 $('kahootNextWrap').classList.remove('hidden');
                 icons();
+                /* ★ 答錯的當下也要把圖攤開來——這一眼正是這個功能存在的理由。
+                   等到使用者按一下才載入的話，多數人會直接按「下一題」。 */
+                hydrateExplainImages();
             }
         }
 
@@ -17179,6 +17358,7 @@
 'edit-mission':      (t) => openMissionModal(t.dataset.id),
 'edit-explain':      (t) => openExplainModal(t.dataset.quiz, t.dataset.qid),
 'delete-explain':    (t) => deleteQuizExplain(t.dataset.quiz, t.dataset.qid),
+'remove-explain-img':(t) => removeExplainImg(Number(t.dataset.index)),
 'approve-draft':     (t) => approveExplainDraft(t.dataset.id),
 'reject-draft':      (t) => rejectExplainDraft(t.dataset.id),
 'withdraw-draft':    (t) => withdrawExplainDraft(t.dataset.id, t.dataset.qid),
@@ -17704,6 +17884,10 @@
             // 回報字數。用 input 而不是 keyup：貼上與注音選字都涵蓋得到
             if ($('feedbackText')) $('feedbackText').addEventListener('input', updateFeedbackCount);
             if ($('explainText')) $('explainText').addEventListener('input', updateExplainCount);
+            /* 選完檔就進清單。★ 用 change 而不是存檔時才讀 input.files：
+               選了兩次的話，第二次會把第一次選的整批換掉（input 的 files 是
+               取代不是累加），而畫面上完全看不出來少了幾張。 */
+            if ($('explainImgInput')) $('explainImgInput').addEventListener('change', (e) => addExplainImgFiles(e.target.files));
 
             // 邊打邊篩。input 事件才涵蓋得到「按 × 清空」與貼上
             if ($('starclanSearch')) $('starclanSearch').addEventListener('input', renderStarclanPanel);
