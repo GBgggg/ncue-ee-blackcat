@@ -5887,7 +5887,11 @@
              不順就整個測驗頁打不開，而畫面上什麼都不會說。 */
         const QUIZ_BUILTIN_BASE ='data/quiz/';
         let builtinQuizState ='idle';            //'idle' |'loading' |'ready' |'error'
-        let builtinQuizCredit = null;            // 索引裡的出處與授權，畫在分頁最下方
+        /* slug → 出處與授權。2026-09-17 之前這裡是**單數一份**（那時全部題目都來自
+           TMMLU+ 一個資料集）。MedQA 進來之後改成一張表，每份題庫用自己的 `src`
+           指過去——拿 A 的授權去標 B 不會報錯，只會在畫面上印一段錯的著作權聲明。
+           ⚠️ 宣告在狀態區的理由跟上面 builtinQuizState 一樣（暫時性死區，第八次）。 */
+        let builtinQuizSources = {};             // slug → { name, repo, license, credit, cite, url }
         const builtinQuizLoaded = new Set();     // 已經抓過題目的題庫 id
         /* ---- 雲端詳解（宣告在這裡不是為了整齊）----
            renderQuizDetail()／explainHTML() 一載入就可能碰到這幾個。
@@ -6774,6 +6778,17 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-17',
+                title: '多了醫師國考題庫，20 張卡、13215 題',
+                items: [
+                    ['醫師國考的歷屆題目進來了', '一共 13215 題，全部是繁體中文的原題，不是翻譯的。跟原本那些科目放在同一個分頁裡，一樣點下去就能練。'],
+                    ['分成 20 張卡，可以挑科目', '解剖、生理、生化、微生物免疫、藥理、病理、公衛、內科、外科、婦產、小兒、神經精神、眼耳鼻喉皮膚各一張，剩下的放在「綜合 1」到「綜合 7」。想練哪一塊就點哪一張。'],
+                    ['科目是電腦自己分的，可能會混到別科', '這批題目原本沒有標科目，是照題目裡的字判斷的。所以「藥理學」那張裡偶爾會混進別科的題，而「綜合」就是判斷不出來的那一堆。每張卡上面都寫著這件事。'],
+                    ['有些題目沒有收進來', '有的題目寫著「承上題」，可是這裡是打散出題的，找不到上一題；有的要看圖，但圖沒有跟著題目一起來。這兩種在這裡答不出來，所以沒有放進來。'],
+                    ['出處寫在分頁最下面', '現在題目來自兩個地方，所以下面會列出兩段出處，各自標各自的授權。點進某一份題庫的詳解頁，看到的是那一份自己的出處。'],
+                ]
+            },
             {
                 date: '2026-09-17',
                 title: '拿掉兩科不該拿來練的，「大學聯考人文」改名「學測國文」',
@@ -14653,7 +14668,8 @@
                          三種身分看到三種東西，細節在 explainBlockHTML()。 */
                       explainBlockHTML(q, rec.id)}
                 </div>`).join('');
-            $('kahootDetailCredit').innerHTML = builtinQuizCreditHTML(builtinQuizCredit);
+            /* ⚠️ 用**這一份**題庫自己的出處，不是全站共用的那一份。 */
+            $('kahootDetailCredit').innerHTML = quizNoteHTML(rec) + builtinQuizCreditHTML(quizSourceOf(rec));
             icons();
             /* 圖只補**已經點開**的那幾則（2026-09-17 起詳解預設收起來）。 */
             hydrateOpenExplainImages(list);
@@ -14674,9 +14690,12 @@
                    題目」並且把開始鈕鎖起來——題目其實好好地在檔案裡。 */
                 state.builtinQuizzes = (idx.quizzes ||[]).map(q => ({
                     id: q.id, title: q.title, courseName: q.courseName,
-                    count: Number(q.count) || 0, questions: null
+                    count: Number(q.count) || 0, src: q.src ||'tmmlu', note: q.note ||'', questions: null
                 }));
-                builtinQuizCredit = idx.source || null;
+                /* ⚠️ 退路是舊的單數 `source`：service worker 對 data/ 是快取優先，
+                   HTML 卻是網路優先，所以會有「新的 HTML 配上舊的 index.json」那一瞬間。
+                   少了這一行，那一瞬間整段授權聲明會整個消失，而且不會報錯。 */
+                builtinQuizSources = idx.sources || (idx.source ? { tmmlu: idx.source } : {});
                 builtinQuizState ='ready';
             } catch { builtinQuizState ='error'; }
             if (kahootScope ==='builtin') renderKahoots();
@@ -15306,14 +15325,34 @@
                 :'');
         }
 
+        /* 這一份題庫自己的出處。查不到就退回表裡的第一份——
+           ⚠️ 退回去是為了「畫面上不要空白」，不是為了正確。真正的保證在
+             tools/quizdata.mjs：它讓索引裡每一份都一定帶 `src`。 */
+        function quizSourceOf(rec) {
+            if (!rec) return null;
+            return builtinQuizSources[rec.src] || Object.values(builtinQuizSources)[0] || null;
+        }
+
+        /* 題庫自己的但書。目前只有 MedQA 那批有：科目是從題目文字自動分類的，
+           所以卡片上要講清楚可能混到別科——不講的話，學生以為在練藥理，
+           練到的是別科的題，而畫面上看不出來。
+           ⚠️ 這是資料檔裡的字，一律跳脫。它現在是我們自己寫的，但
+             「資料檔的字直接進 innerHTML」是一條會被將來的人沿用的路。 */
+        function quizNoteHTML(rec) {
+            const n = String((rec && rec.note) ||'').trim();
+            return n ? `<div class="mb-1 text-amber-600">${escapeHTML(n)}</div>` :'';
+        }
+
         function renderBuiltinQuizCredit() {
             const box = $('kahootBuiltinCredit');
             if (!box) return;
-            const s = builtinQuizCredit;
-            const show = kahootScope ==='builtin' && !!s;
+            /* 分頁最下方列**全部**來源，一份一段：這裡還不知道使用者等一下要點哪一張卡。
+               單一題庫的出處畫在它自己的詳解頁（見 kahootDetailCredit）。 */
+            const all = Object.values(builtinQuizSources).filter(Boolean);
+            const show = kahootScope ==='builtin' && all.length > 0;
             box.classList.toggle('hidden', !show);
             if (!show) return;
-            box.innerHTML = builtinQuizCreditHTML(s);
+            box.innerHTML = all.map(s => `<div class="mb-1">${builtinQuizCreditHTML(s)}</div>`).join('');
         }
 
         function renderKahoots() {
