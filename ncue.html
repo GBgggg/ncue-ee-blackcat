@@ -5896,6 +5896,11 @@
         let quizExplainDocs = {};                // quizId → 雲端那份**原始**的表（短欄位名 t／i）
         let quizExplainAll = {};                 // 攤平成 qid → { text, images }，畫面查這一份
         const quizExplainLoaded = new Set();     // 已經讀過雲端詳解的題庫 id
+        /* 詳解頁上**點開了哪幾則**（存 qid）。2026-09-17 詳解改成預設收起來之後才有這一份。
+           ★ 記著是因為那一頁每改一則就整份重畫（管理員按完儲存、投稿狀態晚一點回來
+             都會重畫）——不記的話，剛剛在讀的那一則會自己收回去。
+           ★ 換一份題庫就清掉（見 openQuizDetail）：裡面的 qid 屬於上一份。 */
+        const quizExplainOpen = new Set();
         let myQuizDrafts = {};                   // qid → 我自己那一則投稿（一般／會員）
         let quizDraftQueue = [];                 // 管理員：這一科所有待審投稿
         let explainEditing = null;               // 正在編輯的 { quizId, qid, admin }
@@ -6769,6 +6774,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-17',
+                title: '題目清單上的詳解改成收起來的，想看再點',
+                items: [
+                    ['詳解不會自己攤在那裡了', '打開「內建題庫 → 點卡片」那一頁，每一題底下現在是一顆「看詳解」的鈕，按了才展開。以前是整頁一路攤開，往下捲會先看到別題的解釋。'],
+                    ['點開的那一則會留著', '同一頁裡再往下看別題，剛剛點開的那一則不會自己收回去。'],
+                    ['圖等到你點開才去拿', '以前一進那一頁就先把每一題的圖都抓回來，其中大部分你根本沒看到。現在點哪一題才拿哪一題的，那一頁開起來快一點，手機的流量也省一點。'],
+                    ['測驗中間答錯的時候沒有變', '答錯停下來的那一刻，詳解跟圖還是一起當場出現，不用多按一下。'],
+                ]
+            },
             {
                 date: '2026-09-16',
                 title: '詳解可以放圖了；內建題庫改成登入才能用',
@@ -14569,6 +14584,8 @@
             if (!isSignedInMember()) return showToast("登入之後才看得到詳解");
             if (!(await loadBuiltinQuizQuestions(id)))
                 return showToast("題目載入失敗，等一下再試一次");
+            /* 換一份題庫就把「點開了哪幾則」忘掉：那些 qid 屬於上一份。 */
+            if (viewingQuizId !== id) quizExplainOpen.clear();
             viewingQuizId = id;
             $('page-kahoot-main').classList.add('hidden');
             $('page-kahoot-details').classList.remove('hidden');
@@ -14616,10 +14633,8 @@
                 </div>`).join('');
             $('kahootDetailCredit').innerHTML = builtinQuizCreditHTML(builtinQuizCredit);
             icons();
-            /* 圖片**預設就展開**，不是等誰去點一下（見 hydrateExplainImages 的註解）。
-               ★ 不 await：那是幾十次網路來回，擋在這裡的話整頁要等最後一張
-                 圖回來才畫得出來，而文字早就準備好了。 */
-            hydrateExplainImages();
+            /* 圖只補**已經點開**的那幾則（2026-09-17 起詳解預設收起來）。 */
+            hydrateOpenExplainImages(list);
         }
 
         /* ---- 內建題庫：抓索引 ----
@@ -14702,17 +14717,21 @@
             return url ? `<img src="${escapeHTML(url)}" alt="${alt}" loading="lazy" class="mt-3 rounded-xl border border-sky-100 max-w-full">` :'';
         }
 
-        /* 把畫面上還沒有位元組的詳解圖補齊。
-           ★★ **一畫出來就跑，不是等誰去點。** 圖是詳解的一部分，藏在一顆
-             「顯示圖片」後面的話，答錯的當下那一眼就只看得到文字——
+        /* 把 `root` 這一塊裡還沒有位元組的詳解圖補齊（不給就是整份文件）。
+           ★★ **圖不藏在第二顆鈕後面。** 呼叫的人給哪一塊、那一塊的圖就一次補完：
+             答錯的當下是整塊詳解，詳解頁是剛剛點開的那一則。圖是詳解的一部分，
+             再多一顆「顯示圖片」的話，停下來的那一眼就只看得到文字——
              而那一眼正是這整個功能存在的理由。
+           ⚠️ 但 `root` 要給得夠窄。2026-09-17 詳解頁改成預設收起來之後，收起來的
+             那些**還在 DOM 裡**，裡面的 <img data-cab> 整份掃一次照樣會被抓下來——
+             一頁一百多題，抓的全是畫面上一張都看不到的圖，而且完全沒有症狀。
            ★ 同一張只抓一次（quizImgBlobs）。詳解頁每改一則就整份重畫，
              不記著的話重畫一次就重抓一次，而這些圖沒有公開快取
              （Worker 回 private, no-store，分級檔案本來就不該被中間快取留下）。
            ⚠️ 刻意不 revokeObjectURL：重畫之後同一個網址還要再用。一場測驗
              最多幾十張圖，留著的記憶體遠小於「每次重畫都重抓」的流量。 */
-        async function hydrateExplainImages() {
-            const pend = Array.from(document.querySelectorAll('img[data-cab]'));
+        async function hydrateExplainImages(root) {
+            const pend = Array.from((root || document).querySelectorAll('img[data-cab]'));
             for (const el of pend) {
                 const id = el.dataset.cab;
                 /* ★ 先拔掉再去抓。留著的話，抓的期間又重畫一次就會有第二輪
@@ -14738,6 +14757,17 @@
                     el.replaceWith(box);
                 }
             }
+        }
+
+        /* 詳解頁上，把**已經點開**的那幾則裡的圖補齊。
+           ⚠️ 不要圖省事寫成 hydrateExplainImages()（整份文件）：2026-09-17 起
+             收起來的詳解也照樣畫進 DOM，整頁掃一次會把一百多題的圖全抓下來，
+             而畫面上一張都看不到——沒有錯誤訊息，只有流量。
+           ★ 不 await：那是幾十次網路來回，擋在這裡的話整頁要等最後一張圖
+             回來才畫得出來，而文字早就準備好了。 */
+        function hydrateOpenExplainImages(list) {
+            list.querySelectorAll('[data-explain-body]:not(.hidden)')
+                .forEach(box => hydrateExplainImages(box));
         }
 
         /* 一題的詳解。沒有的話回空字串——呼叫的人自己決定要不要留位置：
@@ -15152,7 +15182,20 @@
 
             /* 沒有詳解時的空位。⚠️ qid 要留著印出來：寫 tools/explain-*.json
                的人拿它當鍵，不印的話他得自己去算題幹的 SHA-1，那條路沒有人會走。 */
-            const slot = body || `<div class="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-3 text-xs font-bold text-slate-300 flex flex-wrap items-center gap-2">
+            /* 詳解**預設收起來**（2026-09-17）。這一頁是一份題目清單，一路捲下去
+               會先撞到別題的解釋，而多數人是為了某一題才點進來的。
+               ★ 收起來的那一塊**照樣畫進 DOM**，只是加了 hidden：點開就只是拿掉
+                 一個 class，不用重跑一次樣板，展開是當下就好，沒有閃一下。
+               ⚠️ 圖不在這個時候抓——抓的時機跟著「點開」走（見 toggleQuizExplain）。
+               ⚠️ 沒有詳解的那些**不要給鈕**：按下去什麼都不會展開，而使用者會
+                 以為是壞了。那一格留原本的空位（含 qid）。 */
+            const openNow = quizExplainOpen.has(qid);
+            const slot = body ? `<button data-action="toggle-explain" data-qid="${escapeHTML(qid)}" class="w-full px-4 py-2.5 rounded-2xl bg-sky-50 border-2 border-sky-100 text-sky-600 text-xs font-black flex items-center justify-center gap-1.5" aria-expanded="${openNow ? 'true' : 'false'}">
+                          <i data-lucide="${openNow ? 'chevron-up' : 'lightbulb'}" class="w-3.5 h-3.5 pointer-events-none"></i>
+                          <span class="pointer-events-none">${openNow ? '收起詳解' : '看詳解'}</span>
+                      </button>
+                      <div data-explain-body="${escapeHTML(qid)}" class="mt-2${openNow ? '' : ' hidden'}">${body}</div>`
+                : `<div class="rounded-2xl border-2 border-dashed border-slate-200 px-4 py-3 text-xs font-bold text-slate-300 flex flex-wrap items-center gap-2">
                           <span>還沒有詳解</span>
                           <code class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-400 font-mono text-[11px] select-all">${escapeHTML(qid)}</code>
                       </div>`;
@@ -15180,6 +15223,27 @@
                 </div>`).join('');
 
             return slot + (tools.length ? `<div class="flex flex-wrap gap-2 mt-2">${tools.join('')}</div>` : '') + mineCard + queue;
+        }
+
+        /* 詳解頁上點開／收起一則詳解。
+           ★ 不重畫整頁：這一頁可能掛著一百多題，重畫要再跑一遍 qs.map()，
+             點一下等上半秒，使用者會以為沒按到。這裡只動那一塊的 class。
+           ★ 那一塊固定是鈕的**下一個兄弟**（見 explainBlockHTML）。用 querySelector
+             找 qid 也可以，但 qid 進選擇器要另外跳脫，而這裡本來就拿得到鈕。
+           ⚠️ 開著的 qid 要記進 quizExplainOpen，不然整份重畫之後會自己收回去。 */
+        function toggleQuizExplain(qid, btn) {
+            const box = btn && btn.nextElementSibling;
+            if (!box || box.dataset.explainBody === undefined) return;
+            const key = String(qid ||'');
+            const open = !quizExplainOpen.has(key);
+            if (open) quizExplainOpen.add(key); else quizExplainOpen.delete(key);
+            box.classList.toggle('hidden', !open);
+            btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+            btn.innerHTML = `<i data-lucide="${open ? 'chevron-up' : 'lightbulb'}" class="w-3.5 h-3.5 pointer-events-none"></i><span class="pointer-events-none">${open ? '收起詳解' : '看詳解'}</span>`;
+            icons();
+            /* 展開的當下就把這一塊的圖抓回來——不要再多一顆「顯示圖片」。
+               ★ 只給這一塊，不是整份文件（見 hydrateExplainImages 的 ⚠️）。 */
+            if (open) hydrateExplainImages(box);
         }
 
         /* 只有管理員看得到的那一條：用量與待審數。 */
@@ -15620,8 +15684,11 @@
                 $('kahootNextWrap').classList.remove('hidden');
                 icons();
                 /* ★ 答錯的當下也要把圖攤開來——這一眼正是這個功能存在的理由。
-                   等到使用者按一下才載入的話，多數人會直接按「下一題」。 */
-                hydrateExplainImages();
+                   等到使用者按一下才載入的話，多數人會直接按「下一題」。
+                   ⚠️ 只掃 wrap 這一塊。詳解頁那一份清單關掉之後還留在 DOM 裡，
+                     而那邊的詳解 2026-09-17 起是收起來的——整份文件掃下去，
+                     會在測驗中途把那一百多題的圖全抓下來。 */
+                hydrateExplainImages(wrap);
             }
         }
 
@@ -17356,6 +17423,7 @@
 'claim-mission':     (t) => claimMission(t.dataset.id),
 'add-mission':       () => openMissionModal(),
 'edit-mission':      (t) => openMissionModal(t.dataset.id),
+'toggle-explain':    (t) => toggleQuizExplain(t.dataset.qid, t),
 'edit-explain':      (t) => openExplainModal(t.dataset.quiz, t.dataset.qid),
 'delete-explain':    (t) => deleteQuizExplain(t.dataset.quiz, t.dataset.qid),
 'remove-explain-img':(t) => removeExplainImg(Number(t.dataset.index)),
