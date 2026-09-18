@@ -217,6 +217,22 @@
         html.dark .quiz-opt.is-wrong .quiz-opt-text { color: #e59892; }
         .quiz-opt.is-muted { opacity: .38; }
 
+        /* ---- 算式（KaTeX，2026-09-18）----
+           ★ .qtex 這個 class 是**還沒被排版的那一刻**看到的原文。做法是先把 LaTeX 原文
+             寫進 DOM，KaTeX 事後才換掉它——反過來（先留空白等它填）的症狀是
+             算式整片空白，而且不會報錯。跟模擬器與筆記頁同一個形狀。
+           ★ 等寬字只給那一刻：排好之後 KaTeX 自己帶字型，還留著等寬會讓
+             公式跟旁邊的中文對不齊。 */
+        .qtex { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: .95em; }
+        .qtex[data-done] { font-family: inherit; font-size: inherit; }
+        .katex { font-size: 1.05em; }
+        /* ⚠️ 區塊算式一定要可以自己橫向捲。一條長矩陣在手機上會把整張卡片撐寬，
+           而這個站沒有橫向捲軸——症狀是整頁跟著變寬、導覽列也跟著跑掉，
+           看起來像版面壞了，而不是一條式子太長。 */
+        .katex-display { margin: .6em 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+        /* 選項裡的區塊算式不要再撐開上下：一列選項本來就只有一行高。 */
+        .quiz-opt-text .katex-display { margin: .2em 0; }
+
         /* ---- 「我其實不確定」（2026-08-29）----
            ★ 為什麼要有這一顆：四選一有 25% 的猜對底，而排程只看得到「選對了」，
              於是「不會但猜中」的字也會一路被推去畢業。按下它，那個字的複習重來一次。
@@ -3716,12 +3732,15 @@
             </div>
             <!-- 子分頁：解題（拍題目問 AI）
                  ★ 答案區刻意是純文字（white-space: pre-wrap）不是 Markdown。
-                 主站只載入 lucide，沒有 marked／DOMPurify／KaTeX——為了排版
-                 把那三套拉進來要同時改 sw.js 的 CORE 與發布腳本，
-                 而模型的輸出本來就是別人（模型）產生的字，丟進 innerHTML
-                 正是 CLAUDE.md 第四條那個坑。所以提示詞叫模型寫純文字，
-                 這裡用 textContent 填。要升級成數學排版是之後的事，
-                 vendor/ 裡的 KaTeX 已經在了。 -->
+                 理由**不是**「拉不進來」——2026-09-18 起 KaTeX 已經是用到才載的了
+                 （見「3.7 算式排版」），發布腳本也一直是整包複製 vendor/。
+                 真正的理由是：模型的輸出是**別人產生的字**，丟進 innerHTML
+                 正是 CLAUDE.md 第四條那個坑，而 Markdown 要多拉 marked 與
+                 DOMPurify 兩套才擋得住。所以提示詞叫模型寫純文字，這裡用
+                 textContent 填。
+                 ★ 要升級的話，現成的路是叫模型把算式寫成 \( … \)，然後這一塊
+                 改用 setMathText()——那條路只開放算式，不開放任意 HTML，
+                 跟測驗那一輪同一個形狀。還沒做。 -->
             <div id="study-sub-solve" class="hidden">
                 <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                     <div class="relative z-10">
@@ -4534,8 +4553,18 @@
             <div id="explainModalQuestion" class="bg-slate-50 rounded-2xl px-4 py-3 mb-4 text-sm font-bold text-slate-600 whitespace-pre-wrap break-words max-h-32 overflow-y-auto"></div>
             <div class="space-y-4">
                 <div>
-                    <textarea id="explainText" rows="8" maxlength="600" placeholder="這一題為什麼選這個答案？把想法寫下來，換行會照原樣顯示。" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-medium leading-relaxed" aria-label="詳解內容"></textarea>
+                    <textarea id="explainText" rows="8" maxlength="600" placeholder="這一題為什麼選這個答案？把想法寫下來，換行會照原樣顯示。要寫算式就用 \( … \) 包起來，例如 \( \frac{1}{3} \)。" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-sky-500 font-medium leading-relaxed" aria-label="詳解內容"></textarea>
                     <p id="explainCount" class="text-right text-xs font-bold text-slate-400 mt-1">0 / 600</p>
+                    <!-- 算式的即時預覽。★ 只在真的寫了算式的時候才出現：
+                         多數詳解是純文字，永遠掛一塊「預覽」在那裡只是把表單拉長，
+                         而且會讓人以為自己漏填了什麼。
+                         ⚠️ 預覽長得跟存下去之後**同一套**（mathHTML + renderMath），
+                         不是另外寫一份——寫兩份的話，哪天改了其中一邊，
+                         使用者看到的預覽跟實際上線的樣子會不一樣而且不報錯。 -->
+                    <div id="explainPreviewWrap" class="hidden mt-2 rounded-2xl bg-sky-50 border-2 border-sky-100 px-4 py-3">
+                        <div class="text-[11px] font-black text-sky-500 mb-1">算式排出來會長這樣</div>
+                        <p id="explainPreview" class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words"></p>
+                    </div>
                 </div>
                 <!-- 圖片只有管理員傳得了，而且是**把檔案本身傳進檔案櫃**，
                      跟資料分頁那份 PDF 同一個櫃子、同一支端點。
@@ -5937,6 +5966,12 @@
            data/quiz/<uuid> 去抓——症狀是一個破掉的圖示加一筆 404，
            看不出來是哪一條路走錯了。 */
         const CAB_SRC_RE = /^cab:([0-9a-f-]{36})$/i;
+        /* KaTeX 是**用到才載**的（見「3.7 算式排版」）。這裡記著那一次載入，
+           免得同一頁十幾題各自插一支 <script>。
+           ⚠️ 宣告在狀態區跟旁邊那幾個同一個理由：renderMath() 從
+             renderKahoots() 那一路下去就可能被碰到，宣告在用它的函式後面
+             會落進暫時性死區，症狀是一進站整頁全白（CLAUDE.md 第一條）。 */
+        let katexLoad = null;
 
         /* ==========================================================
          * 3. 通用工具函式
@@ -6077,6 +6112,138 @@
             } catch (e) { /* 要不到就算了，功能一切照舊 */ }
         }
 
+        /* ==========================================================
+         * 3.7 算式排版（KaTeX，用到才載）
+         *
+         * 這是什麼：題庫裡有些題目的數學是用 LaTeX 寫的。LaTeX 是一種
+         * 「用純文字描述數學長什麼樣」的寫法（分數寫成 \frac{1}{3}），
+         * 而 KaTeX 是一支把那串文字畫成真正的分數、根號、矩陣的函式庫。
+         * 沒有它的話，畫面上就是一行 \frac{1}{3} 的原始碼——工數與線代
+         * 那 100 題在 2026-09-18 之前就是這樣。
+         *
+         * ★★ 最重要的一件事不是「排得漂亮」，是**沒有 KaTeX 時要活著**。
+         *   它 300 KB 再加二十個字型檔，而且**刻意不進 sw.js 的 CORE**
+         *   （判準是「不是『翻到才需要』的東西才預先抓」，而數學排版正是
+         *   翻到才需要的，跟 pdf.js 同一個判斷）。所以離線第一次開、網路很慢、
+         *   或它還沒載完就先畫了一題——三種情況下 window.katex 都是 undefined。
+         *   因此每一段算式都**先把原文寫進 DOM**，KaTeX 只是事後把它換掉。
+         *   反過來做（先留空白等它填）的症狀是算式整片空白，而且不會報錯。
+         *
+         * ★ 界定符只認 \( … \)（行內）與 \[ … \]（區塊），**不認 $ … $**。
+         *   筆記頁認 $，這裡刻意不認：題目與詳解裡會出現「$100」這種價錢，
+         *   認了的話兩個錢字號中間那一整段會被當成算式，而那不會報錯。
+         *   題庫那 523 段數學本來就全是 \( \)，0 段 $…$（見 架構.md 2026-09-17）。
+         *
+         * ⚠️ 排不出來就留著原文（throwOnError: true），不要讓 KaTeX 印它那個
+         *   紅色錯誤訊息。這是 2026-09-17 那一課的另一半：畫面上一行紅字
+         *   看起來像「網站壞了」，而原封不動印出原文只是「這一格資料有錯字」。
+         * ========================================================== */
+        /* 一段算式。★ 每次呼叫自己建一個，不要共用一個帶 /g 的常數。
+           理由是**防以後**，不是現在有 bug：帶 /g 的正規表示式會記著 lastIndex，
+           而下面那個 while 迴圈每次都跑到 null 為止（跑到 null 就歸零），
+           所以現在共用也不會錯。但哪天有人在迴圈裡加一句 break 或 return，
+           下一次呼叫就會從奇怪的位置開始配對——症狀是「偶爾有一段算式沒被
+           認出來」，跟呼叫順序有關，重現不了，而且不會報錯。
+           ⚠️ 這件事**測不出來**（突變成共用一顆，整組測試照樣全綠，試過了），
+           所以它只能靠這段註解守。 */
+        const mathRe = () => /\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]/g;
+        const hasMath = (s) => /\\\([\s\S]*?\\\)|\\\[[\s\S]*?\\\]/.test(String(s ?? ""));
+
+        /* 純文字的場合（吐司、唸題目）用這個：只把界定符拿掉。
+           ★ 刻意不試著把 \frac{1}{3} 翻成「1/3」——翻一半的數學比原文更難讀，
+             而且那是猜的。 */
+        const mathPlain = (s) => String(s ?? "").replace(/\\[()[\]]/g, "");
+
+        /* 一段可能夾著算式的文字 → 可以塞進 innerHTML 的字串。
+           ⚠️ 算式以外的每一個字都要跳脫（CLAUDE.md 第四條）：這些字來自題庫檔
+             與**別人寫的詳解**。算式本身進的是 data-tex 屬性，那裡也要跳脫——
+             不跳脫的話，一條含引號的式子會把整段 HTML 撕開，而症狀不是
+             「算式怪怪的」，是那一列以後全部不見。 */
+        function mathHTML(str) {
+            const s = String(str ?? "");
+            if (!s) return "";
+            const re = mathRe();
+            let out = "", last = 0, m;
+            while ((m = re.exec(s)) !== null) {
+                out += escapeHTML(s.slice(last, m.index));
+                const disp = m[2] !== undefined;
+                out += `<span class="qtex" data-tex="${escapeHTML(disp ? m[2] : m[1])}"${
+                          disp ? " data-disp=\"1\"" : ""}>${escapeHTML(m[0])}</span>`;
+                last = m.index + m[0].length;
+            }
+            return last ? out + escapeHTML(s.slice(last)) : escapeHTML(s);
+        }
+
+        /* 需要的時候才去載 KaTeX。
+           ★ 失敗**不 reject、回 null**：呼叫的人一律是「拿得到就升級，拿不到就算了」，
+             reject 會變成一個沒有人接的 Promise，在主控台留下紅字卻什麼也不代表。
+           ⚠️ 失敗之後要把 katexLoad 清回 null，下一題才會再試一次。不清的話，
+             第一次剛好斷線就等於整場測驗都不排版了，而畫面上看不出原因。 */
+        function ensureKatex() {
+            if (typeof window === "undefined") return Promise.resolve(null);
+            if (window.katex) return Promise.resolve(window.katex);
+            if (katexLoad) return katexLoad;
+            katexLoad = new Promise((resolve) => {
+                /* 樣式與程式一起來。★ 少了 CSS 的話 KaTeX 照樣跑完，但排出來的
+                   是一堆疊在一起的字——「有東西但它是壞的」比什麼都沒有更難查。 */
+                const css = document.createElement("link");
+                css.rel = "stylesheet";
+                css.href = "vendor/katex.min.css";
+                document.head.appendChild(css);
+                const js = document.createElement("script");
+                js.src = "vendor/katex.min.js";
+                js.onload  = () => resolve(window.katex || null);
+                js.onerror = () => { katexLoad = null; resolve(null); };
+                document.head.appendChild(js);
+            });
+            return katexLoad;
+        }
+
+        /* 把 root 這一塊裡還沒排版的算式交給 KaTeX，回傳排好了幾段。
+           ★ katex 先取一次再進迴圈。在迴圈裡讀的話，「根本沒載到」會跟
+             「這一條式子寫錯了」掉進同一個 catch，兩者長得一模一樣，
+             而它們該做的事完全不同（一個是去載它，一個是留著原文）。
+           ★ data-done 是「這一段排過了」的記號。詳解頁每改一則就整份重畫，
+             沒有記號的話同一段會被重排一次。 */
+        function renderMath(root) {
+            if (!root || !root.querySelectorAll) return 0;
+            const jobs = root.querySelectorAll(".qtex:not([data-done])");
+            if (!jobs.length) return 0;
+            const K = (typeof window !== "undefined") && window.katex;
+            if (!K) {
+                /* 還沒載到：去載，載到了再回來排一次同一塊。
+                   ★ 那時候這一塊可能已經被重畫掉了，排在一個沒人看的節點上
+                     不會有任何症狀，所以這裡不必再確認它還在不在畫面上。 */
+                ensureKatex().then(k => { if (k) renderMath(root); });
+                return 0;
+            }
+            let n = 0;
+            jobs.forEach(el => {
+                try {
+                    K.render(el.dataset.tex, el, {
+                        displayMode: el.dataset.disp === "1",
+                        throwOnError: true,   /* 排不出來就留著原文，不要印紅字 */
+                        trust: false,         /* \href、\includegraphics 一律不給 */
+                        strict: "ignore"      /* 題庫裡有中文全形逗號，排得出來，不必每次警告 */
+                    });
+                    el.dataset.done = "1";
+                    n++;
+                } catch (e) { /* 留著原文，那至少說了實話 */ }
+            });
+            return n;
+        }
+
+        /* 用法跟 el.textContent = s 一樣，差別是裡面的算式會被排版。
+           ★ 沒有算式就走 textContent，連 innerHTML 都不碰——全站絕大多數的字
+             （課程名、計劃標題、自己出的題目）本來就沒有算式，
+             讓它們繼續走最安全的那條路。 */
+        function setMathText(el, str) {
+            if (!el) return;
+            const s = String(str ?? "");
+            if (!hasMath(s)) { el.textContent = s; return; }
+            el.innerHTML = mathHTML(s);
+            renderMath(el);
+        }
         /* ==========================================================
          * A6：空狀態
          *
@@ -6795,6 +6962,17 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-18',
+                title: '數學題的算式會排出來了，不再是一行看不懂的符號',
+                items: [
+                    ['分數、根號、矩陣現在長得像課本上那樣', '工程數學、線性代數這幾科的題目裡有很多算式。以前它們會變成一行 \\frac{1}{3} 這種符號，現在會排成真正的分數、根號、矩陣和聯立方程式。'],
+                    ['題目、四個選項、詳解、考完的錯題單，四個地方都會排', '同一題在哪裡看到都是排好的樣子，不會這裡是算式、那裡是符號。'],
+                    ['排版是翻到才載的，開站不會變慢', '只有真的遇到有算式的題目才會去抓排版用的東西。沒有數學的科目跟以前一模一樣，不會多花任何流量。'],
+                    ['網路不好或離線的時候，會退回原本的符號', '看得懂的人還是讀得出來，不會變成一片空白，也不會跳錯誤訊息。網路回來之後再開就會排好。'],
+                    ['自己寫詳解也可以寫算式了', '把算式用 \\( 和 \\) 包起來就會被排版，例如 \\( \\frac{1}{3} \\)。編輯框下面會同步顯示排出來的樣子，存下去之前就看得到對不對。'],
+                ]
+            },
             {
                 date: '2026-09-17',
                 title: '測驗可以照「你要考什麼」來挑了',
@@ -14684,7 +14862,7 @@
                 <div class="bg-white rounded-3xl p-5 border-2 border-slate-100">
                     <div class="flex items-start gap-3 mb-3">
                         <span class="quiz-qnum shrink-0">${i + 1}</span>
-                        <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${escapeHTML(q.q ||'')}</p>
+                        <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${mathHTML(q.q ||'')}</p>
                     </div>
                     ${/* 題目本身的圖。★ 畫在選項上面：它是題幹的一部分，
                          畫在選項下面的話會看起來像在解釋答案。 */
@@ -14694,7 +14872,7 @@
                             const right = oi === q.correctIdx;
                             return `<div class="flex items-start gap-2 px-3 py-2 rounded-xl text-sm break-words ${right ?'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' :'bg-slate-50 text-slate-600'}">
                                 <span class="shrink-0 font-black">${KAHOOT_LETTERS[oi] || (oi + 1)}</span>
-                                <span class="flex-1 min-w-0 whitespace-pre-wrap">${escapeHTML(opt)}</span>
+                                <span class="flex-1 min-w-0 whitespace-pre-wrap">${mathHTML(opt)}</span>
                                 ${right ? '<i data-lucide="check" class="w-4 h-4 shrink-0 mt-0.5"></i>' :''}
                             </div>`;
                         }).join('')}
@@ -14706,6 +14884,10 @@
             /* ⚠️ 用**這一份**題庫自己的出處，不是全站共用的那一份。 */
             $('kahootDetailCredit').innerHTML = quizNoteHTML(rec) + builtinQuizCreditHTML(quizSourceOf(rec));
             icons();
+            /* ⚠️ 一次排完整頁的算式（題目、選項、已經點開的詳解）。
+               收起來的那些詳解**也在 DOM 裡**，跟著排好沒有壞處：
+               排版不花流量，跟圖片那條規則不一樣（那條的代價是網路來回）。 */
+            renderMath(list);
             /* 圖只補**已經點開**的那幾則（2026-09-17 起詳解預設收起來）。 */
             hydrateOpenExplainImages(list);
         }
@@ -14879,7 +15061,7 @@
             if (!text && !imgs.length) return '';
             return `<div class="rounded-2xl bg-sky-50 border-2 border-sky-100 p-4">
                 <div class="text-xs font-black text-sky-600 mb-2 flex items-center gap-1.5"><i data-lucide="lightbulb" class="w-3.5 h-3.5"></i> 詳解</div>
-                ${text ? `<p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${escapeHTML(text)}</p>` :''}
+                ${text ? `<p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${mathHTML(text)}</p>` :''}
                 ${imgs.join('')}
             </div>`;
         }
@@ -15131,6 +15313,22 @@
             if (box && out) out.textContent = `${box.value.trim().length} / ${EXPLAIN_TEXT_MAX}`;
         }
 
+        /* 邊打邊看算式排出來的樣子。
+           ★ 沒有寫算式就整塊收起來（見那一塊的註解）。
+           ⚠️ 用的是跟正式顯示**完全同一對**函式（mathHTML → renderMath）。
+             另外寫一份「預覽專用」的排版是這裡最容易犯的錯：兩份會慢慢分岔，
+             而症狀是「預覽的時候好好的，存下去長得不一樣」，沒有任何錯誤訊息。 */
+        function updateExplainPreview() {
+            const box = $('explainText'), wrap = $('explainPreviewWrap'), out = $('explainPreview');
+            if (!box || !wrap || !out) return;
+            const text = box.value;
+            const on = hasMath(text);
+            wrap.classList.toggle('hidden', !on);
+            if (!on) { out.innerHTML = ''; return; }
+            out.innerHTML = mathHTML(text);
+            renderMath(out);
+        }
+
         function openExplainModal(quizId, qid) {
             if (!isSignedInMember()) return showToast('登入之後才能寫詳解喔！');
             const rec = state.builtinQuizzes.find(x => x.id === quizId);
@@ -15142,7 +15340,7 @@
             $('explainModalHint').textContent = admin
                 ? '存下去就直接上線，不用等任何人。'
                 : '寫完會先送給管理員看過，通過之後大家都看得到。';
-            $('explainModalQuestion').textContent = q.q || '';
+            setMathText($('explainModalQuestion'), q.q || '');
             /* 管理員編輯的底稿是「現在站上顯示的那一則」——可能來自雲端，
                也可能來自靜態檔。從靜態檔改起的話，存下去會在雲端產生一份
                蓋過它的副本（見這一段開頭的 ⚠️⚠️）。 */
@@ -15158,6 +15356,9 @@
             /* 管理員才看得到剩多少——一般使用者投的稿不直接進那份文件。 */
             $('explainCapBar').textContent = admin ? explainCapText(quizId) : '';
             updateExplainCount();
+            /* ⚠️ 開視窗的時候也要更新一次。只綁 input 的話，改寫舊的那一則
+               （框裡本來就有算式）要先打一個字預覽才會出現。 */
+            updateExplainPreview();
             openModal('explainModal');
         }
 
@@ -15308,13 +15509,13 @@
 
             const mineCard = (!admin && mine) ? `<div class="mt-2 rounded-2xl border-2 ${mine.status === 'rejected' ? 'border-rose-100 bg-rose-50' : 'border-sky-100 bg-sky-50'} px-4 py-3">
                     <div class="text-[11px] font-black ${mine.status === 'rejected' ? 'text-rose-500' : 'text-sky-500'} mb-1">${mine.status === 'rejected' ? '你這一則沒有被採用，改寫之後可以再送一次' : '你寫的這一則正在等管理員看過'}</div>
-                    <p class="text-xs text-slate-600 whitespace-pre-wrap break-words">${escapeHTML(mine.text || '')}</p>
+                    <p class="text-xs text-slate-600 whitespace-pre-wrap break-words">${mathHTML(mine.text || '')}</p>
                     <div class="flex gap-2 mt-2">${chip('edit-explain', '', '改寫', 'pencil', 'bg-white text-slate-500 border border-slate-200')}${chip('withdraw-draft', mine.id, '撤回', 'x', 'bg-white text-slate-400 border border-slate-200')}</div>
                 </div>` : '';
 
             const queue = pend.map(d => `<div class="mt-2 rounded-2xl border-2 ${d.status === 'rejected' ? 'border-slate-100 bg-slate-50 opacity-60' : 'border-sky-100 bg-sky-50'} px-4 py-3">
                     <div class="text-[11px] font-black text-sky-500 mb-1">投稿 · ${escapeHTML(d.name || '無名小貓')}${d.status === 'rejected' ? '（已退回）' : ''}</div>
-                    <p class="text-xs text-slate-700 whitespace-pre-wrap break-words">${escapeHTML(d.text || '')}</p>
+                    <p class="text-xs text-slate-700 whitespace-pre-wrap break-words">${mathHTML(d.text || '')}</p>
                     <div class="flex gap-2 mt-2">${chip('approve-draft', d.id, '採用', 'check', 'bg-emerald-500 text-white')}${d.status === 'rejected' ? '' : chip('reject-draft', d.id, '退回', 'x', 'bg-white text-slate-400 border border-slate-200')}</div>
                 </div>`).join('');
 
@@ -15741,11 +15942,16 @@
         // 依題目實際選項數生成按鈕（2～4 個都支援）
         function renderPlayOptions(qData) {
             const grid = $('kahootOptionsGrid');
+            /* mathHTML() 取代 escapeHTML()：算式以外的每一個字照樣跳脫，
+               算式的部分先放原文，下面 renderMath() 再換成排好的式子。 */
             grid.innerHTML = (qData.options || []).map((opt, i) => `
                 <button data-action="submit-kahoot" data-index="${i}" id="playOpt${i}" class="quiz-opt">
                     <span class="quiz-opt-letter pointer-events-none">${KAHOOT_LETTERS[i] || (i + 1)}</span>
-                    <span class="quiz-opt-text pointer-events-none">${escapeHTML(opt)}</span>
+                    <span class="quiz-opt-text pointer-events-none">${mathHTML(opt)}</span>
                 </button>`).join('');
+            /* ⚠️ 一定要在 innerHTML **之後**。先排再換 innerHTML 等於白排一次，
+               而症狀是「有時候有公式有時候沒有」（模擬器那一輪踩過同一顆）。 */
+            renderMath(grid);
         }
 
         /* 這一場考完會不會寫回記憶曲線。★ 判準跟 `recordKahootResult` 分派的那三種
@@ -15775,7 +15981,9 @@
             $('kahootProgressBar').style.width = `${total ? currentQIndex / total * 100 : 0}%`;
             $('kahootScoreDisplay').textContent = kahootScoreText();
             $('kahootQNum').textContent = currentQIndex + 1;
-            $('kahootQuestionDisplay').textContent = qData.q;
+            /* 題幹裡的算式要排版（工數、線代那幾科）。setMathText() 在沒有算式的
+               時候走的就是 textContent，所以其他測驗一個字都沒有變。 */
+            setMathText($('kahootQuestionDisplay'), qData.q);
             /* 題目圖。⚠️ 用 innerHTML 是因為要放 <img>，內容經過 quizImgTag()
                （src 驗過、alt 跳脫過）。沒有圖就整塊收起來——留一個空的 div
                會在題目與選項之間撐出一段莫名其妙的空白。 */
@@ -15826,7 +16034,9 @@
             if (kahootSpeakText && qData.q.includes(CLOZE_BLANK))
                 kahootSpeakText = qData.q.split(CLOZE_BLANK).join(qData.options[qData.correctIdx] || '');
             $('kahootScoreDisplay').textContent = kahootScoreText();
-            showToast(correct ?"答對了" : `答錯了，正解是「${qData.options[qData.correctIdx]}」`);
+            /* ★ 吐司是純文字，排不了版——至少把界定符拿掉，
+               不要讓使用者看到「正解是「\( x \)」」那種東西。 */
+            showToast(correct ?"答對了" : `答錯了，正解是「${mathPlain(qData.options[qData.correctIdx])}」`);
 
             currentQIndex++;
             // 進度條當下就推進。答錯時畫面會停住等人按「下一題」，
@@ -15850,6 +16060,7 @@
                 const wrap = $('kahootExplainWrap');
                 wrap.innerHTML = ex;
                 wrap.classList.toggle('hidden', !ex);
+                renderMath(wrap);
                 // 答錯不自動跳：每個人看懂正解需要的時間不一樣，交給使用者決定
                 $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ?'看結果' :'下一題';
                 $('kahootNextWrap').classList.remove('hidden');
@@ -15885,7 +16096,7 @@
             wrap.classList.toggle('hidden', wrong.length === 0);
             if (!wrong.length) return;
             const row = (a, i) => {
-                const txt = escapeHTML(a.options[i] ??'—');
+                const txt = mathHTML(a.options[i] ??'—');
                 const cn  = (a.optionChinese ||[])[i] ||'';
                 const body = `<span class="font-black text-slate-800">${txt}</span>${
                     cn ? `<span class="text-slate-500 font-bold">${escapeHTML(cn)}</span>` :''}`;
@@ -15916,14 +16127,16 @@
                 const full = Array.isArray(a.optionWords) && a.optionWords.some(Boolean);
                 return `
                     <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${escapeHTML(a.q)}</p>${full ? `
+                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${mathHTML(a.q)}</p>${full ? `
                         <div class="space-y-1.5">${(a.options ||[]).map((_, i) => row(a, i)).join('')}</div>
                         <p class="text-[11px] font-bold text-slate-400 mt-2">還有不會的嗎？勾起來一起記進錯題本</p>` : `
-                        <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${escapeHTML(a.options[a.selectedIdx] ??'—')}</span></p>
-                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${escapeHTML(a.options[a.correctIdx] ??'—')}</span>${
+                        <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${mathHTML(a.options[a.selectedIdx] ??'—')}</span></p>
+                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${mathHTML(a.options[a.correctIdx] ??'—')}</span>${
                             a.chinese ? `　<span class="text-slate-500">${escapeHTML(a.chinese)}</span>` :''}</p>`}
                     </div>`;
             }).join('');
+            /* 錯題清單也要排版：那是答完之後唯一還看得到題目的地方。 */
+            renderMath($('resultWrongList'));
         }
 
         function showKahootResult() {
@@ -18123,7 +18336,10 @@
 
             // 回報字數。用 input 而不是 keyup：貼上與注音選字都涵蓋得到
             if ($('feedbackText')) $('feedbackText').addEventListener('input', updateFeedbackCount);
-            if ($('explainText')) $('explainText').addEventListener('input', updateExplainCount);
+            if ($('explainText')) $('explainText').addEventListener('input', () => {
+                updateExplainCount();
+                updateExplainPreview();
+            });
             /* 選完檔就進清單。★ 用 change 而不是存檔時才讀 input.files：
                選了兩次的話，第二次會把第一次選的整批換掉（input 的 files 是
                取代不是累加），而畫面上完全看不出來少了幾張。 */
