@@ -3558,6 +3558,19 @@
                                 </div>
                             </div>
                         </div>
+                        <!-- 從教務系統匯入課程（★ 只有巫醫以上看得到）。
+                             ★ 2026-09-21 從設定頁搬來這裡，而且是搬進
+                             #course-list-view 裡面——擺在外面的話，點進某一門課
+                             看評價時它還會跟著留在畫面上，而那一頁講的是另一件事。
+                             ★ 擺在課程地圖**後面**：這一頁對所有人都是先看課程，
+                             把一塊只有幾個人看得到的工具放最上面，等於每個巫醫
+                             每次進來都要先捲過它。 -->
+                        <div id="importCoursesSection" class="bg-sky-600 rounded-[2rem] p-6 shadow-xl border-4 border-sky-400 hidden">
+                            <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white"><i data-lucide="download-cloud" class="w-5 h-5"></i> 從教務系統匯入電子系課程</h3>
+                            <p class="text-sky-100 text-sm font-medium mb-5">一鍵匯入彰師大電子系 115 學年第一學期課程（教師僅顯示姓氏）。已存在的課程會自動略過，匯入後仍可照常編輯或刪除。</p>
+                            <button id="importEECoursesBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> 匯入電子系課程 (115上/114下，共 47 門)</button>
+                        </div>
+
                     </div>
 
                     <div id="course-detail-view" class="hidden">
@@ -3617,6 +3630,44 @@
                     <p class="text-emerald-300 font-bold text-sm mt-2">共享講義、考古題與各種整理好的檔案。階位越高，看得到的越多。</p>
                 </div>
             </div>
+            <!-- 上傳資料（★ 只有巫醫以上看得到）。
+                 ★ 2026-09-21 從設定頁搬來這裡。設定頁是兩個產品共用的一頁，
+                 而這一塊只屬於彰師電子；更重要的是傳完的東西就在下面那幾區，
+                 傳完能當場看到它掉進哪一區——階級選錯的話那一秒就發現得了。
+                 ⚠️ 它要一份課程清單（選關聯課程），那份由 switchTab 進 data 時
+                 按權限補訂。漏掉的症狀是下拉選單永遠只有「選擇關聯課程...」一行，
+                 而且不會報錯。 -->
+            <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
+                <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><i data-lucide="upload" class="w-5 h-5"></i> 上傳資料</h3>
+                <div class="space-y-4">
+                    <select id="uploadCourseSelect" aria-label="選擇要上傳到哪一門課" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
+                        <option value="" disabled selected>選擇關聯課程...</option>
+                    </select>
+                    <select id="materialLevelSelect" aria-label="資料的公開範圍" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
+                        <option value="1">🐾 見習生資料 (註冊就看得到)</option>
+                        <option value="2" selected>🛡️ 戰士資料 (戰士以上可見)</option>
+                        <option value="3">👑 族長資料 (族長以上可見)</option>
+                        <!-- ★ 巫醫資料只有星族存得進去（規則裡是 isStarclan()），
+                             所以這一顆預設 hidden ＋ disabled，由 updateAdminUI 開給星族。
+                             留著給巫醫選的話，他會填完整張表、按下存檔，然後看到
+                             一句「失敗…」——被規則擋掉的失敗說不出自己為什麼失敗。 -->
+                        <option value="4" id="matLevelMedicOpt" hidden disabled>🌿 巫醫資料 (巫醫以上可見，只有星族存得進去)</option>
+                    </select>
+                    <!-- 兩種來源：貼一條連結，或把 PDF 直接傳進檔案櫃。
+                         ★ 檔案櫃那一種才擋得住階級——連結是誰拿到誰打得開。 -->
+                    <div class="flex gap-2">
+                        <button type="button" id="matSrcLinkBtn" data-action="material-src" data-src="link" aria-pressed="true" class="flex-1 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs">🔗 貼連結</button>
+                        <button type="button" id="matSrcFileBtn" data-action="material-src" data-src="file" aria-pressed="false" class="flex-1 py-2 bg-white text-slate-500 rounded-xl font-bold text-xs">📄 上傳 PDF</button>
+                    </div>
+                    <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="雲端硬碟共用連結">
+                    <div id="matFileBox" class="hidden">
+                        <input type="file" id="matFileInput" accept="application/pdf,.pdf" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="選擇要上傳的 PDF">
+                        <p class="text-[11px] font-bold text-white/80 mt-2 leading-relaxed">單檔上限 25 MB，全部加起來 1 GB。檔案存在自己的檔案櫃，每次下載都會先驗階級。</p>
+                    </div>
+                    <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium" aria-label="檔案名稱 (如: 期中考考古)">
+                    <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors">確認存檔</button>
+                </div>
+            </div>
             <!-- ★ 這個搜尋框是這一頁自己的，不共用課程評價那一個。
                  共用的話，在課程評價搜過的字會跟著跑到這裡，
                  而這一頁上沒有任何東西提示「你正在搜尋中」——看起來就像資料不見了。 -->
@@ -3647,6 +3698,15 @@
                     </h4>
                     <div id="leaderMaterialsList" class="grid grid-cols-1 gap-3"></div>
                 </div>
+                <!-- 巫醫資料（2026-09-21 新增）。看得到的是巫醫以上，
+                     但**只有星族存得進去**——這一區是四區裡唯一「讀跟寫不同群」的。
+                     ★ 排在最後面：四區由淺到深排，使用者一眼看得出再上去還有什麼。 -->
+                <div class="bg-emerald-50/50 p-4 rounded-3xl border border-emerald-100">
+                    <h4 class="text-sm font-black text-emerald-600 mb-3 flex items-center gap-2 uppercase tracking-widest">
+                        <i data-lucide="leaf" class="w-4 h-4"></i> 巫醫資料
+                    </h4>
+                    <div id="medicMaterialsList" class="grid grid-cols-1 gap-3"></div>
+                </div>
             </div>
         </div>
 
@@ -3674,6 +3734,21 @@
                 <!-- 顯示幾筆／共幾筆。★ 這不是裝飾：搜不到東西時的空白
                      跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
                 <span id="starclanCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
+            </div>
+            <!-- 排序。★ 跟搜尋分成兩列：同一列塞三個東西的話，手機上搜尋框會被
+                 壓到剩幾個字寬（分頁列那次踩過同一件事，見 架構.md）。
+                 ★ 四種是「加入日期／名稱」×「升冪／降冪」攤平成一顆選單，
+                 不是兩顆（一顆選欄位、一顆選方向）。兩顆在手機上要點兩次，
+                 而這一頁真正要做的事只有「最近誰加進來」跟「照名字找人」。 -->
+            <div class="flex items-center gap-2 mb-4">
+                <i data-lucide="arrow-up-down" class="w-4 h-4 text-slate-400 shrink-0"></i>
+                <select id="starclanSort" aria-label="名冊排序"
+                        class="px-3 py-2 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:border-fuchsia-400 transition-colors">
+                    <option value="created-desc" selected>最新加入的在前</option>
+                    <option value="created-asc">最早加入的在前</option>
+                    <option value="name-asc">名稱 A → Z</option>
+                    <option value="name-desc">名稱 Z → A</option>
+                </select>
             </div>
             <div class="space-y-3" id="usersListContainer">
                 <div class="text-center py-10 text-slate-400 font-medium">名冊載入中...</div>
@@ -3771,43 +3846,6 @@
                     <div id="feedbackAdminList" class="space-y-3"></div>
                 </section>
 
-                <!-- 內容管理（原管理頁的上半部。★ 只有巫醫以上看得到） -->
-                <section id="settingsContentBox" class="hidden">
-                    <h3 class="text-lg font-black text-slate-900 mb-3 flex items-center gap-2 px-1"><i data-lucide="database" class="w-5 h-5 text-emerald-500"></i> 內容管理</h3>
-                    <div class="space-y-5">
-                        <div id="adminUploadSection" class="bg-emerald-500 rounded-[2rem] p-6 shadow-xl border-4 border-emerald-400 hidden">
-                            <h3 class="text-lg font-bold mb-4 flex items-center gap-2 text-white"><i data-lucide="upload" class="w-5 h-5"></i> 上傳資料</h3>
-                            <div class="space-y-4">
-                                <select id="uploadCourseSelect" aria-label="選擇要上傳到哪一門課" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium appearance-none">
-                                    <option value="" disabled selected>選擇關聯課程...</option>
-                                </select>
-                                <select id="materialLevelSelect" aria-label="資料的公開範圍" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-bold text-sm">
-                                    <option value="1">🐾 見習生資料 (註冊就看得到)</option>
-                                    <option value="2" selected>🛡️ 戰士資料 (戰士以上可見)</option>
-                                    <option value="3">👑 族長資料 (族長以上可見)</option>
-                                </select>
-                                <!-- 兩種來源：貼一條連結，或把 PDF 直接傳進檔案櫃。
-                                     ★ 檔案櫃那一種才擋得住階級——連結是誰拿到誰打得開。 -->
-                                <div class="flex gap-2">
-                                    <button type="button" id="matSrcLinkBtn" data-action="material-src" data-src="link" aria-pressed="true" class="flex-1 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs">🔗 貼連結</button>
-                                    <button type="button" id="matSrcFileBtn" data-action="material-src" data-src="file" aria-pressed="false" class="flex-1 py-2 bg-white text-slate-500 rounded-xl font-bold text-xs">📄 上傳 PDF</button>
-                                </div>
-                                <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="雲端硬碟共用連結">
-                                <div id="matFileBox" class="hidden">
-                                    <input type="file" id="matFileInput" accept="application/pdf,.pdf" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="選擇要上傳的 PDF">
-                                    <p class="text-[11px] font-bold text-white/80 mt-2 leading-relaxed">單檔上限 25 MB，全部加起來 1 GB。檔案存在自己的檔案櫃，每次下載都會先驗階級。</p>
-                                </div>
-                                <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium" aria-label="檔案名稱 (如: 期中考考古)">
-                                <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors">確認存檔</button>
-                            </div>
-                        </div>
-                        <div id="importCoursesSection" class="bg-sky-600 rounded-[2rem] p-6 shadow-xl border-4 border-sky-400 hidden">
-                            <h3 class="text-lg font-bold mb-2 flex items-center gap-2 text-white"><i data-lucide="download-cloud" class="w-5 h-5"></i> 從教務系統匯入電子系課程</h3>
-                            <p class="text-sky-100 text-sm font-medium mb-5">一鍵匯入彰師大電子系 115 學年第一學期課程（教師僅顯示姓氏）。已存在的課程會自動略過，匯入後仍可照常編輯或刪除。</p>
-                            <button id="importEECoursesBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors flex items-center justify-center gap-2"><i data-lucide="database" class="w-4 h-4"></i> 匯入電子系課程 (115上/114下，共 47 門)</button>
-                        </div>
-                    </div>
-                </section>
             </div>
         </div>
 
@@ -5217,12 +5255,18 @@
         const PU = (name) => auth.currentUser ? `artifacts/${appId}/users/${auth.currentUser.uid}/${name}` : null;
         const PATHS = {
             courses: P('courses'),     reviews: P('reviews'),
-            // 🔒 分級教材拆成三個集合，讓 Firestore 規則能真正擋住讀取
+            // 🔒 分級教材拆成四個集合，讓 Firestore 規則能真正擋住讀取
             // （放在同一集合用 requiredRole 欄位過濾，只是前端障眼法，任何人都能整包撈走）
             // ★ materialsNovice 是後來補的：見習生（註冊就有的最低階）進資料分頁
             //   兩區都是鎖頭，等於有一整個分頁專門告訴他「你還不夠格」。
             matNovice: P('materialsNovice'),
             matWarrior: P('materialsWarrior'), matLeader: P('materialsLeader'),
+            /* ★ 巫醫資料（2026-09-21）是第四區，但它跟前面三區有一個差別：
+               **讀得到的人（巫醫以上）跟寫得動的人（只有星族）不是同一群**。
+               前三區是「巫醫以上都寫得動」，這一區的規則把 create／update
+               收到 isStarclan()。理由是這一區放的是巫醫之間才看的東西——
+               誰都補得進去的話，那條「只給巫醫看」的線就由最粗心的那個人決定。 */
+            matMedic: P('materialsMedicine'),
             users: P('users'),
             /* ★ 內建題庫**不在這裡**（2026-09-15 改）：它是隨網站發布的靜態
                JSON（public/data/quiz/），跟內建單字庫走同一條路，不是 Firestore
@@ -5794,7 +5838,7 @@
         let pdfViewFile = null;
 
         const state = {
-            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], builtinQuizzes: [], allUsers: [],
+            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], matMedic: [], builtinQuizzes: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [],
             /* 內建單字庫（7000 單字 3,461 ＋多益 6,925 ＋托福 210，共 10,596 字）：
@@ -7564,6 +7608,16 @@
         const CHANGELOG = [
             {
                 date: '2026-09-21',
+                title: '資料多了一區「巫醫資料」',
+                items: [
+                    ['「資料」那一頁多了一區巫醫資料', '本來是見習生、戰士、族長三區，現在最後面多一區。階位到巫醫才看得到裡面有什麼，還沒到的人會看到一個上鎖的提示，知道再上去還有東西。'],
+                    ['上傳資料的地方搬到「資料」那一頁最上面了', '本來要到設定頁裡面找，現在就在資料頁的最上面——存完往下捲就看得到它掉進哪一區，階位選錯當場就發現得了。（這一塊只有巫醫以上看得到。）'],
+                    ['匯入課程搬到「課程評價」那一頁了', '位置在課程地圖下面。匯進來的課程就出現在同一頁上，不用再切去別頁確認。（一樣只有巫醫以上看得到。）'],
+                    ['帳號權限管理的名冊可以排序了', '可以照加入時間或名稱排，新的在前、舊的在前、A→Z、Z→A 四種。預設是最新加入的排最前面，剛註冊的人一進來就在最上面。（這一頁只有星族看得到。）'],
+                ]
+            },
+            {
+                date: '2026-09-21',
                 title: '手機上用滑的就能換分頁',
                 items: [
                     ['在手機上左右滑一下，就會換到隔壁的分頁', '主頁、計劃、學習、英文、理財之間，往左滑去右邊那一頁、往右滑回左邊那一頁，不用再瞄準上面那排小按鈕。'],
@@ -8401,11 +8455,14 @@
 
             // 進到分頁時才載入該頁需要的資料（延遲訂閱，降低啟動負擔與 Firestore 讀取量）
             ensureLoaded(...(TAB_DATA[tab] || []));
-            /* ★ 設定頁的「內容管理」要一份課程清單（上傳時要選關聯課程），
-               但那一塊只有巫醫以上看得到。寫進 TAB_DATA 的話，每個
-               只是想關掉通知的人都會多讀五十幾筆——這是整站讀取量最大的一份
-               （見 `使用量評估.md`）。所以在這裡按權限補訂。 */
-            if (tab ==='settings' && currentUserLevel >= 4) ensureLoaded('courses');
+            /* ★ 資料頁的「上傳資料」要一份課程清單（上傳時要選關聯課程），
+               但那一塊只有巫醫以上看得到。寫進 TAB_DATA 的話，每個只是來
+               下載一份考古題的人都會多讀五十幾筆——這是整站讀取量最大的一份
+               （見 `使用量評估.md`）。所以在這裡按權限補訂。
+               ★ 2026-09-21 從 'settings' 改成 'data'，跟著那一塊搬家一起搬。
+               忘了搬的症狀是關聯課程那個下拉選單永遠只有一行提示，按存檔跳
+               「請填寫完整喔！」——畫面上沒有任何東西說是課程清單沒訂到。 */
+            if (tab ==='data' && currentUserLevel >= 4) ensureLoaded('courses');
 
             if (searchQuery !=="") {
                 searchQuery ="";
@@ -11737,8 +11794,9 @@
         function renderMaterials() {
             /* 資料頁的元素在彰師電子那一份才有。★ 直接讀 .value 的話，
                小黑貓那一頁一進來就 null.value，整個模組掛掉、畫面全白。 */
-            const nBox = $('noviceMaterialsList'), wBox = $('warriorMaterialsList'), lBox = $('leaderMaterialsList');
-            if (!nBox || !wBox || !lBox) return;
+            const nBox = $('noviceMaterialsList'), wBox = $('warriorMaterialsList'),
+                  lBox = $('leaderMaterialsList'), mBox = $('medicMaterialsList');
+            if (!nBox || !wBox || !lBox || !mBox) return;
 
             /* ★ 這一頁用自己的搜尋框，不吃課程評價那一個，也不看
                selectedFilterCourseId。資料已經是獨立分頁，跟著別頁的
@@ -11750,8 +11808,12 @@
 
             // 🔒 不再由前端過濾階級：階級不足的使用者根本不會訂閱該集合，
             //    state.matLeader 會是空陣列，就算改 currentUserLevel 也變不出資料。
+            /* ★ 這一句原本結尾是 `roleName ==='戰士' ?'戰士資料' :'族長資料'`。
+               只有兩區的時候它是對的，而加上巫醫區的那一刻，它會對巫醫區說
+               「升級為【巫醫】後解鎖族長資料」——沒有錯誤訊息，只是開始胡說八道。
+               三元運算子拿來窮舉選項，就是在賭「不會再多一個」。 */
             const lockedHTML = (roleName, color) =>
-                `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 ${color}"></i> 升級為【${roleName}】後解鎖${roleName ==='戰士' ?'戰士資料' :'族長資料'}</div>`;
+                `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100"><i data-lucide="lock" class="w-5 h-5 mx-auto mb-1 ${color}"></i> 升級為【${roleName}】後解鎖${roleName}資料</div>`;
             /* ★ 見習生區對「還沒登入的訪客」要講另一句話。
                沿用上面那一句會變成「升級為【見習生】後解鎖」——而見習生不是升上去的，
                是註冊就有的。照抄的話訪客會去找一顆根本不存在的升級按鈕，
@@ -11764,19 +11826,23 @@
                 ? `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}沒有符合「${escapeHTML(q)}」的資料。</div>`
                 : `<div class="text-center py-6 text-slate-400 font-medium bg-white rounded-2xl border border-slate-100">${zone}目前沒有資料。</div>`;
 
-            const nAll = state.matNovice, wAll = state.matWarrior, lAll = state.matLeader;
-            const nItems = nAll.filter(hit), wItems = wAll.filter(hit), lItems = lAll.filter(hit);
+            const nAll = state.matNovice, wAll = state.matWarrior,
+                  lAll = state.matLeader, mAll = state.matMedic;
+            const nItems = nAll.filter(hit), wItems = wAll.filter(hit),
+                  lItems = lAll.filter(hit), mItems = mAll.filter(hit);
             nBox.innerHTML = currentUserLevel < 1 ? signInHTML()
                 : (nItems.length === 0 ? emptyHTML('見習生區') : nItems.map(m => materialCardHTML(m,'matNovice')).join(''));
             wBox.innerHTML = currentUserLevel < 2 ? lockedHTML('戰士','text-rose-300')
                 : (wItems.length === 0 ? emptyHTML('戰士區') : wItems.map(m => materialCardHTML(m,'matWarrior')).join(''));
             lBox.innerHTML = currentUserLevel < 3 ? lockedHTML('族長','text-amber-300')
                 : (lItems.length === 0 ? emptyHTML('族長區') : lItems.map(m => materialCardHTML(m,'matLeader')).join(''));
+            mBox.innerHTML = currentUserLevel < 4 ? lockedHTML('巫醫','text-emerald-300')
+                : (mItems.length === 0 ? emptyHTML('巫醫區') : mItems.map(m => materialCardHTML(m,'matMedic')).join(''));
 
             /* 幾筆／共幾筆常駐顯示。★ 跟星族大會那個計數同一個理由：
                搜不到的空白跟「真的沒有資料」長得一模一樣。 */
             const cnt = $('dataCount');
-            if (cnt) cnt.textContent = `${nItems.length + wItems.length + lItems.length} 筆／共 ${nAll.length + wAll.length + lAll.length} 筆`;
+            if (cnt) cnt.textContent = `${nItems.length + wItems.length + lItems.length + mItems.length} 筆／共 ${nAll.length + wAll.length + lAll.length + mAll.length} 筆`;
             icons();
         }
 
@@ -17560,8 +17626,13 @@
            不然「小黑貓的管理員」看不到自學課程的新增鈕，
            而「彰師電子的巫醫」卻看得到自學課程的新增鈕——
            兩種都只是按鈕在不在，不會有任何錯誤訊息。 */
+        /* ★ 2026-09-21：`settingsContentBox` 那一層外殼沒有了——上傳資料搬去
+           資料分頁的最上面，匯入課程搬進課程評價的課程地圖底下，兩塊各自貼著
+           它產生的東西。⚠️ 藏的本來就是那兩塊自己（外殼只是個標題），
+           所以搬家沒有鬆掉任何一道門——但這張清單少一個 id 就是少一道門，
+           而症狀是「那個人不該看到的東西一直在畫面上」，不會報錯。 */
         const LEVEL4_ELEMENT_IDS = [          // 彰師電子：巫醫(4)以上
-'settingsContentBox','adminUploadSection','importCoursesSection',
+'adminUploadSection','importCoursesSection',
 'addNewsBtn','addLinkBtn'
         ];
         const CAT_ADMIN_ELEMENT_IDS = [       // 小黑貓：管理員
@@ -17615,6 +17686,18 @@
                 const el = $(id);
                 if (el) el.classList.toggle('hidden', !isCatAdmin());
             });
+            /* 上傳資料的「巫醫資料」那一顆選項：只有星族給選。
+               ★ 不能只下 hidden——hidden 的 <option> 在幾種瀏覽器上仍然選得到
+                 （鍵盤上下鍵會走過去），所以 disabled 一起下。
+               ★ 還要把已經停在那一顆上的值收回來：星族選完巫醫區之後登出、
+                 換一個巫醫登入，那個 select 會停在一個他送不出去的值上，
+                 而畫面上看起來完全正常。 */
+            const medicOpt = $('matLevelMedicOpt'), matLevelSel = $('materialLevelSelect');
+            if (medicOpt) {
+                medicOpt.hidden = !isAdmin;
+                medicOpt.disabled = !isAdmin;
+                if (!isAdmin && matLevelSel && matLevelSel.value ==='4') matLevelSel.value ='2';
+            }
 
             /* 設定頁的帳號區。★ 這裡跟帳號選單是兩份 DOM，但填的是同一組值——
                分開填會分岔，所以一起填。 */
@@ -17708,6 +17791,28 @@
                 .some(v => String(v ||'').toLowerCase().includes(k));
         };
 
+        /* 名冊的排序（2026-09-21）。抽成獨立的一張表是為了讓它跟搜尋一樣
+           能被單獨餵一份假名冊跑一次（tests/starclan.mjs），而不是藏在渲染裡
+           只能用眼睛看——這一頁壞掉的長相是「名冊順序怪怪的」，沒有人會回報。
+
+           ★ 「名稱」比的是暱稱，沒有暱稱的人退回信箱。畫面上那一列寫的是
+             「無名小貓」，但那是顯示用的字不是名字：照它排的話，所有沒改過
+             暱稱的人會黏成一坨，而且每次重畫的順序都不一樣。
+           ⚠️ `createdAt` 是舊帳號可能沒有的欄位，缺的一律當 0（排到最早）。
+             不補這個預設值的話相減會得到 NaN，而 NaN 讓比較函式回傳「不動」——
+             症狀是排序看起來偶爾失靈，而且不會報錯。 */
+        const userSortName = (u) => String(u.displayName || u.email ||'');
+        const USER_SORTS = {
+'created-desc': (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
+'created-asc':  (a, b) => (a.createdAt || 0) - (b.createdAt || 0),
+'name-asc':     (a, b) => userSortName(a).localeCompare(userSortName(b),'zh-Hant'),
+'name-desc':    (a, b) => userSortName(b).localeCompare(userSortName(a),'zh-Hant')
+        };
+        const USER_SORT_DEFAULT ='created-desc';
+        /* ⚠️ 只排**篩選之後那一份新陣列**，不要排 state.allUsers 本身：
+           sort 是原地排序，排下去就把訂閱進來的那一份順序改掉了。 */
+        const sortUsers = (list, key) => list.sort(USER_SORTS[key] || USER_SORTS[USER_SORT_DEFAULT]);
+
         function renderStarclanPanel() {
             const container = $('usersListContainer');
             const countEl = $('starclanCount');
@@ -17715,8 +17820,12 @@
                這支是即時訂閱的回呼，丟例外等於整個名冊監聽從此不再更新，
                而畫面上只是「別人改了階級但這裡沒變」。 */
             const q = $('starclanSearch') ? getVal('starclanSearch') :'';
+            /* 排序也用同一種讀法（元素不在就退回預設值）。這支是即時訂閱的回呼，
+               丟一次例外就等於整份名冊從此不再更新，而畫面上只是「別人改了階級
+               但這裡沒變」。 */
+            const sortKey = $('starclanSort') ? getVal('starclanSort') : USER_SORT_DEFAULT;
             const all = state.allUsers;
-            const list = all.filter(u => matchUser(u, q));
+            const list = sortUsers(all.filter(u => matchUser(u, q)), sortKey);
 
             /* ★ 三種空畫面要分得出來，不然使用者不知道自己該做什麼：
                  名冊真的沒人 → 沒有人可以管
@@ -17768,7 +17877,8 @@
          * ========================================================== */
         const SIMPLE_DELETE_PATHS = {
             review: PATHS.reviews,
-            matNovice: PATHS.matNovice, matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
+            matNovice: PATHS.matNovice, matWarrior: PATHS.matWarrior,
+            matLeader: PATHS.matLeader, matMedic: PATHS.matMedic,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
             news: PATHS.news, quickLink: PATHS.links,
             /* 回報沒有子資料，所以走這條簡單刪除。
@@ -17803,7 +17913,11 @@
                         { path: PATHS.reviews, field:'courseId' },
                         { path: PATHS.matNovice, field:'courseId' },
                         { path: PATHS.matWarrior, field:'courseId' },
-                        { path: PATHS.matLeader, field:'courseId' }
+                        { path: PATHS.matLeader, field:'courseId' },
+                        /* ★ 新增一區教材就要記得加進這一張連坐表。漏掉的話，
+                           刪掉一門課之後那一區還留著幾筆指向不存在課程的資料，
+                           卡片照常顯示（課名是存下來的字串），不會報錯。 */
+                        { path: PATHS.matMedic, field:'courseId' }
                     ], id);
                     if (id === selectedFilterCourseId) {
                         selectedFilterCourseId = null;
@@ -17842,7 +17956,7 @@
                     await deleteDoc(doc(db, vocabWordPath(currentViewVocabScope), id));
                 } else if (currentDeleteType ==='kahoot') {
                     await deleteDoc(doc(db, kahootPath(kahootScope), id));
-                } else if (['matNovice','matWarrior','matLeader'].includes(currentDeleteType)) {
+                } else if (['matNovice','matWarrior','matLeader','matMedic'].includes(currentDeleteType)) {
                     /* ★ 順序不能反：先問 Firestore 那筆有沒有 fileId，再刪。
                        先刪文件的話 fileId 就沒地方查了，那個檔案會永遠躺在
                        1 GB 的額度裡，而且站上沒有任何畫面看得到它。 */
@@ -18025,6 +18139,12 @@
             const requiredRole = parseInt($('materialLevelSelect').value);
             const fileEl = $('matFileInput');
             const file = materialSourceIsFile && fileEl && fileEl.files ? fileEl.files[0] : null;
+            /* ★ 巫醫資料只有星族存得進去（規則裡是 isStarclan()）。前端先擋是為了
+               說得出理由：規則擋下來只會走到下面的 catch 印一句「失敗…」，
+               而那句話對「我是不是沒有權限」完全沒有幫助。
+               ⚠️ 這一行是說明，不是鎖——真正的鎖在 firestore.rules 的
+               materialsMedicine 那一段，改前端變不出來。 */
+            if (requiredRole >= 4 && !isAdmin) return showToast("巫醫資料只有星族存得進去");
             const url = materialSourceIsFile ?'' : getVal('pdfUrlInput');
             if (!courseId || !title) return showToast("請填寫完整喔！");
             if (materialSourceIsFile) {
@@ -18051,9 +18171,11 @@
                     fileId = up.fileId; fileName = file.name; fileSize = file.size;
                 }
                 // 🔒 依階級寫進不同集合，權限由 Firestore 規則決定，而非文件欄位
-                const targetPath = requiredRole >= 3 ? PATHS.matLeader
+                const targetPath = requiredRole >= 4 ? PATHS.matMedic
+                                 : requiredRole >= 3 ? PATHS.matLeader
                                  : requiredRole >= 2 ? PATHS.matWarrior : PATHS.matNovice;
-                const zoneName = requiredRole >= 3 ?'族長' : requiredRole >= 2 ?'戰士' :'見習生';
+                const zoneName = requiredRole >= 4 ?'巫醫' : requiredRole >= 3 ?'族長'
+                               : requiredRole >= 2 ?'戰士' :'見習生';
                 await setDoc(doc(collection(db, targetPath)), { courseId, courseName: course.name, title, url, fileId, fileName, fileSize, requiredRole, createdAt: Date.now() });
                 showToast(`資料已存入${zoneName}區`);
                 setVals({ pdfUrlInput:'', pdfTitleInput:'' });
@@ -19259,6 +19381,9 @@
 
             // 邊打邊篩。input 事件才涵蓋得到「按 × 清空」與貼上
             if ($('starclanSearch')) $('starclanSearch').addEventListener('input', renderStarclanPanel);
+            /* 排序：換一個就重畫。★ 沒有綁的話那顆選單看起來動得了、名冊卻不動，
+               而這種「按了沒反應」在這個專案裡是最常見的壞法。 */
+            if ($('starclanSort')) $('starclanSort').addEventListener('change', renderStarclanPanel);
             /* 資料頁有自己的搜尋框（刻意不共用課程評價那一個，見該頁的註解）。 */
             if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
             bind('confirmSaveMission', saveMission);
@@ -19291,6 +19416,7 @@
             { key:'matNovice',  path: PATHS.matNovice,  sort: byNewest, minLevel: 1, render: () => renderMaterials() },
             { key:'matWarrior', path: PATHS.matWarrior, sort: byNewest, minLevel: 2, render: () => renderMaterials() },
             { key:'matLeader',  path: PATHS.matLeader,  sort: byNewest, minLevel: 3, render: () => renderMaterials() },
+            { key:'matMedic',   path: PATHS.matMedic,   sort: byNewest, minLevel: 4, render: () => renderMaterials() },
             { key:'ssCourses',  path: PATHS.ssCourses,  sort: byOldest, render: () => renderSelfStudyCourses() },
             { key:'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key:'vocabFolders', path: PATHS.vocabFolders, sort: byOldest, render: () => renderVocabBooks() },
@@ -19353,7 +19479,7 @@
             /* ★ 資料（原寶藏庫）搬出課程詳情之後，matWarrior/matLeader
                就不該再掛在課程評價底下——留著的話每個看評價的人都白讀兩份。 */
 'evaluation': ['courses','reviews'],
-'data':       ['matNovice','matWarrior','matLeader'],
+'data':       ['matNovice','matWarrior','matLeader','matMedic'],
             /* 設定頁：內容管理要的 courses 由 switchTab 按權限補訂。
                `feedback` 對非管理員會被 minTier 擋掉，所以列在這裡是安全的。 */
 'settings':   ['feedback'],
