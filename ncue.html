@@ -2299,8 +2299,14 @@
            ::before 的 -1 會掉到頁首的底色後面，顏料塊直接消失。
            症狀是「選中的分頁只剩白字」，在淺色模式下等於看不見。 */
         .tab-btn { position: relative; z-index: 0; }
-        .tab-btn.is-active,
-        .tab-btn.is-active:hover {
+        /* ★★ 「我在哪一頁」與「顏料塊在哪一顆下面」2026-09-21 起是**兩個 class**：
+             `is-active` 是狀態——左右滑動進行中一個字都不能動，因為 5.3 的 `here()`
+                           靠它回答「現在在哪一頁」，動了它，滑到一半的方向判斷會以為
+                           自己已經在下一頁了（而那不會報錯，只會偶爾換錯頁）；
+             `is-ink`    是外觀——顏料塊滑到哪一顆底下，字色就跟到哪一顆。
+           平常兩個一起上下（都在 `NAV_ACTIVE` 裡），只有手指按著的那幾百毫秒會分開。 */
+        .tab-btn.is-ink,
+        .tab-btn.is-ink:hover {
             background-color: transparent !important;
             /* ★ 淺色模式是**深色字壓在亮金上**，不是白字。
                白字會把這塊金鎖死在最暗的一端（白字要 4.5，底就不能亮），
@@ -2309,9 +2315,25 @@
             color: var(--accent-tab-ink) !important;
             box-shadow: none;
         }
-        .tab-btn.is-active::before {
-            content: ''; position: absolute; inset: -3px -4px;
-            z-index: -1;
+        /* ---- 分頁列上那塊顏料：會在兩顆按鈕之間滑 ----
+           ★★ 它原本是 `.tab-btn.is-active::before`，也就是長在「選中的那一顆按鈕」
+           身上。2026-09-21 改成分頁列裡一顆獨立的元素，理由只有一個：
+           **它要從一顆按鈕滑到另一顆**，而 ::before 是按鈕的一部分，搬不走。
+           ⚠️ 原本那條「不能直接對按鈕做 mask（會連字一起啃掉邊角）」仍然成立，
+           而且現在更不可能違反了——顏料塊根本不在按鈕裡面。
+           ★ 它是分頁列的**第一個孩子**：跟按鈕同一個堆疊層級（都是 z-index: 0），
+           所以先出現的畫在下面，字不會被蓋住。這取代了原本 ::before 的 z-index: -1。
+           ★ 位置一律用 transform（平移＋橫向縮放）表示，不改 left／width——
+           後者每一幀都會逼瀏覽器重算版面（設計系統 A2 講的是同一件事）。
+           基準框只在版面變動時量一次，見 `navInkBase`。 */
+        #mainNav { position: relative; }
+        .nav-ink {
+            position: absolute; pointer-events: none;
+            z-index: 0; transform-origin: left center;
+            /* 時距走 --glide-dur：平常是換分頁那一格，左右滑動放手時由 5.3 改成
+               跟內容同一格，兩邊才會一起落地。 */
+            transition: transform var(--glide-dur, var(--dur-page)) var(--ease),
+                        opacity var(--dur-base) var(--ease);
             background-color: var(--accent-tab);
             /* ★ 分頁用 --vg-impasto-soft 不是 --vg-impasto。
                厚塗的暗紋是 -0.055，它會把底再壓一層——而分頁是全站唯一
@@ -2328,6 +2350,12 @@
             -webkit-mask: var(--vg-swatch) center / 100% 100% no-repeat;
             mask: var(--vg-swatch) center / 100% 100% no-repeat;
         }
+        /* 手指按著的時候不給過場——給了就會慢手指半拍，而那半拍看起來像卡住
+           （跟內容那一塊同一條理由）。重新量基準框時也用它，免得「原地重量」變成滑一下。 */
+        .nav-ink.is-live { transition: none; }
+        /* 設定／關於／帳號權限管理不在分頁列上，那幾頁沒有「在哪一頁」可以指。 */
+        .nav-ink.is-off { opacity: 0; }
+        @media (prefers-reduced-motion: reduce) { .nav-ink { transition: none; } }
 
         /* ---- 開站載入畫面 ----
            貓繞著 logo 跑。繞圈是靠外層轉、內層反轉：
@@ -7167,8 +7195,22 @@
             const EDGE  = 0.16;  // 到頭了還硬推：推得動，但最多只到這麼多
 
             let x0 = 0, y0 = 0, live = false, decided = false, side = false;
-            let sheet = null, shift = 0, vx = 0, lastX = 0, lastT = 0, warmed = false;
-            let stage = null, pane = null, peek = null;   // peek ＝ { tab, dir, back }
+            let sheet = null, shift = 0, warmed = false;
+            /* 速度是拿一個「大約 60ms 前」的取樣點算的，不是最後兩筆。
+               ★ 最後兩筆常常只差幾毫秒、位移又是 0（手指離開前的最後一格通常沒動），
+                 那樣算出來是 0，真正的一甩會被當成沒甩。
+               ★ 反過來，用整段的平均也不行：先快速推出去、再收回來的那一種，
+                 平均仍然是「往前」，於是放手還是會換頁——而使用者明明已經收回來了。
+                 「推到一半停住再放手」也是同一個坑：停住之前那一下不該再算數。
+               所以留兩個取樣點：`b` 是最新的一筆，`a` 是至少 60ms 前的那一筆。 */
+            let aX = 0, aT = 0, bX = 0, bT = 0;
+            const note = (x, t) => {
+                if (t - aT > 60) { aX = bX; aT = bT; }
+                bX = x; bT = t;
+            };
+            const speed = () => (bT > aT ? (bX - aX) / (bT - aT) : 0);
+            let stage = null, pane = null, peek = null;   // peek ＝ { tab, dir, back, btn, ink }
+            let fromBtn = null, lit = null;               // 出發的那一顆分頁鈕／字色現在在哪一顆
             let finish = null;                            // 還沒跑完的收尾（被下一手勢打斷時補跑）
 
             /* 手指底下如果是「自己會左右捲」的東西（子分頁列、課表、程式碼框、
@@ -7269,13 +7311,17 @@
                 }
                 take(spot.block || spot.section);
 
+                /* 顏料塊的兩端**在這裡量好**，拖的過程只寫 transform 不再讀版面——
+                   每一幀讀一次位置就是每一幀強迫瀏覽器重算一次版面（見 7. 那一段）。 */
+                const btn = document.querySelector(`[data-tab="${tab}"]`);
+
                 stage.appendChild(pane);
                 /* ★ 掛在 <body> 底下不是 <main> 底下：手勢進行中 <main> 帶著
                    `overflow-x: clip`，掛在裡面的話偷看的那一頁會被剪掉一塊。 */
                 document.body.appendChild(stage);
                 updateStudySubUI(pane, spot.sub);
                 icons();
-                peek = { tab, dir, back };
+                peek = { tab, dir, back, btn, ink: navInkTrack(fromBtn, btn) };
                 setShift(shift);
             };
 
@@ -7325,6 +7371,26 @@
                 if (sheet) sheet.style.transform = dx ? `translateX(${dx.toFixed(1)}px)` : '';
                 if (pane && peek)
                     pane.style.transform = `translateX(${((peek.dir > 0 ? vw() : -vw()) + dx).toFixed(1)}px)`;
+                /* 分頁列上那塊顏料同步滑到兩顆按鈕之間。★ 走的是同一個 0～1，
+                   所以色塊永遠停在「內容推了幾成」的那個位置上——
+                   它報告的是進度，不只是結果。 */
+                if (peek && peek.ink) {
+                    const t = Math.min(1, Math.abs(dx) / vw());
+                    peek.ink(t);
+                    /* 過了一半才換字色：那時候顏料塊已經比較靠近下一顆了。 */
+                    inkLit(t < 0.5 ? fromBtn : peek.btn);
+                }
+            };
+
+            /* 顏料塊滑到哪一顆底下，字色就跟到哪一顆。
+               ⚠️⚠️ 動的只有 `is-ink`。`is-active` 是「我在哪一頁」，上面的 `here()`
+               靠它回答——手勢進行中動了它，方向判斷會以為自己已經在下一頁了，
+               症狀是「滑到一半反悔，結果還是換頁了」，而且不會報錯。 */
+            const inkLit = (btn) => {
+                if (lit === btn) return;
+                lit = btn;
+                document.querySelectorAll('.tab-btn')
+                        .forEach(b => b.classList.toggle('is-ink', b === btn));
             };
 
             /* 方向確定的那一刻才開始推。★ 不要在 touchstart 就抓：
@@ -7336,6 +7402,11 @@
                 if (sheet) sheet.classList.add('page-swiping');
                 const m = mainEl();
                 if (m) m.classList.add('is-swiping');
+                /* 出發的那一顆分頁鈕：顏料塊的起點，也是反悔時要回去的地方。 */
+                fromBtn = document.querySelector('.tab-btn.is-active');
+                lit = fromBtn;
+                const ink = $('navInk');
+                if (ink) ink.classList.add('is-live');   // 跟著手指的時候不給過場
             };
 
             /* 放手。`go` ＝ 要換頁（兩塊往同一個方向滑完），否則兩塊一起回彈。
@@ -7347,8 +7418,17 @@
                 /* 還要走多遠決定用哪一格時距。★ 只在刻度上二選一，不要自己算一個數字：
                    整站的動效是一個旋鈕在管，這裡開一個新數字就是第二個旋鈕。 */
                 const dur = Math.abs(end - shift) > w * 0.25 ? 'var(--dur-page)' : 'var(--dur-base)';
-                const p = sheet, pn = pane, m = mainEl();
+                const p = sheet, pn = pane, pk = peek, m = mainEl();
                 sheet = null;
+                /* 顏料塊跟兩塊內容**同一個時距**一起落地。不同步的話，
+                   色塊會比畫面早到或晚到，看起來像兩件事各走各的。 */
+                const ink = $('navInk');
+                if (ink) {
+                    ink.classList.remove('is-live');
+                    ink.style.setProperty('--glide-dur', dur);
+                }
+                if (pk && pk.ink) pk.ink(go ? 1 : 0);
+                inkLit(go && pk ? pk.btn : fromBtn);
                 if (p) {
                     p.classList.remove('page-swiping');
                     p.classList.add('swipe-glide');
@@ -7373,6 +7453,7 @@
                        換分頁（那一塊重新顯示在一模一樣的位置）。
                        分開做的話中間那一格是空的，而那一格正好是使用者在看的。 */
                     closePeek();
+                    if (ink) ink.style.removeProperty('--glide-dur');
                     if (m) m.classList.remove('is-swiping');
                     if (go && tab) { scrollTo(0, 0); switchTab(tab, true); }
                 };
@@ -7393,7 +7474,7 @@
                 if (e.touches.length !== 1) return;
                 if (screenCovered() || editing(e.target) || sideScroller(e.target)) return;
                 x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
-                lastX = 0; lastT = Date.now(); vx = 0; warmed = false;
+                aX = bX = 0; aT = bT = Date.now(); warmed = false;
                 live = true; decided = false; side = false;
             }, { passive: true });
 
@@ -7417,10 +7498,7 @@
                 }
                 /* 長按拖曳計劃卡已經開始了（殘影在畫面上），那一下歸它。 */
                 if (document.querySelector('.plan-drag-ghost')) { live = false; release(false); return; }
-                /* 速度只看最近這一段。整段的平均會被「先停一下再甩」拉低，
-                   而使用者感覺到的是最後那一下。 */
-                const now = Date.now();
-                if (now > lastT) { vx = (dx - lastX) / (now - lastT); lastX = dx; lastT = now; }
+                note(dx, Date.now());
                 ensurePeek(dx);
                 if (!warmed && peek && Math.abs(dx) > WARM * vw()) { warmed = true; prefetchTab(peek.tab); }
                 setShift(damp(dx));
@@ -7446,6 +7524,10 @@
                    ⚠️ 上一版還有一條「超過 700ms 就不算」，這一版拿掉了：
                    那條擋的是「一邊看一邊拖」，但現在拖的時候下一頁就在旁邊跟著走，
                    慢慢推到半個畫面的人是看著它推的，不是不小心。 */
+                /* ★ 放手前那一小段也要算進來：手指離開之前常常先停一下或收回來一點，
+                   不記這一下的話，用的就是「停住之前」的速度。 */
+                note(dx, Date.now());
+                const vx    = speed();
                 const far   = Math.abs(dx) >= TAKE * vw();
                 const flick = Math.abs(vx) >= FLICK && Math.abs(dx) >= NUDGE && (vx < 0) === (dx < 0);
                 /* 手勢進行到一半才跳出來的彈窗也要擋（例如中途被提醒蓋住）。 */
@@ -7487,6 +7569,7 @@
                     ['在手機上左右滑一下，就會換到隔壁的分頁', '主頁、計劃、學習、英文、理財之間，往左滑去右邊那一頁、往右滑回左邊那一頁，不用再瞄準上面那排小按鈕。'],
                     ['下一頁會跟著手指一起被拉進來', '滑到一半的時候，下一頁已經貼在旁邊跟著你的手指走了，看得到自己正要去哪一頁。滑得不夠遠就放手，兩頁會一起彈回去；滑得夠遠放手，就順著同一個方向滑完。'],
                     ['輕輕一甩也換得了頁', '不一定要滑很長一段——快速撥一下就過去了；慢慢推到超過三分之一個畫面再放手，一樣算。'],
+                    ['上面那排分頁的色塊也會跟著手指滑', '原本是換好頁之後才「跳」到新的那一顆上；現在它一路跟著滑，滑到一半就看得出自己走了多少、放開手會停在哪一顆。用點的切分頁也會滑過去了。'],
                     ['換過去之後會從新那一頁的最上面開始看', '就像真的翻到新的一頁，不會停在上一頁捲到一半的高度。'],
                     ['已經在第一頁或最後一頁的話，推得動但推不遠', '會像橡皮筋一樣被拉住，讓你知道那個方向已經沒有下一頁了，而不是讓你以為自己沒滑到。'],
                     ['只有真的在「撥頁」才會換', '上下捲動、在可以左右拉的表格上滑、打字的時候、彈出視窗開著的時候，都不會被誤認成換頁。'],
@@ -8054,12 +8137,22 @@
         // .text-white 沒有 !important——只要作用中的分頁身上還留著
         // text-slate-400，字就會變灰，壓在橘色底上等於整個消失。
         // 首頁看起來正常只是因為範本沒給它 text-slate-400。
-        const NAV_ACTIVE = ['is-active'];
+        /* ★ 兩個 class 一起上下：`is-active` 是「我在哪一頁」（5.3 的 here() 靠它），
+           `is-ink` 是「顏料塊在哪一顆下面」（字色）。平常永遠同進同出，只有左右滑動
+           進行中會暫時分開——那時候 is-active 不准動，動了方向判斷就會錯。 */
+        const NAV_ACTIVE = ['is-active', 'is-ink'];
         function buildStaticUI() {
-            $('mainNav').innerHTML = TABS.map(([tab, label], i) => `
+            $('mainNav').innerHTML =
+                /* ★ 顏料塊要排在所有按鈕**前面**：它跟按鈕同一個堆疊層級，
+                   先出現的畫在下面，字才不會被蓋住（見 CSS 的 .nav-ink）。 */
+                '<span id="navInk" class="nav-ink is-live" aria-hidden="true"></span>' +
+                TABS.map(([tab, label], i) => `
                 <button data-tab="${tab}"
                     class="tab-btn whitespace-nowrap flex-1 max-w-[11rem] text-center px-2 md:px-4 py-2 rounded-xl text-[13px] md:text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}">${label}</button>
             `).join('');
+            /* 第一次擺位不要過場：開站時從左邊滑進來很莫名。
+               ⚠️ 字型載完與轉向都會改變按鈕的寬度，那兩個時機由 refreshNavInk 再量一次。 */
+            paintNav($('mainNav').querySelector('.tab-btn'), true);
             buildLogoMenu();
             /* ★ 頁首名稱、標題、logo 的替代文字都要跟著產品走。
                漏掉的話，彰師電子那一頁的頁首會寫「小黑貓」——
@@ -8098,6 +8191,69 @@
         /* ==========================================================
          * 7. 分頁切換
          * ========================================================== */
+        /* ---- 分頁列上那塊顏料要擺在哪裡（CSS 在 .nav-ink 那一段）----
+         *
+         * 它以前是選中那一顆按鈕的 ::before，現在是分頁列裡一顆獨立的元素，
+         * 位置由這幾支算。位置一律寫成 transform（平移 ＋ 橫向縮放），
+         * 基準框（left／top／width／height）只在版面變動時量一次。
+         *
+         * ⚠️ 「量位置」（offsetLeft／offsetWidth）會強迫瀏覽器把版面算完一次。
+         * 每一幀量一次就是每一幀強迫算一次版面——那是手機上掉幀最常見的來源。
+         * 所以左右滑動是在**手勢開始時**把兩端一次量好（navInkTrack），
+         * 拖的過程只寫 transform，一次都不再讀。 */
+
+        /* 基準框＝第一顆分頁按鈕的框往外撐（4px／3px 就是原本 ::before 的 inset）。 */
+        function navInkBase(){
+            const ink = $('navInk'), nav = $('mainNav');
+            if (!ink || !nav) return null;
+            const b = nav.querySelector('.tab-btn');
+            if (!b) return null;
+            ink.style.left   = (b.offsetLeft - 4) + 'px';
+            ink.style.top    = (b.offsetTop - 3) + 'px';
+            ink.style.width  = (b.offsetWidth + 8) + 'px';
+            ink.style.height = (b.offsetHeight + 6) + 'px';
+            return { ink, left: b.offsetLeft - 4, width: b.offsetWidth + 8 };
+        }
+        /* 某一顆按鈕相對於基準框：要平移多少、橫向縮放多少。 */
+        function navInkSpot(btn, base){
+            return { x: (btn.offsetLeft - 4) - base.left,
+                     k: base.width ? (btn.offsetWidth + 8) / base.width : 1 };
+        }
+        function navInkPut(ink, s){
+            ink.style.transform = 'translateX(' + s.x.toFixed(1) + 'px) scaleX(' + s.k.toFixed(4) + ')';
+        }
+        /* 把顏料塊放到某一顆按鈕底下。`btn` 是 null（設定／關於／帳號權限管理不在
+           分頁列上）就淡出——那幾頁本來就沒有「在哪一頁」可以指。
+           `instant` ＝ 不要過場：開站、轉向、字型載完時重量都屬於這一類
+           （那不是「換了一頁」，是同一頁重新量一次，滑一下會很莫名）。 */
+        function paintNav(btn, instant){
+            const base = navInkBase();
+            if (!base) return;
+            const ink = base.ink;
+            if (instant) ink.classList.add('is-live');
+            ink.classList.toggle('is-off', !btn);
+            if (btn) navInkPut(ink, navInkSpot(btn, base));
+            /* ★ 讀一次版面把「這一格不要過場」定下來，再把 class 拿掉。
+               不讀的話瀏覽器會把「加上又拿掉」合成沒發生過，於是它還是會滑。 */
+            if (instant) { void ink.offsetWidth; ink.classList.remove('is-live'); }
+        }
+        /* 手勢用：先把兩端量好，回傳一支「擺在中間任一點」的函式（0 ＝ 這一顆、1 ＝ 那一顆）。 */
+        function navInkTrack(from, to){
+            const base = navInkBase();
+            if (!base || !from || !to) return null;
+            const a = navInkSpot(from, base), b = navInkSpot(to, base);
+            return (t) => navInkPut(base.ink, { x: a.x + (b.x - a.x) * t,
+                                                k: a.k + (b.k - a.k) * t });
+        }
+        /* 版面變了就重量一次：轉向、字型載完之後按鈕的寬度都會變，不重量的話
+           顏料塊會停在舊的位置上，而畫面上不會有任何錯誤訊息。 */
+        function refreshNavInk(){
+            paintNav(document.querySelector('.tab-btn.is-active'), true);
+        }
+        addEventListener('resize', refreshNavInk);
+        if (typeof document !== 'undefined' && document.fonts && document.fonts.ready)
+            document.fonts.ready.then(refreshNavInk).catch(() => {});
+
         /* 依 PRODUCT 產生 logo 選單＝產品切換器。三個檔案共用同一段程式碼，
            所以三頁的選單一定長得一樣——這正是不手寫兩份的理由。 */
         function buildLogoMenu(){
@@ -8210,6 +8366,10 @@
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
+            /* 顏料塊滑到新的那一顆底下。★ 用**點**的切分頁也會滑，不只用滑的——
+               同一塊色塊只有一種移動方式，使用者才不必學兩套。
+               （設定／關於／帳號權限管理不在分頁列上，btn 是 null，它會淡出。） */
+            paintNav(btn);
             /* ★ ⚙️ 不在 mainNav 裡，所以上面那一行清不到它。
                不自己清的話，去過一次設定之後那顆齒輪就永遠亮著——
                不會報錯，只是使用者以為自己還在設定頁。 */
