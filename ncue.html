@@ -361,28 +361,35 @@
         }
 
         /* ==========================================================
-           左右滑動換分頁：讓手指跟畫面連在一起（程式在 JS 的 5.3）
+           左右滑動換分頁：兩頁黏在一起跟著手指走（程式在 JS 的 5.3）
 
            ★ 上面那條「不要覆寫預設的 cross-fade」仍然成立，只是**不適用於這個手勢**：
-           用點的切分頁沒有方向，淡入淡出是對的；用滑的有方向，而且手指已經把內容
-           推到旁邊了——這時候再淡出淡入，等於「推到一半，畫面自己閃一下」，
-           剛剛建立起來的因果關係會在最後一刻斷掉。
-           所以只在 `html[data-swipe]` 出現的時候換掉，用點的那條路一個字都沒改。
+           用點的切分頁沒有方向，淡入淡出是對的；用滑的有方向，而且兩頁是一起在動的。
 
-           ★ `--swipe-dx` 是**放手當下已經推開的距離**。沒有它的話，下一頁會從
-           整整一個畫面寬之外開始滑進來，而目前這一頁已經先走掉那段距離——
-           中間會露出一條跟位移一樣寬的空隙，看起來像掉了一頁。
-           把起點往回挪那段距離，兩頁才是真的貼在一起。
-           （`both` 也不能省：少了它，動畫開始前那一格會先跳回 0。）
+           ⚠️ 2026-09-21 第三輪把做法整個換掉了。原本是「放手之後交給 View Transitions
+           往同一個方向滑完」（`html[data-swipe]` 那四條規則、四個 keyframes、
+           還有 `--swipe-dx`，整組已經刪掉）。它的天花板是**拖的時候下一頁根本還沒畫**，
+           所以位移只能壓在畫面寬的 38%——再往外推就只是在把背景拉出來。
+           現在改成把下一頁真的搬進一個浮在上面的窗格，擺在目前這一頁旁邊，
+           兩塊一起跟著手指走；轉場因此不再需要 VT，這一段也就不再有 keyframes。
+
+           ★ 舞台是 `fixed` 的，所以它**不跟著頁面捲動**：偷看到的那一頁從它自己的
+           最上面畫起，跟放手之後（捲回最上面）看到的是同一格畫面。
+           ★ 舞台刻意不上底色：兩塊窗格左右不重疊，底下透出來的就是 html 的底色，
+           深色／淺色模式自己會跟著走，不必在這裡再記一次顏色。
            ========================================================== */
-        html[data-swipe="next"]::view-transition-old(root) { animation: swipeOutNext var(--dur-page) var(--ease) both; }
-        html[data-swipe="next"]::view-transition-new(root) { animation: swipeInNext  var(--dur-page) var(--ease) both; }
-        html[data-swipe="prev"]::view-transition-old(root) { animation: swipeOutPrev var(--dur-page) var(--ease) both; }
-        html[data-swipe="prev"]::view-transition-new(root) { animation: swipeInPrev  var(--dur-page) var(--ease) both; }
-        @keyframes swipeOutNext { to   { transform: translateX(-100%); } }
-        @keyframes swipeInNext  { from { transform: translateX(calc(100% + var(--swipe-dx, 0px))); } }
-        @keyframes swipeOutPrev { to   { transform: translateX(100%); } }
-        @keyframes swipeInPrev  { from { transform: translateX(calc(-100% + var(--swipe-dx, 0px))); } }
+        .swipe-stage {
+            position: fixed; left: 0; right: 0; bottom: 0;
+            overflow: hidden; z-index: 30;
+            /* 偷看的時候點不到裡面的東西——手指正在滑，不是在按。 */
+            pointer-events: none;
+        }
+        /* 下一頁。寬度與留白由 JS 照 <main> 的實際值抄過來，不要在這裡再寫死一份。 */
+        .swipe-pane { position: absolute; top: 0; left: 0; right: 0; will-change: transform; }
+        /* 放手之後兩塊一起滑完。時距由 JS 依「還要走多遠」在刻度上二選一
+           （`--dur-base` 或 `--dur-page`），曲線一律是減速的 `--ease`：
+           這一段是「落地」不是「離開」，加速曲線會讓它看起來是被甩掉的。 */
+        .swipe-glide { transition: transform var(--glide-dur, var(--dur-page)) var(--ease); }
 
         /* 正在跟著手指走的那一塊。
            ★ 拖的時候不能有 transition——給了就會慢手指半拍，而那半拍看起來像卡住
@@ -391,16 +398,15 @@
            `.page-enter` 還在跑，而**動畫會蓋過 inline style**，
            於是內容完全不跟手指走，看起來像這個手勢時靈時不靈。 */
         .page-swiping { animation: none !important; transition: none; will-change: transform; }
-        /* 沒滑夠遠，放手回彈。 */
-        .page-swipe-settle { transition: transform var(--dur-base) var(--ease); }
         /* ★ 拖的時候把 <main> 的橫向溢出剪掉：內容往右推會把整頁撐寬，
            症狀是「滑一下之後整頁可以左右晃」。只在手勢進行中加，動完就拿掉——
            常態掛著會連帶剪到往外長的東西。
            ★ 用 clip 不用 hidden：hidden 會讓 <main> 變成捲動容器，
-           裡面的黏性表頭會跟著壞掉，而那跟這個手勢一點關係都沒有。 */
+           裡面的黏性表頭會跟著壞掉，而那跟這個手勢一點關係都沒有。
+           ★ 偷看的那一塊刻意掛在 <body> 底下不是 <main> 底下，就是為了不被這一行剪掉。 */
         main.is-swiping { overflow-x: clip; }
         @media (prefers-reduced-motion: reduce) {
-            .page-swipe-settle { transition: none; }
+            .swipe-glide { transition: none; }
         }
 
         /* 分頁切換：淡入 + 輕微上滑，每次切換重新播放（沒有 View Transitions 時的作法） */
@@ -668,10 +674,10 @@
             --dur-base:  .18s;    /* 2× 一般的顏色／位移過場 */
             --dur-pop:   .27s;    /* 3× 會過衝的東西：過衝要時間走完，太短會像抖一下 */
             --dur-page:  .36s;    /* 4× 換分頁、開站畫面淡出 */
-            /* 左右滑動放手當下，手指已經把內容推開多少（由 5.3 在放手時寫進來）。
-               沒有人在滑的時候就是 0——寫在這裡是為了「預設值看得到」，
-               不是散在程式裡讓人去猜。 */
-            --swipe-dx: 0px;
+            /* 左右滑動放手之後，兩塊一起滑完要花多久（由 5.3 依「還要走多遠」
+               在刻度上二選一，寫進正在動的那兩塊上）。沒有人在滑的時候就是換分頁
+               那一格——寫在這裡是為了「預設值看得到」，不是散在程式裡讓人去猜。 */
+            --glide-dur: var(--dur-page);
         }
         html.dark {
             --paper:        #070b18;
@@ -7087,25 +7093,55 @@
          * 分頁列在手機上是四、五顆擠在一行的小鈕，換一頁都要先瞄準其中一顆；
          * 而在手機上「換一頁」最自然的動作是把頁面往旁邊撥。這一段就是把那個
          * 動作接到本來就有的 `switchTab` 上——**不是另一套切換邏輯**，
-         * 所以轉場、延遲訂閱、記住上次停在哪個子分頁，全部照舊。
+         * 所以延遲訂閱、記住上次停在哪個子分頁，全部照舊。
          *
-         * ★ **內容要跟著手指走。** 第一版是「滑過門檻就換頁」，中間手指是空的——
-         * 手在動、畫面不動，放手才閃一下，使用者建立不起「是我把它推過去的」
-         * 這個因果關係，而且滑到一半也不知道自己滑得夠不夠。
-         * 所以現在分成兩半，兩半接在同一個位移上：
-         *   **手指按著的時候**，目前這一塊內容跟著走（`.page-swiping` ＋ inline transform）；
-         *   **放手之後**，轉場從那個位移接著往同一個方向走完（見 CSS 的 `html[data-swipe]`）。
-         * ⚠️ 放手時**不能先把位移清掉**——清了畫面會先跳回原位再滑走，
-         * 而那一跳正好落在使用者最注意它的時候。位移由 applyTab 在轉場照相之後清。
+         * ★★ **兩頁要黏在一起**（2026-09-21 第三輪，同一天第二次翻案）。
+         * 前一版是「手指按著的時候只推目前這一頁，下一頁等放手之後由 View Transitions
+         * 滑進來」。它的上限是**拖的時候下一頁還沒畫**：推超過畫面寬的 38% 就只是在
+         * 把背景拉出來，所以只能在那裡踩煞車——而使用者看不到自己要去哪裡，
+         * 「滑到一半反悔」也只是把一片空白推回去。
          *
-         * ★ 另外三件刻意的事：
-         *   1. **只有用滑的才換動效。** 用點的切分頁沒有方向，維持 M1 那套
-         *      原生 cross-fade 一個字都沒改。
-         *   2. **不繞回去。** 停在第一個分頁往右滑不會跳到最後一個。
-         *      繞回去省下的是一次點擊，代價是使用者不知道自己滑到哪裡了。
+         * 現在的形狀是：方向一確定，就把「切過去之後會看到的那一塊」搬進一個浮在
+         * 上面的窗格（`.swipe-stage` ／ `.swipe-pane`），擺在目前這一頁旁邊，
+         * 兩塊一起 1:1 跟著手指走；放手時兩塊往同一個方向滑完，或者一起回彈。
+         *
+         * 五件刻意的事，每一件都是「不這樣做就會安靜地壞掉」：
+         *
+         *   1. **搬的是真的那些節點，不是複製品。** 複製品會多一份一模一樣的 id，
+         *      而 `$()` 只認得文件裡的第一個——症狀是「偷看的時候按到的按鈕，
+         *      改到的是另一份」，完全不會報錯。放手或反悔之後每個節點都照原來的
+         *      父節點與位置搬回去，`hidden` 也還原。
+         *
+         *   2. **不能借 applyTab 來準備偷看的那一頁。** 它會清搜尋、關詳情、重設選取，
+         *      那些都是「真的切過去才該發生」的事，滑到一半反悔的話收不回來。
+         *      所以偷看只做三件純顯示的事：把該顯示的那一塊搬過來、現做一條子分頁列、
+         *      把該亮的那一顆點亮。⚠️ 要顯示哪一塊由 `tabLanding()` 回答，而那一支
+         *      正是 `switchTab` 自己在用的那一支——**不是抄一份**。抄一份的症狀是
+         *      「滑到一半看到的那一頁，跟放手之後真的切過去的不是同一頁」。
+         *
+         *   3. **資料要推過畫面寬的 1/4 才訂**（`prefetchTab`）。一確定方向就訂的話，
+         *      左右來回滑幾下就會把隔壁好幾頁的訂閱全部點起來——那正是
+         *      `使用量評估.md` 在擔心的事。代價說清楚：第一次滑到沒去過的分頁時，
+         *      偷看到的可能還是空的，滑過去才長出來。
+         *
+         *   4. **放手就回到新那一頁的最上面。** 偷看到的那一頁是從它自己的頂端畫起
+         *      （舞台是 fixed 的），不捲回去的話放手那一刻會錯位；而且舊頁捲得很深、
+         *      新頁又比較短的時候，瀏覽器本來就會自己把捲軸拉回底部，那一跳更難看。
+         *      ⚠️ 這件事跟**用點的**切分頁不一樣（點的留在原地）。判準是手勢有方向、
+         *      而且使用者已經看著新那一頁的頂端滑過來了——停在半途才是意外。
+         *
+         *   5. **收尾要在同一個工作裡做完**（見 `release` 裡的 `done`）。
+         *      節點搬回去、捲回最上面、換分頁，中間讓瀏覽器畫到任何一格，
+         *      那一格就是空的。
+         *
+         * ★ 另外三件照舊：
+         *   1. **只有用滑的才換動效。** 用點的切分頁沒有方向，維持 M1 那套原生
+         *      cross-fade 一個字都沒改。滑的這一條現在自己動完（`.swipe-glide`），
+         *      所以收尾呼叫的是 `switchTab(tab, true)`——不要再疊一層 VT。
+         *   2. **不繞回去。** 停在第一個分頁往右滑不會跳到最後一個。繞回去省下的是
+         *      一次點擊，代價是使用者不知道自己滑到哪裡了。
          *   3. **只認分頁列上的大分頁。** 設定、關於、帳號權限管理不在分頁列上
-         *      （理由見 `buildLogoMenu`），在那幾頁滑動一律不動作——
-         *      它們沒有「左邊是哪一頁」這個問題。
+         *      （理由見 `buildLogoMenu`），在那幾頁滑動一律不動作。
          *
          * ⚠️ 這個手勢最容易壞的地方是**不該觸發的時候觸發了**，症狀一律是
          * 「頁面自己跳走了」：沒有錯誤訊息、沒有堆疊、重現不了。所以擋掉的情況
@@ -7114,20 +7150,23 @@
         (() => {
             /* 只給觸控裝置。桌面沒有人用滑鼠「撥頁」，而拖選文字會誤觸。 */
             if (!matchMedia('(hover: none) and (pointer: coarse)').matches) return;
-            /* 開了「減少動態」就不跟著手指走（手勢照樣能換頁，只是不推）。
+            /* 開了「減少動態」就不推也不偷看（手勢照樣能換頁，關掉的是中間那一段）。
                ★ 要在手勢開始時才問，不是現在就記下來——使用者可能中途才打開。 */
             const calmMQ = matchMedia('(prefers-reduced-motion: reduce)');
 
-            const DIST  = 64;   // 至少要滑這麼遠才算數
-            const SLOP  = 10;   // 這段距離內還看不出方向，先不表態
-            const RATIO = 1.5;  // 橫向要比縱向多這麼多倍。只要求「多一點」的話，
-                                // 斜著捲長清單會被當成換頁
-            const TIME  = 700;  // 太慢的不算：那是一邊看一邊拖，不是撥頁
-            const CAP   = 0.38; // 最多推開畫面寬的這麼多
-            const EDGE  = 0.16; // 到頭了還硬推：推得動，但最多只到這麼多
+            const SLOP  = 10;    // 這段距離內還看不出方向，先不表態
+            const RATIO = 1.5;   // 橫向要比縱向多這麼多倍。只要求「多一點」的話，
+                                 // 斜著捲長清單會被當成換頁
+            const TAKE  = 0.30;  // 推過畫面寬的這麼多就算要換頁
+            const FLICK = 0.5;   // 或者甩得夠快（px/ms，約等於一秒兩個畫面寬）
+            const NUDGE = 24;    // 甩也要真的移動過這麼多，不然手指抖一下就換頁
+            const WARM  = 0.25;  // 推過這麼多才去訂閱偷看到的那一頁的資料
+            const EDGE  = 0.16;  // 到頭了還硬推：推得動，但最多只到這麼多
 
-            let x0 = 0, y0 = 0, t0 = 0, live = false, decided = false, side = false;
-            let sheet = null, shift = 0;
+            let x0 = 0, y0 = 0, live = false, decided = false, side = false;
+            let sheet = null, shift = 0, vx = 0, lastX = 0, lastT = 0, warmed = false;
+            let stage = null, pane = null, peek = null;   // peek ＝ { tab, dir, back }
+            let finish = null;                            // 還沒跑完的收尾（被下一手勢打斷時補跑）
 
             /* 手指底下如果是「自己會左右捲」的東西（子分頁列、課表、程式碼框、
                橫向的卡片列），那一下是它的捲動，不是換頁。
@@ -7147,6 +7186,8 @@
             const editing = (node) =>
                 !!(node && node.closest &&
                    node.closest('input, textarea, select, canvas, [contenteditable="true"]'));
+
+            const vw = () => innerWidth || 390;
 
             /* 現在停在哪一個大分頁。★ 問畫面，不自己另外記一份：
                分頁還可以從 logo 選單、任務的「去這裡」、程式裡切換，
@@ -7172,30 +7213,109 @@
             const visiblePage = () => document.querySelector('.page-section:not(.hidden)');
             const mainEl = () => document.querySelector('main');
 
-            /* 手指推多遠，內容就跟著走多遠——但有兩個上限：
-                 1. 最多推開畫面寬的 CAP，再推幾乎不動。推太開的話旁邊那一大片
-                    背景會讓人以為下一頁已經在那裡了（它不在，下一頁要放手才畫）。
-                 2. 那個方向沒有下一頁的時候只推得動一點點，而且愈推愈不動
-                    （橡皮筋）。這一下**不是白費的**：推得動但推不遠，
-                    就是「到頭了」這件事唯一講得出口的方式——
-                    完全不動的話使用者只會以為是自己沒滑到，然後再滑一次。 */
-            const damp = (dx) => {
-                const w = innerWidth || 390;
-                const a = Math.abs(dx);
-                let d;
-                if (nextIndex(dx) < 0) {
-                    const room = EDGE * w;
-                    d = (a * room) / (a + room);     // 漸近線就是 room，永遠到不了
-                } else {
-                    const cap = CAP * w;
-                    d = a < cap ? a : cap + (a - cap) * 0.12;
+            /* 把「切過去之後會看到的那一塊」搬進窗格，擺在目前這一頁旁邊。
+               dir：1 ＝ 下一頁在右邊（手指往左撥），-1 ＝ 在左邊。 */
+            const openPeek = (tab, dir) => {
+                const m = mainEl(); if (!m) return;
+                const spot = tabLanding(tab);
+                if (!spot.section) return;
+                const cs = getComputedStyle(m);
+                const box = m.getBoundingClientRect();
+                stage = document.createElement('div');
+                stage.className = 'swipe-stage';
+                /* 舞台的上緣＝**捲到最上面時** <main> 的上緣（也就是頁首底下）。
+                   它是 fixed 的，所以這個值跟現在捲到哪裡無關，而放手之後也是
+                   捲回最上面——兩邊看到的是同一格畫面。 */
+                stage.style.top = (box.top + scrollY) + 'px';
+                pane = document.createElement('div');
+                pane.className = 'swipe-pane';
+                /* 窗格要跟 <main> 一樣寬、一樣的留白。抄它算出來的值，不要再寫死一份
+                   max-w-6xl／px-4／py-8——哪天版面改了，寫死的那一份會安靜地對不齊。 */
+                pane.style.maxWidth = cs.maxWidth;
+                pane.style.margin = '0 auto';
+                pane.style.padding = cs.padding;
+
+                const back = [];
+                const take = (el) => {
+                    if (!el) return;
+                    back.push({ el, parent: el.parentElement, next: el.nextSibling,
+                                hid: el.classList.contains('hidden') });
+                    pane.appendChild(el);
+                    el.classList.remove('hidden');
+                };
+                /* 順序照 #page-home 裡本來的排法：問候語、子分頁列、內容。 */
+                /* ★ 問候語只屬於主頁——這是 applyTab 裡那一行 toggle 的另一半。
+                   （偷看主頁的時候它一定是收著的：主頁只跟計劃相鄰，
+                   而在計劃那一頁 applyTab 已經把它收起來了。） */
+                if (tab === 'home') take($('home-hero-wrap'));
+                const nav = subNavHTML(tab);
+                const row = nav ? document.querySelector('.study-sub-row') : null;
+                if (row) {
+                    /* 子分頁列整站三條，而且都住在 page-section 裡面——同一條不可能
+                       同時出現在兩頁上，所以這裡現做一條：`cloneNode(false)` 只抄 class
+                       （它沒有 id），內容由 subNavHTML 填，亮哪一顆由 updateStudySubUI 決定。 */
+                    const copy = row.cloneNode(false);
+                    copy.innerHTML = nav;
+                    pane.appendChild(copy);
                 }
+                take(spot.block || spot.section);
+
+                stage.appendChild(pane);
+                /* ★ 掛在 <body> 底下不是 <main> 底下：手勢進行中 <main> 帶著
+                   `overflow-x: clip`，掛在裡面的話偷看的那一頁會被剪掉一塊。 */
+                document.body.appendChild(stage);
+                updateStudySubUI(pane, spot.sub);
+                icons();
+                peek = { tab, dir, back };
+                setShift(shift);
+            };
+
+            /* 把搬出去的節點原封不動放回去。 */
+            const closePeek = () => {
+                if (peek) {
+                    /* ★ 先還原 hidden 再搬回去：反過來的話那一塊會在原位上先露臉一格，
+                       而那一格正好落在放手的瞬間。 */
+                    for (const b of peek.back) {
+                        if (b.hid) b.el.classList.add('hidden');
+                        if (b.parent) b.parent.insertBefore(b.el, b.next);
+                    }
+                }
+                if (stage && stage.remove) stage.remove();
+                stage = null; pane = null; peek = null;
+            };
+
+            /* 手指目前指著哪一邊，窗格裡就要是哪一頁。★ 中途反向推過 0 的時候
+               要換成另一邊那一頁——不換的話使用者看到的是「往右滑卻跑出右邊那一頁」。 */
+            const ensurePeek = (dx) => {
+                if (calmMQ.matches || !dx) return;
+                const dir = dx < 0 ? 1 : -1;
+                if (peek && peek.dir === dir) return;
+                if (peek) closePeek();
+                const j = nextIndex(dx);
+                if (j < 0) return;                    // 到頭了：沒有下一頁可以偷看
+                openPeek(TABS[j][0], dir);
+            };
+
+            /* 手指推多遠，兩塊就跟著走多遠。
+               ★ 有下一頁的時候是**真的 1:1**，一格都不打折（上一版那個 38% 的上限
+                 是因為下一頁還沒畫，現在畫了就不需要了），只在滿一個畫面寬時停住。
+               ★ 那個方向沒有下一頁的話只推得動一點點，而且愈推愈不動（橡皮筋）。
+                 這一下**不是白費的**：推得動但推不遠，就是「到頭了」唯一講得出口的
+                 方式——完全不動的話使用者只會以為是自己沒滑到，然後再滑一次。 */
+            const damp = (dx) => {
+                const w = vw();
+                if (peek) return Math.max(-w, Math.min(w, dx));
+                const room = EDGE * w;
+                const a = Math.abs(dx);
+                const d = (a * room) / (a + room);    // 漸近線就是 room，永遠到不了
                 return dx < 0 ? -d : d;
             };
 
             const setShift = (dx) => {
                 shift = dx;
                 if (sheet) sheet.style.transform = dx ? `translateX(${dx.toFixed(1)}px)` : '';
+                if (pane && peek)
+                    pane.style.transform = `translateX(${((peek.dir > 0 ? vw() : -vw()) + dx).toFixed(1)}px)`;
             };
 
             /* 方向確定的那一刻才開始推。★ 不要在 touchstart 就抓：
@@ -7209,36 +7329,68 @@
                 if (m) m.classList.add('is-swiping');
             };
 
-            /* 放手之後把畫面交還給 CSS。
-               `settle` ＝ 沒換頁，要回彈；`keep` ＝ 要換頁，位移**留著**給轉場照相。 */
-            const release = (settle) => {
-                const p = sheet; sheet = null; shift = 0;
+            /* 放手。`go` ＝ 要換頁（兩塊往同一個方向滑完），否則兩塊一起回彈。
+               ★ 兩種是同一段動畫，只是終點不同——分成兩套寫法的話遲早會分岔。 */
+            const release = (go, tab) => {
+                const w = vw();
+                const dir = peek ? peek.dir : (shift < 0 ? 1 : -1);
+                const end = go ? (dir > 0 ? -w : w) : 0;
+                /* 還要走多遠決定用哪一格時距。★ 只在刻度上二選一，不要自己算一個數字：
+                   整站的動效是一個旋鈕在管，這裡開一個新數字就是第二個旋鈕。 */
+                const dur = Math.abs(end - shift) > w * 0.25 ? 'var(--dur-page)' : 'var(--dur-base)';
+                const p = sheet, pn = pane, m = mainEl();
+                sheet = null;
                 if (p) {
                     p.classList.remove('page-swiping');
-                    if (settle) {
-                        p.classList.add('page-swipe-settle');
-                        p.style.transform = '';
-                        setTimeout(() => p.classList.remove('page-swipe-settle'), 400);
-                    }
+                    p.classList.add('swipe-glide');
+                    p.style.setProperty('--glide-dur', dur);
+                    p.style.transform = `translateX(${end.toFixed(1)}px)`;
                 }
-                /* 橫向的剪裁要留到動完才拿掉。提早拿掉的話，還帶著位移的那一塊
-                   會把整頁撐寬一瞬間，畫面上的症狀是「滑完之後整頁晃一下」。 */
-                if (settle) setTimeout(() => { const m = mainEl(); if (m) m.classList.remove('is-swiping'); }, 400);
+                if (pn) {
+                    pn.style.setProperty('--glide-dur', dur);
+                    pn.classList.add('swipe-glide');
+                    pn.style.transform = `translateX(${(go ? 0 : (dir > 0 ? w : -w)).toFixed(1)}px)`;
+                }
+                const done = () => {
+                    if (finish !== done) return;      // 已經被下一個手勢補跑過了
+                    finish = null;
+                    if (p) {
+                        p.classList.remove('swipe-glide');
+                        p.style.removeProperty('--glide-dur');
+                        p.style.transform = '';
+                    }
+                    /* ★★ 下面這三件事要在同一個工作裡做完，中間不能讓瀏覽器畫一格：
+                       節點搬回去（那一塊會暫時從畫面上消失）、捲回最上面、
+                       換分頁（那一塊重新顯示在一模一樣的位置）。
+                       分開做的話中間那一格是空的，而那一格正好是使用者在看的。 */
+                    closePeek();
+                    if (m) m.classList.remove('is-swiping');
+                    if (go && tab) { scrollTo(0, 0); switchTab(tab, true); }
+                };
+                finish = done;
+                /* 沒有東西在動就別等（開了「減少動態」的那條路）：等的話會變成
+                   「放手之後停半秒才換頁」，而畫面上完全沒有東西在解釋那半秒。 */
+                if (!p && !pn) done();
+                else setTimeout(done, 400);           // 400ms ＞ 最長的那一格（--dur-page 是 360ms）
+                shift = 0;
             };
 
             addEventListener('touchstart', (e) => {
+                /* 上一次的收尾還沒跑完就又來一下：先把它補跑完。★ 不是「這一下不算」——
+                   連續撥好幾頁是很正常的動作，擋掉的話會變成「滑太快就滑不動」。 */
+                if (finish) finish();
                 live = false;
                 /* 兩指以上是縮放，不是撥頁。 */
                 if (e.touches.length !== 1) return;
                 if (screenCovered() || editing(e.target) || sideScroller(e.target)) return;
                 x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
-                t0 = Date.now();
+                lastX = 0; lastT = Date.now(); vx = 0; warmed = false;
                 live = true; decided = false; side = false;
             }, { passive: true });
 
             addEventListener('touchmove', (e) => {
                 if (!live) return;
-                if (e.touches.length !== 1) { live = false; release(true); return; }
+                if (e.touches.length !== 1) { live = false; if (side) release(false); return; }
                 const dx = e.touches[0].clientX - x0;
                 const dy = e.touches[0].clientY - y0;
                 if (!decided) {
@@ -7248,11 +7400,20 @@
                        只要中途手指歪一下就會被認成換頁——而那是「偶爾」發生的，
                        所以最難查。 */
                     side = Math.abs(dx) > Math.abs(dy) * RATIO;
-                    if (side) grab(); else live = false;
-                    return;
+                    if (!side) { live = false; return; }
+                    grab();
+                    /* ★ 這裡**不要** return：方向確定的那一下就要順手把下一頁搬進來、
+                       位移也跟上。return 掉的話第一格是「已經推了一小段、旁邊還是空的」，
+                       而那一格正好是使用者判斷「這個手勢有沒有反應」的那一格。 */
                 }
                 /* 長按拖曳計劃卡已經開始了（殘影在畫面上），那一下歸它。 */
-                if (document.querySelector('.plan-drag-ghost')) { live = false; release(true); return; }
+                if (document.querySelector('.plan-drag-ghost')) { live = false; release(false); return; }
+                /* 速度只看最近這一段。整段的平均會被「先停一下再甩」拉低，
+                   而使用者感覺到的是最後那一下。 */
+                const now = Date.now();
+                if (now > lastT) { vx = (dx - lastX) / (now - lastT); lastX = dx; lastT = now; }
+                ensurePeek(dx);
+                if (!warmed && peek && Math.abs(dx) > WARM * vw()) { warmed = true; prefetchTab(peek.tab); }
                 setShift(damp(dx));
             }, { passive: true });
             /* ★ 這四支都是 passive:true，**不擋預設行為**。橫向手勢本來就不需要
@@ -7266,43 +7427,31 @@
                 const t = e.changedTouches && e.changedTouches[0];
                 const dx = t ? t.clientX - x0 : 0;
                 const dy = t ? t.clientY - y0 : 0;
-                const ok = !!t
-                    && Math.abs(dx) >= DIST
-                    && Math.abs(dx) >= Math.abs(dy) * RATIO
-                    && Date.now() - t0 <= TIME
-                    /* 手勢進行到一半才跳出來的彈窗也要擋（例如中途被提醒蓋住）。 */
-                    && !screenCovered();
+                /* ★ 收尾時再比一次方向。只在跨過 SLOP 那一刻判的話，
+                   「先橫一點再一路往下捲」會被當成撥頁。 */
+                const straight = !!t && Math.abs(dx) >= Math.abs(dy) * RATIO;
+                /* 兩種都算「要換頁」，而且缺一不可：
+                     推得夠遠（畫面寬的 TAKE）——慢慢推到一半的人要換得了；
+                     或者甩得夠快（FLICK，方向要跟手指一致）——IG 那種輕輕一甩，
+                     只認距離的話會被當成沒滑夠。
+                   ⚠️ 上一版還有一條「超過 700ms 就不算」，這一版拿掉了：
+                   那條擋的是「一邊看一邊拖」，但現在拖的時候下一頁就在旁邊跟著走，
+                   慢慢推到半個畫面的人是看著它推的，不是不小心。 */
+                const far   = Math.abs(dx) >= TAKE * vw();
+                const flick = Math.abs(vx) >= FLICK && Math.abs(dx) >= NUDGE && (vx < 0) === (dx < 0);
+                /* 手勢進行到一半才跳出來的彈窗也要擋（例如中途被提醒蓋住）。 */
+                const ok = straight && (far || flick) && !screenCovered();
                 const j = ok ? nextIndex(dx) : -1;
-                if (j < 0) return release(true);          // 沒換頁：回彈
-
-                /* ★ 這裡**刻意不清掉位移**：轉場會先把目前這個畫面照相起來，
-                   而照片裡要的就是「已經被推開」的樣子。先清再換的話，放手那一瞬間
-                   畫面會跳回原位再滑走，而那一跳正好落在使用者最注意它的時候。
-                   位移改由 applyTab 在照相之後清（見「7. 分頁切換」那一段）。 */
-                /* ★ 先把畫面推到放手的那個位置。touchmove 跟 touchend 之間
-                   通常還有一小段距離（手指離開前的最後一下不一定會發 move），
-                   不補這一下的話「照片裡的位置」跟「下一頁的進場起點」會差那一小段，
-                   而差多少是隨機的——症狀是換頁的瞬間偶爾跳一下，重現不了。 */
-                setShift(damp(dx));
-                const root = document.documentElement;
-                /* 下一頁要從「目前這一頁的旁邊」滑進來，不是從整整一個畫面寬之外。
-                   少了這一行，中間會露出一條跟位移一樣寬的空隙（見 CSS 那一段）。 */
-                root.style.setProperty('--swipe-dx', shift.toFixed(1) + 'px');
-                root.dataset.swipe = dx < 0 ?'next' :'prev';
-                release(false);
-                switchTab(TABS[j][0]);
-                /* 轉場跑完就把方向收掉：留著的話下一次用**點**的切分頁也會照這個
-                   方向滑，而使用者根本沒有滑。順手把剪裁也還原。 */
-                setTimeout(() => {
-                    delete root.dataset.swipe;
-                    root.style.removeProperty('--swipe-dx');
-                    const m = mainEl(); if (m) m.classList.remove('is-swiping');
-                }, 600);
+                /* 窗格裡的那一頁跟算出來的不是同一頁就當成沒換（理論上不會發生，
+                   但真的發生的話，換過去的會是使用者沒看過的那一頁）。 */
+                if (j < 0 || (peek && peek.tab !== TABS[j][0])) return release(false);
+                release(true, TABS[j][0]);
             }, { passive: true });
 
             addEventListener('touchcancel', () => {
                 if (!live) return;
-                live = false; release(true);
+                live = false;
+                if (side) release(false);
             }, { passive: true });
         })();
 
@@ -7327,7 +7476,9 @@
                 title: '手機上用滑的就能換分頁',
                 items: [
                     ['在手機上左右滑一下，就會換到隔壁的分頁', '主頁、計劃、學習、英文、理財之間，往左滑去右邊那一頁、往右滑回左邊那一頁，不用再瞄準上面那排小按鈕。'],
-                    ['畫面會跟著你的手指走', '滑到一半的時候內容就跟著手指移動，看得出來自己滑到哪了。滑得不夠遠就放手，它會自己彈回來；滑得夠遠放手，就順著同一個方向換到下一頁。'],
+                    ['下一頁會跟著手指一起被拉進來', '滑到一半的時候，下一頁已經貼在旁邊跟著你的手指走了，看得到自己正要去哪一頁。滑得不夠遠就放手，兩頁會一起彈回去；滑得夠遠放手，就順著同一個方向滑完。'],
+                    ['輕輕一甩也換得了頁', '不一定要滑很長一段——快速撥一下就過去了；慢慢推到超過三分之一個畫面再放手，一樣算。'],
+                    ['換過去之後會從新那一頁的最上面開始看', '就像真的翻到新的一頁，不會停在上一頁捲到一半的高度。'],
                     ['已經在第一頁或最後一頁的話，推得動但推不遠', '會像橡皮筋一樣被拉住，讓你知道那個方向已經沒有下一頁了，而不是讓你以為自己沒滑到。'],
                     ['只有真的在「撥頁」才會換', '上下捲動、在可以左右拉的表格上滑、打字的時候、彈出視窗開著的時候，都不會被誤認成換頁。'],
                     ['系統開了「減少動態」的話就不會跟著手指走', '但滑動本身照樣能換頁，關掉的只有動畫。'],
@@ -8007,12 +8158,32 @@
             typeof document.startViewTransition === 'function' &&
             !(typeof calm !== 'undefined' && calm.matches);
 
-        function switchTab(tab) {
+        /* 一個大分頁會落在哪一塊 page-section、哪一個子分頁、哪一個子區塊。
+           三張表（TAB_SUBS／SUB_PLACE／TAB_PAGE）合起來才答得出這一題，而
+           **問這一題的有兩個地方**：switchTab（要顯示哪一塊）與左右滑動的偷看（5.3）。
+           ⚠️ 兩邊各算一份的話，滑到一半看到的那一頁會跟放手之後切過去的不是同一頁，
+           而那不會報錯——所以只留這一支。
+           ★ 沒有子分頁的大分頁（理財、資料、設定…）走 `page-<分頁名>`，
+           TAB_PAGE 是給名字對不上的那兩個用的（英文、計劃）。 */
+        function tabLanding(tab) {
+            const subs = TAB_SUBS[tab];
+            const sub  = subs ? (subs.includes(studySub) ? studySub : subs[0]) : null;
+            const sec  = sub ? SUB_PLACE[sub].section : null;
+            return {
+                sub,
+                section: sec ? $(sec) : ($(`page-${tab}`) || $(TAB_PAGE[tab] || '')),
+                block:   sub ? $(SUB_PLACE[sub].block) : null
+            };
+        }
+
+        /* `instant` ＝ 呼叫的人自己已經把轉場動完了（左右滑動那一條路，見 5.3），
+           不要再疊一層 View Transitions——兩個過場疊在一起的症狀是「偶爾閃一下」。 */
+        function switchTab(tab, instant) {
             /* ★ 先驗證，而且是在轉場**外面**驗證（見上面第 3 點）。 */
-            const activePage = $(`page-${tab}`) || $(TAB_PAGE[tab] || '');
+            const activePage = tabLanding(tab).section;
             if (!activePage) throw new Error(`分頁 ${tab} 找不到對應的 page-section`);
 
-            const useVT = canViewTransition();
+            const useVT = !instant && canViewTransition();
             const run = () => applyTab(tab, activePage, useVT);
             if (!useVT) return run();
             /* callback 裡只有同步的工作。資料訂閱是 fire-and-forget，
@@ -8030,14 +8201,13 @@
             const gear = $('settingsBtn');
             if (gear) gear.classList.toggle('is-active', tab ==='settings');
 
-            /* ★ 左右滑動（5.3）會把目前這一塊往旁邊推，而且**刻意不在放手時清掉**
-               ——轉場要照到被推開的樣子。這裡是照相之後的第一個時機，所以位移在
-               這裡歸零，而且是**全部**歸零不是只清目前這一塊：被推出去的那一塊
-               等一下會被 hidden，下次再顯示時還帶著位移，症狀是「切回那一頁時
-               內容歪在旁邊」，而且不會報錯。 */
+            /* ★ 左右滑動（5.3）會把目前這一塊往旁邊推。它自己收尾時會清掉，
+               但這裡**再清一次，而且是全部清**：被推出去的那一塊等一下會被 hidden，
+               下次再顯示時如果還帶著位移，症狀是「切回那一頁時內容歪在旁邊」，
+               而且不會報錯。手勢那邊中途被打斷的路徑不只一條，最後這一道要守住。 */
             document.querySelectorAll('.page-section').forEach(p => {
                 p.classList.add('hidden');
-                p.classList.remove('page-swiping', 'page-swipe-settle');
+                p.classList.remove('page-swiping', 'swipe-glide');
                 if (p.style.transform) p.style.transform = '';
             });
             /* 大分頁與 page-section 多半同名，英文分頁是例外（見 TAB_PAGE）。
@@ -11817,20 +11987,30 @@
            兩邊填一樣的東西——這樣「同一份清單」是程式保證的，不是靠記得同步。
            ★ 只有一個子分頁時整列不顯示：一顆按鈕的分頁列沒有選擇的意義，
            只是佔掉一整列高度。 */
-        function renderStudySubNav(tab){
+        /* 子分頁列的 HTML。★ 抽出來是因為左右滑動偷看隔壁那一頁時要現做一條（見 5.3）。
+           在那裡再寫一份的話，加一顆子分頁只會改到其中一份，症狀是「滑到一半看到的
+           那一列，跟放手之後的不一樣」，而且不會報錯。 */
+        function subNavHTML(tab){
             const subs = TAB_SUBS[tab] || [];
-            const html = subs.length < 2 ?'' : subs.map(s => `
+            return subs.length < 2 ?'' : subs.map(s => `
                 <button data-action="set-study-sub" data-sub="${s}" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="${SUB_META[s].icon}" class="w-4 h-4 pointer-events-none"></i> ${SUB_META[s].label}${SUB_META[s].beta ?'<span class="sub-beta pointer-events-none">beta</span>' :''}</button>
             `).join('');
+        }
+        function renderStudySubNav(tab){
+            const html = subNavHTML(tab);
             document.querySelectorAll('.study-sub-row').forEach(el => {
                 el.innerHTML = html;
                 el.classList.toggle('hidden', !html);
             });
         }
 
-        function updateStudySubUI() {
-            document.querySelectorAll('.study-sub-opt').forEach(btn => {
-                const on = btn.dataset.sub === studySub;
+        /* ★ 兩個參數都是給「偷看隔壁那一頁」用的（5.3）：那裡的子分頁列是現做的一條，
+           而它要亮的那一顆不一定是目前的 studySub（例如從主頁偷看計劃）。
+           平常呼叫兩個都不必給，行為跟以前一模一樣。 */
+        function updateStudySubUI(root, active) {
+            const sub = active || studySub;
+            (root || document).querySelectorAll('.study-sub-opt').forEach(btn => {
+                const on = btn.dataset.sub === sub;
                 btn.classList.toggle('bg-emerald-500', on);
                 btn.classList.toggle('text-white', on);
                 btn.classList.toggle('shadow-md', on);
@@ -19023,6 +19203,16 @@
         const SUB_MAP = Object.fromEntries(SUBSCRIPTIONS.map(s => [s.key, s]));
         const activeSubs = {}; // key -> unsubscribe fn
         let lastLoadedKeys = [];   // 目前分頁要求過的資料集，階級變動時用來重新評估
+
+        /* 左右滑動偷看隔壁那一頁時用的預訂閱（5.3）。跟 ensureLoaded 只差一件事：
+           **不更新 lastLoadedKeys**。那份清單是「目前這一頁要求過哪些資料」，
+           階級變動時會照它重新評估訂閱——偷看到一半反悔的話，它會停在那個沒去成的
+           分頁上，於是等到有人升階時訂的是另一頁的資料。完全不會報錯。 */
+        function prefetchTab(tab) {
+            const keep = lastLoadedKeys;
+            ensureLoaded(...(TAB_DATA[tab] || []));
+            lastLoadedKeys = keep;
+        }
 
         function ensureLoaded(...keys) {
             if (keys.length) lastLoadedKeys = keys;
