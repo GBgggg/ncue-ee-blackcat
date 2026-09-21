@@ -389,7 +389,10 @@
         /* 放手之後兩塊一起滑完。時距由 JS 依「還要走多遠」在刻度上二選一
            （`--dur-base` 或 `--dur-page`），曲線一律是減速的 `--ease`：
            這一段是「落地」不是「離開」，加速曲線會讓它看起來是被甩掉的。 */
-        .swipe-glide { transition: transform var(--glide-dur, var(--dur-page)) var(--ease); }
+        /* ★ `will-change` 要延續到落地跑完為止。拖的時候是 `.page-swiping` 在掛，
+           放手那一刻換成這個 class——中間如果斷掉，等於在動畫**開始的那一格**
+           把 GPU 圖層收掉再重畫，在某些手機上會閃一下。 */
+        .swipe-glide { transition: transform var(--glide-dur, var(--dur-page)) var(--ease); will-change: transform; }
 
         /* 正在跟著手指走的那一塊。
            ★ 拖的時候不能有 transition——給了就會慢手指半拍，而那半拍看起來像卡住
@@ -7241,6 +7244,12 @@
                     back.push({ el, parent: el.parentElement, next: el.nextSibling,
                                 hid: el.classList.contains('hidden') });
                     pane.appendChild(el);
+                    /* ⚠️ `page-enter` 一定要拔掉。CSS 動畫在元素**從 display:none
+                       變成看得見**的那一刻會從頭播一次——一塊還帶著它的 page-section
+                       搬進窗格就會自己淡入一次，看起來就是偷看到的那一頁在重影。
+                       （沒有 View Transitions 的瀏覽器才會留下這個 class：
+                       applyTab 只拔掉「要顯示的那一塊」身上的，被收起來的那一塊留著。） */
+                    el.classList.remove('page-enter');
                     el.classList.remove('hidden');
                 };
                 /* 順序照 #page-home 裡本來的排法：問候語、子分頁列、內容。 */
@@ -8184,14 +8193,20 @@
             if (!activePage) throw new Error(`分頁 ${tab} 找不到對應的 page-section`);
 
             const useVT = !instant && canViewTransition();
-            const run = () => applyTab(tab, activePage, useVT);
+            /* ⚠️⚠️ 第三個參數問的**不是**「有沒有 View Transitions」，而是
+               「**已經有人在管這次的轉場了嗎**」——它唯一的工作是決定要不要再放
+               `page-enter`（淡入＋往上 10px）。左右滑動是自己動完的，所以也算「有人管」。
+               2026-09-21 踩過：這裡只傳 useVT 的話，滑動收尾時 useVT 是 false，
+               於是剛用手指滑到定位的那一頁**緊接著自己再淡入一次**——
+               畫面上就是滑完之後重影／閃一下，而且不會報錯。 */
+            const run = () => applyTab(tab, activePage, useVT || !!instant);
             if (!useVT) return run();
             /* callback 裡只有同步的工作。資料訂閱是 fire-and-forget，
                不會把畫面卡在轉場中間。 */
             document.startViewTransition(run);
         }
 
-        function applyTab(tab, activePage, useVT) {
+        function applyTab(tab, activePage, handled) {
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
@@ -8213,12 +8228,13 @@
             /* 大分頁與 page-section 多半同名，英文分頁是例外（見 TAB_PAGE）。
                ★ 哪一塊要顯示是在 switchTab 裡先算好並驗證過的（見那一段的第 3 點）。 */
             activePage.classList.remove('hidden');
-            /* ★ 有 View Transitions 的時候**不要**再放 `page-enter`：
-               兩個過場疊在一起會互相打架，症狀是「偶爾閃一下」。
-               沒有 VT 的瀏覽器維持原本的作法（先移除、強制 reflow、再加回，
+            /* ★ 已經有人在管這次的轉場（View Transitions，或左右滑動自己動完的那一段）
+               就**不要**再放 `page-enter`：兩個過場疊在一起會互相打架，
+               症狀是「滑完之後重影／偶爾閃一下」。
+               沒人管的時候維持原本的作法（先移除、強制 reflow、再加回，
                不這樣做的話同一個 class 加第二次不會重播）。 */
             activePage.classList.remove('page-enter');
-            if (!useVT) {
+            if (!handled) {
                 void activePage.offsetWidth;
                 activePage.classList.add('page-enter');
             }
