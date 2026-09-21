@@ -168,8 +168,14 @@ header{flex:none;background:var(--paper-raised);border-bottom:1px solid var(--ru
 .logo-menu-item small{font-size:13px;font-weight:600;color:var(--ink-3);margin-top:1px}
 .logo-menu-item:hover{background:var(--accent-soft)}
 .logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
-/* 目前所在的那一項不是連結，也不該有游標與 hover 回饋 */
-.logo-menu-item.is-here{cursor:default;color:var(--ink-3)}
+/* 目前所在的那一項不是連結，也不該有游標與 hover 回饋。
+   ★ 2026-09-21 起改成**框起來**，不再在說明後面接「（目前所在）」五個字：
+   那五個字要用讀的，而這是一張一眼掃過去的選單。讀螢幕的人拿到的是
+   那一項身上的 aria-current="page"，兩者缺一不可。
+   ★ 框走 --accent-bright（非文字那一階），--accent 是字色，當框偏暗。
+   四個檔案要一致，tests/logomenu.mjs 會比對。 */
+.logo-menu-item.is-here{cursor:default;outline:2px solid var(--accent-bright);
+                        outline-offset:-2px;border-radius:10px}
 .logo-menu-item.is-here:hover{background:transparent}
 /* beta 徽章：絕對定位貼右緣，不排進 flex 流。
    這個容器是 flex-column，直接塞一個 <span> 進去會自成一列，
@@ -536,10 +542,10 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
       </div>
       <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
         <a class="logo-menu-item" href="./" role="menuitem">小黑貓<small>主頁、學習、理財</small></a>
-        <a class="logo-menu-item" href="ncue.html" role="menuitem">彰師電子小黑貓<small>課程評價、教材、測驗</small></a>
+        <a class="logo-menu-item" href="ncue.html" role="menuitem">彰師電子小黑貓<small>課程評價、教材、消息</small></a>
         <a class="logo-menu-item has-beta" href="blackcatmd.html" role="menuitem">筆記小黑貓<span class="beta-tag">beta</span><small>Markdown ＋ 數學公式</small></a>
         <span class="logo-menu-item is-here has-beta" role="menuitem" aria-current="page">
-          電路小黑貓<span class="beta-tag">beta</span><small>免安裝，用電腦開（目前所在）</small></span>
+          電路小黑貓<span class="beta-tag">beta</span><small>免安裝，用電腦開</small></span>
       </div>
     </div>
 

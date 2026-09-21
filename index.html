@@ -217,6 +217,16 @@
         html.dark .quiz-opt.is-wrong .quiz-opt-text { color: #e59892; }
         .quiz-opt.is-muted { opacity: .38; }
 
+        /* ---- 多選題：勾起來但還沒送出（2026-09-18）----
+           ★ 刻意不用 is-correct 那個金色：金色在這個畫面上一路代表「正解」，
+             送出之前就上金色，等於系統在說「你這個勾對了」。
+             所以勾選只給一圈墨色外框＋實心的字母圓，顏色不帶任何對錯的意思。
+           ★ 送出之後正解一律亮金（不管有沒有勾到），所以「漏勾的正解」是
+             金色但沒有外框——外框是「我勾了」，兩層疊在一起才是勾對了。 */
+        .quiz-opt.is-picked { background: var(--paper-sunk); box-shadow: inset 0 0 0 1.5px var(--ink-3); }
+        .quiz-opt.is-picked .quiz-opt-letter { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+        .quiz-opt.is-picked .quiz-opt-text  { color: var(--ink); font-weight: 800; }
+
         /* ---- 算式（KaTeX，2026-09-18）----
            ★ .qtex 這個 class 是**還沒被排版的那一刻**看到的原文。做法是先把 LaTeX 原文
              寫進 DOM，KaTeX 事後才換掉它——反過來（先留空白等它填）的症狀是
@@ -2145,6 +2155,37 @@
             color: var(--accent); background: var(--accent-soft);
             border: 1px solid var(--rule);
         }
+        /* 子分頁列上的 beta（目前只有「解題」）。
+           ★ 不共用上面那顆 `.beta-tag`：那一顆是絕對定位的，貼在選單那一列的
+           右緣；放進子分頁按鈕裡會飛到按鈕外面去，而 CSS 不會報錯。
+           ★ 顏色一律跟著按鈕自己的文字色（currentColor）。子分頁按鈕選到的時候
+           是翠綠底白字、沒選到是淺灰底灰字，寫死任何一種顏色都會在另一種狀態下
+           看不見——而那是「只有切過去才看得到」的那種壞法。 */
+        .sub-beta {
+            padding: 1px 6px; border-radius: 999px;
+            font-size: 10px; font-weight: 900; letter-spacing: .06em; line-height: 1.5;
+            text-transform: uppercase;
+            color: currentColor; border: 1px solid currentColor;
+            opacity: .72;
+        }
+        /* 目前所在的那一項：**框起來**，不寫字。
+           ★ 原本是在說明後面接「（目前所在）」五個字。改成框的理由是那五個字
+           要用讀的才知道，而這是一張一眼掃過去的選單——框看一眼就有了。
+           ⚠️ 讀螢幕的人拿不到「框」這個資訊，他們拿到的是那一項身上的
+           `aria-current="page"`。兩者缺一不可：少了框，看得見的人要讀字；
+           少了 aria，聽的人完全不知道自己在哪一個產品裡。
+           ★ 框走 --accent-bright（非文字那一階，門檻 3.0），不是 --accent——
+           後者是拿來當字色的，當框反而偏暗。
+           ★ hover 要自己關掉：上面那條 `.logo-menu-item:hover` 帶 !important，
+           不覆寫的話滑過去會亮起來，看起來像可以點。
+           ⚠️ 四個檔案要一致（tests/logomenu.mjs 會比對），
+           blackcatmd.html 與 blackcatspice.html 的選單是寫死的 HTML。 */
+        .logo-menu-item.is-here {
+            cursor: default;
+            outline: 2px solid var(--accent-bright); outline-offset: -2px;
+            border-radius: 10px;
+        }
+        .logo-menu-item.is-here:hover { background: transparent !important; }
         .logo-menu-item:hover { background: var(--accent-soft) !important; }
         .logo-menu-item + .logo-menu-item { border-top: 1px solid var(--rule); }
 
@@ -3842,14 +3883,13 @@
                     </button>
                 </div>
             </div>
-            <!-- ★ 小黑貓這一頁分成「內建題庫」與「我的測驗」兩個分頁（2026-09-15）。
-                 彰師電子只有一種（公有），那邊 KAHOOT_SCOPES 只有一項，分頁列
-                 整個不顯示、退回原本那一行說明——一顆按鈕的分頁列沒有選擇的
-                 意義，只是佔掉一列高度（跟 renderStudySubNav 同一個判斷）。
-                 兩者的內容都由 buildStaticUI 依產品填。 -->
+            <!-- ★ 這一頁分成「內建題庫」與「我的測驗」兩個分頁（2026-09-15）。
+                 ★ 2026-09-21 公有測驗退場之後，KAHOOT_SCOPES 固定是這兩種，
+                 所以原本那條「只有一種來源時退回一行說明」的路也一起收了
+                 （那一行是寫給彰師電子看的，而彰師電子已經沒有測驗分頁了）。
+                 內容由 buildStaticUI 填。 -->
             <div class="flex flex-wrap items-center gap-2 mb-5">
                 <div id="kahootScopeTabs" class="flex gap-2"></div>
-                <span id="kahootScopeNote" class="px-4 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 flex items-center gap-2"></span>
                 <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="ml-auto px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
             </div>
             <!-- 客群段的篩選鏈（2026-09-17）。★ 由 renderKahootSegs() 從索引的
@@ -4075,7 +4115,7 @@
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-rose-500 text-white border border-rose-600 shrink-0 mt-0.5">戰士</span>
-                            <p class="text-sm text-slate-600 leading-relaxed">再加上「資料」分頁的<span class="font-bold text-slate-800">戰士資料</span>（共享講義與考古題）與公有測驗。</p>
+                            <p class="text-sm text-slate-600 leading-relaxed">再加上「資料」分頁的<span class="font-bold text-slate-800">戰士資料</span>（共享講義與考古題）。</p>
                         </div>
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-amber-500 text-white border border-amber-600 shrink-0 mt-0.5">族長</span>
@@ -4837,7 +4877,15 @@
                     <h4 id="draftFormTitle" class="font-bold text-emerald-800 flex items-center gap-2"><i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題</h4>
                     <button id="cancelEditQBtn" data-action="cancel-edit-q" class="hidden text-xs font-black text-slate-400 hover:text-slate-700 px-3 py-1.5 rounded-lg hover:bg-white transition">取消編輯</button>
                 </div>
-                <p class="text-[11px] text-emerald-700/70 font-bold mb-3">選項填 2～4 個即可，留空的會自動略過（可以做是非題或三選一）。點左邊圓圈選出正解。</p>
+                <div class="flex items-start justify-between gap-2 mb-3">
+                    <p id="draftCorrectHint" class="text-[11px] text-emerald-700/70 font-bold">選項填 2～4 個即可，留空的會自動略過（可以做是非題或三選一）。點左邊圓圈選出正解。</p>
+                    <!-- 多選題：正解從「圓圈選一個」變成「方框勾幾個」。
+                         ⚠️ 切換的當下會把已經勾的清掉（見 applyDraftMultiMode）——
+                         不清的話，從多選切回單選會留下兩個勾，而單選只收得下一個。 -->
+                    <label class="shrink-0 flex items-center gap-1.5 text-[11px] font-black text-emerald-800 bg-white px-3 py-1.5 rounded-lg border border-emerald-200 cursor-pointer">
+                        <input type="checkbox" id="draftMultiToggle" class="w-3.5 h-3.5 accent-emerald-500 cursor-pointer">多選題
+                    </label>
+                </div>
                 <input type="text" id="qText" maxlength="200" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm" aria-label="輸入題目內容...">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 1（必填）"></label>
@@ -4874,6 +4922,9 @@
                  一團梯形，眼睛每一行都要重新找起點。 -->
             <div class="flex items-start gap-3 mb-6 shrink-0">
                 <span id="kahootQNum" class="quiz-qnum">1</span>
+                <!-- 多選題才出現。⚠️ 沒有這個標籤的話，使用者會照單選的習慣
+                     點第一個選項就等它跳下一題，而多選不會跳——看起來像當掉。 -->
+                <span id="kahootMultiTag" class="hidden shrink-0 mt-1 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">多選</span>
                 <h2 id="kahootQuestionDisplay" class="flex-1 min-w-0 text-xl md:text-2xl font-black text-slate-900 leading-snug break-words">載入中...</h2>
                 <!-- 題目本身的圖（不是詳解的圖）。目前站上還沒有任何一題有圖，
                      位置先留著：MedQA 那批有 472 題要看圖，圖補進
@@ -4890,7 +4941,15 @@
             </div>
 
             <div id="kahootOptionsGrid" class="flex flex-col gap-1">
-                <!-- JS 依每題實際選項數動態生成 A～D -->
+                <!-- JS 依每題實際選項數動態生成 A～F -->
+            </div>
+            <!-- 多選題才出現：勾完自己送出。單選是點下去就交卷，多選不能這樣——
+                 勾第一個就交卷等於這一題只能選一個。顯示與否由 renderPlayQuestion 決定。 -->
+            <div id="kahootSubmitWrap" class="hidden mt-5">
+                <button id="kahootSubmitBtn" data-action="submit-kahoot-picks" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors">
+                    <span id="kahootSubmitLabel" class="pointer-events-none">送出</span>
+                </button>
+                <p class="text-center text-slate-400 text-xs font-bold mt-2">這一題是多選，勾好再送出（也可按 Enter）</p>
             </div>
             <!-- 猜對的時候讓使用者自己說出來。只有會寫回記憶曲線的測驗才顯示，
                  顯示與否由 renderPlayQuestion 決定（`kahootFeedsSrs()`）。 -->
@@ -5080,7 +5139,7 @@
             //   兩區都是鎖頭，等於有一整個分頁專門告訴他「你還不夠格」。
             matNovice: P('materialsNovice'),
             matWarrior: P('materialsWarrior'), matLeader: P('materialsLeader'),
-            kahoots: P('kahoots'),     users: P('users'),
+            users: P('users'),
             /* ★ 內建題庫**不在這裡**（2026-09-15 改）：它是隨網站發布的靜態
                JSON（public/data/quiz/），跟內建單字庫走同一條路，不是 Firestore
                集合。改的理由是讀取量——全量訂閱一次瀏覽就是「有幾題算幾次讀取」，
@@ -5213,8 +5272,11 @@
                星族大會拉成「帳號權限管理」，因為那是要對照名冊慢慢看的事。
                混在同一頁的時候，一個巫醫點進「管理」只會看到半頁空白——
                另一半是星族專屬，而畫面上沒有任何東西說明這件事。 */
-            ncue: [['evaluation','課程評價'], ['data','資料'], ['quiz','測驗'],
-                   ['news','消息與連結']]
+            /* ★ 2026-09-21：「測驗」這個分頁也收掉了。公有測驗（巫醫以上出的那一批）
+               整個退場，而彰師電子這邊本來就只有那一種來源——收掉之後這個分頁會是
+               一片空白，留著等於給使用者一個點進去什麼都沒有的入口。
+               ⚠️ 測驗本身沒有不見：小黑貓的「學習 → 測驗」還在（內建題庫＋我的測驗）。 */
+            ncue: [['evaluation','課程評價'], ['data','資料'], ['news','消息與連結']]
         };
         const TABS = PRODUCT_TABS[PRODUCT];
         /* 產品切換靠 logo 選單，不是分頁列。目前所在的那一項要標出來，
@@ -5254,7 +5316,11 @@
         const MAX_KAHOOT_QUESTIONS = 50;
         // 選項的字母。原本這裡是一張顏色表（KAHOOT_OPTS），四個選項各配一個
         // Tailwind 色階；現在選項本身不帶顏色，只用字母區分，顏色留給回饋。
-        const KAHOOT_LETTERS = ['A','B','C','D'];
+        /* ⚠️ 六個字母是**上限本身**：`tools/quizdata.mjs` 擋的是「2–6 個選項」，
+           兩個數字要一起改。多一個選項而這裡沒跟上，第七個選項會顯示成「7」，
+           而且不會報錯。（2026-09-18 從 A–D 加到 A–F：學測與分科的單選常常
+           是五個選項，多選更常是六個。） */
+        const KAHOOT_LETTERS = ['A','B','C','D','E','F'];
 
         /* ---- 克漏字測驗（內建單字庫，2026-08-19）---- */
         const CLOZE_COUNT = 20;              // 一場幾題
@@ -5644,7 +5710,7 @@
         let pdfViewFile = null;
 
         const state = {
-            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], kahoots: [], builtinQuizzes: [], allUsers: [],
+            courses: [], reviews: [], matNovice: [], matWarrior: [], matLeader: [], builtinQuizzes: [], allUsers: [],
             ssCourses: [], ssUnits: [], vocabBooks: [], vocabWords: [], vocabFolders: [],
             news: [], links: [],
             /* 內建單字庫（7000 單字 3,461 ＋多益 6,925 ＋托福 210，共 10,596 字）：
@@ -5901,6 +5967,11 @@
            ★ 宣告在狀態區不是習慣問題：`renderPlayQuestion` 會碰到它，
              寫在函式旁邊就是暫時性死區——一載入就掛、畫面全白（CLAUDE.md 第一條）。 */
         let kahootUnsure = false;
+        /* 這一題勾了哪幾個選項（只有多選題用得到，單選是點下去就交卷）。
+           ★ 宣告在狀態區的理由跟上面那一顆一模一樣：`renderPlayQuestion` 會碰到它，
+             寫在函式旁邊就是暫時性死區——一載入就掛、畫面全白（CLAUDE.md 第一條）。
+           ⚠️ 每一題都要清空，不然上一題勾的會跟著進下一題，而畫面上看不出來。 */
+        let kahootPicks = [];
         /* ★ 作答流程真正讀的是這兩個（activeKahoot 只拿來顯示標題）。
            原本宣告在「作答流程」那一節裡，離單字測驗（那時候叫「單字擂台」）
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
@@ -6834,6 +6905,26 @@
         })();
 
         /* ==========================================================
+         * 5.1c 手勢共用：畫面上是不是有東西蓋著
+         *
+         * 下拉刷新（5.2）與左右滑動切換大分頁（5.3）都要先問同一件事：
+         * 「現在螢幕上有沒有彈窗、或開站動畫還沒走完？」有的話整個手勢都不算數。
+         * 彈窗是 `fixed inset-0 overflow-y-auto`——它自己捲自己，底下的頁面
+         * 完全沒動，`window.scrollY` 從頭到尾是 0。不擋的話在彈窗裡滑一下，
+         * App 會自己重載或自己跳分頁，而使用者看到的是「它自己跳掉了」。
+         *
+         * ★ 只留一份是必要的，不是整潔。兩個手勢各留一份的話，哪天多一種遮罩
+         * 只補了其中一份——漏掉的那一個不會報錯，只會在某一種情況下誤觸，
+         * 而且重現不了。
+         * ========================================================== */
+        function screenCovered(){
+            const sp = $('splash');
+            if (sp && !sp.classList.contains('done')) return true;
+            return [...document.querySelectorAll('.fixed.inset-0')]
+                .some(m => m.getClientRects().length > 0);
+        }
+
+        /* ==========================================================
          * 5.2 下拉刷新（只在觸控裝置）
          *
          * 為什麼要自己做一個：這個站可以「加到主畫面」，裝起來之後是獨立
@@ -6860,13 +6951,10 @@
                  1. 彈窗是 `fixed inset-0 overflow-y-auto`——它自己捲自己，
                     window.scrollY 從頭到尾都是 0。不擋的話在彈窗裡往下滑
                     就會刷新，而使用者看到的是「App 自己跳掉了」。
-                 2. 重載會清掉填到一半的表單，還有作答中的測驗。 */
-            const covered = () => {
-                const sp = $('splash');
-                if (sp && !sp.classList.contains('done')) return true;
-                return [...document.querySelectorAll('.fixed.inset-0')]
-                    .some(m => m.getClientRects().length > 0);
-            };
+                 2. 重載會清掉填到一半的表單，還有作答中的測驗。
+               ★ 判斷本身搬去上面那一段共用了（screenCovered）：左右滑動要問同一件事，
+                 兩邊各留一份的話，哪天多一種遮罩只會補到其中一份。 */
+            const covered = () => screenCovered();
 
             /* 手指底下如果是「自己還沒捲到頂」的容器（單字卡、長列表、
                程式碼框），那一下是它的捲動，不是下拉刷新。 */
@@ -6947,6 +7035,123 @@
         })();
 
         /* ==========================================================
+         * 5.3 左右滑動切換大分頁（只在觸控裝置）
+         *
+         * 分頁列在手機上是四、五顆擠在一行的小鈕，換一頁都要先瞄準其中一顆；
+         * 而在手機上「換一頁」最自然的動作是把頁面往旁邊撥。這一段就是把那個
+         * 動作接到本來就有的 `switchTab` 上——**不是另一套切換邏輯**，
+         * 所以轉場、延遲訂閱、記住上次停在哪個子分頁，全部照舊。
+         *
+         * ★ 三件刻意的事：
+         *   1. **不另外做動效。** 轉場仍然是 M1 那一套瀏覽器原生的 cross-fade。
+         *      為了滑動再寫一組「跟著手指走」的位移，等於在整站唯一的轉場旁邊
+         *      多養一套，而那一套只有手機看得到、只有這一個手勢會用到。
+         *   2. **不繞回去。** 停在第一個分頁往右滑不會跳到最後一個。
+         *      繞回去省下的是一次點擊，代價是使用者不知道自己滑到哪裡了。
+         *   3. **只認分頁列上的大分頁。** 設定、關於、帳號權限管理不在分頁列上
+         *      （理由見 `buildLogoMenu`），在那幾頁滑動一律不動作——
+         *      它們沒有「左邊是哪一頁」這個問題。
+         *
+         * ⚠️ 這個手勢最容易壞的地方是**不該觸發的時候觸發了**，症狀一律是
+         * 「頁面自己跳走了」：沒有錯誤訊息、沒有堆疊、重現不了。所以擋掉的情況
+         * 比會觸發的情況多得多，而且每一條都在 `tests/swipe.mjs` 裡真的跑過一次。
+         * ========================================================== */
+        (() => {
+            /* 只給觸控裝置。桌面沒有人用滑鼠「撥頁」，而拖選文字會誤觸。 */
+            if (!matchMedia('(hover: none) and (pointer: coarse)').matches) return;
+
+            const DIST  = 64;   // 至少要滑這麼遠才算數
+            const SLOP  = 10;   // 這段距離內還看不出方向，先不表態
+            const RATIO = 1.5;  // 橫向要比縱向多這麼多倍。只要求「多一點」的話，
+                                // 斜著捲長清單會被當成換頁
+            const TIME  = 700;  // 太慢的不算：那是一邊看一邊拖，不是撥頁
+
+            let x0 = 0, y0 = 0, t0 = 0, live = false, decided = false, side = false;
+
+            /* 手指底下如果是「自己會左右捲」的東西（子分頁列、課表、程式碼框、
+               橫向的卡片列），那一下是它的捲動，不是換頁。
+               ★ 只看 `scrollWidth` 不夠：沒有設 overflow 的區塊也可能
+               scrollWidth 比 clientWidth 大（裡面有絕對定位的東西），
+               照那樣判斷會變成「某幾頁滑不動」，而畫面上什麼都不會說。 */
+            const sideScroller = (node) => {
+                for (let n = node; n && n !== document.body; n = n.parentElement) {
+                    if (n.nodeType !== 1 || !(n.scrollWidth > n.clientWidth + 2)) continue;
+                    const ox = getComputedStyle(n).overflowX;
+                    if (ox === 'auto' || ox === 'scroll') return true;
+                }
+                return false;
+            };
+
+            /* 打字、拉滑桿、在輸入框裡選字都是橫向動作，但都不是換頁。 */
+            const editing = (node) =>
+                !!(node && node.closest &&
+                   node.closest('input, textarea, select, canvas, [contenteditable="true"]'));
+
+            /* 現在停在哪一個大分頁。★ 問畫面，不自己另外記一份：
+               分頁還可以從 logo 選單、任務的「去這裡」、程式裡切換，
+               自己記的那一份只要漏接一條路就會跟畫面對不上，
+               而症狀是「滑一下跳回剛剛那一頁」。 */
+            const here = () => {
+                const btn = document.querySelector('.tab-btn.is-active');
+                return btn ? btn.dataset.tab : null;
+            };
+
+            addEventListener('touchstart', (e) => {
+                live = false;
+                /* 兩指以上是縮放，不是撥頁。 */
+                if (e.touches.length !== 1) return;
+                if (screenCovered() || editing(e.target) || sideScroller(e.target)) return;
+                x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+                t0 = Date.now();
+                live = true; decided = false; side = false;
+            }, { passive: true });
+
+            addEventListener('touchmove', (e) => {
+                if (!live) return;
+                if (e.touches.length !== 1) { live = false; return; }
+                const dx = e.touches[0].clientX - x0;
+                const dy = e.touches[0].clientY - y0;
+                if (!decided) {
+                    if (Math.abs(dx) < SLOP && Math.abs(dy) < SLOP) return;
+                    decided = true;
+                    /* ★ 方向只判這一次。每次 move 都重判的話，一路往下捲的長清單
+                       只要中途手指歪一下就會被認成換頁——而那是「偶爾」發生的，
+                       所以最難查。 */
+                    side = Math.abs(dx) > Math.abs(dy) * RATIO;
+                    if (!side) live = false;
+                    return;
+                }
+                /* 長按拖曳計劃卡已經開始了（殘影在畫面上），那一下歸它。 */
+                if (document.querySelector('.plan-drag-ghost')) live = false;
+            }, { passive: true });
+            /* ★ 這三支都是 passive:true，**不擋預設行為**。橫向手勢本來就不需要
+               攔截，擋了只會讓真的要左右捲的地方「偶爾捲不動」——偶爾，
+               所以跟下拉刷新那一輪踩到的是同一種坑。 */
+
+            addEventListener('touchend', (e) => {
+                if (!live) return;
+                live = false;
+                if (!side) return;
+                const t = e.changedTouches && e.changedTouches[0];
+                if (!t) return;
+                const dx = t.clientX - x0, dy = t.clientY - y0;
+                if (Math.abs(dx) < DIST) return;
+                if (Math.abs(dx) < Math.abs(dy) * RATIO) return;
+                if (Date.now() - t0 > TIME) return;
+                /* 手勢進行到一半才跳出來的彈窗也要擋（例如中途被提醒蓋住）。 */
+                if (screenCovered()) return;
+                const tabs = TABS.map(([k]) => k);
+                const i = tabs.indexOf(here());
+                if (i < 0) return;                      // 設定／關於／帳號權限管理
+                const j = i + (dx < 0 ? 1 : -1);        // 往左撥＝去右邊那一頁
+                if (j < 0 || j >= tabs.length) return;  // 到頭了就停住，不繞回去
+                switchTab(tabs[j]);
+            }, { passive: true });
+
+            addEventListener('touchcancel', () => { live = false; }, { passive: true });
+        })();
+
+        /* ==========================================================
          * 5.5 更新紀錄（關於小黑貓頁）
          *
          * 發布前只要在 CHANGELOG 陣列「最前面」插入一筆就好：
@@ -6962,6 +7167,18 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-21',
+                title: '手機上用滑的就能換分頁',
+                items: [
+                    ['在手機上左右滑一下，就會換到隔壁的分頁', '主頁、計劃、學習、英文、理財之間，往左滑去右邊那一頁、往右滑回左邊那一頁，不用再瞄準上面那排小按鈕。滑到第一頁或最後一頁就會停住，不會繞回去。'],
+                    ['只有真的在「撥頁」才會換', '上下捲動、在可以左右拉的表格上滑、打字的時候、彈出視窗開著的時候，都不會被誤認成換頁。'],
+                    ['「學習」裡的順序換了：測驗排到最前面', '順序變成測驗、自學課程、解題。天天會用的排前面，找起來少按一次。'],
+                    ['「解題」標上了 beta', '那個功能還在試做階段，標出來比較不會讓人以為它已經完成了。'],
+                    ['彰師電子小黑貓的「測驗」分頁收起來了', '原本那一批公開測驗不再提供。想做題的話到小黑貓的「學習 → 測驗」，那裡有站上內建的題庫，也可以自己出題給自己練，出的題只有你看得到。'],
+                    ['左上角的選單，現在會把你所在的那個站框起來', '原本是在說明後面寫「（目前所在）」五個字，改成直接框起來，掃一眼就知道自己在哪裡。'],
+                ]
+            },
             {
                 date: '2026-09-18',
                 title: '數學題的算式會排出來了，不再是一行看不懂的符號',
@@ -7534,19 +7751,13 @@
             if ($('siteNameEn')) $('siteNameEn').textContent = meta.en;
             document.title = meta.title;
 
-            /* 測驗頁有幾種來源由產品決定：兩種以上長成分頁列，只有一種就退回
-               一行說明——不然使用者會以為「我出的測驗不見了」。
-               ★ 分頁列在這裡建一次就好：它的內容不隨登入狀態變（誰能不能建是
-                 updateKahootScopeUI 在管的），跟著重畫只是白費工。 */
-            const kahootTabs = $('kahootScopeTabs'), kahootNote = $('kahootScopeNote');
-            if (kahootTabs && kahootNote) {
-                const manyScopes = KAHOOT_SCOPES.length > 1;
-                kahootTabs.innerHTML = !manyScopes ?'' : KAHOOT_SCOPES.map(s => `
+            /* 測驗的來源分頁列。★ 在這裡建一次就好：它的內容不隨登入狀態變
+               （誰能不能建是 updateKahootScopeUI 在管的），跟著重畫只是白費工。 */
+            const kahootTabs = $('kahootScopeTabs');
+            if (kahootTabs) {
+                kahootTabs.innerHTML = KAHOOT_SCOPES.map(s => `
                     <button data-action="set-kahoot-scope" data-scope="${s}" class="kahoot-scope-opt shrink-0 px-5 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="${KAHOOT_SCOPE_META[s].icon}" class="w-3.5 h-3.5 pointer-events-none"></i> ${KAHOOT_SCOPE_META[s].label}</button>
                 `).join('');
-                kahootTabs.classList.toggle('hidden', !manyScopes);
-                kahootNote.classList.toggle('hidden', manyScopes);
-                if (!manyScopes) kahootNote.textContent ='🌐 公有測驗（巫醫以上維護）';
             }
 
             $('newsTabs').innerHTML = NEWS_CATEGORIES.map((cat, i) => `
@@ -7581,7 +7792,7 @@
                （課堂上用手機記一段是最常見的情境，而拉線不是）。 */
             const items = [
                 ['cat',  '小黑貓',         './',                 '主頁、學習、理財'],
-                ['ncue', '彰師電子小黑貓', 'ncue.html',          '課程評價、教材、測驗'],
+                ['ncue', '彰師電子小黑貓', 'ncue.html',          '課程評價、教材、消息'],
                 ['md',   '筆記小黑貓',     'blackcatmd.html',    'Markdown ＋ 數學公式'],
                 ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開', true]
             ];
@@ -7601,8 +7812,10 @@
             if (!el) return;
             el.innerHTML = items.map(([k, name, href, sub, deskOnly]) => k === PRODUCT
                 /* 目前這一個不做成連結——點了跳回自己很莫名，
-                   而且使用者需要看得出自己在哪一個產品裡 */
-                ? `<span class="logo-menu-item is-here${BETA.has(k) ?' has-beta' :''}" role="menuitem" aria-current="page">${name}${betaTag(k)}<small>${sub}（目前所在）</small></span>`
+                   而且使用者需要看得出自己在哪一個產品裡。
+                   ★ 「在哪裡」2026-09-21 起是**框**（見 .logo-menu-item.is-here），
+                     不再是說明後面那五個字。aria-current 留著，那是講給讀螢幕的人聽的。 */
+                ? `<span class="logo-menu-item is-here${BETA.has(k) ?' has-beta' :''}" role="menuitem" aria-current="page">${name}${betaTag(k)}<small>${sub}</small></span>`
                 : `<a class="logo-menu-item${deskOnly ?' desktop-only' :''}${BETA.has(k) ?' has-beta' :''}" href="${href}" role="menuitem">${name}${betaTag(k)}<small>${sub}</small></a>`
             ).join('') +
                 /* ★ 帳號權限管理跟「關於」是同一類：**不佔分頁列的位置**。
@@ -11393,7 +11606,9 @@
 'timer':     { label:'讀書計時', icon:'timer'          },
 'countdown': { label:'倒數',     icon:'hourglass'      },
 'course':    { label:'自學課程', icon:'book-open'  },
-'solve':     { label:'解題',     icon:'scan-search'},
+/* ★ beta 寫成資料不是寫在樣板裡判斷 s === 'solve'：下一個進 beta 的子分頁
+   只要在這裡多一個欄位，不必回去改 renderStudySubNav。 */
+'solve':     { label:'解題',     icon:'scan-search', beta: true },
 'cloze':     { label:'背單字',   icon:'pencil-line'},
 'vocab':     { label:'單字庫',   icon:'library'    },
 'kahoot':    { label:'測驗',     icon:'gamepad-2'  }
@@ -11401,9 +11616,12 @@
         const TAB_SUBS = {
 'home':       ['schedule','missions','countdown'], // 主頁＝課表＋任務＋倒數（任務 2026-08-20 從「壓在計劃上面」搬進來）
 'plan':       ['plan','timer'],          // 計劃＋讀書計時（★ 計時器整站只能有一個，就是這一個）
-'self-study': ['course','solve','kahoot'], // 學習＝自學課程＋解題＋（自己出的）測驗
-'english':    ['vocab','cloze'],         // 英文＝單字庫＋克漏字（單字庫在前：先有字才練克漏字）
-'quiz':       ['kahoot']                 // 彰師電子的測驗（只有公有的）
+            /* ★ 2026-09-21 改成「測驗 → 自學課程 → 解題」。判準換成**每天會按的排前面**：
+               測驗是天天開的，自學課程是有空才看的，解題是卡住才用的一種工具。
+               原本的順序（自學課程 → 解題 → 測驗）照的是「看教材 → 卡住問 → 去考」
+               那條動線，但那是一次性的路徑，不是每天的動線。 */
+'self-study': ['kahoot','course','solve'], // 學習＝測驗＋自學課程＋解題（beta）
+'english':    ['vocab','cloze']          // 英文＝單字庫＋克漏字（單字庫在前：先有字才練克漏字）
         };
         /* ★ 英文分頁沒有自己的 page-section。
            克漏字住在 #page-self-study、單字庫住在 #page-quiz。
@@ -11421,7 +11639,10 @@
            `tests/tabs.mjs` 有一條在釘這件事，改一邊忘了改另一邊會紅。 */
         const TAB_PAGE = { 'english': 'page-quiz', 'plan': 'page-home' };
 
-        let studySub ='course';
+        /* ★ 第一次進「學習」會停在這一個。跟著 TAB_SUBS['self-study'][0] 走，
+           不是隨便挑——分頁列最左邊亮著的那一顆與看到的內容要是同一個，
+           不然使用者會以為自己按錯了。（英文分頁那邊記的是同一件事。） */
+        let studySub ='kahoot';
         // 舊變數保留別名，避免其他地方引用時出錯
         let quizSub ='kahoot';
 
@@ -11432,7 +11653,7 @@
         function renderStudySubNav(tab){
             const subs = TAB_SUBS[tab] || [];
             const html = subs.length < 2 ?'' : subs.map(s => `
-                <button data-action="set-study-sub" data-sub="${s}" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="${SUB_META[s].icon}" class="w-4 h-4 pointer-events-none"></i> ${SUB_META[s].label}</button>
+                <button data-action="set-study-sub" data-sub="${s}" class="study-sub-opt shrink-0 px-5 py-2.5 rounded-2xl text-sm font-black transition-all flex items-center gap-2"><i data-lucide="${SUB_META[s].icon}" class="w-4 h-4 pointer-events-none"></i> ${SUB_META[s].label}${SUB_META[s].beta ?'<span class="sub-beta pointer-events-none">beta</span>' :''}</button>
             `).join('');
             document.querySelectorAll('.study-sub-row').forEach(el => {
                 el.innerHTML = html;
@@ -14715,7 +14936,9 @@
         /* 計分欄的字。快刷輪不記分（那一輪保證最後全對），所以改成顯示第幾輪——
            留著「分數 0」的話，使用者會以為剛才那一場的分數被清掉了。 */
         function kahootScoreText() {
-            return srsDrill && srsDrill.round > 1 ? `快刷 第 ${srsDrill.round} 輪` : `分數 ${currentScore}`;
+            /* ⚠️ 一律過 fmtScore()：多選的部分給分會讓分數出現小數，
+               直接印會是 0.30000000000000004（浮點數的老問題，不是分數算錯）。 */
+            return srsDrill && srsDrill.round > 1 ? `快刷 第 ${srsDrill.round} 輪` : `分數 ${fmtScore(currentScore)}`;
         }
         /* ---- 每日測驗：結束 ---- */
 
@@ -14723,50 +14946,47 @@
          * 15. 挑戰擂台 (Kahoot)
          * ========================================================== */
         /* ==========================================================
-         * 測驗：公有 / 我的
+         * 測驗：內建題庫 / 我的
          * 「我的」存在 users/{uid}/kahoots，只有本人讀得到。
          * ========================================================== */
-        /* ★ 測驗對半拆（2026-08-08）：
-           公有測驗歸彰師電子、私有測驗歸小黑貓，所以「看哪一種」不再是
-           使用者按的開關，而是**由產品決定**——原本那排「公有／我的」拿掉了。
-
-           為什麼不留著讓使用者自己切：留著的話兩個產品都看得到兩種，
-           等於這件事沒做。而且那排按鈕的存在會讓「彰師電子的公有測驗」
-           跟「自己出的練習題」看起來是同一件東西的兩個分頁，
-           但它們的權限、來源、讀得到的人完全不同。
-
-           ★ 規則一行都不用改：`kahoots`（公有）本來就看貓族階級，
-           `users/{uid}/kahoots`（私有）本來就只有本人讀得到。改的是介面歸屬。 */
-        /* ★ 小黑貓這一頁分成「內建題庫」與「我的測驗」兩個分頁（2026-09-15）。
+        /* ★ 這一頁分成「內建題庫」與「我的測驗」兩個分頁（2026-09-15）。
            原本是把兩種混在同一個清單裡、靠 `_builtin` 徽章分辨。改成分頁的理由：
            它們的來源、能不能改、看得到的人完全不同，混在一起等於要使用者
            每張卡片讀一次徽章才知道自己在看什麼。
-           ⚠️ 這裡**還是沒有動「測驗對半拆」那個決定**：公有測驗（使用者出的題）
-           仍然只在彰師電子。內建題庫是第三種東西，而且現在連 Firestore 都不碰。 */
-        const KAHOOT_SCOPES = PRODUCT ==='cat' ? ['builtin','mine'] : ['public'];
+
+           ★★ 一度有第三種「公有測驗」（巫醫以上出的題，只在彰師電子），
+           2026-09-21 整個退場了。那個決定當初的推論要留著，因為它解釋的是
+           **為什麼不要把三種混成一排讓使用者自己切**：三種的權限、來源、
+           讀得到的人完全不同，混成一排之後使用者按下去才知道自己沒有權限，
+           而畫面上不會說原因。現在剩兩種，這條判準一樣適用——
+           要再加第三種來源之前先回答「它跟這兩種差在哪」。 */
+        /* ⚠️ 2026-09-21：**公有測驗整個退場了**（原本是彰師電子那邊、巫醫以上出的
+           那一批）。所以這裡不再依產品分岔——兩個產品剩下的都是同樣這兩種。
+           ★ 為什麼是「退場」不是「搬到小黑貓」：公有測驗是彰師電子的東西，
+             搬過去等於把一個學校的內容塞進通用產品；而它原本的入口
+             （彰師電子的測驗分頁）已經不在了。
+           ⚠️ Firestore 裡那批舊文件還在，只是站上沒有任何畫面讀得到它。
+             規則那邊的 kahoots 一段也一起收了（見 firestore.rules 同日那一段）。 */
+        const KAHOOT_SCOPES = ['builtin','mine'];
         const KAHOOT_SCOPE = KAHOOT_SCOPES[0];
-        let kahootScope = KAHOOT_SCOPE;   //'builtin'|'mine'（小黑貓）|'public'（彰師電子）
+        let kahootScope = KAHOOT_SCOPE;   //'builtin'（站上內建）|'mine'（自己出的）
         const KAHOOT_SCOPE_META = {
             builtin: { label:'內建題庫', icon:'school', empty:'內建題庫還沒有內容。' },
-            mine:    { label:'我的測驗', icon:'lock',   empty:'你還沒有自己的測驗，按上方「建立測驗」開始吧' },
-            public:  { label:'公有測驗', icon:'globe',  empty:'目前沒有相關測驗。' }
+            mine:    { label:'我的測驗', icon:'lock',   empty:'你還沒有自己的測驗，按上方「建立測驗」開始吧' }
         };
         /* 內建那一份每次都重新包一層 `_builtin`：卡片靠它決定不要長出編輯／
            刪除鈕。那不是使用者的文件，按下去只會失敗，而畫面上看不出原因。 */
         const kahootsOf = (scope) => scope ==='builtin' ? state.builtinQuizzes.map(k => ({ ...k, _builtin: true }))
-            : scope ==='mine' ? state.myKahoots : state.kahoots;
+            : state.myKahoots;
         /* 內建題庫沒有 Firestore 路徑——它是檔案。這裡回 null 是刻意的：
            讓任何想拿它去寫入的程式當場壞掉，而不是安靜地寫到別的集合去。 */
-        const kahootPath = (scope) => scope ==='builtin' ? null
-            : scope ==='mine' ? PU('kahoots') : PATHS.kahoots;
-        /* 三種「能不能出題」走各自的階梯：
-             內建（小黑貓）  — 誰都不能改。要改是改 public/data/quiz/ 的檔案再發布，
-                               跟內建單字庫完全一樣（見 canEditVocab）。
-             公有（彰師電子）— 貓族階級巫醫(4)以上
-             私有（小黑貓）  — 登入就好。那是你自己出給自己的練習題，
-                               不該再設門檻（isSignedInMember 等同 tier ≥ 1）。 */
-        const canEditKahoot = (scope) => scope ==='builtin' ? false
-            : scope ==='mine' ? isSignedInMember() : currentUserLevel >= 4;
+        const kahootPath = (scope) => scope ==='builtin' ? null : PU('kahoots');
+        /* 兩種「能不能出題」走各自的階梯：
+             內建 — 誰都不能改。要改是改 public/data/quiz/ 的檔案再發布，
+                    跟內建單字庫完全一樣（見 canEditVocab）。
+             我的 — 登入就好。那是你自己出給自己的練習題，
+                    不該再設門檻（isSignedInMember 等同 tier ≥ 1）。 */
+        const canEditKahoot = (scope) => scope ==='builtin' ? false : isSignedInMember();
 
         function updateShuffleToggleUI() {
             const btn = $('shuffleToggleBtn'), lbl = $('shuffleToggleLabel');
@@ -14863,13 +15083,16 @@
                     <div class="flex items-start gap-3 mb-3">
                         <span class="quiz-qnum shrink-0">${i + 1}</span>
                         <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${mathHTML(q.q ||'')}</p>
+                        ${/* ⚠️ 多選題一定要標出來：底下會有兩三個選項亮綠，
+                             沒有這個標籤的話看起來像「這一題有好幾個正解」的資料錯誤。 */
+                          isMultiQ(q) ?'<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">多選</span>' :''}
                     </div>
                     ${/* 題目本身的圖。★ 畫在選項上面：它是題幹的一部分，
                          畫在選項下面的話會看起來像在解釋答案。 */
                       questionImgHTML(q)}
                     <div class="flex flex-col gap-1.5 mb-3">
                         ${(q.options ||[]).map((opt, oi) => {
-                            const right = oi === q.correctIdx;
+                            const right = correctSetOf(q).has(oi);
                             return `<div class="flex items-start gap-2 px-3 py-2 rounded-xl text-sm break-words ${right ?'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' :'bg-slate-50 text-slate-600'}">
                                 <span class="shrink-0 font-black">${KAHOOT_LETTERS[oi] || (oi + 1)}</span>
                                 <span class="flex-1 min-w-0 whitespace-pre-wrap">${mathHTML(opt)}</span>
@@ -15688,11 +15911,6 @@
                 icons();
                 return;
             }
-            if (kahootScope ==='public' && currentUserLevel < 2) {
-                list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100"><i data-lucide="lock" class="w-6 h-6 mx-auto mb-2 text-emerald-300"></i> 升級為【戰士】後即可解鎖公有測驗！<br><span class="text-xs">想自己出題的話，到「${PRODUCT_META.cat.name}」的「學習 → 測驗」，那裡誰都能建，而且只有你看得到</span></div>`;
-                icons();
-                return;
-            }
             if (kahootScope ==='mine' && !isSignedInMember()) {
                 list.innerHTML = `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">登入後就能建立自己的測驗<br><span class="text-xs">只有你看得到，管理員也讀不到</span></div>`;
                 icons();
@@ -15758,8 +15976,12 @@
             btn.textContent ="將此題加入測驗";
             btn.className ="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm";
             setVals({ qText:'', opt0:'', opt1:'', opt2:'', opt3:'' });
-            const checked = document.querySelector('input[name="correctOpt"]:checked');
-            if (checked) checked.checked = false;
+            /* ⚠️ 多選模式可能勾了好幾個，只清第一個的話下一題會帶著上一題的勾進來，
+               而表單看起來是空的（題目與選項都清掉了）。applyDraftMultiMode() 會
+               一次清乾淨，順便把 type 切回 radio。 */
+            const multiToggle = $('draftMultiToggle');
+            if (multiToggle) multiToggle.checked = false;
+            applyDraftMultiMode();
             const title = $('draftFormTitle'), cancel = $('cancelEditQBtn');
             if (title) title.innerHTML ='<i data-lucide="plus-circle" class="w-4 h-4"></i> 新增一題';
             if (cancel) cancel.classList.add('hidden');
@@ -15779,7 +16001,7 @@
 
         function openKahootModal(kahootId = null) {
             if (!canEditKahoot(kahootScope)) {
-                return showToast(kahootScope ==='mine' ?"登入後才能建立自己的測驗" :"公有測驗要巫醫以上才能建立");
+                return showToast("登入後才能建立自己的測驗");
             }
             const kahoot = kahootId ? kahootsOf(kahootScope).find(k => k.id === kahootId) : null;
             setVals({ editKahootId: kahoot ? kahoot.id :'', kahootTitle: kahoot ? kahoot.title :'' });
@@ -15788,6 +16010,25 @@
             resetKahootQuestionForm();
             renderDraftQuestions();
             openModal('createKahootModal');
+        }
+
+        /* 出題表單的「多選題」開關（2026-09-18）。
+           正解那一欄原本是四顆單選圓鈕（`name="correctOpt"` 的 radio），多選要勾好幾個，
+           所以**直接把 input 的 type 換成 checkbox**，不另外做一排。
+           ★ 為什麼不做兩排藏一排：那樣就有兩份「哪幾個是正解」的狀態，而使用者
+             看不到被藏起來那一排勾了什麼——改一排、忘了另一排，存進去的會是舊的那份。
+           ⚠️ 切換時一定要清掉已經勾的：從多選切回單選留下兩個勾的話，
+             單選只收得下一個，而收下的是哪一個沒有人說得準。 */
+        function applyDraftMultiMode() {
+            const multi = !!($('draftMultiToggle') || {}).checked;
+            document.querySelectorAll('input[name="correctOpt"]').forEach(r => {
+                r.checked = false;
+                r.type = multi ?'checkbox' :'radio';
+            });
+            const hint = $('draftCorrectHint');
+            if (hint) hint.textContent = multi
+                ?'多選題：把所有正解都勾起來（至少兩個）。計分照大考中心——每答錯一個選項扣一格，最低零分。'
+                :'選項填 2～4 個即可，留空的會自動略過（可以做是非題或三選一）。點左邊圓圈選出正解。';
         }
 
         function renderDraftQuestions() {
@@ -15801,7 +16042,8 @@
             list.innerHTML = draftQuestions.map((item, idx) => `
                 <div class="p-3 bg-white rounded-xl shadow-sm ${editingDraftQIndex === idx ?'ring-2 ring-blue-400' :''}">
                     <div class="flex justify-between items-start gap-2 mb-1.5">
-                        <span class="font-black text-slate-800 text-sm break-words min-w-0">Q${idx + 1}. ${escapeHTML(item.q)}</span>
+                        <span class="font-black text-slate-800 text-sm break-words min-w-0">Q${idx + 1}. ${escapeHTML(item.q)}${
+                            isMultiQ(item) ?'<span class="ml-1 align-middle text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">多選</span>' :''}</span>
                         <div class="flex shrink-0 items-center gap-1">
                             <button data-action="move-draft-q" data-index="${idx}" data-dir="up" ${idx === 0 ?'disabled' :''} class="p-1 ${idx === 0 ?'text-slate-200' :'text-slate-400 hover:text-slate-700'}"><i data-lucide="chevron-up" class="w-4 h-4 pointer-events-none"></i></button>
                             <button data-action="move-draft-q" data-index="${idx}" data-dir="down" ${idx === draftQuestions.length - 1 ?'disabled' :''} class="p-1 ${idx === draftQuestions.length - 1 ?'text-slate-200' :'text-slate-400 hover:text-slate-700'}"><i data-lucide="chevron-down" class="w-4 h-4 pointer-events-none"></i></button>
@@ -15811,7 +16053,7 @@
                     </div>
                     <div class="flex flex-wrap gap-1.5">
                         ${(item.options || []).map((o, oi) => `
-                            <span class="text-[11px] px-2 py-0.5 rounded-lg font-bold ${oi === item.correctIdx ?'bg-emerald-100 text-emerald-700' :'bg-slate-100 text-slate-500'}">${oi === item.correctIdx ?'✓' :''}${escapeHTML(o)}</span>
+                            <span class="text-[11px] px-2 py-0.5 rounded-lg font-bold ${correctSetOf(item).has(oi) ?'bg-emerald-100 text-emerald-700' :'bg-slate-100 text-slate-500'}">${correctSetOf(item).has(oi) ?'✓' :''}${escapeHTML(o)}</span>
                         `).join('')}
                     </div>
                 </div>
@@ -15824,9 +16066,16 @@
             // 選項可能只有 2～3 個，補空字串避免把上一題的殘留值留在欄位裡
             const o = [q.options[0] ||'', q.options[1] ||'', q.options[2] ||'', q.options[3] ||''];
             setVals({ qText: q.q, opt0: o[0], opt1: o[1], opt2: o[2], opt3: o[3] });
-            const radio = document.querySelector(`input[name="correctOpt"][value="${q.correctIdx}"]`);
-            document.querySelectorAll('input[name="correctOpt"]').forEach(r => { r.checked = false; });
-            if (radio) radio.checked = true;
+            /* ⚠️ 先切模式再勾，順序不能換：applyDraftMultiMode() 本來就會把勾的清掉
+               （那是它的工作），先勾的話剛填好的正解會被它清乾淨，而畫面上只是
+               「這一題編輯進來以後沒有正解」。 */
+            const toggle = $('draftMultiToggle');
+            if (toggle) toggle.checked = isMultiQ(q);
+            applyDraftMultiMode();
+            [...correctSetOf(q)].forEach(i => {
+                const box = document.querySelector(`input[name="correctOpt"][value="${i}"]`);
+                if (box) box.checked = true;
+            });
 
             editingDraftQIndex = idx;
             const btn = $('addDraftQuestionBtn');
@@ -15852,20 +16101,26 @@
             }
             const qText = getVal('qText');
             const rawOpts = [getVal('opt0'), getVal('opt1'), getVal('opt2'), getVal('opt3')];
-            const correctRadio = document.querySelector('input[name="correctOpt"]:checked');
+            const multi = !!($('draftMultiToggle') || {}).checked;
+            const chosen = [...document.querySelectorAll('input[name="correctOpt"]:checked')].map(r => parseInt(r.value));
 
             if (!isValidText(qText, 200)) return showToast("題目內容長度不符！(最多200字)");
             // 選項 2～4 個即可：留空的略過，這樣是非題、三選一都做得出來
             const filled = rawOpts.map((o, i) => ({ text: (o ||'').trim(), i })).filter(o => o.text);
             if (filled.length < 2) return showToast("至少要填 2 個選項喔！");
             if (filled.some(o => o.text.length > 100)) return showToast("每個選項最多 100 字喔！");
-            if (!correctRadio) return showToast("請選擇一個正確答案！");
+            if (!chosen.length) return showToast(multi ?"請把正解都勾起來！" :"請選擇一個正確答案！");
+            if (multi && chosen.length < 2) return showToast("多選題至少要勾兩個正解；只有一個的話把「多選題」關掉就好");
 
-            const chosen = parseInt(correctRadio.value);
-            const newIdx = filled.findIndex(o => o.i === chosen);
-            if (newIdx === -1) return showToast("正解那一格是空的，請填內容或改選其他選項！");
+            /* 留空的選項會被擠掉，所以正解的位置要換算成「擠掉之後的位置」。
+               ⚠️ 換算不到代表那一格是空的。**不能默默跳過**：跳過的話那一題會少一個
+                 正解，存下去之後完全看不出來，只有作答的人會覺得自己明明全勾對了。 */
+            const idxs = chosen.map(c => filled.findIndex(o => o.i === c)).sort((a, b) => a - b);
+            if (idxs.some(v => v === -1)) return showToast("正解那一格是空的，請填內容或改勾其他選項！");
 
-            const payload = { q: qText, options: filled.map(o => o.text), correctIdx: newIdx };
+            const payload = multi
+                ? { q: qText, options: filled.map(o => o.text), correctIdxs: idxs }
+                : { q: qText, options: filled.map(o => o.text), correctIdx: idxs[0] };
             if (editingDraftQIndex !== null) {
                 draftQuestions[editingDraftQIndex] = payload;
                 showToast("題目更新成功");
@@ -15901,7 +16156,7 @@
                     showToast("測驗更新成功");
                 } else {
                     await setDoc(doc(collection(db, p)), { ...payload, createdAt: Date.now() });
-                    showToast(kahootScope ==='mine' ?"建立成功，只有你看得到 🔒" :"測驗建立成功，大家可以開始挑戰了");
+                    showToast("建立成功，只有你看得到 🔒");
                 }
                 closeModal('createKahootModal');
             } catch { showToast("儲存失敗…"); }
@@ -15915,6 +16170,68 @@
          * 結束後還會把錯題連同正解一起列出來。
          * ========================================================== */
         /* playQuestions／playAnswers 宣告在狀態區（見「2. 應用程式狀態」） */
+
+        /* ==========================================================
+         * 多選題（2026-09-18）
+         *
+         * 站上原本只有單選：點下去就是交卷。多選題進來之後一題可能有兩個以上的
+         * 正解，所以作答變成「勾完再送出」，而且**不是全對才給分**。
+         *
+         * ★ 計分照大考中心多選題的算法：n 個選項**各自**判斷該不該選，
+         *   答錯 k 個（該選沒選、不該選卻選了，兩種都算一個錯）得該題的
+         *   (n − 2k) / n，最低 0 分。五個選項就是 1 → 0.6 → 0.2 → 0。
+         * ★ 題目可以自己帶一張 `ratios` 蓋過這條公式（歷屆試題的給分表就寫在
+         *   來源資料裡），沒帶就用公式。兩種寫法都由 tools/quizdata.mjs 的
+         *   checkAnswer() 擋過一次。
+         * ⚠️⚠️ 「答對」在這個站上一直是二元的（分數、錯題清單、詳解要不要攤開
+         *   全看它），所以這裡訂的是**拿不到滿分就算答錯**：部分分數照給，但那一題
+         *   會停下來攤開詳解、會進錯題清單。少了這條，三個正解裡勾中兩個會被
+         *   當成答對，而使用者根本不知道自己漏了一個。
+         * ========================================================== */
+        /* ⚠️⚠️ 欄位叫 `correctIdxs` 不叫 `correct`，而且不能改回去：作答紀錄那一筆是
+           `{ ...qData, correct: 這題有沒有拿滿分 }`——欄位同名的話，布林值會蓋掉題目
+           自己的正解陣列，於是錯題清單裡每一題都變回單選的版面。**畫面正常、不報錯。** */
+        /* ---- 多選題：核心（純函式，測試會整段抽出去跑）---- */
+        function isMultiQ(q) { return !!q && Array.isArray(q.correctIdxs); }
+        function correctSetOf(q) { return new Set(isMultiQ(q) ? q.correctIdxs : [q ? q.correctIdx : -1]); }
+        function quizRatio(q, picks) {
+            const n = ((q && q.options) || []).length;
+            const want = correctSetOf(q);
+            if (!isMultiQ(q)) return picks.length === 1 && want.has(picks[0]) ? 1 : 0;
+            if (!picks.length) return 0;      // 一個都沒勾＝未作答，大考也是零分
+            let k = 0;
+            for (let i = 0; i < n; i++) if (want.has(i) !== picks.includes(i)) k++;
+            const r = Array.isArray(q.ratios) ? (q.ratios[k] ?? 0) : (n - 2 * k) / n;
+            return Math.max(0, Math.min(1, r));
+        }
+        /* 分數從整數變成可能有小數。⚠️ 直接印的話會出現 0.30000000000000004，
+           而那是二進位浮點數的老問題，不是分數算錯。
+           ★ 一位小數就夠：最小的一格是 1/6 ≈ 0.17，再細下去讀的人也分不出來。 */
+        const fmtScore = (v) => String(Math.round(v * 10) / 10);
+        /* ---- 多選題：核心結束 ---- */
+
+        /* 送出鈕：一個都沒勾就按不下去（那等於交白卷，而多數人只是還沒勾完）。
+           ★ 用 disabled 而不是把鈕藏起來——鈕消失的話，畫面上就沒有東西在說
+             「這一題要自己送出」，使用者會一直等它自己跳下一題。 */
+        function updateKahootSubmit() {
+            const btn = $('kahootSubmitBtn');
+            if (!btn) return;
+            const on = kahootPicks.length > 0;
+            btn.disabled = !on;
+            btn.classList.toggle('opacity-40', !on);
+            $('kahootSubmitLabel').textContent = on ? `送出（勾了 ${kahootPicks.length} 個）` : '送出';
+        }
+
+        function toggleKahootPick(i) {
+            if (isKahootTransitioning) return;
+            const qData = playQuestions[currentQIndex];
+            if (!isMultiQ(qData) || !(i >= 0) || i >= (qData.options || []).length) return;
+            const at = kahootPicks.indexOf(i);
+            if (at >= 0) kahootPicks.splice(at, 1); else kahootPicks.push(i);
+            const btn = $(`playOpt${i}`);
+            if (btn) btn.classList.toggle('is-picked', at < 0);
+            updateKahootSubmit();
+        }
 
         async function startKahoot(kahootId) {
             /* ⚠️ 內建題庫的題目是按下去才抓的，索引裡只有題數。少了這一步，
@@ -15939,13 +16256,17 @@
             renderPlayQuestion();
         }
 
-        // 依題目實際選項數生成按鈕（2～4 個都支援）
+        // 依題目實際選項數生成按鈕（2～6 個都支援）
         function renderPlayOptions(qData) {
             const grid = $('kahootOptionsGrid');
             /* mathHTML() 取代 escapeHTML()：算式以外的每一個字照樣跳脫，
                算式的部分先放原文，下面 renderMath() 再換成排好的式子。 */
+            /* 多選題按下去只是「勾起來」，交卷是送出鈕的事，所以動作名稱不一樣。
+               ★ 兩種題型共用同一排按鈕是刻意的：換題型就換一套 DOM 的話，
+                 答完的配色、鍵盤選答、圖片那幾條規則都要各寫一次。 */
+            const act = isMultiQ(qData) ? 'toggle-kahoot-option' : 'submit-kahoot';
             grid.innerHTML = (qData.options || []).map((opt, i) => `
-                <button data-action="submit-kahoot" data-index="${i}" id="playOpt${i}" class="quiz-opt">
+                <button data-action="${act}" data-index="${i}" id="playOpt${i}" class="quiz-opt">
                     <span class="quiz-opt-letter pointer-events-none">${KAHOOT_LETTERS[i] || (i + 1)}</span>
                     <span class="quiz-opt-text pointer-events-none">${mathHTML(opt)}</span>
                 </button>`).join('');
@@ -15999,6 +16320,14 @@
                  只會唸出一串怪聲，而使用者不會知道是自己按錯。 */
             kahootSpeakText = kahootFeedsSrs() ? qData.q : '';
             $('kahootSpeakBtn').classList.toggle('hidden', !(SPEAK_OK && kahootSpeakText));
+            /* 多選題：清掉上一題勾的，打開「多選」徽章與送出鈕。
+               ⚠️ 單選題一定要把這兩塊收回去——留著的話，單選題下面會掛一顆
+                 按下去什麼都不會發生的送出鈕。 */
+            kahootPicks = [];
+            const multi = isMultiQ(qData);
+            $('kahootMultiTag').classList.toggle('hidden', !multi);
+            $('kahootSubmitWrap').classList.toggle('hidden', !multi);
+            updateKahootSubmit();
             renderPlayOptions(qData);
         }
 
@@ -16006,14 +16335,38 @@
             if (isKahootTransitioning) return;
             const qData = playQuestions[currentQIndex];
             if (!qData || selectedIdx >= (qData.options || []).length) return;
+            finishKahootQuestion([selectedIdx]);
+        }
+
+        /* 多選題按下送出。★ 勾的順序不是答案的一部分，所以先排好再送進去——
+           留著點選順序的話，同一組答案會有好幾種寫法，而錯題清單是照索引畫的。 */
+        function submitKahootPicks() {
+            if (isKahootTransitioning) return;
+            if (!kahootPicks.length) return showToast("先勾起來，再按送出");
+            finishKahootQuestion([...kahootPicks].sort((a, b) => a - b));
+        }
+
+        /* 單選與多選走到這裡會合：算分、給回饋、決定要不要停下來看詳解。 */
+        function finishKahootQuestion(picks) {
+            const qData = playQuestions[currentQIndex];
+            if (!qData) return;
             isKahootTransitioning = true;
-            const correct = selectedIdx === qData.correctIdx;
-            if (correct) currentScore++;
+            const multi = isMultiQ(qData);
+            const want = correctSetOf(qData);
+            const ratio = quizRatio(qData, picks);
+            /* ⚠️ 滿分才算「答對」（理由見這一節開頭）；部分分數照樣加進分數裡。 */
+            const correct = ratio === 1;
+            currentScore += ratio;
+            /* 送出鈕收起來：這一題已經定案，留著只會被再按一次。 */
+            $('kahootSubmitWrap').classList.add('hidden');
             /* ★★ `unsure` 只跟著作答走，**不影響分數、不影響畫面上的對錯**。
                只有排程會理它（`srsHonest`）：選對但按了「不確定」＝排程當成答錯。
                ⚠️ 不要順手把它算成答錯：那樣分數會掉、錯題本會收它、快刷會考它，
                  而使用者按那顆鈕的意思是「我選對了，但別給我記功」，不是「我錯了」。 */
-            playAnswers.push({ ...qData, selectedIdx, correct, unsure: kahootUnsure });
+            /* ⚠️ `selectedIdx` 留著沒有換掉：克漏字、今日測驗、錯題本那幾支都在讀它，
+               而那幾種測驗一定是單選。多選另外存一份 `picks`（還有這一題實得的
+               `ratio`），要的人自己去拿。 */
+            playAnswers.push({ ...qData, selectedIdx: picks[0], picks, ratio, correct, unsure: kahootUnsure });
             /* 作答之後那顆鈕就沒有意義了（這一題已經定案），收起來免得被按。 */
             $('kahootUnsureWrap').classList.add('hidden');
 
@@ -16023,9 +16376,13 @@
             // 就會靜靜地失效（或誤刪別的），而畫面不會報錯。
             document.querySelectorAll('#kahootOptionsGrid .quiz-opt').forEach((btn, i) => {
                 btn.classList.add('pointer-events-none');
+                /* 多選：勾過的留著那圈外框，正解一律亮金——所以「漏勾的正解」是
+                   金色沒外框、「勾錯的」是紅色有外框，兩件事分得開。
+                   ⚠️ 單選不加外框，畫面跟改版前一格都沒有變。 */
+                btn.classList.toggle('is-picked', multi && picks.includes(i));
                 btn.classList.add(
-                    i === qData.correctIdx ?'is-correct' :
-                    i === selectedIdx      ?'is-wrong' :'is-muted');
+                    want.has(i)       ?'is-correct' :
+                    picks.includes(i) ?'is-wrong' :'is-muted');
             });
             /* 答完了，喇叭改唸「填好的完整句子」。
                ★ 作答前唸的是挖空的版本，不然那顆喇叭就是一顆答案鈕。
@@ -16036,7 +16393,11 @@
             $('kahootScoreDisplay').textContent = kahootScoreText();
             /* ★ 吐司是純文字，排不了版——至少把界定符拿掉，
                不要讓使用者看到「正解是「\( x \)」」那種東西。 */
-            showToast(correct ?"答對了" : `答錯了，正解是「${mathPlain(qData.options[qData.correctIdx])}」`);
+            /* ⚠️ 多選印的是字母不是選項全文：三個正解各自是一整句，串起來會比
+               吐司本身還長，而吐司會自己收掉——使用者只會看到被切掉的半句話。 */
+            showToast(correct ?"答對了"
+                : multi ? `這題拿 ${fmtScore(ratio)} 分，正解是 ${[...want].map(i => KAHOOT_LETTERS[i] || (i + 1)).join('、')}`
+                : `答錯了，正解是「${mathPlain(qData.options[qData.correctIdx])}」`);
 
             currentQIndex++;
             // 進度條當下就推進。答錯時畫面會停住等人按「下一題」，
@@ -16090,6 +16451,25 @@
              「還有不會的嗎」讓他自己勾——勾了就一起進錯題本。
            ⚠️ 一般測驗（單字測驗、自己出的測驗）的題目沒有 `optionWords`，那時退回舊的兩行版，
              不能硬畫勾選鈕：那種題目的選項不是單字，勾了也不知道要記什麼。 */
+        /* 錯題清單裡「你選了 / 正解」那兩行。單選維持原樣（一句話就是一個選項）；
+           多選要列出**兩組**選項，所以改成印字母加選項全文，一行一個。
+           ⚠️ 多選還要把實得分數印出來：拿了 0.6 分卻出現在錯題清單裡，
+             不寫清楚的話看起來像計分壞了。 */
+        function wrongLines(a) {
+            const opt = (i) => mathHTML((a.options ||[])[i] ??'—');
+            if (!isMultiQ(a))
+                return `<p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${opt(a.selectedIdx)}</span></p>
+                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${opt(a.correctIdx)}</span>${
+                            a.chinese ? `　<span class="text-slate-500">${escapeHTML(a.chinese)}</span>` :''}</p>`;
+            const list = (idxs) => idxs.length
+                ? idxs.map(i => `<span class="block">${KAHOOT_LETTERS[i] || (i + 1)}　${opt(i)}</span>`).join('')
+                :'<span class="block">（沒有勾）</span>';
+            const picks = a.picks || (a.selectedIdx >= 0 ? [a.selectedIdx] :[]);
+            return `<p class="text-xs mb-1"><span class="font-black text-rose-500">你勾了</span>　<span class="text-slate-600">${list(picks)}</span></p>
+                    <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${list([...correctSetOf(a)])}</span></p>
+                    <p class="text-[11px] font-bold text-slate-400 mt-1">多選題，這一題拿到 ${fmtScore(a.ratio || 0)} 分</p>`;
+        }
+
         function renderKahootWrongList() {
             const wrap = $('resultWrongWrap');
             const wrong = (playAnswers ||[]).filter(a => !a.correct);
@@ -16130,9 +16510,7 @@
                         <p class="font-black text-slate-800 text-sm mb-2 break-words">${mathHTML(a.q)}</p>${full ? `
                         <div class="space-y-1.5">${(a.options ||[]).map((_, i) => row(a, i)).join('')}</div>
                         <p class="text-[11px] font-bold text-slate-400 mt-2">還有不會的嗎？勾起來一起記進錯題本</p>` : `
-                        <p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${mathHTML(a.options[a.selectedIdx] ??'—')}</span></p>
-                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${mathHTML(a.options[a.correctIdx] ??'—')}</span>${
-                            a.chinese ? `　<span class="text-slate-500">${escapeHTML(a.chinese)}</span>` :''}</p>`}
+                        ${wrongLines(a)}`}
                     </div>`;
             }).join('');
             /* 錯題清單也要排版：那是答完之後唯一還看得到題目的地方。 */
@@ -16178,7 +16556,7 @@
 
             const total = playQuestions.length;
             const pct = total ? Math.round(currentScore / total * 100) : 0;
-            $('finalScoreDisplay').textContent = currentScore;
+            $('finalScoreDisplay').textContent = fmtScore(currentScore);
             $('finalTotalDisplay').textContent = `/ ${total}`;
             $('resultSubtitle').textContent =
                 pct === 100 ?'全部答對。這一份你已經掌握了' :
@@ -16866,7 +17244,7 @@
          * 17. 刪除流程 (含關聯資料連鎖刪除)
          * ========================================================== */
         const SIMPLE_DELETE_PATHS = {
-            review: PATHS.reviews, kahoot: PATHS.kahoots,
+            review: PATHS.reviews,
             matNovice: PATHS.matNovice, matWarrior: PATHS.matWarrior, matLeader: PATHS.matLeader,
             ssUnit: PATHS.ssUnits, vocabWord: PATHS.vocabWords,
             news: PATHS.news, quickLink: PATHS.links,
@@ -16902,8 +17280,7 @@
                         { path: PATHS.reviews, field:'courseId' },
                         { path: PATHS.matNovice, field:'courseId' },
                         { path: PATHS.matWarrior, field:'courseId' },
-                        { path: PATHS.matLeader, field:'courseId' },
-                        { path: PATHS.kahoots, field:'courseId' }
+                        { path: PATHS.matLeader, field:'courseId' }
                     ], id);
                     if (id === selectedFilterCourseId) {
                         selectedFilterCourseId = null;
@@ -17764,6 +18141,8 @@
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
 'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
+'toggle-kahoot-option': (t) => toggleKahootPick(parseInt(t.dataset.index)),
+'submit-kahoot-picks':  ()  => submitKahootPicks(),
 'toggle-unsure':   ()  => { if (isKahootTransitioning) return;
                             kahootUnsure = !kahootUnsure;
                             $('kahootUnsureBtn').classList.toggle('is-on', kahootUnsure); },
@@ -18232,10 +18611,17 @@
                 // 畫面上寫的是 A～D，所以 A～D 一定要能按；1～4 留著是因為
                 // 這個習慣從上一版帶過來，拿掉會讓老使用者以為壞了。
                 if (!isKahootTransitioning) {
-                    const idx = /^[1-4]$/.test(e.key) ? Number(e.key) - 1
-                              : /^[a-dA-D]$/.test(e.key) ? e.key.toUpperCase().charCodeAt(0) - 65
+                    /* ⚠️ 範圍跟著 KAHOOT_LETTERS 走（A–F／1–6）。只改其中一邊的話，
+                       畫面上印著 E 的那個選項按 E 沒反應，而且不會報錯。 */
+                    const idx = /^[1-6]$/.test(e.key) ? Number(e.key) - 1
+                              : /^[a-fA-F]$/.test(e.key) ? e.key.toUpperCase().charCodeAt(0) - 65
                               : -1;
-                    if (idx >= 0 && $(`playOpt${idx}`)) { e.preventDefault(); submitKahootAnswer(idx); }
+                    /* 多選題：字母鍵是勾／取消勾，Enter 才是送出。 */
+                    const multi = isMultiQ(playQuestions[currentQIndex]);
+                    if (idx >= 0 && $(`playOpt${idx}`)) {
+                        e.preventDefault();
+                        if (multi) toggleKahootPick(idx); else submitKahootAnswer(idx);
+                    } else if (multi && e.key ==='Enter') { e.preventDefault(); submitKahootPicks(); }
                 }
                 if (e.key ==='Escape') quitKahoot();
             });
@@ -18332,6 +18718,9 @@
             bind('saveKahootBtn', saveKahoot);
             bind('quitKahootBtn', quitKahoot);
             bind('kahootNextBtn', kahootNext);
+            /* 多選開關是 checkbox，要聽 change 不是 click——聽 click 的話用鍵盤
+               （空白鍵）切換不會觸發，而那種漏法在滑鼠上完全看不出來。 */
+            { const t = $('draftMultiToggle'); if (t) t.addEventListener('change', applyDraftMultiMode); }
             bind('closeResultBtn', () => { $('kahootResultModal').classList.add('hidden'); $('kahootResultModal').classList.remove('flex'); });
 
             // 回報字數。用 input 而不是 keyup：貼上與注音選字都涵蓋得到
@@ -18379,7 +18768,6 @@
             { key:'matNovice',  path: PATHS.matNovice,  sort: byNewest, minLevel: 1, render: () => renderMaterials() },
             { key:'matWarrior', path: PATHS.matWarrior, sort: byNewest, minLevel: 2, render: () => renderMaterials() },
             { key:'matLeader',  path: PATHS.matLeader,  sort: byNewest, minLevel: 3, render: () => renderMaterials() },
-            { key:'kahoots',    path: PATHS.kahoots,    sort: byNewest, minLevel: 2, render: () => renderKahoots() },
             { key:'ssCourses',  path: PATHS.ssCourses,  sort: byOldest, render: () => renderSelfStudyCourses() },
             { key:'ssUnits',    path: PATHS.ssUnits,    sort: byOldest, render: () => { if (currentViewSSCourseId) renderSelfStudyUnits(); } },
             { key:'vocabFolders', path: PATHS.vocabFolders, sort: byOldest, render: () => renderVocabBooks() },
@@ -18439,10 +18827,6 @@
                順手抄一份 home 的設定會讓每個開計劃的人多讀五十幾筆。 */
 'plan':       [],
 'news':       ['news','links'],     // 消息與連結搬去彰師電子了
-            /* ★ 測驗對半拆之後這裡也跟著拆：彰師電子的測驗頁只讀公有題庫，
-               不再訂閱 myKahoots——那是別的產品的東西，多訂一份沒有好處
-               （讀取量、以及「這一頁到底屬於誰」都會變模糊）。 */
-'quiz':       ['kahoots','courses'],
             /* ★ 資料（原寶藏庫）搬出課程詳情之後，matWarrior/matLeader
                就不該再掛在課程評價底下——留著的話每個看評價的人都白讀兩份。 */
 'evaluation': ['courses','reviews'],
