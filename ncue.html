@@ -3735,6 +3735,20 @@
                      跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
                 <span id="starclanCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
             </div>
+            <!-- 使用量（2026-09-22）。★ 資料全部來自名冊那一份訂閱，
+                 一次額外讀取都不用——這也是它住在這一頁而不是首頁的理由。
+                 ★ 這一塊只有星族看得到，因為整頁只有星族進得來。 -->
+            <div id="usageStatsBox" class="bg-white rounded-[2rem] p-5 md:p-6 mb-4 shadow-sm border-2 border-slate-100">
+                <div class="flex items-center justify-between gap-3 mb-1">
+                    <h3 class="text-lg font-black text-slate-900 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-fuchsia-500"></i> 使用量</h3>
+                    <div class="flex gap-1 bg-slate-100 rounded-xl p-1">
+                        <button data-action="usage-scope" data-scope="today" class="usage-scope-opt px-3 py-1.5 rounded-lg text-xs font-black transition-colors">今天</button>
+                        <button data-action="usage-scope" data-scope="all" class="usage-scope-opt px-3 py-1.5 rounded-lg text-xs font-black transition-colors">全部</button>
+                    </div>
+                </div>
+                <p id="usageSummary" class="text-xs text-slate-400 font-medium mb-4"></p>
+                <div id="usageRankList" class="space-y-2"></div>
+            </div>
             <!-- 排序。★ 跟搜尋分成兩列：同一列塞三個東西的話，手機上搜尋框會被
                  壓到剩幾個字寬（分頁列那次踩過同一件事，見 架構.md）。
                  ★ 四種是「加入日期／名稱」×「升冪／降冪」攤平成一顆選單，
@@ -3748,6 +3762,8 @@
                     <option value="created-asc">最早加入的在前</option>
                     <option value="name-asc">名稱 A → Z</option>
                     <option value="name-desc">名稱 Z → A</option>
+                    <option value="seen-desc">最近上線的在前</option>
+                    <option value="seen-asc">最久沒來的在前</option>
                 </select>
             </div>
             <div class="space-y-3" id="usersListContainer">
@@ -3837,6 +3853,18 @@
                         <p class="text-sm text-slate-500 font-medium mb-3">登入之後才能回報。要有帳號管理員才回得了話，也才擋得住灌水。</p>
                         <button data-action="settings-login" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">登入 / 註冊</button>
                     </div>
+                </section>
+
+                <!-- 使用紀錄（2026-09-22）。★★ 這一段不是裝飾，是那個功能的一部分：
+                     站長讀得到這些紀錄，所以一定要有一頁講清楚記了什麼、誰看得到。
+                     拿掉它就變成偷偷蒐集，那是另一件事了（見 JS 的 9.9）。
+                     ⚠️ 文案要照 CLAUDE.md 的規矩寫給沒學過程式的人看：
+                     不要出現欄位名、集合名，也不要用「匿名化」這種聽起來
+                     很安全但沒講到重點的詞。 -->
+                <section id="settingsUsageBox" class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-emerald-500"></i> 使用紀錄</h3>
+                    <p class="text-xs text-slate-400 font-medium mb-3 leading-relaxed">登入之後，這個站會記下<b>你哪幾天來過</b>，以及<b>你在哪幾個分頁各待了多久</b>（只記到分頁，例如「課表 12 分鐘」；不記你看了什麼、打了什麼、搜尋了什麼）。這是用來決定接下來該做哪一項功能的。</p>
+                    <p class="text-xs text-slate-400 font-medium leading-relaxed">這些紀錄存在你的帳號資料裡，而那份資料站長（星族）讀得到。站長那一頁上顯示的是你最後上線的日子，以及把所有人加在一起的分頁排行。沒有登入的訪客完全不會被記錄。</p>
                 </section>
 
                 <!-- 收到的回報（只有小黑貓管理員看得到；清單本身也只有管理員讀得到） -->
@@ -5462,6 +5490,16 @@
         const CLOZE_FAMILY_MAX = 30;
         const CLOZE_WRONG_KEEP = 500;        // 錯題只留最近幾個字（下一項艾賓浩斯要吃）
         const CLOZE_SEEN_KEEP  = 200;        // 最近出過的字，用來避開剛考完又考
+
+        /* ---- 使用時間的蒐集（2026-09-22，程式在 JS 的 9.9）----
+           ⚠️ 這四個數字一起決定「一個人一天寫幾次」。改之前先算一次：
+           一小時的連續使用 ＝ 3600 / (WRITE_GAP/1000) 次寫入，
+           而 Firestore 的免費額度是每天兩萬次。 */
+        const USAGE_IDLE_MS   = 5 * 60 * 1000;    // 最後一次動作之後還算多久
+        const USAGE_TICK_MS   = 30 * 1000;        // 多久結算一次目前這一格
+        const USAGE_WRITE_GAP = 10 * 60 * 1000;   // 寫入節流
+        const USAGE_MIN_WRITE = 30 * 1000;        // 累積不到這麼多就先不寫
+        const USAGE_DAYS_KEEP = 30;               // 上線日只留最近幾天
         /* 範圍：Level 3–6 來自 7000 那批（`w.level`），多益／托福來自資料夾的 `set`。
            ⚠️ 兩者**不能寫成同一個 `w.level` 判斷**：DLC 那 7,135 個字根本沒有
            `level` 欄位，混在一起判的話「Level 4 ＋ 多益」會把 DLC 整批濾掉，
@@ -5917,6 +5955,22 @@
         let srsDrill = null;
 
         let isAdmin = false, currentUserRole ='訪客', currentUserLevel = 0, isRegisterMode = false;
+        /* ---- 使用時間的蒐集（9.9）----
+           ⚠️ 這幾個一定要宣告在這裡，不能跟那一節的程式放在一起：
+           `applyTab` 會碰到它們（usageEnter），而 applyTab 在檔案上半部——
+           宣告寫在下面的話就是暫時性死區，症狀是一載入就整頁全白
+           （這個專案踩過六次，見 CLAUDE.md 第一條）。 */
+        let usageLeaf = null;      // 現在在算哪一格
+        let usageFrom = 0;         // 這一段從什麼時候開始
+        let usageAct  = 0;         // 最後一次有動作
+        let usageAcc  = {};        // 還沒寄出去的毫秒數 {格: ms}
+        let usageAll  = {};        // 雲端那份「全部」的鏡像 {格: 秒}
+        let usageToday = {};       // 雲端那份「今天」的鏡像 {格: 秒}
+        let usageDay  = '';        // 鏡像屬於哪一天（日鍵）
+        let usageDays = [];        // 上線日的鏡像
+        let usageWroteAt = 0, usageTimer = null, usageAdopted = false;
+        /* 帳號權限管理那張排行看「今天」還是「全部」。 */
+        let usageScope ='today';
         /* Google 憑證暫存：信箱已經有密碼帳號時，先把 Google 那份收著，
            等使用者輸入舊密碼登入成功再串上去。宣告在狀態區而不是函式旁邊，
            理由跟這個檔案裡其他狀態一樣——被 window.onload 之後的流程碰到的東西
@@ -7607,6 +7661,16 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-09-22',
+                title: '站長看得到大家都在用哪一頁了',
+                items: [
+                    ['登入之後，這個站會記下你哪幾天來過、在哪幾個分頁各待了多久', '只記到分頁，例如「課表 12 分鐘」——不記你看了什麼、打了什麼、搜尋了什麼。設定頁裡有一段「使用紀錄」把這件事寫清楚了，包括站長看得到哪些。'],
+                    ['沒有登入的話完全不會被記錄', '這件事需要有帳號才做得到，訪客身上什麼都不會留下。'],
+                    ['人走開的時候不算時間', '分頁切到背景、或是五分鐘沒有任何動作，就停止計算——開著站去吃飯不會被算成一直在用。'],
+                    ['這是用來決定接下來要做哪一項功能的', '哪一頁真的每天有人用、哪一頁做了沒人碰，以前只能用猜的。'],
+                ]
+            },
+            {
                 date: '2026-09-21',
                 title: '資料多了一區「巫醫資料」',
                 items: [
@@ -8490,6 +8554,7 @@
             if (tab ==='account-admin') {
                 setVals({ starclanSearch:'' });
                 renderStarclanPanel();
+                renderUsageStats();
             }
             /* 資料頁同理：離開再回來時不該還留著上次的關鍵字。 */
             if (tab ==='data') {
@@ -8511,6 +8576,11 @@
                 switchStudySub(subs.includes(studySub) ? studySub : subs[0]);
             }
             if (tab ==='finance') renderFinance();
+            /* 使用時間：沒有子分頁的大分頁在這裡登記，有子分頁的由
+               switchStudySub 登記（它就在上面幾行被叫到）。
+               ⚠️ 兩個進入點都要有——少一個的症狀是那一格的時間被算到
+               上一格頭上，排行照常畫得出來，只是它是錯的。 */
+            if (!TAB_SUBS[tab]) usageEnter(tab);
             icons();
         }
 
@@ -11426,6 +11496,188 @@
         }
 
         /* ==========================================================
+         * 9.9 使用時間的蒐集（2026-09-22）
+         *
+         * 問的是兩件事：**誰哪幾天來過**，以及**大家把時間花在哪一格**。
+         * 前者記在帳號上（名冊每一列看得到），後者只看全站加總（排行）。
+         *
+         * ★★ 跟讀書計時是兩件不同的事，不要混在一起維護：
+         *   讀書計時是**使用者自己按開始**的，那是他的紀錄，所以存在
+         *   只有本人讀得到的私人文件裡；這一份是**被動蒐集**的，
+         *   存在個人資料文件（`PATHS.users`）上——而那份文件星族讀得到。
+         *   ⚠️ 課表當初刻意從那裡搬走，就是為了不被星族讀到
+         *   （見 `loadPrivateSchedule` 那一段）。這裡是同一條理由的另一面：
+         *   **要被讀到，所以刻意放這裡。** 別哪天「順手」把它搬進私人區，
+         *   搬了之後名冊那一行會安靜地變成空的。
+         *   ⚠️⚠️ 因為星族讀得到，設定頁那一段說明（`#settingsUsageBox`）
+         *   是這個功能的一部分，不是裝飾。拿掉它就變成偷偷蒐集了。
+         *
+         * ★ 只記登入的人。訪客也要記的話得開一個「誰都寫得進去」的集合，
+         *   而那種集合就是灌水的入口（跟當初否決公有測驗同一個判斷）。
+         * ★ 只記到「哪一格」，不記內容：沒有課名、沒有單字、沒有題號、沒有搜尋字。
+         * ★ 電路模擬器與筆記是獨立的頁，沒有載入這支程式，所以**不算在內**。
+         *   排行上看不到它們，不是因為沒人用。
+         *
+         * ---- 怎麼算「在用」----
+         * 分頁在前景，而且**最後一次有動作之後的五分鐘內**才算。
+         * 只看前景不看動作的話，開著站去吃飯會記成兩個小時；
+         * 只看動作不看前景的話，切去別的分頁查資料也會繼續算。
+         * ⚠️ 這兩種錯都不會報錯，而且方向一樣：數字會**變大**。
+         *   變大的數字看起來完全正常，只是它在說謊。
+         *
+         * ---- 寫入量 ----
+         * 一次 `updateDoc` 寫一份文件。節流十分鐘，另外在「切到背景」與
+         * 「關分頁」時各補寫一次（多數人是直接關掉，那一刻才是真正的結束）。
+         * 一個人連續用一小時＝六次寫入；一百個人這樣用是六百次，
+         * 而免費額度是每天兩萬次寫入。
+         *
+         * ---- 為什麼是整份覆寫，不是 increment() ----
+         * 欄位名會有 `account-admin` 這種帶連字號的鍵，而 `updateDoc` 的
+         * 點路徑（`use.account-admin`）在解析欄位路徑時會出事——那種錯在
+         * 執行時才炸，而且炸的地方離這裡很遠。整份覆寫只寫四個欄位、
+         * 文件又小，代價是**兩台裝置同時開著時，後寫的會蓋掉前一份**
+         * （少算一點時間，不會算到別人頭上）。這是刻意收下的一筆。
+         *
+         * ---- 沒有本機備份（跟讀書計時不一樣）----
+         * 讀書計時有 localStorage 備份，因為那是**使用者自己的紀錄**，
+         * 弄丟就是弄丟他的東西。這一份是分析資料，關掉分頁時沒寄成功
+         * 就少算最後那幾分鐘——為它多養一套補寄機制，維護成本大於價值。
+         * ========================================================== */
+
+        /* 這一段從 `from` 到現在可以算幾毫秒。**純函式，測得到。**
+           上限是「最後一次動作 ＋ 閒置門檻」，所以人走開之後最多再算五分鐘。 */
+        function usageSpanMs(now, from, act){
+            return Math.max(0, Math.min(now, act + USAGE_IDLE_MS) - from);
+        }
+        /* 上線日：加上今天、去掉重複、只留最近 USAGE_DAYS_KEEP 天。**純函式。**
+           ★ 去重複不是整齊而已：一天會寫好幾次，不去重的話這個陣列會一直長，
+             而它住在名冊那份文件裡——名冊是星族一進頁面整包讀回來的。 */
+        function usageDaysWith(days, today){
+            const s = new Set((Array.isArray(days) ? days : []).filter(d => typeof d ==='string'));
+            s.add(today);
+            return [...s].sort().slice(-USAGE_DAYS_KEEP);
+        }
+        /* 現在這一刻算不算「在站上」。★ 閒置不在這裡判斷——閒置是由
+           usageSpanMs 的上限處理的，兩邊都判會變成「閒置那一刻整段都不算」。 */
+        function usageLive(){
+            return !!(auth.currentUser && !auth.currentUser.isAnonymous)
+                && document.visibilityState ==='visible';
+        }
+        /* 把「上一次切點到現在」記進 usageAcc，並把起點移到現在。 */
+        function usageCut(){
+            const now = Date.now();
+            if (usageLeaf && usageFrom && usageLive()){
+                const ms = usageSpanMs(now, usageFrom, usageAct);
+                if (ms > 0) usageAcc[usageLeaf] = (usageAcc[usageLeaf] || 0) + ms;
+            }
+            usageFrom = now;
+        }
+        /* 換一格。★ 有**兩個**進入點：`applyTab`（沒有子分頁的大分頁）與
+           `switchStudySub`（有子分頁的）。少接一個的症狀是那一格的時間會被
+           算到上一格頭上——排行照常畫得出來，只是它是錯的。 */
+        function usageEnter(leaf){
+            usageCut();
+            usageLeaf = leaf ||null;
+        }
+        /* 有動作了。★ 從閒置回來時要把起點拉到現在，不然中間那段空白
+           會在下一次切點被補算進來。 */
+        function usagePoke(){
+            const now = Date.now();
+            if (now - usageAct > USAGE_IDLE_MS){ usageCut(); usageFrom = now; }
+            usageAct = now;
+        }
+        function usageBeat(force){
+            usageCut();
+            let got = 0;
+            for (const ms of Object.values(usageAcc)) got += ms;
+            if (!got) return;
+            if (!force && (got < USAGE_MIN_WRITE || Date.now() - usageWroteAt < USAGE_WRITE_GAP)) return;
+            usageSave().catch(e => console.warn('使用紀錄暫時存不上去（下次再補）', e));
+        }
+        async function usageSave(){
+            const u = auth.currentUser;
+            /* ★ 沒接到雲端那一份就不准寫。讀失敗時本機三份鏡像都是空的，
+               一寫下去就把累計清成 0——跟計劃那個坑一模一樣，而且沒有症狀。 */
+            if (!u || u.isAnonymous || !usageAdopted) return;
+            /* 日界走全站共用的凌晨四點（`dayKeyOf`），不是午夜——熬夜那一段
+               算前一天，跟讀書計時、計劃表一致。 */
+            const today = dayKeyOf(Date.now());
+            const day = usageDay === today ? { ...usageToday } : {};   // 跨日就整個重來
+            const all = { ...usageAll };
+            const sent = usageAcc;
+            for (const [k, ms] of Object.entries(sent)){
+                const s = Math.round(ms / 1000);
+                if (s <= 0) continue;
+                day[k] = (day[k] || 0) + s;
+                all[k] = (all[k] || 0) + s;
+            }
+            const days = usageDaysWith(usageDays, today);
+            usageAcc = {};                  // 先清，免得寫入期間又被加一次
+            usageWroteAt = Date.now();
+            try {
+                await updateDoc(doc(db, PATHS.users, u.uid),
+                                { seen: Date.now(), days, use: all, useDay: { d: today, m: day } });
+            } catch (e){
+                /* ★ 寫失敗要把時間還回去，下一次一起寫（離線那幾分鐘不該安靜消失）。
+                   ★★ 還得回去的前提是**本機那三份鏡像一個字都還沒動**——
+                     先改鏡像再寫的話，失敗之後鏡像已經是「寫成功」的樣子，
+                     下一次就會把同一段時間再算一次。所以下面那一行在 try 外面。 */
+                for (const [k, ms] of Object.entries(sent)) usageAcc[k] = (usageAcc[k] || 0) + ms;
+                throw e;
+            }
+            usageDay = today; usageToday = day; usageAll = all; usageDays = days;
+        }
+        /* 登入之後把雲端那一份接回本機當鏡像。★ 這支沒跑過就不會寫入（見 usageSave）。 */
+        function usageAdopt(data){
+            const d = data || {};
+            usageAll = (d.use && typeof d.use ==='object') ? { ...d.use } : {};
+            usageDays = Array.isArray(d.days) ? d.days.slice() : [];
+            const ud = (d.useDay && typeof d.useDay ==='object') ? d.useDay : null;
+            usageDay = (ud && typeof ud.d ==='string') ? ud.d :'';
+            usageToday = (ud && ud.m && typeof ud.m ==='object') ? { ...ud.m } : {};
+            usageAdopted = true;
+            usageAct = Date.now();
+            usageFrom = Date.now();
+            if (!usageTimer) usageTimer = setInterval(() => usageBeat(), USAGE_TICK_MS);
+            /* 一登入就先寄一筆：那筆的重點不是時間，是**今天來過**這件事。
+               ★ 只靠節流的話，進來看一眼就走的人永遠不會被記到，
+                 而「今天幾個人來過」正是這個功能要回答的問題。 */
+            usageMarkToday();
+        }
+        /* 只記「今天來過」，不帶任何時間。登入那一刻與登出前各叫一次。 */
+        function usageMarkToday(){
+            const u = auth.currentUser;
+            if (!u || u.isAnonymous || !usageAdopted) return;
+            const today = dayKeyOf(Date.now());
+            const days = usageDaysWith(usageDays, today);
+            updateDoc(doc(db, PATHS.users, u.uid), { seen: Date.now(), days })
+                .then(() => { usageDays = days; })
+                .catch(e => console.warn('上線紀錄存不上去（不影響使用）', e));
+        }
+        function usageStop(){
+            usageBeat(true);
+            if (usageTimer){ clearInterval(usageTimer); usageTimer = null; }
+            usageAdopted = false;
+            usageAcc = {};
+            usageLeaf = null;
+        }
+
+        /* ---- 接線 ----
+           ★ 動作的來源用 capture ＋ passive：這幾個事件全站到處都有人接，
+             等它冒泡上來的話，被 stopPropagation 掉的那幾處就收不到了。 */
+        for (const ev of ['pointerdown','keydown','wheel','touchstart'])
+            addEventListener(ev, usagePoke, { capture: true, passive: true });
+        addEventListener('visibilitychange', () => {
+            if (document.visibilityState ==='hidden'){ usageCut(); usageBeat(true); }
+            else { usageAct = Date.now(); usageFrom = Date.now(); }
+        });
+        /* 關分頁／切走。★ 用 `pagehide` 不用 `beforeunload`：手機上的 Safari
+           多半不發 beforeunload，而手機正是多數人關分頁的地方。
+           ⚠️ 這一刻的寫入**不保證送得出去**，送不出去就是少算最後那一段。
+             沒有症狀，也不值得為它多做一套（見上面「沒有本機備份」）。 */
+        addEventListener('pagehide', () => { usageCut(); usageBeat(true); });
+
+        /* ==========================================================
          * 10. 評價：課程地圖 / 課程詳細
          * ========================================================== */
         function courseAverages(courseId) {
@@ -12202,6 +12454,17 @@
 'self-study': ['kahoot','course','solve'], // 學習＝測驗＋自學課程＋解題（beta）
 'english':    ['vocab','cloze']          // 英文＝單字庫＋克漏字（單字庫在前：先有字才練克漏字）
         };
+        /* 使用量排行上那一格叫什麼（9.9）。★ 名字不另外維護一張表：
+           有子分頁的看 SUB_META，沒有的看分頁列本身——**兩個產品的都要收**，
+           因為同一個人可以在兩邊都用，而排行是全站加總的。
+           ⚠️ 只收目前這個產品的話，從彰師電子那邊記下來的格子會顯示成
+             原始的鍵（像 `evaluation`），而那看起來像資料壞掉。 */
+        function usageLabel(k){
+            if (SUB_META[k]) return SUB_META[k].label;
+            for (const list of Object.values(PRODUCT_TABS))
+                for (const [key, label] of list) if (key === k) return label;
+            return ({'settings':'設定','about':'關於','account-admin':'帳號權限管理' })[k] || k;
+        }
         /* ★ 英文分頁沒有自己的 page-section。
            克漏字住在 #page-self-study、單字庫住在 #page-quiz。
            搬動它們的風險遠高於收益，而且搬錯不會報錯，只會有某一頁打不開
@@ -12320,6 +12583,12 @@
             /* 倒數的計時器只在「倒數」那個子分頁開著時才該跑 */
             updatePlanTicker();
             updateStudyTicker();
+            /* 使用時間：有子分頁的大分頁在這裡登記那一格（沒有子分頁的在 applyTab）。
+               ★ 擺在最後面不是隨便挑的：`tests/plans.mjs` 釘著
+               「updateStudySubUI 之後 120 字以內要碰到 updatePlanTicker」，
+               夾在中間就會把那條擠爆——而它釘的是「切子分頁要重新評估計時器」，
+               跟這一行無關。**測試紅了要先問它在守什麼**，不是把它的數字放大。 */
+            usageEnter(studySub);
             icons();
         }
 
@@ -17740,6 +18009,7 @@
                     usersUnsubscribe = onSnapshot(collection(db, PATHS.users), (snapshot) => {
                         state.allUsers = snapshot.docs.map(d => ({ uid: d.id, ...d.data() }));
                         renderStarclanPanel();
+                        renderUsageStats();
                     });
                 }
                 renderStarclanPanel();
@@ -17806,12 +18076,111 @@
 'created-desc': (a, b) => (b.createdAt || 0) - (a.createdAt || 0),
 'created-asc':  (a, b) => (a.createdAt || 0) - (b.createdAt || 0),
 'name-asc':     (a, b) => userSortName(a).localeCompare(userSortName(b),'zh-Hant'),
-'name-desc':    (a, b) => userSortName(b).localeCompare(userSortName(a),'zh-Hant')
+'name-desc':    (a, b) => userSortName(b).localeCompare(userSortName(a),'zh-Hant'),
+            /* 最後上線（2026-09-22）。★ 沒有 seen 的一律當 0 ＝ 排到最後，
+               那一批是「這個功能上線之前就註冊、之後沒再來過」的人——
+               而「誰不來了」正是這個排序要回答的問題。 */
+'seen-desc':    (a, b) => (Number(b.seen) || 0) - (Number(a.seen) || 0),
+'seen-asc':     (a, b) => (Number(a.seen) || 0) - (Number(b.seen) || 0)
         };
         const USER_SORT_DEFAULT ='created-desc';
         /* ⚠️ 只排**篩選之後那一份新陣列**，不要排 state.allUsers 本身：
            sort 是原地排序，排下去就把訂閱進來的那一份順序改掉了。 */
         const sortUsers = (list, key) => list.sort(USER_SORTS[key] || USER_SORTS[USER_SORT_DEFAULT]);
+
+        /* 使用量排行（2026-09-22）。**純函式：餵一份名冊，回一張排行表。**
+           ★ 資料全部來自**名冊那一份訂閱**——星族本來就整包讀回來了，
+             所以這張排行**一次額外讀取都不用**。這也是它為什麼住在
+             帳號權限管理那一頁：換一頁就要為它多讀一次全站名冊。
+           ★ `scope` 是 'today' 或 'all'。今天那一份要比對日鍵：
+             使用者身上的 useDay 可能是**昨天**留下來的，不比對的話
+             昨天的數字會被當成今天的——看起來完全正常。 */
+        function usageRank(users, scope, today){
+            const sum = {};
+            let people = 0, total = 0;
+            for (const u of (users || [])){
+                const m = scope ==='today'
+                    ? ((u && u.useDay && u.useDay.d === today && u.useDay.m) || null)
+                    : ((u && u.use) || null);
+                if (!m || typeof m !=='object') continue;
+                let mine = 0;
+                for (const [k, v] of Object.entries(m)){
+                    const n = Number(v) || 0;
+                    if (n <= 0) continue;
+                    sum[k] = (sum[k] || 0) + n;
+                    mine += n;
+                }
+                if (mine > 0){ people++; total += mine; }
+            }
+            return { rows: Object.entries(sum).sort((a, b) => b[1] - a[1]), people, total };
+        }
+        /* 近 n 天來過幾天。**純函式。**
+           ⚠️ 不能直接數 `days.length`：那個陣列留的是「最近 30 個**有來的**
+             日子」，半年沒來的人身上照樣留著 30 筆——數長度的話他會顯示成
+             「近 30 天來過 30 天」，而那是一句看起來很可信的假話。
+           ★ 日鍵是 YYYY-MM-DD，字串比大小就是比日期，不必轉成時間。
+           ★ 起算日用 setDate 往前推，不是減毫秒——碰到換日邊界會差一天
+             （CLAUDE.md 與 dayKeyOfDate 那一段都記過這件事）。 */
+        function usageDaysIn(days, todayKey, n){
+            const t = dayKeyTime(todayKey);
+            if (isNaN(t)) return 0;
+            const d = new Date(t);
+            d.setDate(d.getDate() - (n - 1));
+            const from = dayKeyOfDate(d);
+            return (Array.isArray(days) ? days : [])
+                .filter(k => typeof k ==='string' && k >= from && k <= todayKey).length;
+        }
+        /* 名冊上那一行。★ 沒有 seen 的是**這個功能上線之前就註冊的人**，
+           不是「沒來過」——寫成「沒來過」會是一句看起來很可信的假話，
+           而且那一批人是名冊上最多的一群。 */
+        function usageSeenText(u, today){
+            if (!u || !u.seen) return'還沒有上線紀錄';
+            const k = dayKeyOf(Number(u.seen));
+            return `最後上線 ${k === today ?'今天' : k}・近 30 天來過 ${usageDaysIn(u.days, today, 30)} 天`;
+        }
+        /* 秒數 → 看得懂的字。★ 排行上兩位數就夠了，精確到秒沒有意義。 */
+        function usageTime(sec){
+            const n = Number(sec) || 0;
+            if (n >= 3600) return `${(n / 3600).toFixed(1)} 小時`;
+            if (n >= 60) return `${Math.round(n / 60)} 分`;
+            return `${Math.round(n)} 秒`;
+        }
+
+        /* 排行那一塊。★ 只有星族看得到這一頁，所以不必再判斷一次身分；
+           但資料是 state.allUsers，那一份在非星族身上永遠是空陣列。 */
+        function renderUsageStats(){
+            const box = $('usageRankList');
+            if (!box) return;
+            const today = dayKeyOf(Date.now());
+            const { rows, people, total } = usageRank(state.allUsers, usageScope, today);
+            const online = (state.allUsers || [])
+                .filter(u => u && u.seen && dayKeyOf(Number(u.seen)) === today).length;
+            const sum = $('usageSummary');
+            if (sum) sum.textContent = usageScope ==='today'
+                ? `今天 ${online} 人上線（名冊共 ${(state.allUsers || []).length} 人）・合計 ${usageTime(total)}`
+                : `累計 ${people} 人留下過紀錄・合計 ${usageTime(total)}`;
+            document.querySelectorAll('.usage-scope-opt').forEach(b => {
+                const on = b.dataset.scope === usageScope;
+                b.classList.toggle('bg-fuchsia-500', on);
+                b.classList.toggle('text-white', on);
+                b.classList.toggle('text-slate-500', !on);
+            });
+            if (!rows.length){
+                /* ★ 「還沒有資料」跟「壞掉」要分得出來。這一塊剛上線時本來就是空的，
+                   而空白配上一顆切換鈕看起來就像功能壞了。 */
+                box.innerHTML = `<div class="text-center py-6 text-slate-400 font-medium text-sm">${usageScope ==='today' ?'今天還沒有人留下使用紀錄。' :'還沒有累計資料——這個功能上線之後才開始記。'}</div>`;
+                return;
+            }
+            const top = rows[0][1] || 1;
+            box.innerHTML = rows.slice(0, 12).map(([k, sec]) => `
+                <div class="flex items-center gap-3">
+                    <span class="w-20 shrink-0 text-xs font-black text-slate-600 truncate">${escapeHTML(usageLabel(k))}</span>
+                    <div class="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
+                        <div class="h-full bg-fuchsia-500 rounded-full" style="width:${Math.max(2, Math.round(sec / top * 100))}%"></div>
+                    </div>
+                    <span class="w-16 shrink-0 text-right text-xs font-bold text-slate-400">${escapeHTML(usageTime(sec))}</span>
+                </div>`).join('');
+        }
 
         function renderStarclanPanel() {
             const container = $('usersListContainer');
@@ -17824,6 +18193,7 @@
                丟一次例外就等於整份名冊從此不再更新，而畫面上只是「別人改了階級
                但這裡沒變」。 */
             const sortKey = $('starclanSort') ? getVal('starclanSort') : USER_SORT_DEFAULT;
+            const today = dayKeyOf(Date.now());
             const all = state.allUsers;
             const list = sortUsers(all.filter(u => matchUser(u, q)), sortKey);
 
@@ -17851,6 +18221,7 @@
                     <div class="flex flex-col min-w-0">
                         <span class="font-bold text-slate-800 text-sm truncate">${escapeHTML(u.email)}</span>
                         <span class="text-xs text-slate-400 truncate">${escapeHTML(u.displayName ||'無名小貓')}・${new Date(u.createdAt).toLocaleDateString()} 加入</span>
+                        <span class="text-[11px] font-bold text-slate-400 truncate">${escapeHTML(usageSeenText(u, today))}</span>
                     </div>
                     <!-- ★ aria-label 也要跳脫。displayName 是使用者自己改得動的欄位
                          （firestore.rules 只鎖了 role／tier／email），而這一份名冊
@@ -18490,6 +18861,7 @@
                         userSchedule = {};
                         applySlotTimes([], [], {});
                         scheduleLoaded = true;   // 新帳號本來就沒有課表，不是讀不到
+                        usageAdopt(null);        // 新帳號：三份鏡像都是空的（見 9.9）
                     } else {
                         const data = userSnap.data();
                         currentUserRole = data.role ||'見習生';
@@ -18500,6 +18872,10 @@
                         // 課表改從私人區讀取；舊帳號若還留在個人資料裡會在這裡自動搬家
                         scheduleLoaded = false;
                         userSchedule = await loadPrivateSchedule(data);
+                        /* 使用時間的三份鏡像從這一份資料接回來（見 9.9）。
+                           ★ 一定要接，不接就不准寫——本機空的直接寫下去
+                             會把雲端的累計清成 0，而畫面上什麼都不會說。 */
+                        usageAdopt(data);
                     }
                 } catch (e) {
                     console.error('建立使用者資料失敗:', e);
@@ -18648,6 +19024,7 @@
                 // 招呼語也走同一條階梯，不然頁首徽章寫「一般」、吐司卻喊你「星族」
                 showToast(`歡迎回來，${currentBadge().name} ${userDisplayName}`);
             } else {
+                usageStop();          // 使用時間：登出就收掉（見 9.9）
                 isAdmin = false;
                 currentUserRole ="訪客";
                 currentUserLevel = 0;
@@ -18731,6 +19108,7 @@
 'close-pdf-view':  () => closePdfView(),
 'download-material-file': () => downloadCabinetFile(),
 'material-src':    (t) => setMaterialSource(t.dataset.src ==='file'),
+'usage-scope':     (t) => { usageScope = t.dataset.scope ==='all' ?'all' :'today'; renderUsageStats(); },
 'toggle-course':   (t, e) => { if (!['SELECT','OPTION'].includes(e.target.tagName)) openCourseDetails(t.dataset.id); },
 'open-ss-course':  (t) => openSelfStudyDetails(t.dataset.id),
 'edit-ss-course':  (t) => openSSCourseModal(t.dataset.id),
@@ -18954,6 +19332,9 @@
 'settings-password': () => { const b = $('forgotPasswordBtn'); openModal('adminModal'); if (b) b.click(); },
 'account-logout': async () => {
                 $('accountMenu').classList.add('hidden');
+                /* ★ 要在 signOut **之前**寄。登出之後 auth.currentUser 是 null，
+                   usageSave 會直接返回，最後那一段就安靜地不見了（見 9.9）。 */
+                usageBeat(true);
                 await signOut(auth);
                 showToast("掰掰，期待再見到你！");
             }
