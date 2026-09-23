@@ -3657,12 +3657,17 @@
                          ★ 檔案櫃那一種才擋得住階級——連結是誰拿到誰打得開。 -->
                     <div class="flex gap-2">
                         <button type="button" id="matSrcLinkBtn" data-action="material-src" data-src="link" aria-pressed="true" class="flex-1 py-2 bg-slate-900 text-white rounded-xl font-bold text-xs">🔗 貼連結</button>
-                        <button type="button" id="matSrcFileBtn" data-action="material-src" data-src="file" aria-pressed="false" class="flex-1 py-2 bg-white text-slate-500 rounded-xl font-bold text-xs">📄 上傳 PDF</button>
+                        <button type="button" id="matSrcFileBtn" data-action="material-src" data-src="file" aria-pressed="false" class="flex-1 py-2 bg-white text-slate-500 rounded-xl font-bold text-xs">📄 上傳 PDF／照片</button>
                     </div>
                     <input type="url" id="pdfUrlInput" placeholder="雲端硬碟共用連結" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="雲端硬碟共用連結">
                     <div id="matFileBox" class="hidden">
-                        <input type="file" id="matFileInput" accept="application/pdf,.pdf" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="選擇要上傳的 PDF">
-                        <p class="text-[11px] font-bold text-white/80 mt-2 leading-relaxed">單檔上限 25 MB，全部加起來 1 GB。檔案存在自己的檔案櫃，每次下載都會先驗階級。</p>
+                        <!-- ★ 照片（2026-09-24）：一次選好幾張，在這台裝置上先壓縮、
+                             照選的順序合成**一份 PDF** 再上傳。理由見 photosToPdfFile 那段。
+                             ⚠️ accept 不要寫 capture：寫了 iPhone 就只能開相機，
+                             不能從相簿挑已經拍好的講義。 -->
+                        <input type="file" id="matFileInput" accept="application/pdf,.pdf,image/*" multiple class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium text-sm" aria-label="選擇要上傳的 PDF 或照片">
+                        <p id="matFileHint" class="text-[11px] font-black text-white mt-2 leading-relaxed hidden" aria-live="polite"></p>
+                        <p class="text-[11px] font-bold text-white/80 mt-2 leading-relaxed">可以傳一份 PDF，或一次選好幾張照片——照片會自動壓縮，照你選的順序合成一份 PDF。單檔上限 25 MB，全部加起來 1 GB。檔案存在自己的檔案櫃，每次下載都會先驗階級。</p>
                     </div>
                     <input type="text" id="pdfTitleInput" maxlength="80" placeholder="檔案名稱 (如: 期中考考古)" class="w-full px-4 py-3 bg-white text-slate-900 rounded-xl border-none font-medium" aria-label="檔案名稱 (如: 期中考考古)">
                     <button id="uploadPdfBtn" class="w-full py-3 bg-slate-900 text-white rounded-xl font-black shadow-lg hover:bg-slate-800 transition-colors">確認存檔</button>
@@ -7749,6 +7754,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-24',
+                title: '上傳資料可以直接傳照片了',
+                items: [
+                    ['拍好的講義、考古題不用先轉成 PDF', '在「資料」最上面選「上傳 PDF／照片」，可以一次選好幾張照片，存檔時會照你選的順序合成一份檔案。一份考古題拍成五張，傳上來還是一份，不會洗版。'],
+                    ['照片會自動壓縮', '手機拍的照片一張常常三四 MB，壓完大多剩一兩百 KB，字還是看得清楚。打開資料的人不會因為照片太大而等很久、吃掉一堆流量。'],
+                    ['直拍的照片不會躺著', '手機直著拍的照片，傳上來也是直的；直的橫的混在一起也沒關係，每一頁都照原本的比例。'],
+                    ['階位的鎖跟原本一樣', '照片合成的檔案跟 PDF 走同一條路：選了戰士資料，就只有戰士以上看得到；見習生一樣只能在站內看、不能下載。'],
+                ]
+            },
             {
                 date: '2026-09-24',
                 title: 'iPhone 上從小黑貓切到彰師電子，不會再卡住了',
@@ -12003,6 +12018,176 @@
               : d.error ==='not a pdf' ?"這不是 PDF 檔"
               : d.error ==='kv not configured' ?"檔案櫃還沒建好（Cloudflare 那邊要先加一個 KV 繫結）"
               :"上傳失敗…" };
+        }
+
+        /* ---------- 照片 → 壓縮 → 合成一份 PDF（2026-09-24）----------
+           使用者要的是「拍講義、考古題直接傳上來」。
+
+           ★ 為什麼合成 PDF，而不是把照片一張一張存進檔案櫃：
+             一、**階級鎖不用重做。** 檔案櫃的圖片那條路（kind=img）是給詳解插圖的，
+                 Worker 會把它固定存成見習生級、而且只收小黑貓管理員——
+                 拿來放族長資料的話，鎖就不見了。走 PDF 那條路，
+                 階級、下載門檻、刪除全部跟原本的資料一模一樣，Worker 一行都不用改。
+             二、**十張照片是一份資料，不是十筆。** 一份考古題拍成五張，
+                 存成五張卡片的話下面那幾區會被洗版，而且看的人要自己拼順序。
+             三、**閱覽器現成。** 站上本來就用 pdf.js 自己畫、不給內建檢視器
+                 （那個有下載鈕），照片走同一條路，「見習生只能看」照樣成立。
+
+           ★ 為什麼一定要壓縮：手機直出一張三四 MB，十張就吃掉 25 MB 的單檔上限，
+             而全部加起來只有 1 GB。更要緊的是**看的人**：打開資料是整份一起抓，
+             用手機流量的人會替上傳的人付錢。
+             長邊 2000 像素是「印刷字看得清楚、手寫也還認得」的底線
+             （A4 拍滿一張約 170 dpi）；再小，下標與小字就糊了。
+
+           ★ PDF 是自己寫的，不是載一套函式庫：只需要「每頁一張 JPEG」這一種，
+             JPEG 可以原封不動塞進 PDF（DCTDecode），不必重新編碼，
+             整個格式六十行寫得完。為了這個多載幾百 KB 的函式庫划不來。 */
+        const PHOTO_MAX_EDGE = 2000;           // 長邊像素上限
+        const PHOTO_QUALITY = 0.72;            // JPEG 品質（0～1）
+        const PHOTO_TARGET_BYTES = 800 * 1024; // 一張壓完超過這個就再縮一輪
+        const PHOTO_MAX_COUNT = 40;            // 一次最多幾張（40 × 800 KB ≈ 32 MB 上限的保險）
+        const PHOTO_PAGE_W = 595;              // PDF 頁寬，單位是「點」（1/72 英吋），595 ＝ A4 寬
+
+        /* 等比例縮到長邊不超過 maxEdge。★ 只縮不放：小圖放大只會變糊又變大。 */
+        function photoTargetSize(w, h, maxEdge) {
+            const k = Math.min(1, maxEdge / Math.max(w, h));
+            return { w: Math.max(1, Math.round(w * k)), h: Math.max(1, Math.round(h * k)) };
+        }
+
+        /* 每頁一張 JPEG 的 PDF。pages = [{ jpeg: Uint8Array, w, h }]，回傳 Uint8Array。
+           頁寬一律 595 點，頁高照照片比例——直拍、橫拍混在一起也不會被拉扁。
+           ⚠️ xref 那張表記的是**每個物件從檔案第幾個位元組開始**，差一個位元組
+             pdf.js 還是打得開（它會自己重建），但別的閱覽器可能說檔案壞了。
+             所以位置一律用實際寫出去的位元組數算，不要用字串長度（中文會算錯）。
+           ⚠️ 每一行 xref 必須剛好 20 個位元組（10 位數＋空白＋5 位數＋空白＋n＋空白＋換行）。 */
+        function buildPhotoPdf(pages) {
+            const enc = new TextEncoder();
+            const chunks = [];
+            let pos = 0;
+            const put = (x) => {
+                const b = typeof x === 'string' ? enc.encode(x) : x;
+                chunks.push(b); pos += b.length;
+            };
+            const offsets = [];
+            const n = pages.length;
+            const total = 2 + n * 3;           // 1 目錄、2 頁面樹，之後每頁三個物件
+            put('%PDF-1.4\n');
+            put(new Uint8Array([0x25, 0xE2, 0xE3, 0xCF, 0xD3, 0x0A]));   // 告訴傳輸工具「這是二進位檔」
+            offsets[1] = pos;
+            put('1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n');
+            const kids = [];
+            for (let i = 0; i < n; i++) kids.push((3 + i * 3) + ' 0 R');
+            offsets[2] = pos;
+            put('2 0 obj\n<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + n + ' >>\nendobj\n');
+            for (let i = 0; i < n; i++) {
+                const pg = pages[i];
+                const pn = 3 + i * 3, im = pn + 1, ct = pn + 2;
+                const W = PHOTO_PAGE_W;
+                const H = Math.round(W * pg.h / pg.w * 100) / 100;
+                offsets[pn] = pos;
+                put(pn + ' 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W + ' ' + H + ']'
+                    + ' /Resources << /XObject << /Im0 ' + im + ' 0 R >> >> /Contents ' + ct + ' 0 R >>\nendobj\n');
+                offsets[im] = pos;
+                put(im + ' 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + pg.w + ' /Height ' + pg.h
+                    + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + pg.jpeg.length + ' >>\nstream\n');
+                put(pg.jpeg);
+                put('\nendstream\nendobj\n');
+                const draw = 'q ' + W + ' 0 0 ' + H + ' 0 0 cm /Im0 Do Q';
+                offsets[ct] = pos;
+                put(ct + ' 0 obj\n<< /Length ' + draw.length + ' >>\nstream\n' + draw + '\nendstream\nendobj\n');
+            }
+            const xref = pos;
+            put('xref\n0 ' + (total + 1) + '\n0000000000 65535 f \n');
+            for (let k = 1; k <= total; k++) put(String(offsets[k]).padStart(10, '0') + ' 00000 n \n');
+            put('trailer\n<< /Size ' + (total + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+            const out = new Uint8Array(pos);
+            let at = 0;
+            for (const c of chunks) { out.set(c, at); at += c.length; }
+            return out;
+        }
+
+        /* 把一張照片讀成畫得出來的東西。
+           ★ imageOrientation:'from-image'：手機直拍的照片，像素其實是橫的，
+             「轉 90 度」寫在照片的附帶資料裡。不照著轉的話，直拍的講義上傳後會躺著。
+           ★ 讀不了就退回 <img>：舊一點的 Safari 沒有 createImageBitmap 的這個選項，
+             而 <img> 在現在的瀏覽器上一律會照附帶資料轉正。 */
+        async function decodePhoto(file) {
+            if (typeof createImageBitmap === 'function') {
+                try { return await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch (e) {}
+            }
+            return await new Promise((resolve, reject) => {
+                const url = URL.createObjectURL(file);
+                const im = new Image();
+                im.onload = () => { URL.revokeObjectURL(url); resolve(im); };
+                im.onerror = () => { URL.revokeObjectURL(url); reject(new Error('decode')); };
+                im.src = url;
+            });
+        }
+
+        /* 一張照片 → 壓好的 JPEG。太大就把長邊再縮兩成、品質再降一點，最多試三輪。
+           ★ 先鋪白底：PNG 截圖有透明的地方，JPEG 沒有透明，不鋪的話會變成一片黑。
+           ★ 用完把畫布設成 0×0：iPhone 對「所有畫布加起來」有記憶體上限，
+             連壓二十張不放掉的話，第十幾張會畫出一片空白，而且不會報錯。 */
+        async function compressPhoto(file) {
+            const src = await decodePhoto(file);
+            const w0 = src.naturalWidth || src.width, h0 = src.naturalHeight || src.height;
+            if (!w0 || !h0) throw new Error('decode');
+            let edge = PHOTO_MAX_EDGE, q = PHOTO_QUALITY, blob = null, t = null;
+            for (let round = 0; round < 3; round++) {
+                t = photoTargetSize(w0, h0, edge);
+                const cv = document.createElement('canvas');
+                cv.width = t.w; cv.height = t.h;
+                const cx = cv.getContext('2d');
+                cx.fillStyle = '#ffffff';
+                cx.fillRect(0, 0, t.w, t.h);
+                cx.drawImage(src, 0, 0, t.w, t.h);
+                blob = await new Promise(r => cv.toBlob(r, 'image/jpeg', q));
+                cv.width = 0; cv.height = 0;
+                if (!blob) throw new Error('encode');
+                if (blob.size <= PHOTO_TARGET_BYTES) break;
+                edge = Math.round(edge * 0.8);
+                q = Math.max(0.5, q - 0.1);
+            }
+            if (src.close) src.close();
+            return { jpeg: new Uint8Array(await blob.arrayBuffer()), w: t.w, h: t.h };
+        }
+
+        /* 幾張照片 → 一個可以直接交給 uploadCabinetFile 的 PDF 檔。
+           onStep(i, n) 用來在按鈕上顯示「壓縮中 3/10」——十張照片要幾秒，
+           按鈕沒有反應的話，人會以為當掉又按一次。
+           ★ 一張一張來，不要 Promise.all：同時解十張全解析度照片，
+             iPhone 的記憶體會先撐不住（症狀是頁面自己重新載入）。 */
+        async function photosToPdfFile(photos, title, onStep) {
+            const pages = [];
+            for (let i = 0; i < photos.length; i++) {
+                if (onStep) onStep(i + 1, photos.length);
+                try { pages.push(await compressPhoto(photos[i])); }
+                catch (e) { const err = new Error('photo'); err.index = i + 1; throw err; }
+            }
+            const bytes = buildPhotoPdf(pages);
+            const base = String(title || '照片').replace(/[\\/:*?"<>|\r\n]/g, '').trim().slice(0, 60) || '照片';
+            return new File([bytes], base + '.pdf', { type: 'application/pdf' });
+        }
+
+        /* 選完檔案就先說一聲「要傳的是什麼」：選了照片的人最想確認的是
+           「它知道這幾張是同一份嗎」，等到按下存檔才知道就太晚了。 */
+        function updateMatFileHint() {
+            const el = $('matFileHint'), inp = $('matFileInput');
+            if (!el || !inp) return;
+            const fs = inp.files ? [...inp.files] : [];
+            const pdfN = fs.filter(isPdfFile).length, picN = fs.length - pdfN;
+            const msg = !fs.length ? ''
+                : pdfN && picN ? '⚠️ PDF 和照片請分開傳'
+                : pdfN > 1 ? '⚠️ PDF 一次傳一份就好'
+                : picN > PHOTO_MAX_COUNT ? `⚠️ 照片一次最多 ${PHOTO_MAX_COUNT} 張`
+                : picN ? `已選 ${picN} 張照片，存檔時會壓縮、照順序合成一份 PDF`
+                : '';
+            el.textContent = msg;
+            el.classList.toggle('hidden', !msg);
+        }
+        /* ★ 副檔名也要看：有些 Android 檔案管理員給的 PDF，type 是空字串。 */
+        function isPdfFile(f) {
+            return f.type === 'application/pdf' || String(f.name || '').toLowerCase().endsWith('.pdf');
         }
 
         /* pdf.js 是**延後載入**的：程式 1.7 MB，加上四包資料檔共五百多萬位元組，
@@ -18607,7 +18792,8 @@
             const title = getVal('pdfTitleInput');
             const requiredRole = parseInt($('materialLevelSelect').value);
             const fileEl = $('matFileInput');
-            const file = materialSourceIsFile && fileEl && fileEl.files ? fileEl.files[0] : null;
+            const picked = materialSourceIsFile && fileEl && fileEl.files ? [...fileEl.files] : [];
+            const pdfs = picked.filter(isPdfFile), photos = picked.filter(f => !isPdfFile(f));
             /* ★ 巫醫資料只有星族存得進去（規則裡是 isStarclan()）。前端先擋是為了
                說得出理由：規則擋下來只會走到下面的 catch 印一句「失敗…」，
                而那句話對「我是不是沒有權限」完全沒有幫助。
@@ -18617,9 +18803,12 @@
             const url = materialSourceIsFile ?'' : getVal('pdfUrlInput');
             if (!courseId || !title) return showToast("請填寫完整喔！");
             if (materialSourceIsFile) {
-                if (!file) return showToast("請先選一個 PDF 檔");
+                if (!picked.length) return showToast("請先選一個 PDF，或幾張照片");
+                if (pdfs.length && photos.length) return showToast("PDF 和照片請分開傳");
+                if (pdfs.length > 1) return showToast("PDF 一次傳一份就好");
+                if (photos.length > PHOTO_MAX_COUNT) return showToast(`照片一次最多 ${PHOTO_MAX_COUNT} 張`);
                 // 先在這裡擋，才不會整份傳上去之後才被 Worker 拒絕
-                if (file.size > MATERIAL_FILE_MAX) return showToast("檔案太大了（單檔上限 25 MB）");
+                if (pdfs[0] && pdfs[0].size > MATERIAL_FILE_MAX) return showToast("檔案太大了（單檔上限 25 MB）");
             } else {
                 if (!url) return showToast("請填寫完整喔！");
                 // 規則只收 http/https 連結，先在前端擋下來才不會只看到「失敗」
@@ -18627,8 +18816,21 @@
             }
             const btn = $('uploadPdfBtn');
             btn.disabled = true;
-            btn.textContent = file ?"上傳中…" :"存檔中…";
+            btn.textContent = picked.length ?"上傳中…" :"存檔中…";
             try {
+                let file = pdfs[0] || null;
+                if (photos.length) {
+                    try {
+                        file = await photosToPdfFile(photos, title, (i, n) => { btn.textContent = `壓縮中 ${i}/${n}…`; });
+                    } catch (e) {
+                        /* 說出是第幾張：十張裡有一張是讀不了的格式時，
+                           「失敗…」三個字讓人只能整批重選。 */
+                        showToast(e && e.index ? `第 ${e.index} 張照片讀不出來，換一張或先轉成 JPG 再試` :'照片壓縮失敗…');
+                        return;
+                    }
+                    if (file.size > MATERIAL_FILE_MAX) { showToast("照片太多了，壓縮完還是超過 25 MB，分兩次傳吧"); return; }
+                    btn.textContent ="上傳中…";
+                }
                 const course = state.courses.find(c => c.id === courseId);
                 /* ★ 順序不能反：檔案先進檔案櫃，拿到 fileId 才寫 Firestore。
                    反過來的話，上傳失敗會留下一筆指向不存在檔案的資料，
@@ -18649,6 +18851,7 @@
                 showToast(`資料已存入${zoneName}區`);
                 setVals({ pdfUrlInput:'', pdfTitleInput:'' });
                 if (fileEl) fileEl.value ='';
+                updateMatFileHint();
             } catch { showToast("失敗…"); }
             finally {
                 btn.disabled = false;
@@ -19870,6 +20073,7 @@
             if ($('starclanSort')) $('starclanSort').addEventListener('change', renderStarclanPanel);
             /* 資料頁有自己的搜尋框（刻意不共用課程評價那一個，見該頁的註解）。 */
             if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
+            if ($('matFileInput')) $('matFileInput').addEventListener('change', updateMatFileHint);
             bind('confirmSaveMission', saveMission);
             bind('confirmSaveExplain', saveExplainFromModal);
             bind('confirmDelete', executeDelete);
