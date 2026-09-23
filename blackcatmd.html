@@ -702,7 +702,7 @@ $$\int_a^b [f(x)-g(x)]\,dx$$
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -796,11 +796,64 @@ const appId = "eeblackcat-c605d";
 const P  = n => `artifacts/${appId}/public/data/${n}`;
 const PU = n => auth.currentUser && !auth.currentUser.isAnonymous
                 ? `artifacts/${appId}/users/${auth.currentUser.uid}/${n}` : null;
-/* ★ 登入狀態 localStorage 優先，跟主站同一個設定（理由見主站「登入狀態先存
-   localStorage」那段）。四頁不一致的話同一份登入會被搬來搬去。 */
 const app = initializeApp(firebaseConfig), db = getFirestore(app);
 let auth;
-try { auth = initializeAuth(app, { persistence: [browserLocalPersistence, indexedDBLocalPersistence] }); }
+/* ★★ 登入狀態只存 localStorage，IndexedDB 完全不進清單（2026-09-24 第三刀）。
+   Firebase 開機時會把清單上**每一個**儲存區先測一遍能不能用
+   （`PersistenceUserManager.create` 裡那個 `Promise.all(... _isAvailable())`），
+   全部測完才開始還原登入。iPhone 裝成 App、換過兩次頁之後，IndexedDB
+   有時候**連測試都不回話**——不是失敗，是永遠不回——於是 `onAuthStateChanged`
+   從來不觸發，畫面停在 HTML 寫死的「訪客・無名小貓」。v140 把 localStorage
+   排第一、IndexedDB 留著當備用，還是會被這個測試卡住（使用者：「切兩次後便訪客」）。
+   所以 IndexedDB 整個拿掉，舊登入改由下面這段**自己搬一次**，而且有逾時。
+   ⚠️ 搬過就記一個旗子，之後永遠不再讀 IndexedDB。不記的話：登出 → localStorage
+     清空 → 下次開站又從 IndexedDB 把舊登入搬回來 ＝ 登出不掉。
+   ⚠️ 四頁（主站、ncue 產生檔、筆記、模擬器）這段要一致，理由同 v140。 */
+/* ★★ iPhone／iPad：換頁時不要把上一頁「凍起來」留著（2026-09-24 第四刀）。
+   Safari 換頁時會把上一頁整頁凍進「上一頁快取」，好讓返回鍵能瞬間回去。
+   被凍住的頁**還握著**它開過的小資料庫（Firestore、登入、Firebase 自己的心跳紀錄），
+   卻已經不會動了。切一次、凍一頁還撐得住；切第二次、凍兩頁，
+   新的那一頁去開資料庫就等不到回應（使用者：「切兩次後便訪客」）。
+   裝成 App 之後根本沒有返回鍵，這個快取對我們只有壞處沒有好處。
+   掛一個空的 `unload` 監聽器，Safari 就不會把這一頁放進那個快取——
+   換頁時舊頁是真的關掉、放掉資料庫。萬一還是被凍了又被叫回來
+   （`pageshow` 的 persisted），就整頁重新載入，不要拿一頁半死的畫面給人。
+   ⚠️ 只對 iOS 做：Chrome 已經不鼓勵 `unload`，而其他平台也沒有這個問題。
+   ⚠️ 四頁都要有（主站、ncue 產生檔、筆記、模擬器）——任何一頁被凍住都會卡到下一頁。 */
+if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
+    addEventListener('unload', () => {});
+    addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
+}
+const AUTH_LS_KEY = `firebase:authUser:${firebaseConfig.apiKey}:[DEFAULT]`;
+const AUTH_MIGRATED = 'eeblackcat-auth-ls';
+async function adoptIdbLogin() {
+    try {
+        if (localStorage.getItem(AUTH_MIGRATED) === '1') return;
+        if (localStorage.getItem(AUTH_LS_KEY)) { localStorage.setItem(AUTH_MIGRATED, '1'); return; }
+        const read = new Promise((res) => {
+            const o = indexedDB.open('firebaseLocalStorageDb');
+            o.onerror = () => res(undefined);
+            o.onblocked = () => res(undefined);
+            o.onupgradeneeded = () => { try { o.transaction.abort(); } catch (e) {} res(null); };
+            o.onsuccess = () => {
+                try {
+                    const r = o.result.transaction('firebaseLocalStorage', 'readonly')
+                                .objectStore('firebaseLocalStorage').get(AUTH_LS_KEY);
+                    r.onsuccess = () => { res(r.result ? r.result.value : null); o.result.close(); };
+                    r.onerror = () => { res(undefined); o.result.close(); };
+                } catch (e) { res(null); try { o.result.close(); } catch (e2) {} }
+            };
+        });
+        /* 1.5 秒拿不到就算了：卡住的那台這次先當訪客（不會被蓋，因為下面的
+           訪客分支只在 localStorage 真的空的時候才匿名登入），下次開站再試。 */
+        const v = await Promise.race([read, new Promise(r => setTimeout(() => r(undefined), 1500))]);
+        if (v === undefined) return;                 // 逾時或出錯：不記旗子，下次再搬
+        if (v) localStorage.setItem(AUTH_LS_KEY, JSON.stringify(v));
+        localStorage.setItem(AUTH_MIGRATED, '1');
+    } catch (e) { /* localStorage 被關掉之類的：當作沒有舊登入 */ }
+}
+await adoptIdbLogin();
+try { auth = initializeAuth(app, { persistence: [browserLocalPersistence] }); }
 catch (e) { auth = getAuth(app); }
 
 onAuthStateChanged(auth, async (user) => {
@@ -1703,8 +1756,11 @@ renderMdList();
 renderShell();
 
 /* Service Worker：跟其他兩頁共用同一支 */
-if ('serviceWorker' in navigator)
-    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+/* ★ 上面有 await（搬舊登入），load 可能已經發過了，所以先看 readyState（理由見主站 boot）。 */
+if ('serviceWorker' in navigator) {
+    const reg = () => navigator.serviceWorker.register('sw.js').catch(() => {});
+    if (document.readyState === 'complete') reg(); else addEventListener('load', reg, { once: true });
+}
 </script>
 </body>
 </html>
