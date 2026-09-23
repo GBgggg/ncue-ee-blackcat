@@ -775,7 +775,7 @@ textarea{width:100%;min-height:150px;resize:vertical;background:var(--paper);col
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getAuth, initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 import { getFirestore, collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDoc, getDocs }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
@@ -848,7 +848,12 @@ const appId = "eeblackcat-c605d";
 const P  = n => `artifacts/${appId}/public/data/${n}`;
 const PU = n => auth.currentUser && !auth.currentUser.isAnonymous
                 ? `artifacts/${appId}/users/${auth.currentUser.uid}/${n}` : null;
-const app = initializeApp(firebaseConfig), auth = getAuth(app), db = getFirestore(app);
+/* ★ 登入狀態 localStorage 優先，跟主站同一個設定（理由見主站「登入狀態先存
+   localStorage」那段）。四頁不一致的話同一份登入會被搬來搬去。 */
+const app = initializeApp(firebaseConfig), db = getFirestore(app);
+let auth;
+try { auth = initializeAuth(app, { persistence: [browserLocalPersistence, indexedDBLocalPersistence] }); }
+catch (e) { auth = getAuth(app); }
 let me = null;
 onAuthStateChanged(auth, async (user) => {
     me = (user && !user.isAnonymous) ? user : null;

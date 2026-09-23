@@ -5255,7 +5255,7 @@
 
     <script type="module">
         import { initializeApp } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, initializeAuth, browserLocalPersistence, indexedDBLocalPersistence, browserPopupRedirectResolver, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, persistentSingleTabManager, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
@@ -6650,7 +6650,31 @@
             }
         }
 
-        const auth = getAuth(app);
+        /* ★★ 登入狀態先存 localStorage，IndexedDB 退到第二（2026-09-24）。
+             `getAuth()` 預設是 IndexedDB 優先。iPhone 裝成 App 時，從小黑貓點到
+             彰師電子的那一瞬間，新頁問 IndexedDB「有沒有人登入過」有時候**答不出來**，
+             Firebase 就當作沒人登入 → 下面 applyAuthState 的訪客分支會
+             `signInAnonymously` → **匿名帳號把原本存著的登入蓋掉**。
+             症狀：切頁之後變成「訪客／無名小貓」，切回去也是，要重新登入。
+             localStorage 是同步讀、iOS 上換頁不會卡。
+           ★ 陣列裡的**第一個**是往後寫入的地方，其餘只拿來找舊資料：
+             SDK 開站時會把每一個都翻一遍，在 IndexedDB 找到舊的登入就搬進
+             localStorage 再把舊的刪掉——所以已經登入的人不用重新登入。
+           ⚠️ 四頁要一起改（blackcatmd／blackcatspice 也各有一份）。只改一頁的話，
+             兩邊會把同一份登入在兩個儲存區之間搬來搬去（每一頁都搬到自己的第一順位），
+             平常看不出來，iPhone 上剛好又是那個答不出來的時刻就會再蓋掉一次。
+           ⚠️ 用 initializeAuth 就要自己帶 popupRedirectResolver，
+             不帶的話 Google 登入（彈窗與跳轉兩條路）都會丟 argument-error。 */
+        let auth;
+        try {
+            auth = initializeAuth(app, {
+                persistence: [browserLocalPersistence, indexedDBLocalPersistence],
+                popupRedirectResolver: browserPopupRedirectResolver,
+            });
+        } catch (e) {
+            console.warn('登入狀態改存 localStorage 失敗，退回預設', e);
+            auth = getAuth(app);
+        }
 
         /* ----------------------------------------------------------
            離線快取：讓已經載入過的課程、文章、單字在離線時仍然讀得到。
@@ -7684,7 +7708,8 @@
                 date: '2026-09-24',
                 title: 'iPhone 上從小黑貓切到彰師電子，不會再卡住了',
                 items: [
-                    ['在 iPhone 上切換兩個站之後，不會再變成像沒登入的樣子', '以前從小黑貓點到彰師電子（或反過來），新打開的那一頁有時候會像是被登出了，內容也一直轉圈出不來，要把 App 整個關掉重開才會好。現在切過去就直接接著用。'],
+                    ['在 iPhone 上切換兩個站之後，不會再被登出成「訪客」了', '以前從小黑貓點到彰師電子（或反過來），新打開的那一頁有時候會把你變成「訪客・無名小貓」，切回去也一樣，只能重新登入；內容也可能一直轉圈出不來。現在切過去就直接接著用。'],
+                    ['已經被登出的話，重新登入一次就好', '你的課表、單字、記帳都存在雲端，一筆都沒有少，登入回來就全部都在。'],
                     ['只有 iPhone、iPad 有這個問題', '電腦和 Android 手機本來就不會遇到，這次也沒有任何變化。'],
                 ]
             },
