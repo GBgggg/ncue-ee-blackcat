@@ -5256,7 +5256,7 @@
     <script type="module">
         import { initializeApp } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, persistentSingleTabManager, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
          * 1. 常數與設定
@@ -6680,10 +6680,30 @@
              而且是在使用者的瀏覽器上才丟。所以整份檔案裡
              `getFirestore(app)` 只有下面那一處（失敗才走的那條）。
            ---------------------------------------------------------- */
+        /* ★★ iPhone／iPad 改回「一個頁面獨占一份」（2026-09-24）。
+             症狀（使用者回報，iPhone 裝成 App）：從小黑貓切到彰師電子，
+             新的那一頁**像沒登入**，內容一直轉圈、永遠出不來。沒有錯誤訊息，
+             桌機與 Android 都重現不了，測試全綠。
+             原因：多分頁共用的寫法會選一個分頁當「主分頁」替大家連網路，
+             其他分頁透過它拿資料。在 iOS 上點連結換頁時，上一頁不會立刻關掉，
+             而是被凍結在「上一頁」的快取裡（按返回鍵能瞬間回去的那個機制）——
+             它**還掛著主分頁的身分**，卻已經不會動了。新的那一頁於是當了跟班，
+             等一個永遠不回話的主分頁：`applyAuthState` 裡的 `getDoc` 卡住
+             ＝看起來沒登入；各份訂閱卡住＝內容一直轉圈。
+             獨占寫法拿不到鎖的時候，SDK 會自己退回「只放記憶體」
+             （印一行 warn：Falling back to memory cache），頁面是活的——
+             那正是 09-10 以前的行為，當時沒有人回報過這個。
+             代價只有 iOS 上同時開兩頁時，第二頁沒有離線快取。
+           ⚠️ 這裡不能用後面「上課提醒」那一段的 `isIOS`：它宣告在後面，
+             在這裡引用會落進暫時性死區，整頁白掉（CLAUDE.md 第一條）。 */
+        const iosLike = /iP(hone|ad|od)/.test(navigator.userAgent)
+                     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         let db;
         try {
             db = initializeFirestore(app, {
-                localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+                localCache: persistentLocalCache({
+                    tabManager: iosLike ? persistentSingleTabManager() : persistentMultipleTabManager()
+                })
             });
         } catch (e) {
             console.warn('離線快取開不起來，改用只留在這個分頁記憶體裡的快取', e);
@@ -7660,6 +7680,14 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-24',
+                title: 'iPhone 上從小黑貓切到彰師電子，不會再卡住了',
+                items: [
+                    ['在 iPhone 上切換兩個站之後，不會再變成像沒登入的樣子', '以前從小黑貓點到彰師電子（或反過來），新打開的那一頁有時候會像是被登出了，內容也一直轉圈出不來，要把 App 整個關掉重開才會好。現在切過去就直接接著用。'],
+                    ['只有 iPhone、iPad 有這個問題', '電腦和 Android 手機本來就不會遇到，這次也沒有任何變化。'],
+                ]
+            },
             {
                 date: '2026-09-22',
                 title: '站長看得到大家都在用哪一頁了',
