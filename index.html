@@ -1420,7 +1420,7 @@
              於是開站畫面的天空一直被蓋掉，沒有人發現。
              現在誰負責哪一個面是寫死的，不是排出來的。 */
         .bg-white,
-        #mainHeader,
+        #mainHeader, #navDock,
         .quiz-screen,
         #logoMenu,
         .word-popup, #accountMenu,
@@ -2357,6 +2357,59 @@
         .nav-ink.is-off { opacity: 0; }
         @media (prefers-reduced-motion: reduce) { .nav-ink { transition: none; } }
 
+        /* ---- 手機：分頁列在最下面，圖標＋小字（2026-09-24）----
+           `html.nav-bottom` 由 placeNav() 依螢幕寬度掛上；#mainNav 同時被搬進 #navDock。
+           桌機完全不受影響：沒有這個 class 時 .tab-ico 不顯示、#navDock 不存在於版面。
+           ★ 字留著，只是縮小放在圖標底下。只有圖標的話「學習」跟「英文」、
+             「計劃」跟「主頁」第一次用的人猜不出來，而猜錯的代價是一次換頁。
+           ★ 選擇器都帶 `html.nav-bottom`（外加 id），特異性壓得過按鈕上的
+             Tailwind 工具類（`px-2 py-2 text-[13px] max-w-[11rem]`），不必用 !important。 */
+        .tab-ico { display: none; }
+        #navDock { display: none; }
+        html.nav-bottom #navDock {
+            display: block;
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 40;
+            background-color: var(--paper-raised);
+            border-top: 1px solid var(--rule);
+            box-shadow: 0 -2px 14px rgba(15, 23, 42, .07);
+            /* iPhone 底部那條橫桿的空間（裝成 App 時才有值，瀏覽器裡是 0）。 */
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+        }
+        html.nav-bottom.kb-open #navDock { display: none; }
+        html.nav-bottom #mainNav {
+            justify-content: space-around; gap: 0;
+            padding: 5px 6px 4px; overflow: visible;
+        }
+        html.nav-bottom #mainNav .tab-btn {
+            display: flex; flex-direction: column; align-items: center; gap: 2px;
+            /* ★ 不撐滿一格：顏料塊照按鈕的框畫，撐滿的話最左那一顆會貼到螢幕邊，
+               整塊看起來像一條按鈕列而不是「在這裡」的一個記號。 */
+            flex: 0 1 62px; max-width: none; padding: 5px 0 3px;
+            font-size: 10.5px; line-height: 1.2; border-radius: 14px;
+        }
+        html.nav-bottom #mainNav .tab-ico { display: block; width: 22px; height: 22px; }
+        /* 頁首剩「logo｜⚙️｜帳號」一列：#navRow 不再獨佔第二列。 */
+        html.nav-bottom #navRow { width: auto; flex: none; order: 2; margin-top: 0; }
+        /* ⚙️ 搬上第一列之後那一列多了一個間距；原本的 gap-4 會把站名的英文小字
+           擠成兩行（頁首平白高一截）。只收窄橫向，上下不動。 */
+        html.nav-bottom #mainHeader > div { column-gap: 8px; }
+        /* 360 寬的 Android 上，「彰師電子小黑貓」七個字會被截成「彰師電…」
+           （⚙️ 佔掉第一列 52px）。只在真的很窄的螢幕把站名縮一號，390 以上不動。 */
+        /* 讓位的是**登入鈕**不是站名：量過把站名縮一號還是只剩四個字，
+           所以窄螢幕上登入鈕只寫「登入」（按進去一樣可以註冊），登入後的名字也少留一點寬。
+           「／註冊」包成 .login-reg 是為了這一行——頁首上那兩處寫法要一起改。 */
+        @media (max-width: 380px) {
+            html.nav-bottom #adminBtn { padding-left: .75rem; padding-right: .75rem; }
+            html.nav-bottom #adminBtn .login-reg { display: none; }
+            html.nav-bottom #adminBtn .truncate { max-width: 3.5rem; }
+            /* 登入鈕讓完還差一個字，站名再小一點點（text-xl 是 1.25rem）。 */
+            html.nav-bottom #siteName { font-size: 1.05rem; }
+        }
+        /* 內容的最後一截不要被底部那列蓋住；浮在下面的東西往上讓。 */
+        html.nav-bottom body { padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
+        html.nav-bottom #backToTopBtn { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
+        html.nav-bottom #toast { bottom: calc(80px + env(safe-area-inset-bottom, 0px)); }
+
         /* ---- 開站載入畫面 ----
            貓繞著 logo 跑。繞圈是靠外層轉、內層反轉：
            外層 .splash-orbit 帶著貓一起轉，貓自己再反方向轉同樣的角速度，
@@ -3218,7 +3271,7 @@
             <div class="relative order-2 md:order-none shrink-0 flex items-center gap-2">
                 <button id="adminBtn" class="flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold transition-colors shadow-md bg-white/10 text-emerald-400 hover:bg-emerald-500 hover:text-white border border-emerald-500/30">
                     <i data-lucide="log-in" class="w-4 h-4"></i>
-                    <span>登入 / 註冊</span>
+                    <span>登入<span class="login-reg"> / 註冊</span></span>
                 </button>
                 <!-- 已登入帳號選單 -->
                 <!-- ★ 一律靠右展開（`right-0`），手機桌機都是。
@@ -5250,6 +5303,11 @@
          ★ 這個容器一直留在 DOM 裡（靠 .hidden 切換內容顯示），
          不能等要用的時候才插進來——動態插入的 live region 有些
          螢幕閱讀器不會註冊，那正是「加了但沒有作用」的典型。 -->
+    <!-- 手機的分頁列（像 IG 放在最下面）。平常是空的：#mainNav 在窄螢幕時由
+         placeNav() 從頁首**搬**進來，寬螢幕時再搬回去。為什麼要搬、不能只靠 CSS，
+         寫在 JS 的 placeNav 那一段。 -->
+    <div id="navDock"></div>
+
     <div id="toast" role="status" aria-live="polite" aria-atomic="true"
          class="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-10 py-4 rounded-full shadow-2xl font-bold text-sm hidden"></div>
 
@@ -7756,6 +7814,16 @@
         const CHANGELOG = [
             {
                 date: '2026-09-24',
+                title: '手機上的分頁搬到畫面最下面了',
+                items: [
+                    ['像 IG 一樣在下面，換成小圖示', '主頁、計劃、學習、英文、理財這一排，手機上改成放在畫面最下面，每一格一個小圖示、底下一行小字。大拇指就按得到，不用再伸到螢幕最上面。'],
+                    ['往下捲它也不會跑掉', '以前分頁跟著最上面那條一起收起來，要往回捲才找得到；現在它一直停在下面。'],
+                    ['打字時會自己讓開', '點進輸入框、鍵盤跳出來的時候，下面那一排會先收起來，不會蓋住你正在打的字；打完就回來。'],
+                    ['電腦上沒有變', '螢幕夠寬的時候，分頁還是在最上面、跟原本一樣。'],
+                ]
+            },
+            {
+                date: '2026-09-24',
                 title: '上傳資料可以直接傳照片了',
                 items: [
                     ['拍好的講義、考古題不用先轉成 PDF', '在「資料」最上面選「上傳 PDF／照片」，可以一次選好幾張照片，存檔時會照你選的順序合成一份檔案。一份考古題拍成五張，傳上來還是一份，不會洗版。'],
@@ -8372,6 +8440,16 @@
            `is-ink` 是「顏料塊在哪一顆下面」（字色）。平常永遠同進同出，只有左右滑動
            進行中會暫時分開——那時候 is-active 不准動，動了方向判斷就會錯。 */
         const NAV_ACTIVE = ['is-active', 'is-ink'];
+        /* ★ 分頁的圖標（2026-09-24）。**只有手機底部那一列看得到**（見 CSS 的
+           `html.nav-bottom`）；桌機仍然只有字，`.tab-ico` 在那裡是 display:none。
+           寫成獨立的表而不是 PRODUCT_TABS 的第三欄：那張表有好幾支測試用
+           `([tab, label]) =>` 解構，多一欄不會報錯，只會讓哪天有人寫錯位置。
+           漏了哪一格就退回 `circle`——畫面上會是一顆空心圓，看得出來少了，但不會壞。 */
+        const TAB_ICON = {
+            home: 'house', plan: 'list-checks', 'self-study': 'book-open',
+            english: 'languages', finance: 'wallet',
+            evaluation: 'star', data: 'folder-open', news: 'newspaper'
+        };
         function buildStaticUI() {
             $('mainNav').innerHTML =
                 /* ★ 顏料塊要排在所有按鈕**前面**：它跟按鈕同一個堆疊層級，
@@ -8379,7 +8457,7 @@
                 '<span id="navInk" class="nav-ink is-live" aria-hidden="true"></span>' +
                 TABS.map(([tab, label], i) => `
                 <button data-tab="${tab}"
-                    class="tab-btn whitespace-nowrap flex-1 max-w-[11rem] text-center px-2 md:px-4 py-2 rounded-xl text-[13px] md:text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}">${label}</button>
+                    class="tab-btn whitespace-nowrap flex-1 max-w-[11rem] text-center px-2 md:px-4 py-2 rounded-xl text-[13px] md:text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}"><i data-lucide="${escapeHTML(TAB_ICON[tab] || 'circle')}" class="tab-ico pointer-events-none" aria-hidden="true"></i><span class="tab-label">${label}</span></button>
             `).join('');
             /* 第一次擺位不要過場：開站時從左邊滑進來很莫名。
                ⚠️ 字型載完與轉向都會改變按鈕的寬度，那兩個時機由 refreshNavInk 再量一次。 */
@@ -8482,6 +8560,46 @@
             paintNav(document.querySelector('.tab-btn.is-active'), true);
         }
         addEventListener('resize', refreshNavInk);
+
+        /* ---- 手機：分頁列搬到畫面最下面（像 IG，2026-09-24）----
+         *
+         * ★★ 為什麼是「把元素搬走」而不是 CSS 寫一句 `position: fixed; bottom: 0`：
+         * 頁首（#mainHeader）捲動時會收起來，靠的是 `transform: translateY(-100%)`，
+         * 而**有 transform 的祖先會變成 fixed 子孫的定位基準**——分頁列還住在頁首裡的話，
+         * `bottom: 0` 量的是「頁首的底」不是「螢幕的底」，捲一下它就跟著頁首一起飛走。
+         * 不會報錯，只會看起來像底部那一列偶爾消失。
+         *
+         * ★ 搬的是**同一個 #mainNav**，不是另外畫一份。左右滑動（5.3）、顏料塊、
+         * 分頁的點擊（document 上的 `[data-tab]` 委派）全部照舊，因為它們找的都是
+         * 這個元素或它裡面的 `.tab-btn`——做兩份的話，兩份的 is-active 要自己同步，
+         * 漏一次就是「上面那列跟下面那列指的不是同一頁」。
+         *
+         * 767.98 跟頁首的 `md:` 同一條線：頁首在那條線以下才是兩列的手機版面。 */
+        function placeNav(){
+            const nav = $('mainNav'), row = $('navRow'), dock = $('navDock');
+            if (!nav || !row || !dock) return;
+            const bottom = matchMedia('(max-width: 767.98px)').matches;
+            document.documentElement.classList.toggle('nav-bottom', bottom);
+            if (bottom && nav.parentNode !== dock) dock.appendChild(nav);
+            else if (!bottom && nav.parentNode === dock) row.insertBefore(nav, row.firstChild);   // 只有真的搬下去過才搬回來
+            refreshNavInk();
+        }
+        matchMedia('(max-width: 767.98px)').addEventListener('change', placeNav);
+        /* ★ 鍵盤打開時把底部那列收起來。iPhone 的鍵盤不會把 fixed 的東西推上去，
+           它會停在原地蓋住正在打字的那一格（或被鍵盤蓋一半、浮在輸入框上）。
+           只看「文字類」的輸入：勾選框、按鈕、檔案選擇不會叫出鍵盤。
+           focusout 延一格再判斷：從一格跳到下一格時，中間會有一瞬間誰都沒有焦點，
+           不延的話那一列會閃出來又收回去。 */
+        const KB_FIELD = 'input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]):not([type=file]):not([type=range]):not([type=color]), textarea, select, [contenteditable="true"]';
+        document.addEventListener('focusin', e => {
+            if (e.target.matches && e.target.matches(KB_FIELD))
+                document.documentElement.classList.add('kb-open');
+        });
+        document.addEventListener('focusout', () => setTimeout(() => {
+            const a = document.activeElement;
+            if (!(a && a.matches && a.matches(KB_FIELD)))
+                document.documentElement.classList.remove('kb-open');
+        }, 0));
         if (typeof document !== 'undefined' && document.fonts && document.fonts.ready)
             document.fonts.ready.then(refreshNavInk).catch(() => {});
 
@@ -18224,7 +18342,7 @@
                     badgeEl.className = `px-2 py-0.5 rounded text-[10px] font-black tracking-widest shadow-sm border ${badgeStyle}`;
                 }
             } else {
-                adminBtn.innerHTML ='<i data-lucide="user" class="w-4 h-4"></i><span>登入 / 註冊</span>';
+                adminBtn.innerHTML ='<i data-lucide="user" class="w-4 h-4"></i><span>登入<span class="login-reg"> / 註冊</span></span>';
                 adminBtn.className ='flex items-center gap-2 px-4 py-2 rounded-2xl text-sm font-bold bg-slate-900 text-white';
             }
 
@@ -20292,6 +20410,7 @@
            而且沒有任何錯誤訊息。所以先看現在是不是已經載完，載完就直接跑。 */
         const boot = () => {
             buildStaticUI();
+            placeNav();          // 手機把分頁列搬到底部（要在 buildStaticUI 之後：按鈕要先存在）
             bindStaticButtons();
             icons();
             renderReviewWizard();
