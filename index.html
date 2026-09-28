@@ -2393,18 +2393,44 @@
         /* ⚙️ 搬上第一列之後那一列多了一個間距；原本的 gap-4 會把站名的英文小字
            擠成兩行（頁首平白高一截）。只收窄橫向，上下不動。 */
         html.nav-bottom #mainHeader > div { column-gap: 8px; }
-        /* 360 寬的 Android 上，「彰師電子小黑貓」七個字會被截成「彰師電…」
-           （⚙️ 佔掉第一列 52px）。只在真的很窄的螢幕把站名縮一號，390 以上不動。 */
-        /* 讓位的是**登入鈕**不是站名：量過把站名縮一號還是只剩四個字，
-           所以窄螢幕上登入鈕只寫「登入」（按進去一樣可以註冊），登入後的名字也少留一點寬。
-           「／註冊」包成 .login-reg 是為了這一行——頁首上那兩處寫法要一起改。 */
-        @media (max-width: 380px) {
-            html.nav-bottom #adminBtn { padding-left: .75rem; padding-right: .75rem; }
-            html.nav-bottom #adminBtn .login-reg { display: none; }
-            html.nav-bottom #adminBtn .truncate { max-width: 3.5rem; }
-            /* 登入鈕讓完還差一個字，站名再小一點點（text-xl 是 1.25rem）。 */
-            html.nav-bottom #siteName { font-size: 1.05rem; }
+        /* ★ 手機版頁首只留 logo，不寫站名（2026-09-28）。
+           以前在 360 寬的 Android 上「彰師電子小黑貓」會被截成「彰師電…」，
+           為了讓它多露一個字還讓登入鈕縮成「登入」——截一半的站名比不寫還難看，
+           而 logo 本來就認得出是哪個產品（兩個產品各一張）。
+           ⚠️ 用「看不見但讀得到」的藏法，不是 display:none：#siteName 是這頁唯一的 <h1>，
+           讀螢幕的人還是要聽得到站名。 */
+        html.nav-bottom #logoBtn .site-name-text {
+            position: absolute; width: 1px; height: 1px; overflow: hidden;
+            clip: rect(0 0 0 0); clip-path: inset(50%); white-space: nowrap;
         }
+        /* 站名讓出位置之後，360 寬的登入鈕也放得下「登入／註冊」，只把登入後的名字收一點。 */
+        @media (max-width: 380px) {
+            html.nav-bottom #adminBtn .truncate { max-width: 5rem; }
+        }
+
+        /* ---- 新手教學的聚光燈（2026-09-28，程式在 JS 的 19.6）----
+           ★ 洞是用「一圈超大的陰影」挖的，不是四塊黑板拼的：只要量一個框，
+             圓角也免費。代價是洞的外面那一圈陰影超出畫面，所以整層要 overflow 不管——
+             它本來就是 fixed、比畫面大的部分看不到。
+           ★ 位置不做過場：top／left／width／height 每一幀都會逼瀏覽器重排
+             （設計系統 A2 那一條），換一步直接跳過去就好。 */
+        #tourRing {
+            position: fixed; pointer-events: none; border-radius: 18px;
+            box-shadow: 0 0 0 3px var(--accent-fill), 0 0 0 200vmax rgba(8, 12, 28, 0.62);
+        }
+        #tourRing.is-none { top: 50%; left: 50%; width: 0; height: 0; box-shadow: 0 0 0 200vmax rgba(8, 12, 28, 0.62); }
+        #tourCard {
+            position: fixed; left: 16px; right: 16px; max-width: 26rem; margin: 0 auto;
+            padding: 16px 18px; border-radius: 24px;
+            background-color: var(--panel); color: var(--ink);
+            box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+        }
+        #tourCard.at-top    { top: calc(16px + env(safe-area-inset-top, 0px)); }
+        #tourCard.at-bottom { bottom: calc(16px + env(safe-area-inset-bottom, 0px)); }
+        /* 手機版底部有分頁列：卡片在下面的時候要讓開它，不然蓋住的正好是教學在指的那一列。 */
+        html.nav-bottom #tourCard.at-bottom { bottom: calc(78px + env(safe-area-inset-bottom, 0px)); }
+        /* 安裝教學那幾張切換鈕：選中的那一顆。 */
+        .install-opt.is-on { background-color: var(--accent-fill) !important; color: #fff !important; }
         /* 內容的最後一截不要被底部那列蓋住；浮在下面的東西往上讓。 */
         html.nav-bottom body { padding-bottom: calc(62px + env(safe-area-inset-bottom, 0px)); }
         html.nav-bottom #backToTopBtn { bottom: calc(76px + env(safe-area-inset-bottom, 0px)); }
@@ -3226,7 +3252,7 @@
                 <div id="logoBtn" class="flex items-center gap-3 text-emerald-400 cursor-pointer group"
                      role="button" tabindex="0" aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
                     <img src="logomain.jpg" alt="" class="w-10 h-10 rounded-full object-cover transition-transform group-hover:scale-110 border border-emerald-500/50 shadow-sm">
-                    <div class="flex flex-col min-w-0">
+                    <div class="site-name-text flex flex-col min-w-0">
                         <h1 id="siteName" class="text-xl md:text-2xl font-black tracking-tight text-white leading-tight truncate">小黑貓</h1>
                         <!-- 文字由 buildStaticUI() 依 PRODUCT 填入，這裡留空。
                              寫死的話會出現「小黑貓 / NCUE EE Black Cat」這種組合。 -->
@@ -3793,6 +3819,14 @@
                      跟「名冊真的是空的」長得一模一樣，有這個數字才分得出來。 -->
                 <span id="starclanCount" class="text-xs font-bold text-slate-400 whitespace-nowrap"></span>
             </div>
+            <!-- 升階申請（2026-09-28）。★ 放在名冊上面：星族進這一頁多半就是來處理這個的，
+                 而名冊很長，放下面的話要一路捲到底才看得到有人在等。
+                 ★ 沒有申請的時候整塊收起來，不佔位置。 -->
+            <div id="promoteReqBox" class="bg-white rounded-[2rem] p-5 md:p-6 mb-4 shadow-sm border-2 border-fuchsia-100 hidden">
+                <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="trending-up" class="w-5 h-5 text-fuchsia-500"></i> 升階申請 <span id="promoteReqCount" class="text-xs font-bold text-slate-400"></span></h3>
+                <p class="text-xs text-slate-400 font-medium mb-4">核准會直接把他的階級改成申請的那一階；拒絕的話他那邊會看到「沒有通過」，可以補充說明再送一次。</p>
+                <div id="promoteReqList" class="space-y-2"></div>
+            </div>
             <!-- 使用量（2026-09-22）。★ 資料全部來自名冊那一份訂閱，
                  一次額外讀取都不用——這也是它住在這一頁而不是首頁的理由。
                  ★ 這一塊只有星族看得到，因為整頁只有星族進得來。 -->
@@ -3809,20 +3843,27 @@
             </div>
             <!-- 排序。★ 跟搜尋分成兩列：同一列塞三個東西的話，手機上搜尋框會被
                  壓到剩幾個字寬（分頁列那次踩過同一件事，見 架構.md）。
-                 ★ 四種是「加入日期／名稱」×「升冪／降冪」攤平成一顆選單，
-                 不是兩顆（一顆選欄位、一顆選方向）。兩顆在手機上要點兩次，
-                 而這一頁真正要做的事只有「最近誰加進來」跟「照名字找人」。 -->
+                 ★★ 2026-09-28 翻案：從「欄位 × 方向攤平成一顆選單」改成
+                 **選單只管依什麼排、旁邊一顆箭頭管升冪降冪**。攤平的版本每多一種
+                 欄位就多兩行（加了階級之後是八行），而且「換欄位」跟「換方向」
+                 混在同一串裡，要從八行裡找那一行。箭頭按一下就反過來，
+                 換欄位時方向保持不動。 -->
             <div class="flex items-center gap-2 mb-4">
-                <i data-lucide="arrow-up-down" class="w-4 h-4 text-slate-400 shrink-0"></i>
-                <select id="starclanSort" aria-label="名冊排序"
+                <select id="starclanSort" aria-label="名冊依什麼排序"
                         class="px-3 py-2 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-600 outline-none focus:border-fuchsia-400 transition-colors">
-                    <option value="created-desc" selected>最新加入的在前</option>
-                    <option value="created-asc">最早加入的在前</option>
-                    <option value="name-asc">名稱 A → Z</option>
-                    <option value="name-desc">名稱 Z → A</option>
-                    <option value="seen-desc">最近上線的在前</option>
-                    <option value="seen-asc">最久沒來的在前</option>
+                    <option value="created" selected>加入日期</option>
+                    <option value="name">名稱</option>
+                    <option value="seen">最後上線</option>
+                    <option value="role">階級</option>
                 </select>
+                <!-- ★ 方向記在 data-dir 上（asc／desc），不是另一顆選單。
+                     預設降冪：「最新加入的」「階級最高的」在最上面。 -->
+                <button id="starclanSortDir" type="button" data-dir="desc"
+                        aria-label="目前降冪，按一下改成升冪" title="降冪（按一下改成升冪）"
+                        class="tap-44 shrink-0 flex items-center gap-1 px-3 py-2 bg-white border-2 border-slate-100 rounded-2xl text-sm font-bold text-slate-600 hover:border-fuchsia-400 transition-colors">
+                    <i data-lucide="arrow-down" class="w-4 h-4 pointer-events-none"></i>
+                    <span class="pointer-events-none">降冪</span>
+                </button>
             </div>
             <div class="space-y-3" id="usersListContainer">
                 <div class="text-center py-10 text-slate-400 font-medium">名冊載入中...</div>
@@ -3880,6 +3921,18 @@
                     <p class="text-xs text-slate-400 font-medium mb-4">開啟後：上課前 10 分鐘、計劃開始前、以及你勾了提醒的倒數當天早上 8 點會響。關掉 App 也會響。</p>
                     <button id="classReminderBtn" data-action="toggle-class-reminder" title="上課提醒" class="px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1 bg-slate-100 text-slate-500"><i data-lucide="bell" class="w-3.5 h-3.5 pointer-events-none"></i> 提醒</button>
                     <p id="settingsNotifyNeedLogin" class="text-xs font-bold text-amber-600 mt-3 hidden">登入之後才會有課表與計劃可以提醒。</p>
+                </section>
+
+                <!-- 新手教學與條款（2026-09-28）。★ 第一次登入看過一次之後就再也找不到的話，
+                     跳過教學的人沒有第二次機會；條款也一樣——同意過的東西要隨時看得到。 -->
+                <section class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-1 flex items-center gap-2"><i data-lucide="compass" class="w-5 h-5 text-emerald-500"></i> 新手教學</h3>
+                    <p class="text-xs text-slate-400 font-medium mb-4">帶你打開通知、填好課表，再把每個分頁走一遍，大約一分鐘。</p>
+                    <div class="flex flex-wrap gap-2">
+                        <button data-action="tour-start" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">重看新手教學</button>
+                        <button data-action="open-terms" class="px-4 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">使用規則與隱私權條款</button>
+                        <button data-action="open-install" class="px-4 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">安裝成 App</button>
+                    </div>
                 </section>
 
                 <!-- 錯誤回報／更新建議：登入就能填，只有管理員讀得到 -->
@@ -4275,6 +4328,26 @@
         </div>
 
         <!-- ======================== 關於頁面 ======================== -->
+        <!-- ======================== 升階（彰師電子，2026-09-28）========================
+             ★ 以前「怎麼升階」只寫在關於頁的一小段，而且只能私下去找星族。
+             這一頁回答三件事：我現在是什麼、上一階多了什麼、怎麼申請。
+             內容由 renderPromote() 畫（階梯說明寫在 PROMOTE_PERKS，改字改那一張表）。 -->
+        <div id="page-promote" class="page-section hidden">
+            <div class="max-w-3xl mx-auto space-y-6">
+                <div class="bg-slate-900 rounded-[2rem] p-5 md:p-8 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
+                    <div class="relative z-10">
+                        <h2 class="text-2xl md:text-3xl font-black flex items-center gap-3">升階 <i data-lucide="trending-up" class="w-7 h-7"></i></h2>
+                        <p class="text-slate-300 font-bold text-sm mt-2">階級決定你在「資料」分頁看得到哪些講義與考古題。升階由星族審核。</p>
+                    </div>
+                </div>
+                <section id="promoteMine" class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100"></section>
+                <section class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100">
+                    <h3 class="text-lg font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="shield" class="w-5 h-5 text-amber-500"></i> 每一階多了什麼</h3>
+                    <div id="promoteLadder" class="space-y-3"></div>
+                </section>
+            </div>
+        </div>
+
         <div id="page-about" class="page-section hidden">
             <div class="max-w-4xl mx-auto mt-6 space-y-6 md:space-y-8">
 
@@ -4315,7 +4388,7 @@
                 <!-- 3. 階級（彰師電子小黑貓那一側） -->
                 <div class="bg-white rounded-[2rem] p-5 md:p-8 shadow-sm border-2 border-slate-100">
                     <h3 class="text-xl font-black text-slate-900 mb-2 flex items-center gap-2"><i data-lucide="shield" class="w-6 h-6 text-amber-500"></i> 階級</h3>
-                    <p class="text-sm text-slate-500 mb-5">階級只影響<span class="font-bold text-slate-700">彰師電子小黑貓</span>那一側能看到的資料，由管理員指派。分級資料是伺服器端把關的，階級不足是真的讀不到。</p>
+                    <p class="text-sm text-slate-500 mb-5">階級只影響<span class="font-bold text-slate-700">彰師電子小黑貓</span>那一側能看到的資料，由星族審核——想升階，到彰師電子小黑貓的<span class="font-bold text-slate-700">「升階」</span>分頁申請。分級資料是伺服器端把關的，階級不足是真的讀不到。</p>
                     <div class="space-y-3">
                         <div class="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                             <span class="px-3 py-1 rounded-lg text-xs font-black bg-slate-400 text-white border border-slate-500 shrink-0 mt-0.5">見習生</span>
@@ -4542,6 +4615,108 @@
                 </div>
             </div>
             <button data-close="iosInstallModal" class="w-full mt-6 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors">知道了</button>
+        </div>
+    </div>
+
+    <!-- ======================== 第一次登入（2026-09-28）========================
+         ★ 新帳號與還沒同意過條款的舊帳號都會看到一次，同意之後在帳號文件上記 agreedAt。
+         ★★ 這一個**沒有** data-close：沒填名字、沒勾同意就不能關。
+            它仍然是 .fixed.inset-0，所以 screenCovered() 認得它——開著的時候
+            左右滑動與下拉刷新都不會動作。
+         ★ z-[60]：要壓過一般彈窗（z-50）。開站的時候如果剛好有別的彈窗被叫出來，
+            這一張要在最上面。 -->
+    <div id="welcomeModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[60] p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="welcomeTitle">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[92vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-400">
+            <!-- 第一步：名字＋同意 -->
+            <div id="welcomeStep1">
+                <div class="text-center mb-5">
+                    <img src="logomain.jpg" alt="" class="w-16 h-16 rounded-full object-cover mx-auto mb-3 border-4 border-emerald-500/20">
+                    <h3 id="welcomeTitle" class="text-2xl font-black text-slate-900">歡迎加入小黑貓 🐾</h3>
+                    <p class="text-xs text-slate-500 font-medium mt-2">先花三十秒把這兩件事弄好，之後就不會再出現了。</p>
+                </div>
+                <label for="welcomeName" class="block text-sm font-black text-slate-700 mb-2">1. 大家要怎麼叫你？</label>
+                <input type="text" id="welcomeName" maxlength="15" placeholder="例如：橘貓學長" autocomplete="nickname"
+                       class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 font-bold text-lg text-center mb-1">
+                <p class="text-[11px] text-slate-400 font-medium mb-5 text-center">之後可以在設定裡改。</p>
+                <p class="text-sm font-black text-slate-700 mb-2">2. 看一下規則</p>
+                <div class="space-y-2 mb-5">
+                    <details class="rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                        <summary class="text-sm font-bold text-slate-700 cursor-pointer">使用規則（點開來看）</summary>
+                        <ol id="welcomeRules" class="terms-list list-decimal pl-5 mt-2 space-y-1.5 text-xs text-slate-600 leading-relaxed"></ol>
+                    </details>
+                    <details class="rounded-2xl bg-slate-50 border border-slate-100 p-3">
+                        <summary class="text-sm font-bold text-slate-700 cursor-pointer">隱私權條款（點開來看）</summary>
+                        <ol id="welcomePrivacy" class="terms-list list-decimal pl-5 mt-2 space-y-1.5 text-xs text-slate-600 leading-relaxed"></ol>
+                    </details>
+                    <label class="flex items-start gap-2 p-2 cursor-pointer">
+                        <input type="checkbox" id="welcomeAgreeRules" class="mt-0.5 w-4 h-4 accent-emerald-500 shrink-0">
+                        <span class="text-sm text-slate-600">我已閱讀並同意<span class="font-bold text-slate-800">使用規則</span></span>
+                    </label>
+                    <label class="flex items-start gap-2 p-2 cursor-pointer">
+                        <input type="checkbox" id="welcomeAgreePrivacy" class="mt-0.5 w-4 h-4 accent-emerald-500 shrink-0">
+                        <span class="text-sm text-slate-600">我已閱讀並同意<span class="font-bold text-slate-800">隱私權條款</span></span>
+                    </label>
+                </div>
+                <button id="welcomeNext" data-action="welcome-agree" disabled
+                        class="w-full py-3 bg-emerald-500 text-white rounded-2xl font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">同意，下一步</button>
+                <button data-action="welcome-logout" class="w-full mt-2 py-2 text-xs font-bold text-slate-400 hover:text-slate-600">不同意，先登出</button>
+            </div>
+            <!-- 第二步：建議裝成 App -->
+            <div id="welcomeStep2" class="hidden">
+                <div class="text-center mb-4">
+                    <div class="w-14 h-14 mx-auto mb-3 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                        <i data-lucide="smartphone" class="w-7 h-7 text-emerald-500"></i>
+                    </div>
+                    <h3 class="text-xl font-black text-slate-900">建議裝成 App</h3>
+                    <p class="text-xs text-slate-500 font-medium mt-2 leading-relaxed">免費、不用去商店、不佔什麼空間。裝了之後主畫面一點就開、會全螢幕，<span class="font-bold text-slate-700">iPhone 更是一定要裝才收得到上課提醒</span>。</p>
+                </div>
+                <div id="installGuide"></div>
+                <button data-action="welcome-tour" class="w-full mt-5 py-3 bg-emerald-500 text-white rounded-2xl font-black shadow-lg shadow-emerald-200 hover:bg-emerald-600 transition-colors">開始新手教學（約一分鐘）</button>
+                <button data-action="welcome-done" class="w-full mt-2 py-2 text-sm font-bold text-slate-400 hover:text-slate-600">先跳過，之後可以在設定裡重看</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 使用規則與隱私權條款（設定頁隨時可以再看） -->
+    <div id="termsModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-400">
+            <h3 class="text-xl font-black text-slate-900 mb-3">使用規則</h3>
+            <ol id="termsRules" class="terms-list list-decimal pl-5 space-y-1.5 text-sm text-slate-600 leading-relaxed mb-6"></ol>
+            <h3 class="text-xl font-black text-slate-900 mb-3">隱私權條款</h3>
+            <ol id="termsPrivacy" class="terms-list list-decimal pl-5 space-y-1.5 text-sm text-slate-600 leading-relaxed"></ol>
+            <p id="termsAgreedAt" class="text-xs text-slate-400 font-bold mt-4"></p>
+            <button data-close="termsModal" class="w-full mt-5 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors">知道了</button>
+        </div>
+    </div>
+
+    <!-- 安裝成 App（設定頁隨時可以再看；內容跟第一次登入第二步是同一份） -->
+    <div id="installModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-400">
+            <h3 class="text-xl font-black text-slate-900 mb-4 text-center">安裝成 App</h3>
+            <div id="installGuide2"></div>
+            <button data-close="installModal" class="w-full mt-5 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors">知道了</button>
+        </div>
+    </div>
+
+    <!-- 新手教學的聚光燈（2026-09-28）。
+         ★ 整層是 .fixed.inset-0：screenCovered() 認得它，教學進行中左右滑動不會換頁。
+         ★ 洞是 #tourRing 的一圈超大陰影挖出來的，洞裡的東西**按不到**（整層擋著）——
+            教學要使用者做的事一律由卡片上的按鈕代做，避免「按到洞裡的東西就跑去別頁、
+            教學卡在半路」。 -->
+    <div id="tourLayer" class="fixed inset-0 z-[55] hidden" aria-live="polite">
+        <div id="tourRing" aria-hidden="true"></div>
+        <div id="tourCard" role="dialog" aria-labelledby="tourTitle">
+            <div class="flex items-center justify-between mb-1">
+                <span id="tourStepNo" class="text-[11px] font-black text-emerald-600 tracking-widest"></span>
+                <button data-action="tour-end" class="text-xs font-bold text-slate-400 hover:text-slate-600 px-2 py-1">跳過教學</button>
+            </div>
+            <h4 id="tourTitle" class="text-lg font-black text-slate-900 mb-1"></h4>
+            <p id="tourText" class="text-sm text-slate-600 leading-relaxed"></p>
+            <div class="flex gap-2 mt-4">
+                <button data-action="tour-prev" id="tourPrev" class="px-4 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">上一步</button>
+                <button data-action="tour-do" id="tourDo" class="hidden flex-1 px-4 py-2 rounded-xl text-sm font-black bg-amber-500 text-white hover:bg-amber-600 transition"></button>
+                <button data-action="tour-next" id="tourNext" class="flex-1 px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">下一步</button>
+            </div>
         </div>
     </div>
 
@@ -5382,6 +5557,8 @@
                   那一科就是 168 次讀取，而免費額度是每天五萬次。一科一份
                   不管幾題都是一次。算式與各科裝得下幾則見 tools/explaincap.mjs。 */
             quizExplains: P('quizExplains'),
+            /* 🔒 升階申請（2026-09-28）：一人一份（id ＝ uid），本人與星族讀得到。見 19.5。 */
+            promote: P('promoteRequests'),
             /* 🔒 詳解投稿：一般與會員寫得進來，但**只有自己與管理員讀得到**。
                文件 id 刻意釘成 `{uid}_{qid}`，一個人對同一題只會有一則——
                那是這一格唯一的防洗版機制（規則裡釘著同一條）。 */
@@ -5495,7 +5672,9 @@
                整個退場，而彰師電子這邊本來就只有那一種來源——收掉之後這個分頁會是
                一片空白，留著等於給使用者一個點進去什麼都沒有的入口。
                ⚠️ 測驗本身沒有不見：小黑貓的「學習 → 測驗」還在（內建題庫＋我的測驗）。 */
-            ncue: [['evaluation','課程評價'], ['data','資料'], ['news','消息與連結']]
+            /* ★ 2026-09-28：「升階」獨立成一個大分頁。以前怎麼升階只寫在關於頁的一小段，
+               而且只能私下找星族；階級決定了「資料」分頁看得到什麼，值得一個自己的入口。 */
+            ncue: [['evaluation','課程評價'], ['data','資料'], ['news','消息與連結'], ['promote','升階']]
         };
         const TABS = PRODUCT_TABS[PRODUCT];
         /* 產品切換靠 logo 選單，不是分頁列。目前所在的那一項要標出來，
@@ -6039,6 +6218,16 @@
            理由跟這個檔案裡其他狀態一樣——被 window.onload 之後的流程碰到的東西
            一律放頂端，不然會是暫時性死區，而症狀是整頁全白。 */
         let pendingGoogleCred = null;
+        /* 升階、第一次登入、新手教學的狀態（2026-09-28，程式在 19.5／19.6）。
+           ★ 宣告在狀態區：applyTab 與 applyAuthState 都會碰到它們，
+           寫在函式旁邊就是暫時性死區（已踩六次，症狀是整頁全白）。
+           myPromoteReq：undefined ＝ 還沒讀、null ＝ 沒申請過、物件 ＝ 那一份申請。 */
+        let myPromoteReq = undefined;
+        let promoteReqs = [];
+        let welcomeNeeded = false;       // 這個帳號還沒同意過條款（或條款改版了）
+        let userAgreedAt = 0;
+        let installPrompt = null;        // Chrome／Edge 的 beforeinstallprompt 事件
+        let tour = null;                 // 新手教學進行中：{ steps, i }
 
         /* ★ 拆分之後有兩條階梯，**判斷**互不相干：
              currentUserLevel — 貓族階級，只管彰師電子（課程、教材、測驗、消息）
@@ -7748,14 +7937,23 @@
                 }
                 /* 長按拖曳計劃卡已經開始了（殘影在畫面上），那一下歸它。 */
                 if (document.querySelector('.plan-drag-ghost')) { live = false; release(false); return; }
+                /* ★★ 方向一鎖成「左右」，上下位移就完全不算了（2026-09-28）：
+                   頁面不跟著上下捲，放手時也只看橫向那一段。
+                   ⚠️ 只有這一條會 preventDefault，而且只在「已經鎖成左右」之後——
+                   橫向捲動區、輸入框在 touchstart 就被擋掉，根本走不到這裡，
+                   所以不會踩到下拉刷新那一輪「偶爾捲不動」的坑。
+                   `cancelable` 是 false 的時候（瀏覽器已經開始捲了）叫了也沒用，就別叫。 */
+                if (e.cancelable) e.preventDefault();
                 note(dx, Date.now());
                 ensurePeek(dx);
                 if (!warmed && peek && Math.abs(dx) > WARM * vw()) { warmed = true; prefetchTab(peek.tab); }
                 setShift(damp(dx));
-            }, { passive: true });
-            /* ★ 這四支都是 passive:true，**不擋預設行為**。橫向手勢本來就不需要
-               攔截，擋了只會讓真的要左右捲的地方「偶爾捲不動」——偶爾，
-               所以跟下拉刷新那一輪踩到的是同一種坑。 */
+            }, { passive: false });
+            /* ★ touchmove 是唯一一支 passive:false（2026-09-28 起），因為「左右滑的時候
+               頁面不要跟著上下捲」只能靠 preventDefault 做到。其他三支照舊 passive:true。
+               ⚠️ 擋預設行為只發生在「已經鎖成左右」的那一下之後（見上面那一段），
+               還沒表態、或判成上下捲的時候一律不擋——擋了會讓真的要捲的地方
+               「偶爾捲不動」，跟下拉刷新那一輪踩到的是同一種坑。 */
 
             addEventListener('touchend', (e) => {
                 if (!live) return;
@@ -7763,10 +7961,11 @@
                 if (!side) return;
                 const t = e.changedTouches && e.changedTouches[0];
                 const dx = t ? t.clientX - x0 : 0;
-                const dy = t ? t.clientY - y0 : 0;
-                /* ★ 收尾時再比一次方向。只在跨過 SLOP 那一刻判的話，
-                   「先橫一點再一路往下捲」會被當成撥頁。 */
-                const straight = !!t && Math.abs(dx) >= Math.abs(dy) * RATIO;
+                /* ★★ 收尾**不再**比一次上下左右（2026-09-28 拿掉）。方向在跨過 SLOP 那一刻
+                   已經鎖成左右，之後手指往上下飄多少都不算——頁面也沒有跟著捲
+                   （touchmove 擋掉了），所以使用者看到的一直是「左右在推」，
+                   放手卻因為手指歪了而彈回去，反而像壞掉。 */
+                const straight = !!t;
                 /* 兩種都算「要換頁」，而且缺一不可：
                      推得夠遠（畫面寬的 TAKE）——慢慢推到一半的人要換得了；
                      或者甩得夠快（FLICK，方向要跟手指一致）——IG 那種輕輕一甩，
@@ -7812,6 +8011,20 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-28',
+                title: '第一次登入有歡迎頁、新手教學，彰師電子多了「升階」',
+                items: [
+                    ['第一次登入會先問你的名字，並請你看過使用規則與隱私權條款', '勾了同意之後就不會再出現。以前註冊過的人也會看到一次，因為之前沒有請大家同意過。規則與條款之後在「設定 → 新手教學」隨時可以再看。'],
+                    ['教你把網站裝成 App', 'iPhone、Android、電腦各有一步一步的說明，會先幫你打開自己手上那一種。iPhone 一定要裝成 App 才收得到上課提醒。'],
+                    ['一分鐘的新手教學', '會帶你打開通知、切到課表的編輯模式，再把下面每一個分頁、右上角的設定和帳號都指給你看一次。想再看一次，到「設定 → 新手教學」。'],
+                    ['彰師電子小黑貓多了「升階」分頁', '看得到自己現在是哪一階、每一階多了什麼。想升階直接在這裡寫一句自我介紹送出申請，星族核准之後重新整理就會生效。'],
+                    ['帳號權限管理可以照階級排序', '排序選單現在只選「依什麼排」（加入日期、名稱、最後上線、階級），旁邊的箭頭按一下就在升冪和降冪之間切換。升階申請也會出現在這一頁最上面，一鍵核准或拒絕。'],
+                    ['手機的頁首只留 logo', '以前站名在窄的手機上常常被切成一半，現在乾脆只放 logo，畫面比較清爽。'],
+                    ['左右滑換分頁時，手指上下歪一點也沒關係', '開始往左右滑之後，頁面不會再跟著上下捲；放手時也只看你往旁邊推了多遠，不會因為手指斜了而彈回去。'],
+                    ['在設定頁時，下面的分頁列不會再亮著某一格', '以前進到設定，下面那一排會有一塊顏色停在奇怪的位置，看起來像還在別的分頁。現在設定、關於這幾頁不會標示任何一格。'],
+                ]
+            },
             {
                 date: '2026-09-24',
                 title: '手機上的分頁搬到畫面最下面了',
@@ -8448,7 +8661,7 @@
         const TAB_ICON = {
             home: 'house', plan: 'list-checks', 'self-study': 'book-open',
             english: 'languages', finance: 'wallet',
-            evaluation: 'star', data: 'folder-open', news: 'newspaper'
+            evaluation: 'star', data: 'folder-open', news: 'newspaper', promote: 'trending-up'
         };
         function buildStaticUI() {
             $('mainNav').innerHTML =
@@ -8717,8 +8930,13 @@
             if (btn) btn.classList.add(...NAV_ACTIVE);
             /* 顏料塊滑到新的那一顆底下。★ 用**點**的切分頁也會滑，不只用滑的——
                同一塊色塊只有一種移動方式，使用者才不必學兩套。
-               （設定／關於／帳號權限管理不在分頁列上，btn 是 null，它會淡出。） */
-            paintNav(btn);
+               ★★ 設定／關於／帳號權限管理不在分頁列上，色塊要淡出。
+               ⚠️ 2026-09-28 修：原本這裡寫「那幾頁 btn 是 null」——**不是**。
+               ⚙️（#settingsBtn）與 logo 選單裡的項目也帶著 data-tab，上面那一行
+               找到的是它們，於是色塊被量到 ⚙️ 的位置上：手機版在設定頁時，
+               底部分頁列上會浮著一塊不屬於任何一顆的顏料，看起來像「還停在某一頁」。
+               所以只認分頁列上的 `.tab-btn`。 */
+            paintNav(btn && btn.classList.contains('tab-btn') ? btn : null);
             /* ★ ⚙️ 不在 mainNav 裡，所以上面那一行清不到它。
                不自己清的話，去過一次設定之後那顆齒輪就永遠亮著——
                不會報錯，只是使用者以為自己還在設定頁。 */
@@ -8786,7 +9004,9 @@
                 setVals({ starclanSearch:'' });
                 renderStarclanPanel();
                 renderUsageStats();
+                loadPromoteRequests();
             }
+            if (tab ==='promote') openPromote();
             /* 資料頁同理：離開再回來時不該還留著上次的關鍵字。 */
             if (tab ==='data') {
                 setVals({ dataSearch:'' });
@@ -18482,8 +18702,24 @@
                那一批是「這個功能上線之前就註冊、之後沒再來過」的人——
                而「誰不來了」正是這個排序要回答的問題。 */
 'seen-desc':    (a, b) => (Number(b.seen) || 0) - (Number(a.seen) || 0),
-'seen-asc':     (a, b) => (Number(a.seen) || 0) - (Number(b.seen) || 0)
+'seen-asc':     (a, b) => (Number(a.seen) || 0) - (Number(b.seen) || 0),
+            /* 階級（2026-09-28）。比的是貓族階級（ROLE_LEVELS），因為名冊每一列
+               右邊那顆就是在改這個——排序跟畫面上看得到的東西要是同一件事。
+               ★ 同一階的人照名稱排（**兩個方向都是 A → Z**）：一階裡常常有十幾個人，
+               不給第二排序的話每次重畫的順序都可能不一樣，看起來像名冊在跳。
+               ⚠️ 認不得的階級（舊資料、打錯字）當 0，跟訪客排在一起——
+               回 undefined 的話相減是 NaN，排序會安靜地失靈。 */
+'role-desc':    (a, b) => (ROLE_LEVELS[b.role] || 0) - (ROLE_LEVELS[a.role] || 0)
+                          || userSortName(a).localeCompare(userSortName(b),'zh-Hant'),
+'role-asc':     (a, b) => (ROLE_LEVELS[a.role] || 0) - (ROLE_LEVELS[b.role] || 0)
+                          || userSortName(a).localeCompare(userSortName(b),'zh-Hant')
         };
+        /* 選單（依什麼排）＋箭頭（哪個方向）→ USER_SORTS 的鍵。
+           ★ 選單的值如果本身已經帶方向（舊版的 'created-desc' 那種）就照用，
+             不再接一次方向——接了會變成 'created-desc-desc'，退回預設，
+             而使用者看到的是「選了卻沒動」。 */
+        const userSortKey = (field, dir) =>
+            /-(asc|desc)$/.test(field) ? field : `${field}-${dir ==='asc' ?'asc' :'desc'}`;
         const USER_SORT_DEFAULT ='created-desc';
         /* ⚠️ 只排**篩選之後那一份新陣列**，不要排 state.allUsers 本身：
            sort 是原地排序，排下去就把訂閱進來的那一份順序改掉了。 */
@@ -18593,7 +18829,9 @@
             /* 排序也用同一種讀法（元素不在就退回預設值）。這支是即時訂閱的回呼，
                丟一次例外就等於整份名冊從此不再更新，而畫面上只是「別人改了階級
                但這裡沒變」。 */
-            const sortKey = $('starclanSort') ? getVal('starclanSort') : USER_SORT_DEFAULT;
+            const sortKey = $('starclanSort')
+                ? userSortKey(getVal('starclanSort'), $('starclanSortDir') ? $('starclanSortDir').dataset.dir :'desc')
+                : USER_SORT_DEFAULT;
             const today = dayKeyOf(Date.now());
             const all = state.allUsers;
             const list = sortUsers(all.filter(u => matchUser(u, q)), sortKey);
@@ -19274,6 +19512,9 @@
                         // 注意：這裡刻意不放 schedule。課表屬於私人資料，
                         // 存在個人資料文件裡的話星族會連帶讀到（見下方 loadPrivateSchedule 說明）。
                         await setDoc(userRef, { email: user.email, role:'見習生', displayName:'無名小貓', theme: currentTheme, createdAt: Date.now() });
+                        /* 新帳號一定還沒同意過條款：登入流程最後會打開第一次登入那一頁（19.6）。 */
+                        welcomeNeeded = true;
+                        userAgreedAt = 0;
                         currentUserRole ='見習生';
                         currentUserTierField = null;      // 新帳號不寫 tier，走後備換算
                         userDisplayName ='無名小貓';
@@ -19286,6 +19527,10 @@
                         currentUserRole = data.role ||'見習生';
                         currentUserTierField = data.tier ?? null;   // 舊帳號沒有這個欄位
                         userDisplayName = data.displayName ||'無名小貓';
+                        /* ★ 舊帳號沒有 agreedAt，也會看到一次第一次登入那一頁——他們一樣沒同意過。
+                           條款改版（TERMS_VERSION 加一）的話所有人再看一次。 */
+                        userAgreedAt = Number(data.agreedAt) || 0;
+                        welcomeNeeded = !userAgreedAt || (Number(data.agreedVer) || 0) < TERMS_VERSION;
                         // 套用此帳號上次選擇的顯示模式
                         if (data.theme) applyTheme(data.theme);
                         // 課表改從私人區讀取；舊帳號若還留在個人資料裡會在這裡自動搬家
@@ -19444,6 +19689,10 @@
                 showToast(`歡迎回來，${currentBadge().name} ${userDisplayName}`);
             } else {
                 usageStop();          // 使用時間：登出就收掉（見 9.9）
+                /* 第一次登入那一頁屬於剛剛那個帳號：登出就收掉，不然下一個人會看到
+                   上一個人的暱稱被填在裡面。 */
+                welcomeNeeded = false; userAgreedAt = 0;
+                closeModal('welcomeModal');
                 isAdmin = false;
                 currentUserRole ="訪客";
                 currentUserLevel = 0;
@@ -19521,6 +19770,474 @@
             // 🔒 階級可能已改變，重新評估分級教材的訂閱
             resyncScopedSubs();
             updateAdminUI();
+            /* 升階分頁開著的話跟著重畫（換了人，申請也是另一份）。 */
+            myPromoteReq = undefined;
+            if ($('page-promote') && !$('page-promote').classList.contains('hidden')) openPromote();
+            maybeWelcome();
+        }
+
+        /* ==========================================================
+         * 19.5 升階（彰師電子，2026-09-28）
+         *
+         * ★ 申請只是一則「留言」，**不會動到任何權限**。真的升階的是星族在
+         *   帳號權限管理按下核准——那一下走的是名冊本來就有的那條 isStarclan() 規則。
+         *   所以這一段寫錯最多是多一則奇怪的申請，不會有人把自己升上去。
+         * ★ 一個人只有一份（文件 id ＝ uid），重送就是覆寫同一份。
+         * ⚠️ 用的是新集合 `promoteRequests`，**要推 firestore.rules 才會動**。
+         *   漏推的症狀是「送出申請」跳失敗、星族那邊永遠看不到申請。
+         * ========================================================== */
+        /* 每一階多了什麼。★ 改字改這一張表就好，升階分頁與教學都讀它。
+           ⚠️ 內容要跟 firestore.rules 對得上（誰讀得到哪一區是規則決定的，
+           這裡寫錯不會報錯，只會讓人申請了才發現沒有那個東西）。 */
+        const PROMOTE_PERKS = {
+'見習生':'註冊就是見習生。課表、計劃、提醒、記帳、單字冊、自己的測驗都能用，再加上「資料」分頁的見習生資料（PDF 可以在站內看，下載要戰士以上）。',
+'戰士':  '再加上「資料」分頁的戰士資料（共享講義與考古題），PDF 也可以下載。',
+'族長':  '再解鎖族長資料——更進階的整理與檔案。',
+'巫醫':  '再解鎖巫醫資料，而且可以上傳資料給大家用。',
+'星族':  '管理員：指派階級、審核升階申請。由站長直接指派，不開放申請。'
+        };
+        /* 開放申請的目標階。★ 要跟 firestore.rules 那條 `to in [...]` 一致：
+           這裡多一個的話按鈕看得到、送出去被拒；少一個的話規則開了、畫面沒有入口。 */
+        const PROMOTE_OPEN = ['戰士','族長','巫醫'];
+        const PROMOTE_NOTE_MAX = 300;
+        /* 由低到高。ROLES 是由高到低（名冊的下拉選單要星族在最上面），這裡反過來用。 */
+        const promoteUp = () => [...ROLES].reverse();
+        const promoteNext = (role) => { const up = promoteUp(); const i = up.indexOf(role); return i < 0 ? up[1] : up[i + 1]; };
+        const signedIn = () => !!(auth && auth.currentUser && !auth.currentUser.isAnonymous);
+
+        async function loadMyPromote(){
+            if (!signedIn()) { myPromoteReq = null; return; }
+            try {
+                const s = await getDoc(doc(db, PATHS.promote, auth.currentUser.uid));
+                myPromoteReq = s.exists() ? s.data() : null;
+            } catch (e) {
+                /* 讀不到（多半是規則還沒推）就當成沒有申請過——表單照樣畫得出來，
+                   送出的那一下才會失敗並說一聲。 */
+                console.warn('讀取升階申請失敗', e);
+                myPromoteReq = null;
+            }
+        }
+
+        function renderPromote(){
+            const mine = $('promoteMine'), lad = $('promoteLadder');
+            if (!mine || !lad) return;
+            const signed = signedIn();
+            const cur = signed ? currentUserRole : null;
+            lad.innerHTML = promoteUp().map(r => `
+                <div class="flex items-start gap-4 p-4 rounded-2xl ${r === cur ?'bg-amber-50 border-2 border-amber-300' :'bg-slate-50 border border-slate-100'}">
+                    <span class="px-3 py-1 rounded-lg text-xs font-black border shrink-0 mt-0.5 ${ROLE_COLORS[r] ||''}">${r}</span>
+                    <p class="text-sm text-slate-600 leading-relaxed">${escapeHTML(PROMOTE_PERKS[r] ||'')}${r === cur ?' <span class="font-black text-amber-600 whitespace-nowrap">← 你在這裡</span>' :''}</p>
+                </div>`).join('');
+
+            const head = (role) => `<h3 class="text-lg font-black text-slate-900 mb-3 flex items-center gap-2 flex-wrap"><i data-lucide="user-round" class="w-5 h-5 text-emerald-500"></i> 你現在是
+                ${role ? `<span class="px-2 py-0.5 rounded text-xs font-black border ${ROLE_COLORS[role] ||''}">${escapeHTML(role)}</span>` :'訪客'}</h3>`;
+            if (!signed) {
+                mine.innerHTML = head(null) + `
+                    <p class="text-sm text-slate-500 font-medium mb-3">登入之後才看得到自己的階級，也才能申請升階。</p>
+                    <button data-action="settings-login" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">登入 / 註冊</button>`;
+                icons(); return;
+            }
+            const next = promoteNext(cur);
+            const req = myPromoteReq;
+            let body;
+            if (!next) {
+                body = `<p class="text-sm text-slate-500 font-medium">你已經是最高階了 ✨</p>`;
+            } else if (!PROMOTE_OPEN.includes(next)) {
+                body = `<p class="text-sm text-slate-500 font-medium">下一階是<span class="font-bold text-slate-700">${escapeHTML(next)}</span>，由站長直接指派，不開放申請。</p>`;
+            } else if (req === undefined) {
+                body = `<p class="text-sm text-slate-400 font-medium">讀取申請狀態中…</p>`;
+            } else if (req && req.status ==='approved' && req.from === cur) {
+                /* 核准了，但這一頁的階級是登入那一刻讀的——重新整理才會換。 */
+                body = `<p class="text-sm text-emerald-600 font-bold">星族核准你升到「${escapeHTML(req.to)}」了！重新整理頁面就會生效。</p>`;
+            } else if (req && req.status ==='pending' && req.to === next) {
+                body = `
+                    <p class="text-sm text-slate-600 font-medium mb-2">已經申請升到<span class="font-bold text-slate-800">${escapeHTML(next)}</span>，等星族看過。</p>
+                    <p class="text-xs text-slate-400 font-medium mb-3 whitespace-pre-line">你寫的：${escapeHTML(req.note ||'')}</p>
+                    <button data-action="promote-cancel" class="px-4 py-2 rounded-xl text-sm font-black bg-slate-100 text-slate-600 hover:bg-slate-200 transition">撤回申請</button>`;
+            } else {
+                const rejected = req && req.status ==='rejected' && req.to === next;
+                body = `
+                    ${rejected ?`<p class="text-sm text-rose-500 font-bold mb-2">上次的申請沒有通過。可以把說明寫清楚一點再送一次。</p>` :''}
+                    <p class="text-sm text-slate-500 font-medium mb-3">想升到<span class="font-bold text-slate-700">${escapeHTML(next)}</span>？寫一句你是誰、為什麼需要（例如：電子系大二，想看考古題準備期中）。星族會用你註冊的信箱認人。</p>
+                    <textarea id="promoteNote" maxlength="${PROMOTE_NOTE_MAX}" rows="3" aria-label="申請說明"
+                              class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 text-sm font-medium mb-3">${rejected ? escapeHTML(req.note ||'') :''}</textarea>
+                    <button data-action="promote-submit" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">申請升到${escapeHTML(next)}</button>`;
+            }
+            mine.innerHTML = head(cur) + body;
+            icons();
+        }
+
+        /* 進升階分頁、或登入狀態變了的時候叫。★ 讀一次自己的申請（一次讀取），
+           不開即時訂閱：申請被處理的頻率是「幾天一次」，不值得一直掛著一條連線。 */
+        async function openPromote(){
+            myPromoteReq = undefined;
+            renderPromote();
+            await loadMyPromote();
+            renderPromote();
+        }
+
+        async function submitPromote(){
+            if (!signedIn()) return openModal('adminModal');
+            const next = promoteNext(currentUserRole);
+            if (!PROMOTE_OPEN.includes(next)) return;
+            const note = String(($('promoteNote') || {}).value ||'').trim();
+            if (!note) return showToast('寫一句你是誰、為什麼需要，星族比較好判斷');
+            if (note.length > PROMOTE_NOTE_MAX) return showToast(`說明請在 ${PROMOTE_NOTE_MAX} 字以內`);
+            const data = { uid: auth.currentUser.uid, email: auth.currentUser.email ||'',
+                           name: String(userDisplayName ||'').slice(0, 40),
+                           from: currentUserRole, to: next, note, status:'pending', createdAt: Date.now() };
+            try {
+                await setDoc(doc(db, PATHS.promote, data.uid), data);
+                myPromoteReq = data;
+                showToast('申請送出了，星族看過之後就會幫你升階');
+            } catch (e) {
+                console.warn('送出升階申請失敗', e);
+                showToast('送出失敗，請稍後再試');
+            }
+            renderPromote();
+        }
+
+        async function cancelPromote(){
+            if (!signedIn()) return;
+            try {
+                await deleteDoc(doc(db, PATHS.promote, auth.currentUser.uid));
+                myPromoteReq = null;
+                showToast('已撤回申請');
+            } catch { showToast('撤回失敗，請稍後再試'); }
+            renderPromote();
+        }
+
+        /* ---- 星族那一側：帳號權限管理上面那一塊 ----
+           ★ 進帳號權限管理時讀一次（getDocs），不是即時訂閱——理由同上。 */
+        async function loadPromoteRequests(){
+            const box = $('promoteReqBox');
+            if (!box) return;
+            if (!isAdmin) { promoteReqs = []; box.classList.add('hidden'); return; }
+            try {
+                const snap = await getDocs(query(collection(db, PATHS.promote), where('status','==','pending')));
+                promoteReqs = snap.docs.map(d => ({ id: d.id, ...d.data() }))
+                                       .sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+            } catch (e) {
+                console.warn('讀取升階申請失敗（規則推了嗎？）', e);
+                promoteReqs = [];
+            }
+            renderPromoteRequests();
+        }
+
+        function renderPromoteRequests(){
+            const box = $('promoteReqBox'), list = $('promoteReqList');
+            if (!box || !list) return;
+            box.classList.toggle('hidden', !promoteReqs.length);
+            if ($('promoteReqCount')) $('promoteReqCount').textContent = promoteReqs.length ? `${promoteReqs.length} 則` :'';
+            /* ★ 名字、信箱、說明都是申請的人自己打的——一律跳脫（CLAUDE.md 第四條）。
+               這一塊只有星族看得到，跳出去的東西執行時帶的是管理員的登入狀態。 */
+            list.innerHTML = promoteReqs.map(r => `
+                <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200">
+                    <div class="flex items-center gap-2 flex-wrap mb-1">
+                        <span class="font-bold text-slate-800 text-sm">${escapeHTML(r.name ||'無名小貓')}</span>
+                        <span class="text-xs text-slate-400 break-all">${escapeHTML(r.email ||'')}</span>
+                    </div>
+                    <div class="text-xs font-black text-slate-500 mb-1">${escapeHTML(r.from ||'')} → <span class="text-fuchsia-600">${escapeHTML(r.to ||'')}</span>・${r.createdAt ? new Date(r.createdAt).toLocaleDateString() :''}</div>
+                    <p class="text-sm text-slate-600 whitespace-pre-line mb-2">${escapeHTML(r.note ||'')}</p>
+                    <div class="flex gap-2">
+                        <button data-action="promote-decide" data-uid="${escapeHTML(r.id)}" data-ok="1" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">核准</button>
+                        <button data-action="promote-decide" data-uid="${escapeHTML(r.id)}" data-ok="0" class="px-3 py-1.5 rounded-xl text-xs font-black bg-slate-200 text-slate-600 hover:bg-slate-300 transition">拒絕</button>
+                    </div>
+                </div>`).join('');
+        }
+
+        async function decidePromote(uid, ok){
+            const r = promoteReqs.find(x => x.id === uid);
+            if (!r || !isAdmin) return;
+            try {
+                /* ★ 先改階級、再標記申請。反過來的話，改階級失敗時申請已經被標成
+                   「核准」，那個人那邊會看到「核准了」，重新整理卻還是原本的階級。 */
+                if (ok) await updateDoc(doc(db, PATHS.users, uid), { role: r.to });
+                await updateDoc(doc(db, PATHS.promote, uid), { status: ok ?'approved' :'rejected' });
+                promoteReqs = promoteReqs.filter(x => x.id !== uid);
+                renderPromoteRequests();
+                showToast(ok ? `已核准：${r.name || r.email} 升為${r.to}` :'已拒絕這則申請');
+            } catch (e) {
+                console.warn('處理升階申請失敗', e);
+                showToast('權限不足或更新失敗…');
+            }
+        }
+
+        /* ==========================================================
+         * 19.6 第一次登入、安裝成 App、新手教學（2026-09-28）
+         *
+         * 第一次登入（`welcomeModal`）：填名字、同意使用規則與隱私權條款，
+         *   同意之後在帳號文件寫 `agreedAt`／`agreedVer`。
+         *   ★ 舊帳號身上沒有 agreedAt，所以也會看到一次——他們一樣沒同意過。
+         *   ★ 不用改 firestore.rules：本人改自己的帳號文件本來就可以多寫欄位
+         *     （那一條只鎖 role／tier／email 與上限）。
+         *   ⚠️ 條款改了要把 TERMS_VERSION 加一，所有人會在下次登入時再看到一次。
+         * 安裝成 App：三種系統各一份步驟，預設打開自己這一種。
+         * 新手教學（`tourLayer`）：通知 → 課表 → 分頁列走一遍 → 設定／logo／帳號。
+         * ========================================================== */
+        const TERMS_VERSION = 1;
+        /* ★ 寫給學生看的：一條一句話，講「不能做什麼、會怎樣」，不要寫成法律條文。 */
+        const TERMS_RULES = [
+'一人一個帳號，用自己的信箱註冊。升階是看信箱認人的，借別人的信箱會被降階。',
+'課程評價對事不對人：評課程、評教法都可以，不要人身攻擊，也不要寫出任何人的個資。',
+'「資料」分頁裡的講義與考古題是同學之間分享用的，不要外流、轉賣或公開貼到別的地方。',
+'不要上傳有版權問題的東西（例如整本課本的掃描檔）；被檢舉的會直接移除。',
+'不要試圖繞過權限、灌假資料，或用程式大量抓網站的內容。違規的帳號會被降階或停用。',
+'這個網站是學生自己做的，資料盡量正確但不保證；選課、考試請以學校公告為準。'
+        ];
+        const TERMS_PRIVACY = [
+'我們存的東西：信箱、暱稱、階級、註冊時間、外觀設定，以及上線的日子與各分頁用了多久（用來知道哪些功能有人用）。',
+'你的私人資料——課表、計劃、倒數、記帳、投資、自己的單字冊、測驗與筆記——放在只有你讀得到的地方，管理員也讀不到。這是伺服器擋的，不是畫面上藏起來而已。',
+'星族（管理員）看得到名冊：信箱、暱稱、階級、加入日期與上線紀錄，用來指派階級與審核升階申請。升階申請裡寫的說明也只有星族看得到。',
+'課程評價是匿名的，連管理員也查不出是誰寫的。',
+'打開通知的話，要提醒的時間與標題會交給推播服務排程，只用來準時響，關掉通知就一起刪掉。',
+'登入與資料存放用的是 Google Firebase 與 Cloudflare 的服務。我們不賣資料，網站上也沒有廣告或追蹤程式。',
+'想刪除帳號或拿回自己的資料：到「設定 → 錯誤回報」寫一聲。'
+        ];
+        function fillTerms(){
+            const put = (id, list) => { const el = $(id); if (el && !el.childElementCount) el.innerHTML = list.map(t => `<li>${escapeHTML(t)}</li>`).join(''); };
+            put('welcomeRules', TERMS_RULES);  put('termsRules', TERMS_RULES);
+            put('welcomePrivacy', TERMS_PRIVACY); put('termsPrivacy', TERMS_PRIVACY);
+        }
+        function openTerms(){
+            fillTerms();
+            if ($('termsAgreedAt')) $('termsAgreedAt').textContent =
+                userAgreedAt ? `你在 ${new Date(userAgreedAt).toLocaleDateString()} 同意過這兩份。` :'';
+            openModal('termsModal');
+        }
+
+        /* ---- 安裝成 App ----
+           ★ 步驟照「使用者手上看得到的字」寫，不寫 PWA、manifest 這種詞。
+           ⚠️ 瀏覽器的選單文字會隨版本改名；哪天有人回報「找不到那個選項」，先回來對這一張。 */
+        const INSTALL_GUIDES = {
+            ios: { label:'iPhone／iPad', steps: [
+'用 <b>Safari</b> 打開這個網站（Chrome、LINE、IG 裡面開的都不行——先點右下角或右上角的「用 Safari 開啟」）。',
+'點畫面下方中間的<b>分享</b>按鈕（一個方框加往上的箭頭）。iPad 在右上角。',
+'往下滑，點<b>「加入主畫面」</b>。',
+'右上角點<b>「新增」</b>。',
+'回到主畫面，以後都從<b>小黑貓的圖示</b>打開——這樣才收得到上課提醒（要 iOS 16.4 以上）。'
+            ]},
+            android: { label:'Android', steps: [
+'用 <b>Chrome</b> 打開這個網站（LINE、FB 裡面開的，先點右上角「⋮ → 用預設瀏覽器開啟」）。',
+'點右上角的<b>「⋮」</b>。',
+'點<b>「安裝應用程式」</b>（有些手機寫「加到主畫面」）。',
+'跳出確認視窗後點<b>「安裝」</b>。',
+'桌面或應用程式清單就會出現小黑貓。三星瀏覽器：右下角「≡ → 新增頁面至 → 主畫面」。'
+            ]},
+            desktop: { label:'電腦', steps: [
+'用 <b>Chrome</b> 或 <b>Edge</b> 打開這個網站。',
+'看網址列的最右邊，有一個<b>「螢幕加向下箭頭」的安裝圖示</b>，點下去。',
+'沒看到的話：Chrome 點右上角「⋮ → 投放、儲存及分享 → 將網頁安裝為應用程式」；Edge 點「⋯ → 應用程式 → 將此網站安裝為應用程式」。',
+'點<b>「安裝」</b>，之後可以從開始功能表或桌面捷徑開。Mac 的 Safari：選單列「檔案 → 加入 Dock」。'
+            ]}
+        };
+        const installOsOf = () => isIOS ?'ios' : /Android/i.test(navigator.userAgent) ?'android' :'desktop';
+        function renderInstallGuide(boxId, os){
+            const box = $(boxId);
+            if (!box) return;
+            os = INSTALL_GUIDES[os] ? os : installOsOf();
+            const g = INSTALL_GUIDES[os];
+            /* ★ 步驟是這支程式自己寫死的字（含 <b>），不是別人打的，所以不跳脫。
+               ⚠️ 哪天改成從資料庫讀，就一定要跳脫。 */
+            box.innerHTML = (isStandalone
+                    ? `<p class="text-sm font-bold text-emerald-600 bg-emerald-50 rounded-2xl p-3 mb-3">你現在就是用 App 開的 ✓ 不用再裝一次。</p>` :'')
+                + `<div class="flex gap-1 bg-slate-100 rounded-xl p-1 mb-3">${Object.entries(INSTALL_GUIDES).map(([k, v]) =>
+                    `<button data-action="install-os" data-os="${k}" data-box="${boxId}" class="install-opt flex-1 py-2 rounded-lg text-xs font-black text-slate-500 transition-colors ${k === os ?'is-on' :''}">${v.label}</button>`).join('')}</div>`
+                + (installPrompt && os !=='ios' && !isStandalone
+                    ? `<button data-action="install-now" class="w-full mb-3 py-2.5 rounded-2xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">一鍵安裝</button>` :'')
+                + `<ol class="space-y-2">${g.steps.map((s, i) => `
+                    <li class="flex items-start gap-3 p-3 rounded-2xl bg-slate-50 border border-slate-100">
+                        <span class="w-6 h-6 shrink-0 rounded-full bg-emerald-500 text-white text-xs font-black flex items-center justify-center">${i + 1}</span>
+                        <p class="text-sm text-slate-600 leading-relaxed">${s}</p>
+                    </li>`).join('')}</ol>`;
+        }
+        /* Chrome／Edge 在「這個網站可以安裝」時會丟這個事件。存起來給「一鍵安裝」用。
+           ★ 刻意**不** preventDefault：擋了的話 Android Chrome 自己跳出來的安裝提示會消失，
+             那是現在唯一會主動提醒使用者的東西。 */
+        addEventListener('beforeinstallprompt', (e) => { installPrompt = e; });
+        addEventListener('appinstalled', () => { installPrompt = null; });
+        async function installNow(){
+            if (!installPrompt) return;
+            const p = installPrompt;
+            installPrompt = null;
+            try { await p.prompt(); } catch (e) {}
+        }
+
+        /* ---- 第一次登入 ---- */
+        function openWelcome(){
+            fillTerms();
+            $('welcomeName').value = userDisplayName ==='無名小貓' ?'' : userDisplayName;
+            $('welcomeAgreeRules').checked = false;
+            $('welcomeAgreePrivacy').checked = false;
+            $('welcomeStep1').classList.remove('hidden');
+            $('welcomeStep2').classList.add('hidden');
+            updateWelcomeBtn();
+            openModal('welcomeModal');
+            icons();
+        }
+        function updateWelcomeBtn(){
+            const ok = $('welcomeName').value.trim() && $('welcomeAgreeRules').checked && $('welcomeAgreePrivacy').checked;
+            $('welcomeNext').disabled = !ok;
+        }
+        /* 登入流程的最後叫一次。★ 等載入畫面收掉之後才開：同一格裡開的話，
+           它會躲在載入畫面後面（載入畫面 z-index 9999），而等畫面收掉時使用者
+           第一眼看到的就是它——這正是要的。所以這裡不必等，只要打開。 */
+        function maybeWelcome(){
+            if (!welcomeNeeded || !signedIn()) return;
+            openWelcome();
+        }
+        async function welcomeAgree(){
+            const name = $('welcomeName').value.trim();
+            if (!isValidText(name, 15)) return showToast('名字請在 1 到 15 個字以內！');
+            if (!$('welcomeAgreeRules').checked || !$('welcomeAgreePrivacy').checked) return;
+            const btn = $('welcomeNext');
+            btn.disabled = true;
+            const at = Date.now();
+            try {
+                await updateDoc(doc(db, PATHS.users, auth.currentUser.uid),
+                                { displayName: name, agreedAt: at, agreedVer: TERMS_VERSION });
+            } catch (e) {
+                console.warn('寫入同意紀錄失敗', e);
+                btn.disabled = false;
+                return showToast('儲存失敗，請確認網路之後再按一次');
+            }
+            welcomeNeeded = false;
+            userAgreedAt = at;
+            userDisplayName = name;
+            if ($('displayUserName')) $('displayUserName').textContent = name;
+            updateAdminUI();
+            renderInstallGuide('installGuide', installOsOf());
+            $('welcomeStep1').classList.add('hidden');
+            $('welcomeStep2').classList.remove('hidden');
+            $('welcomeModal').firstElementChild.scrollTop = 0;
+        }
+
+        /* ---- 新手教學 ----
+           ★ 每一步是 { tab, target, title, text, top, act }：
+             tab    ＝ 先切到哪一個分頁（沒有就不切）
+             target ＝ 聚光燈照哪一個元素（找不到或看不見就只有卡片，不會卡住）
+             top    ＝ 目標在頁首或分頁列上：先捲回最上面，頁首才會展開
+             act    ＝ 卡片上那顆黃色按鈕要幫使用者做什麼
+           ★ 洞裡的東西按不到（整層擋著），要做的事一律由卡片上的按鈕代做——
+             按到洞裡的按鈕就跑去別頁的話，教學會卡在半路。 */
+        const TOUR_TAB_TEXT = {
+            home:        '課表、今天的任務和倒數日都在這裡。每天打開 App 第一眼看到的就是它。',
+            plan:        '待辦清單＋讀書計時。打一行「明天下午三點 交報告」就能新增，時間到會提醒你。',
+'self-study':    '內建題庫與自己出的測驗、自學課程，還有拍一張題目讓 AI 幫你解。',
+            english:     '單字庫與背單字。每天做一次今日測驗，答錯的字會自己排回來複習。',
+            finance:     '記帳與投資紀錄，只有你自己看得到。',
+            evaluation:  '看學長姐怎麼評每一門課，也可以匿名寫一則。',
+            data:        '講義與考古題。看得到哪幾區是看你的階級。',
+            news:        '系上公告與常用網站。',
+            promote:     '看自己是哪一階、上一階多了什麼。想升階直接在這裡申請。'
+        };
+        function tourSteps(){
+            const s = [];
+            s.push({ tab:'settings', target:'#settingsNotifyBox', title:'先把通知打開',
+                     text: signedIn()
+                        ?'打開之後，上課前 10 分鐘、計劃開始前都會響，關掉 App 也會響。iPhone 要先裝成 App 才收得到（剛剛那一頁的步驟）。'
+                        :'登入之後打開通知，上課前 10 分鐘、計劃開始前都會響。',
+                     act: signedIn() ? { label: () => classReminderOn ?'通知已經開了 ✓' :'幫我打開通知',
+                                         off: () => classReminderOn,
+                                         /* ★ iPhone 還沒裝成 App 的話，toggleClassReminder 會叫出安裝教學——
+                                            而那個彈窗在聚光燈底下（z-50 對 z-55），看起來是「按了沒反應」。
+                                            所以這條路先收掉教學，直接給安裝步驟。 */
+                                         run: async () => {
+                                             if (isIOS && !isStandalone) {
+                                                 tourEnd();
+                                                 renderInstallGuide('installGuide2','ios');
+                                                 openModal('installModal');
+                                                 return;
+                                             }
+                                             await toggleClassReminder();
+                                         } } : null });
+            if (TABS.some(([k]) => k ==='home') && signedIn())
+                s.push({ tab:'home', target:'#home-user-schedule', title:'填你的課表',
+                         prep: () => { scheduleEditMode = true; renderSchedule(); },
+                         text:'我幫你切到「編輯」了。教學結束之後，點任何一格就能填課名和教室；填好之後上課前會提醒你。' });
+            for (const [k, label] of TABS)
+                s.push({ target:`#mainNav [data-tab="${k}"]`, top: true, title: label,
+                         text: TOUR_TAB_TEXT[k] ||'' });
+            s.push({ target:'#settingsBtn', top: true, title:'設定',
+                     text:'深色模式、通知、暱稱、密碼，還有這個教學，都在這裡。' });
+            /* ★ 框 logo 圖本身，不是 #logoBtn：那一格在手機上撐滿整列的左半，
+               框起來是一大塊空白裡縮在角落的一顆圓圖。 */
+            s.push({ target:'#logoBtn > img', top: true, title:'切換網站',
+                     text:'點左上角的 logo 可以切到小黑貓、彰師電子小黑貓、筆記小黑貓和電路模擬器。' });
+            s.push({ target:'#adminBtn', top: true, title:'你的帳號',
+                     text:'看自己的階級、改暱稱、登出。' });
+            s.push({ title:'完成！', text:'就這樣。之後想再看一次，到「設定 → 新手教學」。' });
+            return s;
+        }
+        function tourStart(){
+            closeModal('welcomeModal');
+            tour = { steps: tourSteps(), i: 0 };
+            $('tourLayer').classList.remove('hidden');
+            tourShow();
+        }
+        function tourEnd(){
+            if (!tour) return;
+            tour = null;
+            $('tourLayer').classList.add('hidden');
+            /* 回到第一個分頁：教學最後停在設定頁的話，使用者會以為教學還沒結束。 */
+            switchTab(TABS[0][0]);
+            scrollTo(0, 0);
+        }
+        function tourShow(){
+            if (!tour) return;
+            const st = tour.steps[tour.i];
+            if (st.tab) switchTab(st.tab, true);
+            if (st.prep) st.prep();
+            $('tourStepNo').textContent = `${tour.i + 1} / ${tour.steps.length}`;
+            $('tourTitle').textContent = st.title;
+            $('tourText').textContent = st.text;
+            $('tourPrev').classList.toggle('hidden', tour.i === 0);
+            $('tourNext').textContent = tour.i === tour.steps.length - 1 ?'完成' :'下一步';
+            const d = $('tourDo');
+            d.classList.toggle('hidden', !st.act);
+            if (st.act) { d.textContent = st.act.label(); d.disabled = !!st.act.off(); }
+            const el = st.target ? document.querySelector(st.target) : null;
+            if (st.top || !el) scrollTo(0, 0);
+            /* 比半個畫面還高的（課表）對齊上緣，不要置中——置中的話它的開頭會被
+               捲到畫面外面，框住的是一截中間。 */
+            else if (el.getBoundingClientRect().height > innerHeight * 0.5) {
+                el.scrollIntoView({ block:'start' });
+                scrollBy(0, -16);
+            }
+            else el.scrollIntoView({ block:'center' });
+            /* 捲完、頁首展開完再量（頁首收合有一段過場）。 */
+            requestAnimationFrame(tourPlace);
+            setTimeout(tourPlace, 380);
+        }
+        function tourPlace(){
+            if (!tour) return;
+            const st = tour.steps[tour.i];
+            const ring = $('tourRing'), card = $('tourCard');
+            const el = st.target ? document.querySelector(st.target) : null;
+            if (!el || !el.getClientRects().length) {
+                ring.className ='is-none'; ring.removeAttribute('style');
+                card.className ='at-bottom';
+                return;
+            }
+            const r = el.getBoundingClientRect(), pad = 6;
+            /* 很高的東西（課表）只框看得到的那一段，不然洞比畫面還大，等於沒框。 */
+            const h = Math.min(r.height, innerHeight * 0.55);
+            ring.className ='';
+            ring.style.top = (r.top - pad) +'px';
+            ring.style.left = (r.left - pad) +'px';
+            ring.style.width = (r.width + pad * 2) +'px';
+            ring.style.height = (h + pad * 2) +'px';
+            /* 卡片放在目標的另一半，才不會蓋住它。 */
+            card.className = (r.top + h / 2) > innerHeight / 2 ?'at-top' :'at-bottom';
+        }
+        addEventListener('resize', () => { if (tour) tourPlace(); });
+        addEventListener('scroll', () => { if (tour) tourPlace(); }, { passive: true });
+        async function tourDo(){
+            if (!tour) return;
+            const st = tour.steps[tour.i];
+            if (!st.act || st.act.off()) return;
+            await st.act.run();
+            if (tour && tour.steps[tour.i] === st) tourShow();
         }
 
         /* ==========================================================
@@ -19754,6 +20471,22 @@
 'settings-login':    () => openModal('adminModal'),
 'settings-rename':   () => { setVals({ editDisplayName: userDisplayName }); openModal('nameModal'); },
 'settings-password': () => { const b = $('forgotPasswordBtn'); openModal('adminModal'); if (b) b.click(); },
+'promote-submit':  () => submitPromote(),
+'promote-cancel':  () => cancelPromote(),
+'promote-decide':  (t) => decidePromote(t.dataset.uid, t.dataset.ok ==='1'),
+'welcome-agree':   () => welcomeAgree(),
+'welcome-logout':  async () => { closeModal('welcomeModal'); welcomeNeeded = false; await signOut(auth); showToast('已登出。之後想用的時候再登入就好'); },
+'welcome-tour':    () => tourStart(),
+'welcome-done':    () => closeModal('welcomeModal'),
+'open-terms':      () => openTerms(),
+'open-install':    () => { renderInstallGuide('installGuide2', installOsOf()); openModal('installModal'); },
+'install-os':      (t) => renderInstallGuide(t.dataset.box, t.dataset.os),
+'install-now':     () => installNow(),
+'tour-start':      () => tourStart(),
+'tour-end':        () => tourEnd(),
+'tour-next':       () => { if (!tour) return; if (tour.i >= tour.steps.length - 1) return tourEnd(); tour.i++; tourShow(); },
+'tour-prev':       () => { if (!tour || tour.i === 0) return; tour.i--; tourShow(); },
+'tour-do':         () => tourDo(),
 'account-logout': async () => {
                 $('accountMenu').classList.add('hidden');
                 /* ★ 要在 signOut **之前**寄。登出之後 auth.currentUser 是 null，
@@ -20189,6 +20922,22 @@
             /* 排序：換一個就重畫。★ 沒有綁的話那顆選單看起來動得了、名冊卻不動，
                而這種「按了沒反應」在這個專案裡是最常見的壞法。 */
             if ($('starclanSort')) $('starclanSort').addEventListener('change', renderStarclanPanel);
+            /* 第一次登入：名字與兩個勾都齊了才能按下一步。 */
+            for (const id of ['welcomeName','welcomeAgreeRules','welcomeAgreePrivacy'])
+                if ($(id)) $(id).addEventListener(id ==='welcomeName' ?'input' :'change', updateWelcomeBtn);
+            /* 升冪／降冪那顆箭頭（2026-09-28）。★ 直接綁在按鈕上，不走 data-action 的委派：
+               委派那一張表很長，而這顆按鈕只做一件事——翻方向、換圖示、重畫。 */
+            if ($('starclanSortDir')) $('starclanSortDir').addEventListener('click', () => {
+                const b = $('starclanSortDir');
+                const asc = b.dataset.dir !=='asc';        // 翻過來之後是不是升冪
+                b.dataset.dir = asc ?'asc' :'desc';
+                const now = asc ?'升冪' :'降冪', other = asc ?'降冪' :'升冪';
+                b.setAttribute('aria-label', `目前${now}，按一下改成${other}`);
+                b.title = `${now}（按一下改成${other}）`;
+                b.innerHTML = `<i data-lucide="${asc ?'arrow-up' :'arrow-down'}" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">${now}</span>`;
+                icons();
+                renderStarclanPanel();
+            });
             /* 資料頁有自己的搜尋框（刻意不共用課程評價那一個，見該頁的註解）。 */
             if ($('dataSearch')) $('dataSearch').addEventListener('input', renderMaterials);
             if ($('matFileInput')) $('matFileInput').addEventListener('change', updateMatFileHint);
@@ -20291,6 +21040,8 @@
 'settings':   ['feedback'],
             /* 名冊是 updateAdminUI 依星族身分自己訂閱的，不走 ensureLoaded。 */
 'account-admin': [],
+            /* 升階：自己那一份申請是進頁面時讀一次（openPromote），不走訂閱。 */
+'promote':    [],
             /* 學習＝自學課程＋自己出的測驗（管理表單會關聯「學校課程」，故需要 courses）。
                ★ myKahoots 就是拆過來的那一份。漏掉的話「我的測驗」會是永遠空的一頁，
                而空清單跟「你還沒建過測驗」長得一模一樣，不會有錯誤訊息。
