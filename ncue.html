@@ -5369,7 +5369,7 @@
 
     <!-- 測驗遊玩畫面 -->
     <div id="playKahootModal" class="quiz-screen fixed inset-0 z-50 hidden flex-col items-center overflow-y-auto">
-        <div class="w-full max-w-2xl flex flex-col px-4 pt-5 pb-12">
+        <div id="kahootCol" class="w-full max-w-2xl flex flex-col px-4 pt-5 pb-12">
             <!-- 頂欄：離開、進度條、題號／分數。
                  離開鍵從原本的紅色圓底改成純圖示——它是這個畫面唯一的
                  破壞性操作，卻是唯一有顏色的東西，等於在請人按它。 -->
@@ -5492,7 +5492,7 @@
                 <button type="button" data-action="snap-close" class="w-9 h-9 flex items-center justify-center rounded-full" aria-label="關閉">
                     <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
             </div>
-            <div class="snap-img-wrap"><img id="snapImg" alt="題目、詳解與草稿紙"></div>
+            <div class="snap-img-wrap" id="snapImgWrap"><img id="snapImg" alt="題目、詳解與草稿紙"></div>
             <p class="text-xs font-bold" style="color:var(--ink-3)">也可以長按圖片，選「加入照片」。</p>
             <div class="flex gap-2">
                 <button type="button" data-action="snap-share" id="snapShareBtn" class="flex-1 py-3 rounded-2xl font-black text-white bg-emerald-500 flex items-center justify-center gap-1.5">
@@ -6562,7 +6562,9 @@
            penSeen：這張紙上出現過筆之後，手指一律不畫——握筆時手掌壓在螢幕上是常態（防手掌誤觸）。 */
         const scratch = { open: false, tool: 'pen', strokes: [], history: [], active: null, penSeen: false, inited: false,
                           /* 拍照用：剛答完的那一題、第幾題；拍好的檔案與網址（關掉預覽要 revoke）。 */
-                          lastQ: null, lastNo: 0, snapping: false, snapFile: null, snapUrl: '' };
+                          lastQ: null, lastNo: 0, snapping: false, snapFile: null, snapUrl: '',
+                          /* 預先拍好的題目那一欄：{ q: 哪一題, p: Promise<canvas|null> }。換題就作廢。 */
+                          pre: null };
         /* ★ 作答流程真正讀的是這兩個（activeKahoot 只拿來顯示標題）。
            原本宣告在「作答流程」那一節裡，離單字測驗（那時候叫「單字擂台」）
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
@@ -18378,6 +18380,7 @@
            ★ 開關的顯示也在這裡決定——換到手機大小的視窗（分割畫面）就把整個草稿紙收起來。 */
         function scratchNewPage() {
             scratch.strokes = []; scratch.history = []; scratch.active = null;
+            scratch.pre = null;          // 上一題預先拍好的照片作廢
             setScratchTool('pen');
             const ok = scratchSupported();
             const btn = $('scratchToggleBtn');
@@ -18442,7 +18445,7 @@
             for (const st of scratch.strokes) scratchDrawStroke(ctx, st);
             return cv;
         }
-        const snapFileName = () => `小黑貓-${String((activeKahoot && activeKahoot.title) || '測驗').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40)}-第${scratch.lastNo}題.png`;
+        function snapFileName() { return `小黑貓-${String((activeKahoot && activeKahoot.title) || '測驗').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40)}-第${scratch.lastNo}題.jpg`; }
         /* 拍照時要抄的樣式。★ 寫成函式而不是模組層的 const：拍照在載入途中不會被叫到，
            但寫在這裡的 const 一樣是暫時性死區的形狀，不留地雷。 */
         function SNAP_STYLE_PROPS() {
@@ -18461,6 +18464,71 @@
              'gap','row-gap','column-gap','grid-template-columns','grid-template-rows','grid-column-start','grid-column-end','grid-row-start','grid-row-end',
              'list-style-type','border-collapse','border-spacing','table-layout','object-fit','fill','stroke','stroke-width','content','outline-style'];
         }
+        /* ⚠️ Safari（含 iPad 上所有瀏覽器，底層都是 WebKit）才需要「畫兩次丟第一張」。 */
+        function snapIsWebKit() { return /AppleWebKit/.test(navigator.userAgent) && !/Chrome\/|Chromium|Edg\/|Firefox/.test(navigator.userAgent); }
+        /* 題目那一欄 → canvas。
+           ★ 拍的是**畫面外的一份複製品**，不是畫面本人（2026-09-29 第二版）：要預先在背景拍，
+             而拍之前得把長算式縮小、把按鈕拿掉——在畫面本人上做，使用者看題目看到一半算式會縮一下。
+             複製品放在 #playKahootModal 裡（樣式跟著主題與 id 走），推到畫面左邊兩萬像素外。
+           ★ id 留著：`#kahootOptionsGrid.quiz-opts-compact` 這種樣式綁在 id 上。複製品掛在欄位**後面**，
+             $() 照文件順序找，拿到的還是本人。 */
+        async function snapColumnCanvas() {
+            const H = await ensureHtmlToImage();
+            if (!H) throw new Error('html-to-image 載不到');
+            const col = $('kahootCol');
+            const SKIP = ['kahootTopBar', 'kahootNextWrap', 'kahootSubmitWrap', 'kahootUnsureWrap', 'kahootSpeakBtn'];
+            const holder = document.createElement('div');
+            holder.setAttribute('aria-hidden', 'true');
+            holder.style.cssText = `position:fixed;left:-20000px;top:0;width:${Math.round(col.getBoundingClientRect().width)}px;pointer-events:none;`;
+            const cl = col.cloneNode(true);
+            cl.removeAttribute('id');
+            for (const id of SKIP) { const n = cl.querySelector('#' + id); if (n) n.remove(); }
+            cl.style.paddingBottom = '24px';
+            holder.appendChild(cl);
+            $('playKahootModal').appendChild(holder);
+            try {
+                /* 複製出來的圖要重新解碼一次（通常從快取來，很快），沒解完就拍會是空框。 */
+                await Promise.all([...cl.querySelectorAll('img')].map(i => (i.decode ? i.decode().catch(() => {}) : 0)));
+                /* 可以左右滑的長算式，照片裡沒辦法滑——縮到剛好放得下（KaTeX 全用 em，改 font-size 會等比例縮）。 */
+                for (const w of cl.querySelectorAll('.qtex-wide')) {
+                    const k = w.querySelector('.katex');
+                    if (!k) continue;
+                    const nat = k.getBoundingClientRect().width, avail = w.clientWidth - 4;
+                    if (nat <= avail || !avail) continue;
+                    w.style.fontSize = (parseFloat(getComputedStyle(w).fontSize) * avail / nat).toFixed(2) + 'px';
+                    w.style.overflowX = 'hidden';            // 捲軸不要被拍進去
+                }
+                /* ⚠️⚠️ 一定要給 includeStyleProperties（2026-09-29 量到的坑）：
+                     它預設把每個元素的**全部**計算後樣式抄一份，包括網站 99 個 CSS 變數（52 KB，
+                     裡面有好幾張梵谷筆觸的 SVG 紋理）。731 個元素 × 52 KB＝一張 56 MB 的 SVG，
+                     拍一張要 3–5 秒。只抄會影響畫面的那幾十項之後是 1.7 MB、0.3 秒，畫面逐像素比對幾乎一樣。
+                   ⚠️ 這份清單它**只看第一次呼叫**（內部快取），所以每一次呼叫都給同一份，連 getFontEmbedCSS 也給。 */
+                const opt = { pixelRatio: 2, backgroundColor: getComputedStyle($('playKahootModal')).backgroundColor,
+                              includeStyleProperties: SNAP_STYLE_PROPS() };
+                if (!ensureHtmlToImage.font) ensureHtmlToImage.font = await H.getFontEmbedCSS(cl, opt);
+                opt.fontEmbedCSS = ensureHtmlToImage.font;
+                if (snapIsWebKit()) await H.toCanvas(cl, opt);   // 第一張丟掉（Safari 的字型／圖常常還沒進去）
+                return await H.toCanvas(cl, opt);
+            } finally {
+                holder.remove();
+            }
+        }
+        /* 答完停住的那一刻就在背景先拍題目那一欄（2026-09-29 第二版）：按下「拍照」時只剩把草稿紙接上去，
+           幾十毫秒就出來。第一版是按了才拍，實機上延遲太高。
+           ★ 只在平板預先拍：手機答錯時使用者正在捲詳解，背景跑一秒轉圖會讓捲動卡一下；手機按了才拍。
+           ★ 等詳解的圖掛上去（hydrateExplainImages）再多等一下，讓畫面先排好，不跟答題的回饋搶那一幀。 */
+        function snapPrepare(waitP) {
+            scratch.pre = null;
+            if (!scratchSupported() || !scratch.lastQ) return;
+            const pre = { q: scratch.lastQ, p: null };
+            scratch.pre = pre;
+            pre.p = (async () => {
+                try { await waitP; } catch (e) {}
+                await new Promise(r => setTimeout(r, 120));
+                if (scratch.pre !== pre) return null;         // 已經換題了
+                return await snapColumnCanvas();
+            })().catch(() => null);
+        }
         async function snapKahoot() {
             if (scratch.snapping || !scratch.lastQ) return;
             if (!$('snapModal').classList.contains('hidden')) return;   // 預覽開著（鍵盤 Enter 會再按到拍照鈕）
@@ -18468,52 +18536,10 @@
             const label = $('kahootSnapLabel');
             if (label) label.textContent = '拍照中…';
             try {
-                const H = await ensureHtmlToImage();
-                if (!H) throw new Error('html-to-image 載不到');
-                const col = document.querySelector('#playKahootModal > div');
-                const SKIP = new Set(['kahootTopBar', 'kahootNextWrap', 'kahootSubmitWrap', 'kahootUnsureWrap', 'kahootSpeakBtn']);
+                const pre = scratch.pre;
+                let qc = (pre && pre.q === scratch.lastQ) ? await pre.p : null;
+                if (!qc) qc = await snapColumnCanvas();       // 沒預先拍（手機）或預先拍失敗：現在拍
                 const bg = getComputedStyle($('playKahootModal')).backgroundColor;
-                /* ⚠️⚠️ 一定要給 includeStyleProperties（2026-09-29 量到的坑）：
-                     它預設把每個元素的**全部**計算後樣式抄一份，包括網站 99 個 CSS 變數（52 KB，
-                     裡面有好幾張梵谷筆觸的 SVG 紋理）。731 個元素 × 52 KB＝一張 56 MB 的 SVG，
-                     拍一張要 3–5 秒。只抄會影響畫面的那幾十項之後是 1.7 MB、0.3 秒，畫面逐像素比對幾乎一樣
-                     （算好的樣式本來就已經把變數代換掉了，變數本人不用抄）。
-                   ⚠️ 這份清單它**只看第一次呼叫**（內部快取在一個變數裡，之後給別的也不理），
-                     所以每一次呼叫都給同一份，連 getFontEmbedCSS 也給。 */
-                const opt = { pixelRatio: 2, backgroundColor: bg, includeStyleProperties: SNAP_STYLE_PROPS(),
-                              filter: (n) => !(n && n.id && SKIP.has(n.id)) };
-                /* ★ 高度量到最後一個真的拍進去的區塊為止：按鈕那一排被 filter 濾掉了，
-                     但這一欄本身的高度還算著它，照片底下會空一大段。 */
-                const colTop = col.getBoundingClientRect().top;
-                const kept = [...col.children].filter(c => !SKIP.has(c.id) && getComputedStyle(c).display !== 'none' && c.getBoundingClientRect().height > 0);
-                if (kept.length) {
-                    const hh = Math.ceil(kept[kept.length - 1].getBoundingClientRect().bottom - colTop + 24);
-                    opt.height = hh;
-                    opt.style = { height: hh + 'px', minHeight: '0', paddingBottom: '0' };
-                }
-                /* 字型只讀一次，之後重複用。 */
-                if (!ensureHtmlToImage.font) ensureHtmlToImage.font = await H.getFontEmbedCSS(col, opt);
-                opt.fontEmbedCSS = ensureHtmlToImage.font;
-                /* 可以左右滑的長算式，照片裡沒辦法滑——拍的那一下先把字縮到剛好放得下，拍完還原。
-                   ★ 改的是 font-size：KaTeX 全部用 em，整條會等比例縮；樣式複製的也是縮完的實際大小。 */
-                const shrunk = [];
-                for (const w of col.querySelectorAll('.qtex-wide')) {
-                    const k = w.querySelector('.katex');
-                    if (!k) continue;
-                    const nat = k.getBoundingClientRect().width, avail = w.clientWidth - 4;
-                    if (nat <= avail || !avail) continue;
-                    const fs = parseFloat(getComputedStyle(w).fontSize);
-                    shrunk.push([w, w.style.fontSize, w.style.overflowX]);
-                    w.style.fontSize = (fs * avail / nat).toFixed(2) + 'px';
-                    w.style.overflowX = 'hidden';            // 捲軸不要被拍進去
-                }
-                let qc;
-                try {
-                    await H.toCanvas(col, opt);             // 第一張丟掉（Safari 的字型／圖常常還沒進去）
-                    qc = await H.toCanvas(col, opt);
-                } finally {
-                    for (const [w, f, o] of shrunk) { w.style.fontSize = f; w.style.overflowX = o; }
-                }
                 const ink = scratchInkCanvas(2);
                 /* 合成：最上面一行標題，接著題目那一欄，再接「草稿紙」與筆跡。 */
                 const W = qc.width, head = 64, gap = ink ? 72 : 0;
@@ -18530,26 +18556,48 @@
                     ctx.fillText('草稿紙', 32, head + qc.height + 46);
                     ctx.drawImage(ink, 24, head + qc.height + gap, iw, ih);
                 }
-                const blob = await new Promise(r => out.toBlob(r, 'image/png'));
-                if (!blob) throw new Error('toBlob 失敗');
-                if (scratch.snapUrl) URL.revokeObjectURL(scratch.snapUrl);
-                scratch.snapUrl = URL.createObjectURL(blob);
-                const name = snapFileName();
-                try { scratch.snapFile = new File([blob], name, { type: 'image/png' }); } catch (e) { scratch.snapFile = null; }
-                $('snapImg').src = scratch.snapUrl;
-                const a = $('snapDownload'); a.href = scratch.snapUrl; a.setAttribute('download', name);
-                /* 叫不出分享選單的瀏覽器（多數桌機）就只留「下載」。 */
-                const canShare = !!(scratch.snapFile && navigator.canShare && navigator.canShare({ files: [scratch.snapFile] }));
-                $('snapShareBtn').classList.toggle('hidden', !canShare);
+                /* ★ 先把畫好的 canvas 直接擺進預覽（馬上看得到），檔案在背景壓。
+                     壓成檔案（toBlob）在 iPad 上也要幾百毫秒，沒必要讓人盯著「拍照中」等它。
+                   ★ JPEG 不用 PNG：這張圖是一整片底色加字，PNG 壓一張三百多萬像素要比較久、檔案也大好幾倍。 */
+                out.style.cssText = 'display:block;width:100%;height:auto';
+                const wrap = $('snapImgWrap');
+                wrap.innerHTML = '';
+                wrap.appendChild(out);
+                snapSetReady(false);
                 $('snapModal').classList.remove('hidden'); $('snapModal').classList.add('flex');
                 /* 焦點還留在「拍照」鈕上的話，實體鍵盤按 Enter 等於再拍一次。 */
                 if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+                const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', 0.92));
+                if (!blob) throw new Error('toBlob 失敗');
+                if ($('snapModal').classList.contains('hidden')) return;    // 壓好之前就關掉了
+                if (scratch.snapUrl) URL.revokeObjectURL(scratch.snapUrl);
+                scratch.snapUrl = URL.createObjectURL(blob);
+                const name = snapFileName();
+                try { scratch.snapFile = new File([blob], name, { type: 'image/jpeg' }); } catch (e) { scratch.snapFile = null; }
+                /* 換成 <img>：iPad 要長按「加入照片」只認圖片，不認 canvas。 */
+                const img = document.createElement('img');
+                img.alt = '題目、詳解與草稿紙';
+                img.src = scratch.snapUrl;
+                img.onload = () => { if (out.isConnected) out.replaceWith(img); };
+                const a = $('snapDownload'); a.href = scratch.snapUrl; a.setAttribute('download', name);
+                snapSetReady(true);
             } catch (e) {
                 showToast('拍照失敗，再按一次試試看');
             } finally {
                 scratch.snapping = false;
                 if (label) label.textContent = '拍照';
             }
+        }
+        /* 檔案還沒壓好之前，「存到相簿／分享」與「下載」先停用（按了也沒東西可存）。 */
+        function snapSetReady(ok) {
+            const share = $('snapShareBtn'), dl = $('snapDownload');
+            const canShare = ok && !!(scratch.snapFile && navigator.canShare && navigator.canShare({ files: [scratch.snapFile] }));
+            /* 叫不出分享選單的瀏覽器（多數桌機）就只留「下載」。還沒壓好時兩顆都顯示、都停用。 */
+            share.classList.toggle('hidden', ok && !canShare);
+            share.disabled = !ok;
+            share.classList.toggle('opacity-40', !ok);
+            dl.classList.toggle('opacity-40', !ok);
+            dl.style.pointerEvents = ok ? '' : 'none';
         }
         function snapShare() {
             const f = scratch.snapFile;
@@ -18559,7 +18607,7 @@
         }
         function closeSnap() {
             $('snapModal').classList.add('hidden'); $('snapModal').classList.remove('flex');
-            $('snapImg').removeAttribute('src');
+            $('snapImgWrap').innerHTML = '';
             if (scratch.snapUrl) { URL.revokeObjectURL(scratch.snapUrl); scratch.snapUrl = ''; }
             scratch.snapFile = null;
         }
@@ -18760,7 +18808,7 @@
                    ⚠️ 只掃 wrap 這一塊。詳解頁那一份清單關掉之後還留在 DOM 裡，
                      而那邊的詳解 2026-09-17 起是收起來的——整份文件掃下去，
                      會在測驗中途把那一百多題的圖全抓下來。 */
-                hydrateExplainImages(wrap);
+                snapPrepare(hydrateExplainImages(wrap));
             }
         }
 
