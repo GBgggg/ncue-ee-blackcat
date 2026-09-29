@@ -227,6 +227,39 @@
         .quiz-opt.is-picked .quiz-opt-letter { background: var(--ink); border-color: var(--ink); color: var(--paper); }
         .quiz-opt.is-picked .quiz-opt-text  { color: var(--ink); font-weight: 800; }
 
+        /* ---- 學測畫卡的其他題型（2026-09-28）----
+           ★ 選項圖：縮在選項那一列裡，不能照題目圖那樣撐滿整寬——四張圖各佔一整個
+             螢幕寬的話，手機上要捲三頁才看得完四個選項，比較不了。 */
+        .quiz-opt-img img { margin-top: .25rem; max-height: 8rem; width: auto; background: #fff; }
+        /* ★ 題組的文章：限高、自己捲。一篇閱讀四百字，不限高的話選項被推到
+             兩個螢幕以外，每一題都要先捲過整篇文章才按得到答案。 */
+        .quiz-group { border-left: 3px solid var(--accent-bright); background: var(--paper-sunk);
+                      border-radius: var(--radius); padding: 12px 14px; max-height: 42vh; overflow-y: auto; }
+        .quiz-group-text { color: var(--ink-2); font-size: .95rem; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+        /* ★ 選填：一格一個字，長得像答案卡上那一排格子。
+             格子是「顯示」，輸入走下面那排鍵——手機叫出系統鍵盤會蓋掉半個畫面，
+             而且系統鍵盤沒有 ± 這個鍵。 */
+        .quiz-fill-cells { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 4px 0 16px; }
+        .quiz-fill-cell { width: 46px; height: 54px; border-radius: 12px; border: 1.5px solid var(--ink-3);
+                          display: flex; flex-direction: column; align-items: center; justify-content: center;
+                          font-weight: 800; font-size: 1.4rem; color: var(--ink); background: var(--paper); }
+        .quiz-fill-cell small { font-size: .6rem; font-weight: 700; color: var(--ink-3); line-height: 1; }
+        .quiz-fill-cell.is-next { box-shadow: 0 0 0 3px var(--accent-soft); border-color: var(--accent-bright); }
+        .quiz-fill-cell.is-correct { background: rgba(209, 160, 60, .16); border-color: #8a6620; }
+        .quiz-fill-cell.is-wrong   { background: rgba(125, 43, 38, .12); border-color: #7d2b26; color: #7d2b26; }
+        html.dark .quiz-fill-cell.is-wrong { color: #e59892; }
+        .quiz-fill-pad { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+        .quiz-fill-key { height: 52px; border-radius: 14px; border: 1.5px solid var(--accent-bright);
+                         color: var(--accent); font-weight: 800; font-size: 1.25rem; background: transparent; }
+        @media (hover: hover) { .quiz-fill-key:hover { background: var(--accent-soft); } }
+        .quiz-fill-ans { text-align: center; font-weight: 800; color: var(--ink); margin-top: 12px; }
+        /* ★ 選項多而且都很短（文意選填的十個單字）改排兩欄：一欄十列在手機上要捲一整頁，
+             而且要在十個字之間來回比較，兩欄一眼看得完。長句子或有圖的選項不走這條。
+           ⚠️ 用 id 選擇器壓過元素上的 Tailwind `flex flex-col`。 */
+        #kahootOptionsGrid.quiz-opts-compact { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px; }
+        .quiz-opts-compact .quiz-opt { padding: 6px; gap: 10px; }
+        .quiz-opts-compact .quiz-opt-letter { width: 36px; height: 36px; font-size: .95rem; }
+
         /* ---- 算式（KaTeX，2026-09-18）----
            ★ .qtex 這個 class 是**還沒被排版的那一刻**看到的原文。做法是先把 LaTeX 原文
              寫進 DOM，KaTeX 事後才換掉它——反過來（先留空白等它填）的症狀是
@@ -5301,9 +5334,15 @@
                 </div>
             </div>
 
+            <!-- 題組：幾題共用的文章／圖（2026-09-28）。沒有題組的題目整塊 hidden。
+                 放在題目**上面**：那是讀題的順序，考卷上也是先印文章再印題目。 -->
+            <div id="kahootGroupWrap" class="hidden mb-5 shrink-0"></div>
             <!-- 題目左對齊、前面掛編號。置中的大字在長題目上會排成
                  一團梯形，眼睛每一行都要重新找起點。 -->
-            <div class="flex items-start gap-3 mb-6 shrink-0">
+            <!-- ⚠️ flex-wrap 不能拿掉（2026-09-29）：題目圖（#kahootQImages，basis-full）住在這一列裡，
+                 不換行的話圖會把題目擠成一個字寬的直條——題目圖做好之後一直沒有題目真的有圖，
+                 所以這個坑躺了兩週才被第一批附圖的題目踩到。 -->
+            <div class="flex flex-wrap items-start gap-3 mb-6 shrink-0">
                 <span id="kahootQNum" class="quiz-qnum">1</span>
                 <!-- 多選題才出現。⚠️ 沒有這個標籤的話，使用者會照單選的習慣
                      點第一個選項就等它跳下一題，而多選不會跳——看起來像當掉。 -->
@@ -5324,7 +5363,7 @@
             </div>
 
             <div id="kahootOptionsGrid" class="flex flex-col gap-1">
-                <!-- JS 依每題實際選項數動態生成 A～F -->
+                <!-- JS 依每題實際選項數動態生成 A～J；選填題是一排格子加數字鍵 -->
             </div>
             <!-- 多選題才出現：勾完自己送出。單選是點下去就交卷，多選不能這樣——
                  勾第一個就交卷等於這一題只能選一個。顯示與否由 renderPlayQuestion 決定。 -->
@@ -5332,7 +5371,7 @@
                 <button id="kahootSubmitBtn" data-action="submit-kahoot-picks" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors">
                     <span id="kahootSubmitLabel" class="pointer-events-none">送出</span>
                 </button>
-                <p class="text-center text-slate-400 text-xs font-bold mt-2">這一題是多選，勾好再送出（也可按 Enter）</p>
+                <p id="kahootSubmitHint" class="text-center text-slate-400 text-xs font-bold mt-2">這一題是多選，勾好再送出（也可按 Enter）</p>
             </div>
             <!-- 猜對的時候讓使用者自己說出來。只有會寫回記憶曲線的測驗才顯示，
                  顯示與否由 renderPlayQuestion 決定（`kahootFeedsSrs()`）。 -->
@@ -5714,11 +5753,14 @@
         const MAX_KAHOOT_QUESTIONS = 50;
         // 選項的字母。原本這裡是一張顏色表（KAHOOT_OPTS），四個選項各配一個
         // Tailwind 色階；現在選項本身不帶顏色，只用字母區分，顏色留給回饋。
-        /* ⚠️ 六個字母是**上限本身**：`tools/quizdata.mjs` 擋的是「2–6 個選項」，
+        /* （2026-09-18 的舊說明，上限已改成 10，見下一段）字母是**上限本身**：當時 `tools/quizdata.mjs` 擋的是「2–6 個選項」，
            兩個數字要一起改。多一個選項而這裡沒跟上，第七個選項會顯示成「7」，
            而且不會報錯。（2026-09-18 從 A–D 加到 A–F：學測與分科的單選常常
            是五個選項，多選更常是六個。） */
-        const KAHOOT_LETTERS = ['A','B','C','D','E','F'];
+        /* ★ 2026-09-28 再加到 A–J：學測英文的「文意選填」是十個選項共用給十格。
+           ⚠️ 現在是**三個地方**要一起改：這裡、`tools/quizdata.mjs` 的 2–10、
+             鍵盤選答那條正規式（1–9、0 與 a–j）。 */
+        const KAHOOT_LETTERS = ['A','B','C','D','E','F','G','H','I','J'];
 
         /* ---- 克漏字測驗（內建單字庫，2026-08-19）---- */
         const CLOZE_COUNT = 20;              // 一場幾題
@@ -6406,6 +6448,9 @@
              寫在函式旁邊就是暫時性死區——一載入就掛、畫面全白（CLAUDE.md 第一條）。
            ⚠️ 每一題都要清空，不然上一題勾的會跟著進下一題，而畫面上看不出來。 */
         let kahootPicks = [];
+        /* 選填題這一題已經按了哪幾格（一個字串，一個字一格）。
+           ★ 宣告在這裡的理由跟上面兩顆一樣：`renderPlayQuestion` 會碰到它。 */
+        let kahootFill = '';
         /* ★ 作答流程真正讀的是這兩個（activeKahoot 只拿來顯示標題）。
            原本宣告在「作答流程」那一節裡，離單字測驗（那時候叫「單字擂台」）
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
@@ -8011,6 +8056,18 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-29',
+                title: '內建題庫整批換新：兩萬多題，從國中到大學，還有汽車駕照',
+                items: [
+                    ['題庫的標籤改成六種', '國中、高中、英文檢定、大學必修、大學選修、台灣汽車考照。點一個標籤就只看那一段，每個標籤後面的數字是有幾份。'],
+                    ['會考、學測、分科、統測的歷屆題目', '113 到 115 學年度，一科一張卡，每題前面標著是哪一年、哪一種考試。統測十幾個職群都有，連同附圖一起。'],
+                    ['大學的部分先做電機電子系', '電路學、電子學、數位邏輯、電磁學、訊號與系統、普通物理、微積分、工數、線代、機率、計概、通訊、電力電子……照彰師電子系的課表找的。很多是英文題目，卡片標題會寫「英文」。'],
+                    ['汽車駕照筆試題庫', '公路局公布的汽車筆試題目一千多題，標誌題附著標誌的圖。'],
+                    ['新的題型', '有數學的「選填」（用畫面上的數字鍵一格一格填）、好幾題共用一篇文章或一張圖的「題組」、選項是圖片的題目，還有英文文意選填那種十個選項的題目。'],
+                    ['原本那批國考、證照的題目收起來了', '念書的學生比較用不到。你自己出的「我的測驗」完全不受影響。'],
+                ]
+            },
             {
                 date: '2026-09-28',
                 title: '第一次登入有歡迎頁、新手教學，彰師電子多了「升階」',
@@ -16450,7 +16507,7 @@
         const KAHOOT_SCOPE = KAHOOT_SCOPES[0];
         let kahootScope = KAHOOT_SCOPE;   //'builtin'（站上內建）|'mine'（自己出的）
         const KAHOOT_SCOPE_META = {
-            builtin: { label:'內建題庫', icon:'school', empty:'內建題庫還沒有內容。' },
+            builtin: { label:'內建題庫', icon:'school', empty:'新的內建題庫整理中，會一科一科補上來。想先練習的話，可以到「我的測驗」自己出題。' },
             mine:    { label:'我的測驗', icon:'lock',   empty:'你還沒有自己的測驗，按上方「建立測驗」開始吧' }
         };
         /* 內建那一份每次都重新包一層 `_builtin`：卡片靠它決定不要長出編輯／
@@ -16557,24 +16614,33 @@
             const qs = rec.questions ||[];
             $('kahootDetailMeta').textContent = `${rec.courseName ||'未指定課程'}・${qs.length} 題`;
             $('kahootDetailAdminBar').innerHTML = explainAdminBarHTML(rec.id);
-            list.innerHTML = qs.map((q, i) => `
+            /* 題組的文章只在**那一組的第一題上面**畫一次，不是每一題都抄一份。 */
+            const grpHead = (q, i) => {
+                const g = groupOf(q, rec.groups);
+                if (!g || (i > 0 && qs[i - 1].grp === q.grp)) return '';
+                const n = qs.filter(x => x.grp === q.grp).length;
+                return `<div class="quiz-group" style="max-height:none"><p class="text-[11px] font-black text-slate-400 mb-1.5">題組（接下來 ${n} 題共用）</p>${groupBodyHTML(g)}</div>`;
+            };
+            list.innerHTML = qs.map((q, i) => `${grpHead(q, i)}
                 <div class="bg-white rounded-3xl p-5 border-2 border-slate-100">
                     <div class="flex items-start gap-3 mb-3">
                         <span class="quiz-qnum shrink-0">${i + 1}</span>
                         <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${mathHTML(q.q ||'')}</p>
                         ${/* ⚠️ 多選題一定要標出來：底下會有兩三個選項亮綠，
                              沒有這個標籤的話看起來像「這一題有好幾個正解」的資料錯誤。 */
-                          isMultiQ(q) ?'<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">多選</span>' :''}
+                          isMultiQ(q) ?'<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">多選</span>'
+                          : isFillQ(q) ?'<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">選填</span>' :''}
                     </div>
                     ${/* 題目本身的圖。★ 畫在選項上面：它是題幹的一部分，
                          畫在選項下面的話會看起來像在解釋答案。 */
                       questionImgHTML(q)}
                     <div class="flex flex-col gap-1.5 mb-3">
+                        ${isFillQ(q) ? `<div class="px-3 py-2 rounded-xl text-sm bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">正解　<span class="font-mono">${escapeHTML(fillShow(q.fill))}</span>（${String(q.fill ||'').length} 格）</div>` :''}
                         ${(q.options ||[]).map((opt, oi) => {
                             const right = correctSetOf(q).has(oi);
                             return `<div class="flex items-start gap-2 px-3 py-2 rounded-xl text-sm break-words ${right ?'bg-emerald-50 text-emerald-700 font-bold border border-emerald-200' :'bg-slate-50 text-slate-600'}">
                                 <span class="shrink-0 font-black">${KAHOOT_LETTERS[oi] || (oi + 1)}</span>
-                                <span class="flex-1 min-w-0 whitespace-pre-wrap">${mathHTML(opt)}</span>
+                                <span class="flex-1 min-w-0 whitespace-pre-wrap">${mathHTML(opt)}${optImgHTML(q, oi)}</span>
                                 ${right ? '<i data-lucide="check" class="w-4 h-4 shrink-0 mt-0.5"></i>' :''}
                             </div>`;
                         }).join('')}
@@ -16641,6 +16707,10 @@
                 if (!res.ok) throw new Error(res.status);
                 const data = await res.json();
                 rec.questions = data.questions ||[];
+                /* 題組的文章與圖（2026-09-28）。⚠️ 要跟題目一起掛上去：
+                   題目上只有 `grp` 這個代號，文章本人在這裡——漏掉的話題組題
+                   只剩一句「第 (41) 格」，而畫面不會報錯。 */
+                rec.groups = (data.groups && typeof data.groups ==='object') ? data.groups : {};
                 builtinQuizLoaded.add(id);
                 /* 雲端詳解跟題目一起備好。★ 一定要在這裡，不能等到要顯示才讀：
                    答錯的當下那一塊就要展開，那時候才去讀會變成「詳解慢一拍
@@ -17672,8 +17742,47 @@
            自己的正解陣列，於是錯題清單裡每一題都變回單選的版面。**畫面正常、不報錯。** */
         /* ---- 多選題：核心（純函式，測試會整段抽出去跑）---- */
         function isMultiQ(q) { return !!q && Array.isArray(q.correctIdxs); }
-        function correctSetOf(q) { return new Set(isMultiQ(q) ? q.correctIdxs : [q ? q.correctIdx : -1]); }
+        /* ★ 選填（2026-09-28）：學測數學畫卡的那一種。答案是一串格子，每一格是
+           0–9、-、±，`q.fill` 就是那一串（格數＝長度）。全部格子都對才給分，
+           大考的選填沒有部分分數。
+           ⚠️ 比對前一律正規化負號：來源資料的減號常常是 `−`（U+2212）或全形，
+             畫面上看起來一模一樣，直接比的話使用者全填對也拿零分，而且不會報錯。 */
+        function isFillQ(q) { return !!q && q.type === 'fill'; }
+        const normFill = (v) => String(v ?? '').replace(/[−–—－]/g, '-').replace(/＋－|\+-|\+\/-/g, '±').replace(/\s+/g, '');
+        /* 畫面上的負號印成 −（U+2212）：半形 - 在格子裡只是一條很短的橫線，看起來像沒填好。
+           ⚠️ 只用在「顯示」，比對一律走 normFill（半形）。 */
+        const fillShow = (v) => normFill(v).replace(/-/g, '−');
+        function correctSetOf(q) {
+            /* 選填沒有「哪幾個選項是正解」這回事，回空集合——
+               讓所有拿它去亮選項的程式自然什麼都不亮，而不是亮錯。 */
+            if (isFillQ(q)) return new Set();
+            return new Set(isMultiQ(q) ? q.correctIdxs : [q ? q.correctIdx : -1]);
+        }
+        /* 題目亂序，但**題組整組一起搬、組內順序不動**（2026-09-28）。
+           ★ 組內不能亂：文意選填的第 41 格一定在第 42 格前面，閱讀題也常常照段落出。
+           ★ 分組照「第一次出現」收成一塊，所以產生器那邊要求同組排在一起
+             （tools/quizdata.mjs 的 checkQuiz）。`rnd` 傳進來是為了測試能固定亂數。 */
+        function shuffleKeepGroups(qs, rnd) {
+            const blocks = [], at = new Map();
+            (qs || []).forEach(q => {
+                const g = q && q.grp;
+                if (g === undefined || g === null || g === '') { blocks.push([q]); return; }
+                if (!at.has(g)) { at.set(g, blocks.length); blocks.push([]); }
+                blocks[at.get(g)].push(q);
+            });
+            for (let i = blocks.length - 1; i > 0; i--) {
+                const j = Math.floor(rnd() * (i + 1));
+                [blocks[i], blocks[j]] = [blocks[j], blocks[i]];
+            }
+            return blocks.flat();
+        }
         function quizRatio(q, picks) {
+            /* 選填：`picks` 是填的那一串字（不是索引陣列）。格數不對一律零分——
+               少填一格不是「差一點」，是那一格空著。 */
+            if (isFillQ(q)) {
+                const got = normFill(typeof picks === 'string' ? picks : ''), want = normFill(q.fill);
+                return got.length > 0 && got === want ? 1 : 0;
+            }
             const n = ((q && q.options) || []).length;
             const want = correctSetOf(q);
             if (!isMultiQ(q)) return picks.length === 1 && want.has(picks[0]) ? 1 : 0;
@@ -17695,6 +17804,17 @@
         function updateKahootSubmit() {
             const btn = $('kahootSubmitBtn');
             if (!btn) return;
+            const qData = playQuestions[currentQIndex];
+            /* 選填：**每一格都填了**才按得下去。只填一半就送出等於那幾格空著交卷，
+               而多數人只是還沒填完。 */
+            if (isFillQ(qData)) {
+                const need = String(qData.fill ||'').length, got = kahootFill.length;
+                const on = got === need;
+                btn.disabled = !on;
+                btn.classList.toggle('opacity-40', !on);
+                $('kahootSubmitLabel').textContent = on ? '送出' : `送出（還有 ${need - got} 格）`;
+                return;
+            }
             const on = kahootPicks.length > 0;
             btn.disabled = !on;
             btn.classList.toggle('opacity-40', !on);
@@ -17725,7 +17845,10 @@
             if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) return showToast("找不到測驗內容");
             activeKahoot = kahoot;
             // 題目亂序：同一份測驗練第二次才不會變成背答案的位置
-            playQuestions = shuffleQuestionsOn ? shuffle([...kahoot.questions]) : [...kahoot.questions];
+            /* ⚠️ 2026-09-28 起亂序要整組搬（shuffleKeepGroups）。用回單題亂序的話，
+               題組的四題會被拆散到整份考卷各處，每一題上面都掛著同一篇文章，
+               而文意選填的格子順序也會跳來跳去。 */
+            playQuestions = shuffleQuestionsOn ? shuffleKeepGroups(kahoot.questions, Math.random) : [...kahoot.questions];
             playAnswers = [];
             currentQIndex = 0;
             currentScore = 0;
@@ -17735,9 +17858,82 @@
             renderPlayQuestion();
         }
 
-        // 依題目實際選項數生成按鈕（2～6 個都支援）
+        /* ---- 題型輔助：選項圖與題組（2026-09-28）----
+           ★ 包成一段有頭有尾的區塊，是為了讓測試整段抽出去：錯題清單、詳解頁、
+             作答選項三支都會叫到這幾支。抽少了的症狀是「optImgHTML is not defined」，
+             而原始碼是好的（多選那一輪就踩過三次同一顆）。
+           ⚠️ 沒有圖／沒有題組時**一個外部名字都不要碰**（先 return）：測試抽的
+             範圍裡沒有 quizImgTag，而一般題目根本用不到它。 */
+        /* 一個選項底下的圖（`q.optImg[i]`）。★ 跟題目圖共用 quizImgTag()，
+           路徑規則與跳脫只有一份。沒有圖回空字串。 */
+        function optImgHTML(q, i) {
+            const list = Array.isArray(q && q.optImg) && Array.isArray(q.optImg[i]) ? q.optImg[i] : [];
+            if (!list.length) return '';
+            const tags = list.map(quizImgTag).filter(Boolean).join('');
+            return tags ? `<span class="quiz-opt-img block">${tags}</span>` : '';
+        }
+
+        /* 這一題所屬的題組（文章＋圖）。`groups` 是整份題庫的，題目上只有代號。 */
+        function groupOf(q, groups) {
+            const g = q && q.grp;
+            return (g !== undefined && groups && Object.prototype.hasOwnProperty.call(groups, g)) ? groups[g] : null;
+        }
+        function groupBodyHTML(grp) {
+            if (!grp) return '';
+            return `${grp.text ? `<div class="quiz-group-text">${mathHTML(grp.text)}</div>` :''}${questionImgHTML(grp)}`;
+        }
+        /* ---- 題型輔助：結束 ---- */
+
+        /* 選填的那一排格子。★ 下一格要填的那一格亮框，使用者才知道自己填到哪了。 */
+        function fillCellsHTML(len, got, marks) {
+            return Array.from({ length: len }, (_, i) => {
+                const ch = (got[i] ?? '') ==='-' ?'−' : (got[i] ?? '');
+                const cls = marks ? (marks[i] ?'is-correct' :'is-wrong') : (i === got.length ?'is-next' :'');
+                return `<span class="quiz-fill-cell ${cls}"><small>${i + 1}</small>${escapeHTML(ch) ||'&nbsp;'}</span>`;
+            }).join('');
+        }
+        /* ★ 鍵盤跟答案卡上一樣：0–9、−、±。刪除鍵放最後一格。 */
+        const FILL_KEYS = ['1','2','3','4','5','6','7','8','9','0','-','±'];
+        function renderFillPad(qData) {
+            const grid = $('kahootOptionsGrid');
+            const len = String(qData.fill ||'').length;
+            grid.innerHTML = `
+                <div id="kahootFillCells" class="quiz-fill-cells">${fillCellsHTML(len, kahootFill)}</div>
+                <div class="quiz-fill-pad">
+                    ${FILL_KEYS.map(k => `<button type="button" data-action="fill-key" data-key="${k}" class="quiz-fill-key">${k === '-' ? '−' : k}</button>`).join('')}
+                    <button type="button" data-action="fill-back" class="quiz-fill-key col-span-4" aria-label="刪掉最後一格">⌫ 刪掉一格</button>
+                </div>`;
+        }
+        function fillKey(k) {
+            if (isKahootTransitioning) return;
+            const qData = playQuestions[currentQIndex];
+            if (!isFillQ(qData) || !FILL_KEYS.includes(k)) return;
+            if (kahootFill.length >= String(qData.fill ||'').length) return;   // 格子滿了就不收
+            kahootFill += k;
+            const cells = $('kahootFillCells');
+            if (cells) cells.innerHTML = fillCellsHTML(String(qData.fill).length, kahootFill);
+            updateKahootSubmit();
+        }
+        function fillBack() {
+            if (isKahootTransitioning) return;
+            const qData = playQuestions[currentQIndex];
+            if (!isFillQ(qData)) return;
+            kahootFill = kahootFill.slice(0, -1);
+            const cells = $('kahootFillCells');
+            if (cells) cells.innerHTML = fillCellsHTML(String(qData.fill).length, kahootFill);
+            updateKahootSubmit();
+        }
+
+        // 依題目實際選項數生成按鈕（2～10 個都支援；選填題改畫格子與數字鍵）
         function renderPlayOptions(qData) {
             const grid = $('kahootOptionsGrid');
+            /* ⚠️ 每一題都先拿掉兩欄的樣式：上一題是文意選填、這一題是長句子的話，
+               留著會把長句子擠成半寬。（測試的假 grid 沒有 classList，所以先問一聲。） */
+            if (grid.classList) grid.classList.remove('quiz-opts-compact');
+            if (isFillQ(qData)) { renderFillPad(qData); return; }
+            const opts = qData.options || [];
+            if (grid.classList && opts.length > 6 && opts.every((o, i) => String(o).length <= 18 && !optImgHTML(qData, i)))
+                grid.classList.add('quiz-opts-compact');
             /* mathHTML() 取代 escapeHTML()：算式以外的每一個字照樣跳脫，
                算式的部分先放原文，下面 renderMath() 再換成排好的式子。 */
             /* 多選題按下去只是「勾起來」，交卷是送出鈕的事，所以動作名稱不一樣。
@@ -17747,7 +17943,7 @@
             grid.innerHTML = (qData.options || []).map((opt, i) => `
                 <button data-action="${act}" data-index="${i}" id="playOpt${i}" class="quiz-opt">
                     <span class="quiz-opt-letter pointer-events-none">${KAHOOT_LETTERS[i] || (i + 1)}</span>
-                    <span class="quiz-opt-text pointer-events-none">${mathHTML(opt)}</span>
+                    <span class="quiz-opt-text pointer-events-none">${mathHTML(opt)}${optImgHTML(qData, i)}</span>
                 </button>`).join('');
             /* ⚠️ 一定要在 innerHTML **之後**。先排再換 innerHTML 等於白排一次，
                而症狀是「有時候有公式有時候沒有」（模擬器那一輪踩過同一顆）。 */
@@ -17803,9 +17999,31 @@
                ⚠️ 單選題一定要把這兩塊收回去——留著的話，單選題下面會掛一顆
                  按下去什麼都不會發生的送出鈕。 */
             kahootPicks = [];
-            const multi = isMultiQ(qData);
-            $('kahootMultiTag').classList.toggle('hidden', !multi);
-            $('kahootSubmitWrap').classList.toggle('hidden', !multi);
+            kahootFill = '';
+            const multi = isMultiQ(qData), fill = isFillQ(qData);
+            /* ★ 同一個徽章換字：多選／選填。兩種都是「不會點一下就交卷」的題目，
+               使用者要先知道這一題得自己按送出。 */
+            const tag = $('kahootMultiTag');
+            tag.textContent = fill ?'選填' :'多選';
+            tag.classList.toggle('hidden', !(multi || fill));
+            $('kahootSubmitWrap').classList.toggle('hidden', !(multi || fill));
+            const hint = $('kahootSubmitHint');
+            if (hint) hint.textContent = fill ?'這一題是選填，每一格都填好再送出（鍵盤可直接打數字、- 與 +＝±，也可按 Enter）'
+                                              :'這一題是多選，勾好再送出（也可按 Enter）';
+            /* 題組：上面掛文章，並標出這篇文章是第幾題到第幾題共用的。
+               ⚠️ 題號用的是**這一場**的位置（亂序之後的），不是原始題號——
+                 標原始題號的話，畫面左邊寫第 7 題、文章卻說「第 41–45 題共用」。 */
+            const gw = $('kahootGroupWrap');
+            if (gw) {
+                const grp = groupOf(qData, activeKahoot && activeKahoot.groups);
+                if (grp) {
+                    const idxs = playQuestions.map((q, i) => q.grp === qData.grp ? i + 1 : 0).filter(Boolean);
+                    const range = idxs.length > 1 ? `第 ${idxs[0]}–${idxs[idxs.length - 1]} 題共用` :'題組';
+                    gw.innerHTML = `<div class="quiz-group"><p class="text-[11px] font-black text-slate-400 mb-1.5">${range}</p>${groupBodyHTML(grp)}</div>`;
+                    renderMath(gw);
+                } else gw.innerHTML ='';
+                gw.classList.toggle('hidden', !grp);
+            }
             updateKahootSubmit();
             renderPlayOptions(qData);
         }
@@ -17813,7 +18031,7 @@
         function submitKahootAnswer(selectedIdx) {
             if (isKahootTransitioning) return;
             const qData = playQuestions[currentQIndex];
-            if (!qData || selectedIdx >= (qData.options || []).length) return;
+            if (!qData || isFillQ(qData) || selectedIdx >= (qData.options || []).length) return;
             finishKahootQuestion([selectedIdx]);
         }
 
@@ -17821,6 +18039,11 @@
            留著點選順序的話，同一組答案會有好幾種寫法，而錯題清單是照索引畫的。 */
         function submitKahootPicks() {
             if (isKahootTransitioning) return;
+            const qData = playQuestions[currentQIndex];
+            if (isFillQ(qData)) {
+                if (kahootFill.length !== String(qData.fill ||'').length) return showToast("每一格都填好再送出");
+                return finishKahootQuestion(kahootFill);
+            }
             if (!kahootPicks.length) return showToast("先勾起來，再按送出");
             finishKahootQuestion([...kahootPicks].sort((a, b) => a - b));
         }
@@ -17830,9 +18053,13 @@
             const qData = playQuestions[currentQIndex];
             if (!qData) return;
             isKahootTransitioning = true;
-            const multi = isMultiQ(qData);
+            const multi = isMultiQ(qData), fill = isFillQ(qData);
+            /* 選填送進來的是一串字，不是索引陣列。下面凡是把 `picks` 當陣列用的地方，
+               選填一律拿空陣列——`selectedIdx` 是 undefined 而不是某個真的選項。 */
+            const fillGot = fill ? String(picks) : undefined;
+            if (fill) picks = [];
             const want = correctSetOf(qData);
-            const ratio = quizRatio(qData, picks);
+            const ratio = fill ? quizRatio(qData, fillGot) : quizRatio(qData, picks);
             /* ⚠️ 滿分才算「答對」（理由見這一節開頭）；部分分數照樣加進分數裡。 */
             const correct = ratio === 1;
             currentScore += ratio;
@@ -17845,7 +18072,14 @@
             /* ⚠️ `selectedIdx` 留著沒有換掉：克漏字、今日測驗、錯題本那幾支都在讀它，
                而那幾種測驗一定是單選。多選另外存一份 `picks`（還有這一題實得的
                `ratio`），要的人自己去拿。 */
-            playAnswers.push({ ...qData, selectedIdx: picks[0], picks, ratio, correct, unsure: kahootUnsure });
+            playAnswers.push({ ...qData, selectedIdx: picks[0], picks, fillGot, ratio, correct, unsure: kahootUnsure });
+            /* 選填：格子逐格標對錯，底下寫出正解。鍵盤收起來（這一題定案了）。 */
+            if (fill) {
+                const want1 = normFill(qData.fill), got1 = normFill(fillGot);
+                const grid = $('kahootOptionsGrid');
+                grid.innerHTML = `<div class="quiz-fill-cells">${fillCellsHTML(want1.length, got1, [...want1].map((c, i) => got1[i] === c))}</div>
+                    ${correct ?'' : `<p class="quiz-fill-ans">正解　${escapeHTML(fillShow(want1))}</p>`}`;
+            }
             /* 作答之後那顆鈕就沒有意義了（這一題已經定案），收起來免得被按。 */
             $('kahootUnsureWrap').classList.add('hidden');
 
@@ -17875,6 +18109,7 @@
             /* ⚠️ 多選印的是字母不是選項全文：三個正解各自是一整句，串起來會比
                吐司本身還長，而吐司會自己收掉——使用者只會看到被切掉的半句話。 */
             showToast(correct ?"答對了"
+                : fill ? `答錯了，正解是 ${fillShow(qData.fill)}`
                 : multi ? `這題拿 ${fmtScore(ratio)} 分，正解是 ${[...want].map(i => KAHOOT_LETTERS[i] || (i + 1)).join('、')}`
                 : `答錯了，正解是「${mathPlain(qData.options[qData.correctIdx])}」`);
 
@@ -17935,7 +18170,11 @@
            ⚠️ 多選還要把實得分數印出來：拿了 0.6 分卻出現在錯題清單裡，
              不寫清楚的話看起來像計分壞了。 */
         function wrongLines(a) {
-            const opt = (i) => mathHTML((a.options ||[])[i] ??'—');
+            const opt = (i) => mathHTML((a.options ||[])[i] ??'—') + optImgHTML(a, i);
+            /* 選填：兩串字並排就好，格子在作答畫面已經逐格標過了。 */
+            if (isFillQ(a))
+                return `<p class="text-xs mb-1"><span class="font-black text-rose-500">你填了</span>　<span class="text-slate-600 font-mono">${escapeHTML(fillShow(a.fillGot) ||'（沒有填）')}</span></p>
+                        <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold font-mono">${escapeHTML(fillShow(a.fill))}</span></p>`;
             if (!isMultiQ(a))
                 return `<p class="text-xs mb-1"><span class="font-black text-rose-500">你選了</span>　<span class="text-slate-600">${opt(a.selectedIdx)}</span></p>
                         <p class="text-xs"><span class="font-black text-emerald-600">正解</span>　<span class="text-slate-800 font-bold">${opt(a.correctIdx)}</span>${
@@ -17986,7 +18225,10 @@
                 const full = Array.isArray(a.optionWords) && a.optionWords.some(Boolean);
                 return `
                     <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
-                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${mathHTML(a.q)}</p>${full ? `
+                        ${/* 題組題只有「第 (41) 格」這種題幹，沒有文章就看不懂——收在一個可以展開的小塊裡。 */
+                          (() => { const g = groupOf(a, activeKahoot && activeKahoot.groups);
+                                   return g ? `<details class="mb-2"><summary class="text-[11px] font-black text-slate-400 cursor-pointer">看題組內容</summary><div class="quiz-group mt-1.5">${groupBodyHTML(g)}</div></details>` :''; })()}
+                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${mathHTML(a.q)}</p>${/* 有圖才叫：沒圖的題目（克漏字、單字冊）一個外部名字都不碰 */ a.img ? questionImgHTML(a) :''}${full ? `
                         <div class="space-y-1.5">${(a.options ||[]).map((_, i) => row(a, i)).join('')}</div>
                         <p class="text-[11px] font-bold text-slate-400 mt-2">還有不會的嗎？勾起來一起記進錯題本</p>` : `
                         ${wrongLines(a)}`}
@@ -20307,6 +20549,8 @@
 'submit-kahoot':   (t) => { if (!isKahootTransitioning) submitKahootAnswer(parseInt(t.dataset.index)); },
 'toggle-kahoot-option': (t) => toggleKahootPick(parseInt(t.dataset.index)),
 'submit-kahoot-picks':  ()  => submitKahootPicks(),
+'fill-key':             (t) => fillKey(t.dataset.key),
+'fill-back':            ()  => fillBack(),
 'toggle-unsure':   ()  => { if (isKahootTransitioning) return;
                             kahootUnsure = !kahootUnsure;
                             $('kahootUnsureBtn').classList.toggle('is-on', kahootUnsure); },
@@ -20793,11 +21037,20 @@
                 // 作答中直接按鍵選答案（桌機用滑鼠點太慢）。
                 // 畫面上寫的是 A～D，所以 A～D 一定要能按；1～4 留著是因為
                 // 這個習慣從上一版帶過來，拿掉會讓老使用者以為壞了。
+                /* 選填：數字鍵直接填格子、- 是負號、+ 是 ±、Backspace 刪一格、Enter 送出。
+                   ★ 要排在選項鍵**前面**：不然按 1 會被當成「選第一個選項」。 */
+                if (!isKahootTransitioning && isFillQ(playQuestions[currentQIndex])) {
+                    const k = /^[0-9]$/.test(e.key) ? e.key : e.key ==='-' ?'-' : e.key ==='+' ?'±' :'';
+                    if (k) { e.preventDefault(); fillKey(k); return; }
+                    if (e.key ==='Backspace') { e.preventDefault(); fillBack(); return; }
+                    if (e.key ==='Enter') { e.preventDefault(); submitKahootPicks(); return; }
+                }
                 if (!isKahootTransitioning) {
-                    /* ⚠️ 範圍跟著 KAHOOT_LETTERS 走（A–F／1–6）。只改其中一邊的話，
-                       畫面上印著 E 的那個選項按 E 沒反應，而且不會報錯。 */
-                    const idx = /^[1-6]$/.test(e.key) ? Number(e.key) - 1
-                              : /^[a-fA-F]$/.test(e.key) ? e.key.toUpperCase().charCodeAt(0) - 65
+                    /* ⚠️ 範圍跟著 KAHOOT_LETTERS 走（A–J；數字 1–9 是前九個、0 是第十個）。
+                       只改其中一邊的話，畫面上印著 J 的那個選項按 J 沒反應，而且不會報錯。 */
+                    const idx = /^[1-9]$/.test(e.key) ? Number(e.key) - 1
+                              : e.key ==='0' ? 9
+                              : /^[a-jA-J]$/.test(e.key) ? e.key.toUpperCase().charCodeAt(0) - 65
                               : -1;
                     /* 多選題：字母鍵是勾／取消勾，Enter 才是送出。 */
                     const multi = isMultiQ(playQuestions[currentQIndex]);
