@@ -18510,8 +18510,7 @@
                               includeStyleProperties: SNAP_STYLE_PROPS() };
                 const T = snapColumnCanvas.t = {};
                 let t = performance.now();
-                if (!ensureHtmlToImage.font) ensureHtmlToImage.font = await H.getFontEmbedCSS(cl, opt);
-                opt.fontEmbedCSS = ensureHtmlToImage.font;
+                opt.fontEmbedCSS = await snapFontCSS(cl);
                 T.font = performance.now() - t; t = performance.now();
                 /* ★ SVG 只產生一次，自己畫成 canvas（2026-09-29 第三版）。
                      html-to-image 的 toCanvas 每呼叫一次就從頭複製整欄、抄樣式、組一份 SVG——最貴的是這一步，
@@ -18545,6 +18544,43 @@
             } finally {
                 holder.remove();
             }
+        }
+        /* 照片裡要嵌的字型：**只有 KaTeX**（2026-09-29 第四版，iPad 實測「字型 11.61 秒」）。
+           ⚠️⚠️ 不能交給 html-to-image 自己找（getFontEmbedCSS）：它會把這一欄用到的每一套字型都嵌進去，
+             而站上的中文字是 Google Fonts 的 Noto Sans TC／Noto Serif TC——中文字太多，Google 把每一種粗細
+             切成上百個小檔（unicode-range），五種粗細約五百個檔，它全部重新下載一遍、轉成文字塞進照片。
+             雲端測試時 Google Fonts 連不到、一下就失敗，所以量不出來；iPad 上是 11 秒。
+           ★ 中文字不嵌：照片裡退回系統字型（iPad 是蘋方），跟畫面上的思源黑體長得很像，差別不大。
+             算式一定要嵌：KaTeX 的符號（∑、∫、根號）不在系統字型裡，不嵌就是一堆方塊或錯位。
+           ★ 只嵌這一題真的用到的那幾套（看複製品裡 .katex 底下每個元素的 font-family），轉好的留著整場重用。
+             字型檔從 vendor/fonts/ 來，同源、而且 KaTeX 排版時早就載過了，通常直接從快取拿。 */
+        async function snapFontCSS(root) {
+            const S = snapFontCSS;
+            if (!S.faces) {
+                const txt = await (await fetch('vendor/katex.min.css')).text();
+                S.faces = (txt.match(/@font-face\{[^}]*\}/g) || []).map(block => ({
+                    block,
+                    family: ((block.match(/font-family:\s*([^;]+)/) || [])[1] || '').replace(/["']/g, '').trim(),
+                    url: (block.match(/url\(([^)]+\.woff2)\)/) || [])[1] || ''
+                })).filter(f => f.family && f.url);
+                S.data = new Map();
+            }
+            const used = new Set();
+            for (const el of root.querySelectorAll('.katex, .katex *'))
+                used.add(getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g, '').trim());
+            let css = '';
+            for (const f of S.faces) {
+                if (!used.has(f.family)) continue;
+                if (!S.data.has(f.url)) {
+                    try {
+                        const blob = await (await fetch('vendor/' + f.url)).blob();
+                        const dataUrl = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+                        S.data.set(f.url, f.block.replace(/src:[^;}]+/, `src:url(${dataUrl}) format("woff2")`));
+                    } catch (e) { S.data.set(f.url, ''); }     // 抓不到就算了：那幾個符號退回系統字型，照片照拍
+                }
+                css += S.data.get(f.url);
+            }
+            return css;
         }
         /* 答完停住的那一刻就在背景先拍題目那一欄（2026-09-29 第二版）：按下「拍照」時只剩把草稿紙接上去，
            幾十毫秒就出來。第一版是按了才拍，實機上延遲太高。
