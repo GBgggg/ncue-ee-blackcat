@@ -253,6 +253,51 @@
                          color: var(--accent); font-weight: 800; font-size: 1.25rem; background: transparent; }
         @media (hover: hover) { .quiz-fill-key:hover { background: var(--accent-soft); } }
         .quiz-fill-ans { text-align: center; font-weight: 800; color: var(--ink); margin-top: 12px; }
+
+        /* ---- 草稿紙（2026-09-29，只給平板）----
+           ★ 放在題目**旁邊**，不是蓋在題目上面：蓋上去的話同一支筆要同時負責「畫」和「點選項」，
+             手指點選項又會被畫布吃掉；分開放，選項永遠點得到，草稿紙永遠畫得到。
+           ★ 橫放：右邊 46%；直放：下面 46%。題目欄用 padding 讓出位置，所以題目不會被蓋住。
+           ⚠️ 畫布一定要 touch-action:none——iPad 預設會把筆在畫面上的拖曳當成捲動，
+             筆一畫整張紙就跟著跑。這個屬性在筆碰到螢幕那一刻就決定，事後改沒用。 */
+        .scratch-toggle { display: inline-flex; align-items: center; gap: 4px; height: 32px; padding: 0 10px;
+            border-radius: 999px; border: 1.5px solid var(--rule); color: var(--ink-2); font-size: 12px; font-weight: 800;
+            background: var(--panel); transition: background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease); }
+        .scratch-toggle.is-on { border-color: var(--accent-bright); background: var(--accent-soft); color: var(--ink); }
+        .scratch { position: fixed; z-index: 60; display: flex; flex-direction: column; background: var(--panel);
+            color: var(--ink); border-color: var(--rule); box-shadow: 0 0 24px rgba(30, 23, 8, .12);
+            transition: transform var(--dur-page) var(--ease); }
+        /* ⚠️ 這兩條自己設了 display，跟 Tailwind 的 .hidden 同分，誰贏看樣式的先後——寫明白。 */
+        .scratch.hidden, .scratch-toggle.hidden { display: none; }
+        @media (orientation: landscape) {
+            .scratch { top: 0; right: 0; bottom: 0; width: 46vw; border-left: 1.5px solid var(--rule); }
+            #playKahootModal.scratch-open { padding-right: 46vw; }
+        }
+        @media (orientation: portrait) {
+            .scratch { left: 0; right: 0; bottom: 0; height: 46vh; border-top: 1.5px solid var(--rule); }
+            #playKahootModal.scratch-open { padding-bottom: 46vh; }
+        }
+        .scratch-bar { display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-bottom: 1px solid var(--rule); flex-shrink: 0; }
+        .scratch-btn { height: 36px; min-width: 40px; padding: 0 10px; border-radius: 10px; display: inline-flex; align-items: center;
+            justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; color: var(--ink-2); }
+        .scratch-btn.is-on { background: var(--accent-soft); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--accent-bright); }
+        @media (hover: hover) { .scratch-btn:hover { background: var(--paper-sunk); } }
+        /* 計算紙的方格。⚠️ 格線畫在 CSS 背景、不畫進畫布：橡皮擦與「清空」只動畫布，格線不會被擦掉。 */
+        .scratch-paper { position: relative; flex: 1; min-height: 0;
+            background-color: var(--panel);
+            background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
+            background-size: 24px 24px; }
+        .scratch-paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
+            touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+        .scratch-hint { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font-size: 13px; font-weight: 700;
+            color: var(--ink-3); pointer-events: none; }
+        @media (prefers-reduced-motion: reduce) { .scratch { transition: none; } }
+        /* 拍照的預覽。圖可能很長（題組文章＋詳解＋草稿紙），所以圖那一塊自己捲。 */
+        .snap-panel { width: min(560px, 100%); max-height: 92vh; display: flex; flex-direction: column; gap: 12px;
+            background: var(--panel); color: var(--ink); border-radius: var(--radius-lg); padding: 16px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, .3); }
+        .snap-img-wrap { flex: 1; min-height: 0; overflow: auto; border-radius: var(--radius); border: 1px solid var(--rule); }
+        .snap-img-wrap img { display: block; width: 100%; height: auto; -webkit-touch-callout: default; }
         /* ★ 選項多而且都很短（文意選填的十個單字）改排兩欄：一欄十列在手機上要捲一整頁，
              而且要在十個字之間來回比較，兩欄一眼看得完。長句子或有圖的選項不走這條。
            ⚠️ 用 id 選擇器壓過元素上的 Tailwind `flex flex-col`。 */
@@ -273,6 +318,13 @@
            而這個站沒有橫向捲軸——症狀是整頁跟著變寬、導覽列也跟著跑掉，
            看起來像版面壞了，而不是一條式子太長。 */
         .katex-display { margin: .6em 0; overflow-x: auto; overflow-y: hidden; padding-bottom: 2px; }
+        /* ⚠️ 行內算式（夾在字裡的 \( \)）一樣會撐寬，而且上面那條管不到它（2026-09-29）。
+           112 分科數甲第 3 題的極限式整條包在 \left( … \right) 裡，KaTeX 沒辦法在中間斷行，
+           手機上比卡片寬兩百多像素，整頁被縮成六成大、右邊空一大片。
+           ★ 不能對所有行內算式一律 inline-block＋捲動：overflow 不是 visible 的 inline-block
+             基線會掉到底邊，每一個 a₁ 都會跟旁邊的字對不齊。所以只標**真的放不下**的那幾條
+             （renderMath 量過之後加 .qtex-wide），讓它自己佔一行、可以左右滑。 */
+        .qtex-wide { display: block; max-width: 100%; overflow-x: auto; overflow-y: hidden; padding: 2px 0; }
         /* 選項裡的區塊算式不要再撐開上下：一列選項本來就只有一行高。 */
         .quiz-opt-text .katex-display { margin: .2em 0; }
 
@@ -5321,13 +5373,17 @@
             <!-- 頂欄：離開、進度條、題號／分數。
                  離開鍵從原本的紅色圓底改成純圖示——它是這個畫面唯一的
                  破壞性操作，卻是唯一有顏色的東西，等於在請人按它。 -->
-            <div class="flex items-center gap-3 mb-7 shrink-0">
+            <div id="kahootTopBar" class="flex items-center gap-3 mb-7 shrink-0">
                 <button id="quitKahootBtn" class="shrink-0 w-9 h-9 flex items-center justify-center rounded-full text-slate-500" aria-label="離開測驗">
                     <i data-lucide="x" class="w-6 h-6 pointer-events-none"></i>
                 </button>
                 <div class="quiz-bar flex-1">
                     <div id="kahootProgressBar" class="quiz-bar-fill" style="width: 0%"></div>
                 </div>
+                <!-- 草稿紙開關：只有平板看得到（見 scratchSupported）。 -->
+                <button id="scratchToggleBtn" data-action="scratch-toggle" class="scratch-toggle hidden shrink-0" aria-pressed="false" aria-label="草稿紙">
+                    <i data-lucide="pencil-line" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">草稿紙</span>
+                </button>
                 <div class="shrink-0 text-right leading-tight">
                     <div id="kahootProgress" class="text-sm font-black text-slate-900">1 / 5</div>
                     <div id="kahootScoreDisplay" class="text-[11px] font-bold text-slate-400">分數 0</div>
@@ -5389,11 +5445,60 @@
             <div id="kahootExplainWrap" class="hidden mt-6 text-left"></div>
             <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
             <div id="kahootNextWrap" class="hidden mt-7">
-                <button id="kahootNextBtn" class="w-full py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
+                <!-- 拍照（2026-09-29）：把題目、選項、詳解、草稿紙存成一張圖。放在「下一題」左邊，
+                     因為下一題一按，草稿紙就換新的了。 -->
+                <div class="flex gap-2">
+                <button id="kahootSnapBtn" data-action="kahoot-snap" class="shrink-0 px-4 py-4 rounded-2xl font-black text-base border-2 border-slate-200 text-slate-600 flex items-center justify-center gap-1.5" aria-label="拍照存下這一題">
+                    <i data-lucide="camera" class="w-5 h-5 pointer-events-none"></i>
+                    <span id="kahootSnapLabel" class="pointer-events-none">拍照</span>
+                </button>
+                <button id="kahootNextBtn" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
                     <span id="kahootNextLabel">下一題</span>
                     <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
                 </button>
+                </div>
                 <p class="text-center text-slate-400 text-xs font-bold mt-2">看懂正解後再繼續（也可按 Enter）</p>
+            </div>
+        </div>
+        <!-- 草稿紙（2026-09-29）。每一題自動換一張新的；畫的東西只在這台裝置上、不存檔。 -->
+        <aside id="scratchPad" class="scratch hidden" aria-label="草稿紙">
+            <div class="scratch-bar">
+                <button type="button" data-action="scratch-tool" data-tool="pen" id="scratchPenBtn" class="scratch-btn is-on" aria-label="筆">
+                    <i data-lucide="pen-line" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">筆</span></button>
+                <button type="button" data-action="scratch-tool" data-tool="eraser" id="scratchEraserBtn" class="scratch-btn" aria-label="橡皮擦">
+                    <i data-lucide="eraser" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">橡皮擦</span></button>
+                <button type="button" data-action="scratch-undo" class="scratch-btn" aria-label="復原">
+                    <i data-lucide="undo-2" class="w-4 h-4 pointer-events-none"></i></button>
+                <button type="button" data-action="scratch-clear" class="scratch-btn" aria-label="整張清空">
+                    <i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                <span class="flex-1"></span>
+                <button type="button" data-action="scratch-toggle" class="scratch-btn" aria-label="收起草稿紙">
+                    <i data-lucide="x" class="w-4 h-4 pointer-events-none"></i></button>
+            </div>
+            <div class="scratch-paper" id="scratchPaper">
+                <canvas id="scratchCanvas"></canvas>
+                <p id="scratchHint" class="scratch-hint">用筆在這裡計算・換下一題會換一張新的</p>
+            </div>
+        </aside>
+    </div>
+
+    <!-- 拍照的預覽（2026-09-29）。★ 分成「先拍、再按存」兩步不是多此一舉：
+         iPad 的 Safari 只准在「剛按下去的那一刻」叫出分享選單，而拍照要花一兩秒，
+         拍完再叫就會被擋掉。所以拍好先給你看，按「存到相簿／分享」那一下才叫選單。 -->
+    <div id="snapModal" class="fixed inset-0 hidden items-center justify-center p-4" style="z-index:80;background:rgba(8,12,28,.62)" role="dialog" aria-label="這一題的照片">
+        <div class="snap-panel">
+            <div class="flex items-center justify-between">
+                <p class="font-black">這一題的照片</p>
+                <button type="button" data-action="snap-close" class="w-9 h-9 flex items-center justify-center rounded-full" aria-label="關閉">
+                    <i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            </div>
+            <div class="snap-img-wrap"><img id="snapImg" alt="題目、詳解與草稿紙"></div>
+            <p class="text-xs font-bold" style="color:var(--ink-3)">也可以長按圖片，選「加入照片」。</p>
+            <div class="flex gap-2">
+                <button type="button" data-action="snap-share" id="snapShareBtn" class="flex-1 py-3 rounded-2xl font-black text-white bg-emerald-500 flex items-center justify-center gap-1.5">
+                    <i data-lucide="share" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">存到相簿／分享</span></button>
+                <a id="snapDownload" class="px-4 py-3 rounded-2xl font-black border-2 border-slate-200 flex items-center justify-center gap-1.5" download="question.png" href="#">
+                    <i data-lucide="download" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">下載</span></a>
             </div>
         </div>
     </div>
@@ -6451,6 +6556,13 @@
         /* 選填題這一題已經按了哪幾格（一個字串，一個字一格）。
            ★ 宣告在這裡的理由跟上面兩顆一樣：`renderPlayQuestion` 會碰到它。 */
         let kahootFill = '';
+        /* 草稿紙（2026-09-29）。★ 宣告在狀態區：`renderPlayQuestion` 每一題都會碰到它（換一張新的），
+           寫在函式旁邊就是暫時性死區——一載入就掛、畫面全白（CLAUDE.md 第一條）。
+           strokes 每一筆是 { pts:[[x,y,壓力],…] }，座標是 CSS 像素；history 是「每次改之前」的 strokes 快照，給復原用。
+           penSeen：這張紙上出現過筆之後，手指一律不畫——握筆時手掌壓在螢幕上是常態（防手掌誤觸）。 */
+        const scratch = { open: false, tool: 'pen', strokes: [], history: [], active: null, penSeen: false, inited: false,
+                          /* 拍照用：剛答完的那一題、第幾題；拍好的檔案與網址（關掉預覽要 revoke）。 */
+                          lastQ: null, lastNo: 0, snapping: false, snapFile: null, snapUrl: '' };
         /* ★ 作答流程真正讀的是這兩個（activeKahoot 只拿來顯示標題）。
            原本宣告在「作答流程」那一節裡，離單字測驗（那時候叫「單字擂台」）
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
@@ -6778,9 +6890,59 @@
                     });
                     el.dataset.done = "1";
                     n++;
+                    /* 量寬度是附加的：它出錯（沒有 getComputedStyle 的環境、測試抽出來單跑）
+                       不能讓這一條被算成「沒排好」，所以另外包一層、放在 n++ 之後。 */
+                    if (el.dataset.disp !== "1") { try { watchMathWidth(el); } catch (e2) {} }
                 } catch (e) { /* 留著原文，那至少說了實話 */ }
             });
             return n;
+        }
+
+        /* 行內算式放不放得下（2026-09-29）。放不下的加 .qtex-wide（見 CSS 那一條的理由）。
+           ★ 用 ResizeObserver 而不是排完當場量：很多算式排版時還藏著（詳解收合、
+             分頁沒切過去），當場量寬度是 0，會被當成「放得下」。等它真的出現在畫面上
+             才會收到通知，那時候量才準。轉橫向、改字級也會再通知一次。
+           ★ 量的是算式**本身**（.katex）的寬度，跟「最近的區塊祖先」可用的寬度比：
+             加上 .qtex-wide 之後 el 自己變成區塊、寬度被夾住，拿 el 量會永遠剛好放得下。
+           ⚠️ 用 getBoundingClientRect 不用 scrollWidth：行內元素的 scrollWidth 一律是 0。 */
+        /* ⚠️ 監聽的是算式所在的**區塊**（段落、選項那一格），不是算式本身：
+             ResizeObserver 對行內元素永遠回報 0×0、不會發通知，監聽算式等於沒監聽。
+             區塊一出現、一變寬變窄就會通知，再把它裡面登記過的算式逐條量一次。 */
+        /* ⚠️ 暫時性死區：renderMath 可能在載入途中就被叫到，所以這裡**不宣告 let／const**——
+             觀察器掛在函式自己身上（watchMathWidth.ro），找區塊的也寫成 function 宣告。 */
+        function mathBoxOf(el) {
+            let box = el.parentElement;
+            while (box && getComputedStyle(box).display.startsWith('inline')) box = box.parentElement;
+            return box;
+        }
+        function mathFits(el, box) {
+            const k = el.querySelector('.katex');
+            if (!k || !box || !box.clientWidth) return true;    // 還藏著：先當放得下，出現時會再量
+            const cs = getComputedStyle(box);
+            const avail = box.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+            return k.getBoundingClientRect().width <= avail + 1;
+        }
+        function watchMathWidth(el) {
+            const box = mathBoxOf(el);
+            if (!box) return;
+            if (typeof ResizeObserver === 'undefined') { if (!mathFits(el, box)) el.classList.add('qtex-wide'); return; }
+            if (!watchMathWidth.ro) watchMathWidth.ro = new ResizeObserver(entries => {
+                for (const en of entries) {
+                    const b = en.target, set = b._qtex;
+                    if (!b.isConnected || !set) { watchMathWidth.ro.unobserve(b); continue; }   // 整塊重畫掉的，放掉
+                    for (const m of set) {
+                        if (!m.isConnected) { set.delete(m); continue; }
+                        m.classList.toggle('qtex-wide', !mathFits(m, b));
+                    }
+                }
+            });
+            /* 答案頁改一則詳解就整份重畫，舊的段落被丟掉之後不一定會再收到通知，
+               所以登記的區塊多了就順手清一次已經不在畫面上的。 */
+            const boxes = watchMathWidth.boxes || (watchMathWidth.boxes = new Set());
+            if (boxes.size > 400) for (const b of boxes) if (!b.isConnected) { watchMathWidth.ro.unobserve(b); boxes.delete(b); }
+            boxes.add(box);
+            (box._qtex || (box._qtex = new Set())).add(el);
+            watchMathWidth.ro.observe(box);
         }
 
         /* 用法跟 el.textContent = s 一樣，差別是裡面的算式會被排版。
@@ -8056,6 +8218,49 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-09-29',
+                title: '答完可以拍照，把題目、詳解和草稿紙存下來',
+                items: [
+                    ['草稿紙上有寫東西，答對也會停下來', '以前答對會馬上跳下一題，算了半天的草稿一下就不見了。現在只要草稿紙上有寫東西，答完會停住、把詳解攤開，等你自己按「下一題」。沒寫草稿的題目照舊快快帶過。'],
+                    ['「下一題」旁邊多了「拍照」', '一按就把這一題的題目、選項（標好正解和你選的）、詳解、草稿紙合成一張長圖。iPad 上可以按「存到相簿／分享」，或長按圖片加入照片；電腦上可以下載。'],
+                    ['很長的算式也拍得完整', '畫面上要左右滑才看得完的長算式，拍照時會自動縮小，整條都拍進去。'],
+                ]
+            },
+            {
+                date: '2026-09-29',
+                title: '平板做測驗可以開草稿紙了',
+                items: [
+                    ['用 Apple Pencil 邊算邊作答', '在 iPad 等平板上做測驗，右上角多了一顆「草稿紙」。按下去旁邊會出現一張方格計算紙，橫放在右邊、直放在下面，題目和選項不會被蓋住。'],
+                    ['寫起來像真的筆', '用力寫比較粗、輕輕寫比較細。用筆寫的時候手掌壓在螢幕上不會畫出亂線；沒有筆的話用手指也能寫。'],
+                    ['橡皮擦、復原、清空', '橡皮擦碰到哪一筆就整筆擦掉，擦錯了可以按復原。換下一題會自動換一張新的紙。'],
+                    ['會記得你有沒有開', '開過一次，下一場測驗會自動打開。手機螢幕太小，所以不會出現這顆按鈕。'],
+                ]
+            },
+            {
+                date: '2026-09-29',
+                title: '手機上整頁縮小、右邊空一大片的問題修好了',
+                items: [
+                    ['有很長算式的題目不會再把畫面撐開', '像分科數學甲的極限題、大學數學、微分方程這些題庫，有幾條算式比手機螢幕還寬，會讓整頁縮成一半大。現在太長的算式會自己排成一行，用手指左右滑就看得到全部。'],
+                ]
+            },
+            {
+                date: '2026-09-29',
+                title: '多選題會告訴你要選幾個',
+                items: [
+                    ['考卷上寫「應選 2 項」的，標籤直接寫出來', '學測自然很多多選題會註明要選幾項，以前要讀到題目最後面才看得到，現在題目旁邊的標籤就寫「多選・應選 2 項」，送出鈕也會顯示「勾了 1／2 個」。'],
+                    ['自己出題也可以用', '在題目裡寫上「（應選 2 項）」，作答時一樣會顯示。只是提醒，不會擋你送出。'],
+                ]
+            },
+            {
+                date: '2026-09-29',
+                title: '找回幾題不見的考題',
+                items: [
+                    ['分科數學甲 115 年多了三題選填', '第 10、11 題和題組裡的第 15 題之前沒出現，現在補上了，一樣用數字鍵盤作答。'],
+                    ['會考數學、統測基本電學各補回幾題', '114 年會考數學第 23 題（圓上的弧），還有統測基本電學 113、115 年的第 2 題（跟溫度有關的電阻），之前因為符號顯示不出來被漏掉，現在都在了。'],
+                    ['要寫文字的填空題還是沒有放', '像生物、國文、英文那種要自己寫出一個詞或一句話的填空，網站現在只能用數字鍵作答，所以這幾題先不收。'],
+                ]
+            },
             {
                 date: '2026-09-29',
                 title: '學測與分科 111、112 年補齊了',
@@ -16647,7 +16852,7 @@
                         <p class="flex-1 min-w-0 font-black text-slate-900 leading-snug break-words whitespace-pre-wrap">${mathHTML(q.q ||'')}</p>
                         ${/* ⚠️ 多選題一定要標出來：底下會有兩三個選項亮綠，
                              沒有這個標籤的話看起來像「這一題有好幾個正解」的資料錯誤。 */
-                          isMultiQ(q) ?'<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">多選</span>'
+                          isMultiQ(q) ?`<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">${multiTagText(q)}</span>`
                           : isFillQ(q) ?'<span class="shrink-0 text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">選填</span>' :''}
                     </div>
                     ${/* 題目本身的圖。★ 畫在選項上面：它是題幹的一部分，
@@ -17761,6 +17966,20 @@
            自己的正解陣列，於是錯題清單裡每一題都變回單選的版面。**畫面正常、不報錯。** */
         /* ---- 多選題：核心（純函式，測試會整段抽出去跑）---- */
         function isMultiQ(q) { return !!q && Array.isArray(q.correctIdxs); }
+        /* 考卷上寫了「（應選 2 項）」的多選題，回傳 2；沒寫的回傳 0（2026-09-29）。
+           ★ 直接讀題幹，不另存欄位：學測自然每一題都把它寫在題幹最後面，
+             自己出題的人照這個格式寫也會生效，不用多一個表單欄位。
+           ⚠️ 只拿來**顯示**，不擋送出、不改計分：大考本身也沒有擋，
+             勾錯幾個照樣按「每錯一個扣一格」算。 */
+        function pickCountOf(q) {
+            if (!isMultiQ(q)) return 0;
+            const m = String(q.q ||'').match(/[（(]\s*應選\s*([0-9０-９一二三四五六])\s*項\s*[）)]/);
+            if (!m) return 0;
+            const c = m[1].normalize('NFKC');
+            return /\d/.test(c) ? +c : ('一二三四五六'.indexOf(c) + 1);
+        }
+        /* 多選的小標籤字樣：有寫項數就一起標出來。 */
+        function multiTagText(q) { const n = pickCountOf(q); return n ? `多選・應選 ${n} 項` : '多選'; }
         /* ★ 選填（2026-09-28）：學測數學畫卡的那一種。答案是一串格子，每一格是
            0–9、-、±，`q.fill` 就是那一串（格數＝長度）。全部格子都對才給分，
            大考的選填沒有部分分數。
@@ -17837,7 +18056,10 @@
             const on = kahootPicks.length > 0;
             btn.disabled = !on;
             btn.classList.toggle('opacity-40', !on);
-            $('kahootSubmitLabel').textContent = on ? `送出（勾了 ${kahootPicks.length} 個）` : '送出';
+            /* 有寫應選幾項的，改成「勾了 1／2 個」，一眼看得出還差幾個。 */
+            const need = pickCountOf(qData);
+            $('kahootSubmitLabel').textContent = !on ? '送出'
+                : need ? `送出（勾了 ${kahootPicks.length}／${need} 個）` : `送出（勾了 ${kahootPicks.length} 個）`;
         }
 
         function toggleKahootPick(i) {
@@ -17977,6 +18199,370 @@
             return !!(activeKahoot && (activeKahoot.cloze || activeKahoot.vocabSrs));
         }
 
+        /* ==========================================================
+         * 草稿紙（2026-09-29）：做測驗時旁邊一張可以用 Apple Pencil 等觸控筆寫的計算紙。
+         *
+         * ★ 只給平板：手機螢幕切一半給草稿紙，題目就只剩一條縫；桌機沒有筆。
+         *   判斷用能力不用 User-Agent（iPad 的 Safari 會說自己是 Mac，跟模擬器的手機擋門同一個理由）：
+         *   有多點觸控、而且螢幕短邊至少 600 像素（手機最大約 430）。
+         * ★ 筆跟手指分開：Pointer Events 的 pointerType 會說這一下是 'pen'、'touch' 還是 'mouse'。
+         *   出現過筆之後手指就不畫（手掌壓在螢幕上不會畫出亂線）；沒有筆的平板，手指照樣能畫。
+         * ★ 壓力：e.pressure（0–1），用力寫比較粗。手指與滑鼠沒有壓力，瀏覽器固定給 0.5。
+         * ★ getCoalescedEvents：筆一秒回報兩百多次，但瀏覽器一個畫面只送一次 pointermove，
+         *   中間那些點收在這裡面。不拿的話快速寫字會變成折線。沒有這個功能的瀏覽器就只用那一個點。
+         * ★ 橡皮擦是「碰到哪一筆就擦掉整筆」，不是一個像素一個像素擦——草稿是一筆一筆的算式，
+         *   整筆擦比較快，復原也單純（每次改之前留一份筆畫清單的快照）。
+         * ⚠️ 不存檔：換下一題就是一張新紙，關掉測驗就沒了。考試的計算紙本來就不帶走。
+         * ========================================================== */
+        function scratchSupported() {
+            try {
+                return (navigator.maxTouchPoints || 0) > 1 && Math.min(screen.width, screen.height) >= 600;
+            } catch (e) { return false; }
+        }
+        function scratchCtx() {
+            const cv = $('scratchCanvas');
+            return cv ? cv.getContext('2d') : null;
+        }
+        /* 畫布的實際像素要跟著「CSS 大小 × 螢幕倍率」走，不然在 Retina 螢幕上字會糊。
+           大小一變（轉向、開關草稿紙），像素就清空了，所以量完一定要整張重畫。 */
+        function scratchFit() {
+            const cv = $('scratchCanvas');
+            if (!cv) return;
+            const r = cv.getBoundingClientRect(), dpr = window.devicePixelRatio || 1;
+            const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+            if (!w || !h) return;
+            if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+            scratchRedraw();
+        }
+        const scratchWidth = (p) => 1.2 + 2.6 * (p > 0 ? p : 0.5);
+        /* 畫一段：上一個點 → 這一個點，用兩點的中點當轉折，線才不會一格一格的。 */
+        function scratchSeg(ctx, a, b, c) {
+            ctx.lineWidth = scratchWidth(c[2]);
+            ctx.beginPath();
+            ctx.moveTo((a[0] + b[0]) / 2, (a[1] + b[1]) / 2);
+            ctx.quadraticCurveTo(b[0], b[1], (b[0] + c[0]) / 2, (b[1] + c[1]) / 2);
+            ctx.stroke();
+        }
+        function scratchPrep(ctx) {
+            const dpr = window.devicePixelRatio || 1;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            /* 墨水色跟著主題走（深色模式是淺色字），每次畫都重讀一次。 */
+            ctx.strokeStyle = ctx.fillStyle = getComputedStyle($('scratchPad')).color;
+        }
+        function scratchDrawStroke(ctx, st) {
+            const p = st.pts;
+            if (p.length === 1) {       // 只點一下：畫一個點
+                ctx.beginPath(); ctx.arc(p[0][0], p[0][1], scratchWidth(p[0][2]) / 2, 0, Math.PI * 2); ctx.fill();
+                return;
+            }
+            for (let i = 1; i < p.length; i++) scratchSeg(ctx, p[Math.max(0, i - 2)], p[i - 1], p[i]);
+        }
+        function scratchRedraw() {
+            const ctx = scratchCtx(), cv = $('scratchCanvas');
+            if (!ctx) return;
+            ctx.setTransform(1, 0, 0, 1, 0, 0);
+            ctx.clearRect(0, 0, cv.width, cv.height);
+            scratchPrep(ctx);
+            for (const st of scratch.strokes) scratchDrawStroke(ctx, st);
+            if (scratch.active && scratch.active.pts) scratchDrawStroke(ctx, scratch.active);
+            const hint = $('scratchHint');
+            if (hint) hint.classList.toggle('hidden', scratch.strokes.length > 0 || !!scratch.active);
+        }
+        function scratchSnapshot() {
+            scratch.history.push(scratch.strokes.slice());
+            if (scratch.history.length > 60) scratch.history.shift();
+        }
+        const scratchPt = (e, cv) => { const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top, e.pressure || 0]; };
+        /* 橡皮擦：碰到的那幾筆整筆拿掉。半徑 14 px 大約是一根手指尖，用筆擦也不用對得很準。 */
+        function scratchEraseAt(x, y) {
+            const R2 = 14 * 14;
+            const keep = scratch.strokes.filter(st => !st.pts.some(q => (q[0] - x) ** 2 + (q[1] - y) ** 2 <= R2));
+            if (keep.length === scratch.strokes.length) return false;
+            scratch.strokes = keep;
+            return true;
+        }
+        function scratchDown(e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (e.pointerType === 'pen') scratch.penSeen = true;
+            else if (e.pointerType === 'touch' && scratch.penSeen) return;     // 防手掌：有筆之後手指不畫
+            if (scratch.active) return;                                        // 一次只畫一筆（兩根手指不會畫出兩條）
+            const cv = e.currentTarget;
+            try { cv.setPointerCapture(e.pointerId); } catch (err) {}
+            e.preventDefault();
+            /* 手寫筆背面的橡皮擦（Surface Pen 之類）會送 buttons 的第 32 位元，當成橡皮擦。 */
+            const erase = scratch.tool === 'eraser' || (e.buttons & 32);
+            const pt = scratchPt(e, cv);
+            scratchSnapshot();
+            if (erase) {
+                scratch.active = { id: e.pointerId, erase: true, changed: scratchEraseAt(pt[0], pt[1]) };
+                if (scratch.active.changed) scratchRedraw();
+            } else {
+                scratch.active = { id: e.pointerId, pts: [pt] };
+                scratchRedraw();
+            }
+        }
+        function scratchMove(e) {
+            const a = scratch.active;
+            if (!a || a.id !== e.pointerId) return;
+            e.preventDefault();
+            const cv = e.currentTarget;
+            const evs = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents()) || [];
+            const list = evs.length ? evs : [e];
+            if (a.erase) {
+                let hit = false;
+                for (const ev of list) { const p = scratchPt(ev, cv); if (scratchEraseAt(p[0], p[1])) hit = true; }
+                if (hit) { a.changed = true; scratchRedraw(); }
+                return;
+            }
+            /* 只畫新增的那幾段，不整張重畫——整張重畫在筆畫多的時候會跟不上筆。 */
+            const ctx = scratchCtx();
+            scratchPrep(ctx);
+            for (const ev of list) {
+                const p = scratchPt(ev, cv), pts = a.pts;
+                const last = pts[pts.length - 1];
+                if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) < 0.8) continue;   // 幾乎沒動的點不收
+                pts.push(p);
+                const n = pts.length;
+                scratchSeg(ctx, pts[Math.max(0, n - 3)], pts[n - 2], pts[n - 1]);
+            }
+        }
+        function scratchUp(e) {
+            const a = scratch.active;
+            if (!a || a.id !== e.pointerId) return;
+            scratch.active = null;
+            if (a.erase) { if (!a.changed) scratch.history.pop(); }            // 什麼都沒擦到，這一步不算
+            else scratch.strokes = scratch.strokes.concat([{ pts: a.pts }]);
+            scratchRedraw();
+        }
+        function initScratch() {
+            if (scratch.inited) return;
+            const cv = $('scratchCanvas');
+            if (!cv) return;
+            scratch.inited = true;
+            cv.addEventListener('pointerdown', scratchDown);
+            cv.addEventListener('pointermove', scratchMove);
+            cv.addEventListener('pointerup', scratchUp);
+            cv.addEventListener('pointercancel', scratchUp);
+            /* ★ 用 ResizeObserver 接「大小變了」：轉向、打開草稿紙、分割畫面都會觸發，每一種都得重新對齊像素。 */
+            if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => scratchFit()).observe(cv);
+            else window.addEventListener('resize', scratchFit);
+        }
+        function setScratchOpen(on) {
+            scratch.open = !!on && scratchSupported();
+            $('scratchPad').classList.toggle('hidden', !scratch.open);
+            $('playKahootModal').classList.toggle('scratch-open', scratch.open);
+            const btn = $('scratchToggleBtn');
+            if (btn) { btn.classList.toggle('is-on', scratch.open); btn.setAttribute('aria-pressed', scratch.open ? 'true' : 'false'); }
+            /* 記住開著還是關著：習慣用草稿紙的人，下一場不用再按一次。 */
+            try { localStorage.setItem('eeblackcat-scratch', scratch.open ? '1' : '0'); } catch (e) {}
+            if (scratch.open) { initScratch(); requestAnimationFrame(scratchFit); }
+        }
+        function setScratchTool(tool) {
+            scratch.tool = tool === 'eraser' ? 'eraser' : 'pen';
+            $('scratchPenBtn').classList.toggle('is-on', scratch.tool === 'pen');
+            $('scratchEraserBtn').classList.toggle('is-on', scratch.tool === 'eraser');
+        }
+        function scratchUndo() {
+            if (!scratch.history.length || scratch.active) return;
+            scratch.strokes = scratch.history.pop();
+            scratchRedraw();
+        }
+        function scratchClear() {
+            if (!scratch.strokes.length || scratch.active) return;
+            scratchSnapshot();
+            scratch.strokes = [];
+            scratchRedraw();
+        }
+        /* 每一題一張新紙。★ 橡皮擦切回筆：上一題最後在擦，下一題一下筆卻什麼都畫不出來，會以為壞了。
+           ★ 開關的顯示也在這裡決定——換到手機大小的視窗（分割畫面）就把整個草稿紙收起來。 */
+        function scratchNewPage() {
+            scratch.strokes = []; scratch.history = []; scratch.active = null;
+            setScratchTool('pen');
+            const ok = scratchSupported();
+            const btn = $('scratchToggleBtn');
+            if (btn) btn.classList.toggle('hidden', !ok);
+            if (!ok) { if (scratch.open) setScratchOpen(false); return; }
+            if (!scratch.open) {
+                let want = false;
+                try { want = localStorage.getItem('eeblackcat-scratch') === '1'; } catch (e) {}
+                if (want) setScratchOpen(true);
+            }
+            if (scratch.open) scratchRedraw();
+        }
+        /* ==========================================================
+         * 拍照（2026-09-29）：答完一題之後，把題目、選項（標好正解與你選的）、詳解、草稿紙存成一張長圖。
+         *
+         * ★ 拍的是作答畫面那一欄本身，不另外排一份版面：畫面上長什麼樣，圖就長什麼樣，
+         *   以後改作答畫面也不用記得改第二份。頂欄、按鈕、「我其實不確定」用 filter 濾掉。
+         * ★ 網頁轉圖片用 vendor/html-to-image.min.js（MIT，1.11.13）。原理：把那一塊複製一份、
+         *   把算好的樣式與字型全部塞進一張 SVG，再畫到 canvas 上。**用到才載入**，跟 KaTeX 同一個理由
+         *   不進 sw.js 的 CORE（多數人不會按拍照）。
+         * ⚠️ Safari 第一次畫常常字型或圖還沒嵌進去，會拍出缺字的圖——所以一律畫兩次，用第二張。
+         * ★ 草稿紙不拍畫布本人：畫布是整張紙，大半是空白。改成把筆畫「框起來」重畫一張，只留寫過的範圍。
+         * ⚠️ 已知限制：可以左右滑的長算式（.qtex-wide），圖裡只會有畫面上看得到的那一段。
+         * ========================================================== */
+        function ensureHtmlToImage() {
+            if (window.htmlToImage) return Promise.resolve(window.htmlToImage);
+            if (ensureHtmlToImage.p) return ensureHtmlToImage.p;       // 不用 let：暫時性死區（見 watchMathWidth）
+            ensureHtmlToImage.p = new Promise((resolve) => {
+                const js = document.createElement('script');
+                js.src = 'vendor/html-to-image.min.js';
+                js.onload  = () => resolve(window.htmlToImage || null);
+                js.onerror = () => { ensureHtmlToImage.p = null; resolve(null); };   // 清掉，下次再試
+                document.head.appendChild(js);
+            });
+            return ensureHtmlToImage.p;
+        }
+        /* 草稿紙：把寫過的範圍框起來、四周留 24 px，畫在一張新的 canvas 上（含方格）。沒寫就回 null。 */
+        function scratchInkCanvas(scale) {
+            if (!scratch.strokes.length) return null;
+            let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+            for (const st of scratch.strokes) for (const q of st.pts) {
+                x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]);
+            }
+            const M = 24;
+            x0 -= M; y0 -= M; x1 += M; y1 += M;
+            const w = x1 - x0, h = y1 - y0;
+            const cv = document.createElement('canvas');
+            cv.width = Math.ceil(w * scale); cv.height = Math.ceil(h * scale);
+            const ctx = cv.getContext('2d');
+            const pad = getComputedStyle($('scratchPad'));
+            ctx.scale(scale, scale);
+            ctx.fillStyle = pad.backgroundColor; ctx.fillRect(0, 0, w, h);
+            /* 方格對齊原本那張紙的格線（24 px 一格），所以要從紙的座標原點算偏移。 */
+            ctx.strokeStyle = pad.borderTopColor || '#d8c79c'; ctx.lineWidth = 1;
+            ctx.beginPath();
+            for (let x = Math.ceil(x0 / 24) * 24; x < x1; x += 24) { ctx.moveTo(x - x0 + .5, 0); ctx.lineTo(x - x0 + .5, h); }
+            for (let y = Math.ceil(y0 / 24) * 24; y < y1; y += 24) { ctx.moveTo(0, y - y0 + .5); ctx.lineTo(w, y - y0 + .5); }
+            ctx.stroke();
+            ctx.translate(-x0, -y0);
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.strokeStyle = ctx.fillStyle = pad.color;
+            for (const st of scratch.strokes) scratchDrawStroke(ctx, st);
+            return cv;
+        }
+        const snapFileName = () => `小黑貓-${String((activeKahoot && activeKahoot.title) || '測驗').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40)}-第${scratch.lastNo}題.png`;
+        /* 拍照時要抄的樣式。★ 寫成函式而不是模組層的 const：拍照在載入途中不會被叫到，
+           但寫在這裡的 const 一樣是暫時性死區的形狀，不留地雷。 */
+        function SNAP_STYLE_PROPS() {
+            return ['display','position','top','right','bottom','left','float','clear','z-index','box-sizing',
+             'width','height','min-width','min-height','max-width','max-height',
+             'margin-top','margin-right','margin-bottom','margin-left','padding-top','padding-right','padding-bottom','padding-left',
+             'border-top-width','border-right-width','border-bottom-width','border-left-width',
+             'border-top-style','border-right-style','border-bottom-style','border-left-style',
+             'border-top-color','border-right-color','border-bottom-color','border-left-color',
+             'border-top-left-radius','border-top-right-radius','border-bottom-left-radius','border-bottom-right-radius',
+             'font-family','font-size','font-weight','font-style','font-variant','font-feature-settings','line-height','letter-spacing','word-spacing',
+             'text-align','text-indent','text-transform','text-decoration-line','text-decoration-color','text-decoration-style','white-space','word-break','overflow-wrap',
+             'vertical-align','color','opacity','visibility','overflow-x','overflow-y','transform','transform-origin',
+             'background-color','background-image','background-size','background-position','background-repeat','background-clip',
+             'box-shadow','flex-direction','flex-wrap','flex-grow','flex-shrink','flex-basis','justify-content','align-items','align-self','align-content','order',
+             'gap','row-gap','column-gap','grid-template-columns','grid-template-rows','grid-column-start','grid-column-end','grid-row-start','grid-row-end',
+             'list-style-type','border-collapse','border-spacing','table-layout','object-fit','fill','stroke','stroke-width','content','outline-style'];
+        }
+        async function snapKahoot() {
+            if (scratch.snapping || !scratch.lastQ) return;
+            if (!$('snapModal').classList.contains('hidden')) return;   // 預覽開著（鍵盤 Enter 會再按到拍照鈕）
+            scratch.snapping = true;
+            const label = $('kahootSnapLabel');
+            if (label) label.textContent = '拍照中…';
+            try {
+                const H = await ensureHtmlToImage();
+                if (!H) throw new Error('html-to-image 載不到');
+                const col = document.querySelector('#playKahootModal > div');
+                const SKIP = new Set(['kahootTopBar', 'kahootNextWrap', 'kahootSubmitWrap', 'kahootUnsureWrap', 'kahootSpeakBtn']);
+                const bg = getComputedStyle($('playKahootModal')).backgroundColor;
+                /* ⚠️⚠️ 一定要給 includeStyleProperties（2026-09-29 量到的坑）：
+                     它預設把每個元素的**全部**計算後樣式抄一份，包括網站 99 個 CSS 變數（52 KB，
+                     裡面有好幾張梵谷筆觸的 SVG 紋理）。731 個元素 × 52 KB＝一張 56 MB 的 SVG，
+                     拍一張要 3–5 秒。只抄會影響畫面的那幾十項之後是 1.7 MB、0.3 秒，畫面逐像素比對幾乎一樣
+                     （算好的樣式本來就已經把變數代換掉了，變數本人不用抄）。
+                   ⚠️ 這份清單它**只看第一次呼叫**（內部快取在一個變數裡，之後給別的也不理），
+                     所以每一次呼叫都給同一份，連 getFontEmbedCSS 也給。 */
+                const opt = { pixelRatio: 2, backgroundColor: bg, includeStyleProperties: SNAP_STYLE_PROPS(),
+                              filter: (n) => !(n && n.id && SKIP.has(n.id)) };
+                /* ★ 高度量到最後一個真的拍進去的區塊為止：按鈕那一排被 filter 濾掉了，
+                     但這一欄本身的高度還算著它，照片底下會空一大段。 */
+                const colTop = col.getBoundingClientRect().top;
+                const kept = [...col.children].filter(c => !SKIP.has(c.id) && getComputedStyle(c).display !== 'none' && c.getBoundingClientRect().height > 0);
+                if (kept.length) {
+                    const hh = Math.ceil(kept[kept.length - 1].getBoundingClientRect().bottom - colTop + 24);
+                    opt.height = hh;
+                    opt.style = { height: hh + 'px', minHeight: '0', paddingBottom: '0' };
+                }
+                /* 字型只讀一次，之後重複用。 */
+                if (!ensureHtmlToImage.font) ensureHtmlToImage.font = await H.getFontEmbedCSS(col, opt);
+                opt.fontEmbedCSS = ensureHtmlToImage.font;
+                /* 可以左右滑的長算式，照片裡沒辦法滑——拍的那一下先把字縮到剛好放得下，拍完還原。
+                   ★ 改的是 font-size：KaTeX 全部用 em，整條會等比例縮；樣式複製的也是縮完的實際大小。 */
+                const shrunk = [];
+                for (const w of col.querySelectorAll('.qtex-wide')) {
+                    const k = w.querySelector('.katex');
+                    if (!k) continue;
+                    const nat = k.getBoundingClientRect().width, avail = w.clientWidth - 4;
+                    if (nat <= avail || !avail) continue;
+                    const fs = parseFloat(getComputedStyle(w).fontSize);
+                    shrunk.push([w, w.style.fontSize, w.style.overflowX]);
+                    w.style.fontSize = (fs * avail / nat).toFixed(2) + 'px';
+                    w.style.overflowX = 'hidden';            // 捲軸不要被拍進去
+                }
+                let qc;
+                try {
+                    await H.toCanvas(col, opt);             // 第一張丟掉（Safari 的字型／圖常常還沒進去）
+                    qc = await H.toCanvas(col, opt);
+                } finally {
+                    for (const [w, f, o] of shrunk) { w.style.fontSize = f; w.style.overflowX = o; }
+                }
+                const ink = scratchInkCanvas(2);
+                /* 合成：最上面一行標題，接著題目那一欄，再接「草稿紙」與筆跡。 */
+                const W = qc.width, head = 64, gap = ink ? 72 : 0;
+                const iw = ink ? Math.min(ink.width, W - 48) : 0, ih = ink ? Math.round(ink.height * iw / ink.width) : 0;
+                const out = document.createElement('canvas');
+                out.width = W; out.height = head + qc.height + gap + ih + (ink ? 32 : 0);
+                const ctx = out.getContext('2d');
+                const ink3 = getComputedStyle(document.documentElement).getPropertyValue('--ink-3').trim() || '#5c4e33';
+                ctx.fillStyle = bg; ctx.fillRect(0, 0, out.width, out.height);
+                ctx.fillStyle = ink3; ctx.font = '700 26px system-ui, -apple-system, "PingFang TC", sans-serif';
+                ctx.fillText(`${(activeKahoot && activeKahoot.title) || '測驗'}　第 ${scratch.lastNo} 題`, 32, 42);
+                ctx.drawImage(qc, 0, head);
+                if (ink) {
+                    ctx.fillText('草稿紙', 32, head + qc.height + 46);
+                    ctx.drawImage(ink, 24, head + qc.height + gap, iw, ih);
+                }
+                const blob = await new Promise(r => out.toBlob(r, 'image/png'));
+                if (!blob) throw new Error('toBlob 失敗');
+                if (scratch.snapUrl) URL.revokeObjectURL(scratch.snapUrl);
+                scratch.snapUrl = URL.createObjectURL(blob);
+                const name = snapFileName();
+                try { scratch.snapFile = new File([blob], name, { type: 'image/png' }); } catch (e) { scratch.snapFile = null; }
+                $('snapImg').src = scratch.snapUrl;
+                const a = $('snapDownload'); a.href = scratch.snapUrl; a.setAttribute('download', name);
+                /* 叫不出分享選單的瀏覽器（多數桌機）就只留「下載」。 */
+                const canShare = !!(scratch.snapFile && navigator.canShare && navigator.canShare({ files: [scratch.snapFile] }));
+                $('snapShareBtn').classList.toggle('hidden', !canShare);
+                $('snapModal').classList.remove('hidden'); $('snapModal').classList.add('flex');
+                /* 焦點還留在「拍照」鈕上的話，實體鍵盤按 Enter 等於再拍一次。 */
+                if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+            } catch (e) {
+                showToast('拍照失敗，再按一次試試看');
+            } finally {
+                scratch.snapping = false;
+                if (label) label.textContent = '拍照';
+            }
+        }
+        function snapShare() {
+            const f = scratch.snapFile;
+            if (!f || !navigator.share) return;
+            /* 使用者按「取消」也會走 catch——那不是錯誤，不用說什麼。 */
+            navigator.share({ files: [f], title: f.name }).catch(() => {});
+        }
+        function closeSnap() {
+            $('snapModal').classList.add('hidden'); $('snapModal').classList.remove('flex');
+            $('snapImg').removeAttribute('src');
+            if (scratch.snapUrl) { URL.revokeObjectURL(scratch.snapUrl); scratch.snapUrl = ''; }
+            scratch.snapFile = null;
+        }
         function renderPlayQuestion() {
             $('kahootNextWrap').classList.add('hidden');
             /* ⚠️ 上一題的詳解要收掉。漏掉的話下一題的題目上方會掛著
@@ -17986,6 +18572,8 @@
             if (!activeKahoot || currentQIndex >= playQuestions.length) return showKahootResult();
             /* ⚠️ 每一題歸零。漏掉的話按過一次就整場都不算數（見宣告處）。 */
             kahootUnsure = false;
+            /* 草稿紙換一張新的（只有平板有）。 */
+            scratchNewPage();
             $('kahootUnsureBtn').classList.remove('is-on');
             $('kahootUnsureWrap').classList.toggle('hidden', !kahootFeedsSrs());
             const qData = playQuestions[currentQIndex];
@@ -18023,11 +18611,13 @@
             /* ★ 同一個徽章換字：多選／選填。兩種都是「不會點一下就交卷」的題目，
                使用者要先知道這一題得自己按送出。 */
             const tag = $('kahootMultiTag');
-            tag.textContent = fill ?'選填' :'多選';
+            tag.textContent = fill ?'選填' : multiTagText(qData);
             tag.classList.toggle('hidden', !(multi || fill));
             $('kahootSubmitWrap').classList.toggle('hidden', !(multi || fill));
             const hint = $('kahootSubmitHint');
+            const pickN = pickCountOf(qData);
             if (hint) hint.textContent = fill ?'這一題是選填，每一格都填好再送出（鍵盤可直接打數字、- 與 +＝±，也可按 Enter）'
+                                              : pickN ? `這一題應選 ${pickN} 項，勾好再送出（也可按 Enter）`
                                               :'這一題是多選，勾好再送出（也可按 Enter）';
             /* 題組：上面掛文章，並標出這篇文章是第幾題到第幾題共用的。
                ⚠️ 題號用的是**這一場**的位置（亂序之後的），不是原始題號——
@@ -18071,6 +18661,10 @@
         function finishKahootQuestion(picks) {
             const qData = playQuestions[currentQIndex];
             if (!qData) return;
+            scratch.lastQ = qData; scratch.lastNo = currentQIndex + 1;
+            /* 這一題有沒有在草稿紙上寫東西。★ 要在 currentQIndex++ 之前、renderPlayQuestion 之前讀：
+               下一題一畫就換新紙了。 */
+            const inked = scratch.open && scratch.strokes.length > 0;
             isKahootTransitioning = true;
             const multi = isMultiQ(qData), fill = isFillQ(qData);
             /* 選填送進來的是一串字，不是索引陣列。下面凡是把 `picks` 當陣列用的地方，
@@ -18137,7 +18731,9 @@
             // 若等到重繪才動，那段停留看起來會像「這題不算數」。
             $('kahootProgressBar').style.width = `${currentQIndex / playQuestions.length * 100}%`;
 
-            if (correct) {
+            /* ★ 答對但草稿紙上有寫東西：一樣停下來（2026-09-29）。0.7 秒就換題的話，
+               算了半天的草稿一眨眼就被新的一張蓋掉，也來不及拍照。沒寫草稿的照舊快快帶過。 */
+            if (correct && !inked) {
                 /* 答對就快快帶過，不打斷節奏。
                    ★ 最後一題再短一點：那 700ms 是留給「看一眼答對了再換下一題」的，
                    而最後一題後面沒有下一題，只有結果畫面——
@@ -20570,6 +21166,13 @@
 'submit-kahoot-picks':  ()  => submitKahootPicks(),
 'fill-key':             (t) => fillKey(t.dataset.key),
 'fill-back':            ()  => fillBack(),
+'scratch-toggle':  ()  => setScratchOpen(!scratch.open),
+'kahoot-snap':     ()  => snapKahoot(),
+'snap-share':      ()  => snapShare(),
+'snap-close':      ()  => closeSnap(),
+'scratch-tool':    (t) => setScratchTool(t.dataset.tool),
+'scratch-undo':    ()  => scratchUndo(),
+'scratch-clear':   ()  => scratchClear(),
 'toggle-unsure':   ()  => { if (isKahootTransitioning) return;
                             kahootUnsure = !kahootUnsure;
                             $('kahootUnsureBtn').classList.toggle('is-on', kahootUnsure); },
@@ -21044,6 +21647,8 @@
 
                 const playing = !$('playKahootModal').classList.contains('hidden');
                 if (!playing) return;
+                /* 照片預覽開著：Enter 不能穿過去變成「下一題」（草稿紙會被換掉）；Esc 關預覽。 */
+                if (!$('snapModal').classList.contains('hidden')) { if (e.key === 'Escape') closeSnap(); return; }
 
                 // 答錯停在正解畫面時：Enter／空白鍵繼續
                 const waitingNext = !$('kahootNextWrap').classList.contains('hidden');
