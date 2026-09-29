@@ -5495,8 +5495,6 @@
             </div>
             <div class="snap-img-wrap" id="snapImgWrap"><img id="snapImg" alt="題目、詳解與草稿紙"></div>
             <p class="text-xs font-bold" style="color:var(--ink-3)">也可以長按圖片，選「加入照片」。</p>
-            <!-- 只有管理員看得到：每一步花幾秒，實機上查延遲用（2026-09-29）。 -->
-            <p id="snapTiming" class="hidden text-[11px] font-bold" style="color:var(--ink-3)"></p>
             <div class="flex gap-2">
                 <button type="button" data-action="snap-share" id="snapShareBtn" class="flex-1 py-3 rounded-2xl font-black text-white bg-emerald-500 flex items-center justify-center gap-1.5">
                     <i data-lucide="share" class="w-4 h-4 pointer-events-none"></i><span class="pointer-events-none">存到相簿／分享</span></button>
@@ -18508,10 +18506,7 @@
                    ⚠️ 這份清單它**只看第一次呼叫**（內部快取），所以每一次呼叫都給同一份，連 getFontEmbedCSS 也給。 */
                 const opt = { pixelRatio: 2, backgroundColor: getComputedStyle($('playKahootModal')).backgroundColor,
                               includeStyleProperties: SNAP_STYLE_PROPS() };
-                const T = snapColumnCanvas.t = {};
-                let t = performance.now();
                 opt.fontEmbedCSS = await snapFontCSS(cl);
-                T.font = performance.now() - t; t = performance.now();
                 /* ★ SVG 只產生一次，自己畫成 canvas（2026-09-29 第三版）。
                      html-to-image 的 toCanvas 每呼叫一次就從頭複製整欄、抄樣式、組一份 SVG——最貴的是這一步，
                      不是畫。原本 Safari 要「畫兩次丟第一張」，等於最貴的那一步做兩次（CPU 降速 4 倍時暖身 1.4 秒、正式 1.0 秒）。
@@ -18519,7 +18514,6 @@
                      正式那張用同一個網址**再開一張新的圖**來畫——Safari 字型缺掉的問題出在第一張圖，第二張就正常，
                      這跟 html-to-image 官方建議的「呼叫兩次」是同一個道理，只是省掉重做 SVG。 */
                 const svgUrl = await H.toSvg(cl, opt);
-                T.svg = performance.now() - t; t = performance.now();
                 const loadImg = () => new Promise((res, rej) => {
                     const im = new Image();
                     im.onload = () => res(im); im.onerror = () => rej(new Error('SVG 載不進來'));
@@ -18532,14 +18526,12 @@
                     await new Promise(r => setTimeout(r, 30));
                     img = await loadImg();
                 }
-                T.warm = performance.now() - t; t = performance.now();
                 const w = cl.offsetWidth, h = cl.offsetHeight, R = 2;
                 const c = document.createElement('canvas');
                 c.width = Math.ceil(w * R); c.height = Math.ceil(h * R);
                 const cx = c.getContext('2d');
                 cx.fillStyle = opt.backgroundColor; cx.fillRect(0, 0, c.width, c.height);
                 cx.drawImage(img, 0, 0, c.width, c.height);
-                T.main = performance.now() - t;
                 return c;
             } finally {
                 holder.remove();
@@ -18589,15 +18581,13 @@
         function snapPrepare(waitP) {
             scratch.pre = null;
             if (!scratchSupported() || !scratch.lastQ) return;
-            const pre = { q: scratch.lastQ, p: null, done: false, t0: performance.now() };
+            const pre = { q: scratch.lastQ, p: null };
             scratch.pre = pre;
             pre.p = (async () => {
                 try { await waitP; } catch (e) {}
                 await new Promise(r => setTimeout(r, 120));
                 if (scratch.pre !== pre) return null;         // 已經換題了
-                const c = await snapColumnCanvas();
-                pre.done = true; pre.took = performance.now() - pre.t0; pre.t = snapColumnCanvas.t;
-                return c;
+                return await snapColumnCanvas();
             })().catch(() => null);
         }
         async function snapKahoot() {
@@ -18610,28 +18600,14 @@
                  不會以為按鈕沒按到又按一次。 */
             const wrap = $('snapImgWrap');
             wrap.innerHTML = '<div class="snap-loading">拍照中…</div>';
-            $('snapTiming').classList.add('hidden');
             snapSetReady(false);
             $('snapModal').classList.remove('hidden'); $('snapModal').classList.add('flex');
             if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
-            const T0 = performance.now(), tm = {};
             try {
                 const pre = scratch.pre;
-                let qc = null;
-                if (pre && pre.q === scratch.lastQ) {
-                    tm.pre = pre.done ? '預拍好了' : '預拍還沒好';
-                    qc = await pre.p;
-                    tm.wait = performance.now() - T0;
-                    if (pre.t) Object.assign(tm, { font: pre.t.font, svg: pre.t.svg, warm: pre.t.warm, main: pre.t.main, preTook: pre.took });
-                } else tm.pre = '沒有預拍';
-                if (!qc) {                                   // 沒預先拍（手機）或預先拍失敗：現在拍
-                    const t = performance.now();
-                    qc = await snapColumnCanvas();
-                    tm.now = performance.now() - t;
-                    Object.assign(tm, snapColumnCanvas.t || {});
-                }
+                let qc = (pre && pre.q === scratch.lastQ) ? await pre.p : null;
+                if (!qc) qc = await snapColumnCanvas();       // 沒預先拍（手機）或預先拍失敗：現在拍
                 if ($('snapModal').classList.contains('hidden')) return;    // 等的時候就關掉了
-                const tc = performance.now();
                 const bg = getComputedStyle($('playKahootModal')).backgroundColor;
                 const ink = scratchInkCanvas(2);
                 /* 合成：最上面一行標題，接著題目那一欄，再接「草稿紙」與筆跡。 */
@@ -18655,12 +18631,7 @@
                 out.style.cssText = 'display:block;width:100%;height:auto';
                 wrap.innerHTML = '';
                 wrap.appendChild(out);
-                tm.compose = performance.now() - tc;
-                tm.shown = performance.now() - T0;
-                const te = performance.now();
                 const blob = await new Promise(r => out.toBlob(r, 'image/jpeg', 0.92));
-                tm.encode = performance.now() - te;
-                snapShowTiming(tm);
                 if (!blob) throw new Error('toBlob 失敗');
                 if ($('snapModal').classList.contains('hidden')) return;    // 壓好之前就關掉了
                 if (scratch.snapUrl) URL.revokeObjectURL(scratch.snapUrl);
@@ -18681,17 +18652,6 @@
                 scratch.snapping = false;
                 if (label) label.textContent = '拍照';
             }
-        }
-        /* 管理員才看得到的計時：實機（iPad）上到底卡在哪一步，雲端模擬量不出來。
-           ★ 一般使用者不顯示：一串毫秒數對他們沒有意義。主控台一律印一份。 */
-        function snapShowTiming(tm) {
-            const s = (v) => v == null ? '—' : (v / 1000).toFixed(2) + ' 秒';
-            const line = `${tm.pre}｜按下到出現 ${s(tm.shown)}（等預拍 ${s(tm.wait)}、現拍 ${s(tm.now)}、合成 ${s(tm.compose)}）｜`
-                       + `轉圖：字型 ${s(tm.font)}、組 SVG ${s(tm.svg)}、暖身 ${s(tm.warm)}、畫 ${s(tm.main)}${tm.preTook != null ? `、預拍總共 ${s(tm.preTook)}` : ''}｜壓檔 ${s(tm.encode)}`;
-            try { console.log('[拍照計時]', line); } catch (e) {}
-            const el = $('snapTiming');
-            el.textContent = line;
-            el.classList.toggle('hidden', !isAdmin);
         }
         /* 檔案還沒壓好之前，「存到相簿／分享」與「下載」先停用（按了也沒東西可存）。 */
         function snapSetReady(ok) {
