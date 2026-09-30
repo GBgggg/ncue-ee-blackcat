@@ -6,6 +6,20 @@
          省的不是流量是延遲，而字型是這一頁最大的一筆資產。 -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- ★ 開站自動登入要走的路，一進來就先開門（2026-10-01）。
+         自動登入要先載三支 Firebase 程式（www.gstatic.com），再去 Google 的兩台伺服器
+         確認身分（identitytoolkit／securetoken），最後去資料庫讀個人資料（firestore）。
+         那段程式寫在整份 HTML 的最後面，瀏覽器要讀到那裡才知道要載它們；
+         modulepreload 讓三支程式跟 HTML 同時下載，preconnect 讓連線前的「打招呼」
+         （查網址、加密握手）提早做完。每一段省幾百毫秒，手機上最明顯。
+         ⚠️ 版本號要跟最下面那三行 import 一模一樣，不一樣等於白下載一份
+           （tests/splash.mjs 會對）。 -->
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+    <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
+    <link rel="preconnect" href="https://identitytoolkit.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://securetoken.googleapis.com" crossorigin>
+    <link rel="preconnect" href="https://firestore.googleapis.com" crossorigin>
     <meta charset="UTF-8">
     <!-- ★ CSP：第二層防線，不是第一層。
          第一層仍然是「每一處 innerHTML 都包 escapeHTML」——那 98 處一個都不能少。
@@ -6643,7 +6657,8 @@
          * ========================================================== */
         const $ = (id) => document.getElementById(id);
         const icons = () => lucide.createIcons();
-        const openModal = (id) => $(id).classList.remove('hidden');
+        /* 登入視窗一打開就替 Google 登入暖機（理由見 initializeAuth 上面那段）。 */
+        const openModal = (id) => { $(id).classList.remove('hidden'); if (id === 'adminModal') warmGoogleLogin(); };
         const closeModal = (id) => $(id).classList.add('hidden');
         const getVal = (id) => $(id).value.trim();
         const setVals = (pairs) => Object.entries(pairs).forEach(([id, v]) => { const el = $(id); if (el) el.value = v; });
@@ -7167,14 +7182,49 @@
             } catch (e) { /* localStorage 被關掉之類的：當作沒有舊登入 */ }
         }
         await adoptIdbLogin();
-        /* ⚠️ 用 initializeAuth 就要自己帶 popupRedirectResolver，
-             不帶的話 Google 登入（彈窗與跳轉兩條路）都會丟 argument-error。 */
+        /* ★★ Google 登入那套零件，要用的時候才叫進來（2026-10-01）。
+           症狀（使用者回報）：本來就登入過的人，打開網站要等很久才進得去，
+           等太久時載入畫面還會先收掉、露出「訪客」的畫面。
+           原因：`popupRedirectResolver` 是 Google 登入（彈窗與跳轉）專用的零件，
+           它要先載一支 Google 的程式、再開一個看不見的小視窗（iframe）才能用。
+           把它交給 initializeAuth 的話，Firebase 在**手機與 Safari** 上會先把它準備好，
+           而且是**準備好了才開始還原登入**（SDK 裡 `_shouldInitProactively` 那一段）。
+           於是每個手機使用者、每一次開站，都要先等這個跟「自動登入」毫無關係的小視窗——
+           網路慢就是好幾秒；被擋住的話 SDK 要等到逾時（五秒起跳）才放棄。
+           改法：開站時不給它，真的要用時（按 Google 登入、跳轉回來領結果）當參數帶進去。
+           ⚠️ 例外：剛從 Google 跳轉回來的那一次**一定要給**，登入結果是在開機那一步領的。
+             Firebase 出發跳轉前會在 sessionStorage 留一張「跳轉中」的便條，看得到就給。
+           ⚠️ 三個呼叫點（彈窗、跳轉、領結果）都要帶 `GoogleResolver`，
+             漏一個就是 argument-error——症狀是按了 Google 登入沒反應。
+           ★ 為什麼要繼承一個子類別，而不是直接傳 browserPopupRedirectResolver：
+             Firebase 每個類別只做一個實例，那個實例我們拿不到，也就沒辦法在手機上
+             「一打開登入視窗就先暖機」。不暖機的話，按下去要先等小視窗載好才開彈窗，
+             瀏覽器會認為彈窗不是使用者按出來的而擋掉，只好退回整頁跳轉。
+             子類別的建構子把 `this` 記下來，暖機就有對象了（見 warmGoogleLogin）。 */
+        let googleResolverInst = null;
+        class GoogleResolver extends browserPopupRedirectResolver {
+            constructor() { super(); googleResolverInst = this; }
+        }
+        let redirectPending = false;
+        try {
+            redirectPending = sessionStorage.getItem(`firebase:pendingRedirect:${firebaseConfig.apiKey}:[DEFAULT]`) !== null;
+        } catch (e) { /* sessionStorage 被關掉：當作沒有在跳轉 */ }
+        /* 打開登入視窗時先暖機——只在 Firebase 自己也認為需要的平台（手機與 Safari）。
+           ⚠️ `_initialize`／`_shouldInitProactively` 是 SDK 內部的名字。版本釘在 10.12.2，
+             所以不會自己跑掉；**升級 Firebase 時要回來看一眼**。找不到就什麼都不做——
+             最壞是彈窗被擋、改走整頁跳轉，一樣登得進去。 */
+        function warmGoogleLogin() {
+            try {
+                const r = googleResolverInst;
+                if (r && r._shouldInitProactively && typeof r._initialize === 'function')
+                    Promise.resolve(r._initialize(auth)).catch(() => {});
+            } catch (e) { /* 暖不起來就算了 */ }
+        }
         let auth;
         try {
-            auth = initializeAuth(app, {
-                persistence: [browserLocalPersistence],
-                popupRedirectResolver: browserPopupRedirectResolver,
-            });
+            auth = initializeAuth(app, redirectPending
+                ? { persistence: [browserLocalPersistence], popupRedirectResolver: GoogleResolver }
+                : { persistence: [browserLocalPersistence] });
         } catch (e) {
             console.warn('登入狀態改存 localStorage 失敗，退回預設', e);
             auth = getAuth(app);
@@ -8221,6 +8271,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-01',
+                title: '打開網站自動登入變快了，而且登入好之前都是那隻貓',
+                items: [
+                    ['登入過的人，打開網站不用再乾等', '以前用手機打開網站，要先等一個跟「自動登入」沒關係的東西準備好（那是給「用 Google 登入」按鈕用的），網路慢的時候會卡好幾秒。現在直接幫你登入，那個東西等你打開登入視窗時才準備。'],
+                    ['不會再先看到「訪客」畫面', '以前登入比較慢的時候，開場畫面會先收掉，你會先看到訪客的首頁、過一下才變回自己的帳號，看起來像被登出。現在登入還沒好之前，畫面都會是那隻繞著圈跑的貓。'],
+                    ['每次開網站都少等幾秒', '開場畫面原本在等一份早就不在首頁的資料，所以不管網路多快，每次都要等滿 6 秒才收。現在首頁要的東西一到就收。'],
+                    ['按下登入之後也是那隻貓', '用信箱或 Google 登入時，會先顯示開場那隻貓，等你的課表和資料都讀好才換過去，不會先閃一下訪客畫面。'],
+                ]
+            },
             {
                 date: '2026-09-29',
                 title: '分科測驗 111、112 年漏掉的題目補回來了',
@@ -20232,12 +20292,12 @@
 
             btn.disabled = true;
             try {
-                if (isRegisterMode) {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                    showToast("註冊成功！");
-                } else {
-                    await signInWithEmailAndPassword(auth, email, password);
-                }
+                /* 按下去就蓋上載入畫面，一直到個人資料和課表讀好（見 coverLogin）。
+                   以前是：登入視窗關掉 → 先露出訪客畫面 → 過一下才換成自己的。 */
+                await coverLogin(isRegisterMode
+                    ? createUserWithEmailAndPassword(auth, email, password)
+                    : signInWithEmailAndPassword(auth, email, password));
+                if (isRegisterMode) showToast("註冊成功！");
                 setVals({ adminEmail:'', adminPassword:'' });
                 closeModal('adminModal');
             } catch {
@@ -20291,12 +20351,14 @@
             const btn = $('googleLoginBtn');
             if (btn) btn.disabled = true;
             try {
-                await signInWithPopup(auth, provider);
+                const cred = await signInWithPopup(auth, provider, GoogleResolver);
                 closeModal('adminModal');
+                /* 選完帳號之後、個人資料讀好之前，蓋上載入畫面（見 coverLogin）。 */
+                await coverLogin(cred);
             } catch (e) {
                 const code = e && e.code;
                 if (POPUP_FALLBACK.includes(code)){
-                    try { await signInWithRedirect(auth, provider); return; }
+                    try { await signInWithRedirect(auth, provider, GoogleResolver); return; }
                     catch (e2) { showToast(authErrorMessage(e2 && e2.code)); return; }
                 }
                 if (code ==='auth/account-exists-with-different-credential'){
@@ -20333,7 +20395,7 @@
             const btn = $('googleLinkBtn');
             btn.disabled = true;
             try {
-                const cred = await signInWithEmailAndPassword(auth, email, password);
+                const cred = await coverLogin(signInWithEmailAndPassword(auth, email, password));
                 await linkWithCredential(cred.user, pendingGoogleCred);
                 pendingGoogleCred = null;
                 setVals({ adminEmail:'', adminPassword:'', googleLinkPassword:'' });
@@ -20349,7 +20411,7 @@
            ★ 一定要接住例外：跳轉回來如果是「信箱已被密碼帳號用掉」，
            不接的話會變成一個沒人處理的 rejection，畫面上就是「登入沒成功也沒訊息」。 */
         async function consumeGoogleRedirect(){
-            try { await getRedirectResult(auth); }
+            try { await getRedirectResult(auth, GoogleResolver); }
             catch (e) {
                 const code = e && e.code;
                 if (code ==='auth/account-exists-with-different-credential'){
@@ -20420,11 +20482,12 @@
          * ========================================================== */
         const schedulePath = () => PU('settings');   // 私人區，僅本人可讀寫
 
-        async function loadPrivateSchedule(profileData) {
+        /* `pre`：applyAuthState 提早發出去的那一次讀取（理由見那裡）。沒給就自己讀。 */
+        async function loadPrivateSchedule(profileData, pre) {
             const p = schedulePath();
             if (!p) return {};
             try {
-                const snap = await getDoc(doc(db, p,'schedule'));
+                const snap = await (pre || getDoc(doc(db, p,'schedule')));
                 if (snap.exists()) {
                     scheduleLoaded = true;
                     const cells = snap.data().cells || {};
@@ -20481,12 +20544,21 @@
            會漏掉，所以用 try/finally 包起來。 */
         async function handleAuthState(user) {
             try { await applyAuthState(user); }
-            finally { markSettled('auth'); }
+            finally { noteAuthApplied(user ? user.uid : null); }   // 裡面會 markSettled('auth')
         }
 
         async function applyAuthState(user) {
             if (user && !user.isAnonymous) {
                 const userRef = doc(db, PATHS.users, user.uid);
+                /* ★ 課表那一份跟個人資料**同時**出發（2026-10-01）。
+                   以前是讀完個人資料才去讀課表，兩趟網路排隊，載入畫面就多等一趟。
+                   課表的路徑只跟 uid 有關，不必等個人資料。讀取次數一樣是兩次。
+                   ⚠️ 先掛一個空的 catch：下面個人資料讀失敗會提早 return，
+                     這一份就沒人 await 了，不掛的話會變成沒人處理的 rejection。
+                     真的要用時 await 的是原本那個 promise，錯誤照樣接得到。 */
+                const sp = schedulePath();
+                const schedSnapP = sp ? getDoc(doc(db, sp,'schedule')) : null;
+                if (schedSnapP) schedSnapP.catch(() => {});
                 let userSnap;
                 try {
                     userSnap = await getDoc(userRef);
@@ -20523,7 +20595,7 @@
                         if (data.theme) applyTheme(data.theme);
                         // 課表改從私人區讀取；舊帳號若還留在個人資料裡會在這裡自動搬家
                         scheduleLoaded = false;
-                        userSchedule = await loadPrivateSchedule(data);
+                        userSchedule = await loadPrivateSchedule(data, schedSnapP);
                         /* 使用時間的三份鏡像從這一份資料接回來（見 9.9）。
                            ★ 一定要接，不接就不准寫——本機空的直接寫下去
                              會把雲端的累計清成 0，而畫面上什麼都不會說。 */
@@ -22005,33 +22077,92 @@
         ];
 
         // 每個分頁需要哪些資料集（延遲載入用）
-        /* ---- 載入畫面何時收掉 ----
-         * 判準是「這幾件事都有回音」，而不是「都成功」——
-         * 權限不足或離線時 onSnapshot 走的是錯誤回呼，那也算有回音。
-         * 只等成功的話，一個沒權限的集合就會把使用者永遠鎖在載入畫面。
-         * 另外再加一道逾時，兩條路任一條走到都會收掉。
+        /* ---- 載入畫面何時收掉（2026-10-01 改寫）----
+         * 規則只有兩條：
+         *   一、**登入沒跑完，載入畫面就不收**。「跑完」＝ handleAuthState 做完，
+         *       也就是個人資料、課表都讀回來、首頁換成登入版了。不等的話畫面會先露出
+         *       訪客版首頁、過一下才整個換掉——使用者會以為自己被登出了。
+         *   二、登入跑完之後，再等「第一個分頁要用的公開資料」有回音；
+         *       資料最多只等到開站第 SPLASH_DATA_MS 毫秒，之後有骨架屏頂著。
+         * 「有回音」不是「成功」：權限不足或離線時 onSnapshot 走錯誤回呼，那也算。
+         * 只等成功的話，一個讀不到的集合就會把人永遠鎖在載入畫面。
          *
-         * 'auth' 這一項是為了「有記住登入的人」：Firebase 還原登入狀態是
-         * 非同步的，還原完之後還要去讀個人資料和課表。若不等它，畫面會先
-         * 露出訪客版首頁、過一下才整個換成登入版，閃一下很難看。
-         * 所以等 handleAuthState 跑完才算數。
-         * 沒有記住登入的人不會因此變慢：那條路不需要讀任何東西，
-         * applyAuthState 幾乎立刻返回，'auth' 馬上就有回音，行為和以前一樣。 */
-        const SPLASH_KEYS = ['news','links','courses','auth'];
+         * ★ 舊版的毛病（兩個一起修）：
+         *   - 要等的資料寫死成 news／links／courses。消息與連結早就搬去彰師電子的
+         *     「消息與連結」分頁，首頁根本不訂它們——於是**每一次開站都等滿 6 秒**才收。
+         *     現在直接從 TAB_DATA 算第一個分頁要什麼，搬家時不必記得回來改這裡。
+         *   - 6 秒一到不管登入好了沒都收掉。手機上登入常常超過 6 秒（見 initializeAuth
+         *     上面那段），於是畫面先變訪客、過一下才變回自己。
+         * ★ 保險絲：登入 SPLASH_AUTH_MS 都沒回音（網路斷了、瀏覽器的小資料庫卡住），
+         *   還是收掉並說一聲——永遠停在一隻轉圈的貓比看到訪客畫面更糟。
+         *   登入之後自己回來的話，applyAuthState 會把畫面換成登入版。
+         * ⚠️ 只看公開的資料集：私人的、有階級門檻的，ensureLoaded 可能根本不訂，
+         *   列進來就永遠等不到。 */
+        const SPLASH_DATA_MS = 6000;
+        const SPLASH_AUTH_MS = 20000;
         const splashSettled = new Set();
         let splashDone = false;
+        let splashDataLate = false;
+        function splashDataKeys() {
+            const first = TABS[0] && TABS[0][0];
+            return (TAB_DATA[first] || []).filter(k => {
+                const sub = SUB_MAP[k];
+                return sub && !sub.private && !sub.minLevel && !sub.minTier;
+            });
+        }
         function hideSplash() {
             if (splashDone) return;
             splashDone = true;
             const el = document.getElementById('splash');
             if (el) el.classList.add('done');
         }
-        function markSettled(key) {
-            if (splashDone) return;
-            splashSettled.add(key);
-            if (SPLASH_KEYS.every(k => splashSettled.has(k))) hideSplash();
+        function trySplash() {
+            if (splashDone || !splashSettled.has('auth')) return;
+            if (splashDataLate || splashDataKeys().every(k => splashSettled.has(k))) hideSplash();
         }
-        setTimeout(hideSplash, 6000);
+        function markSettled(key) {
+            splashSettled.add(key);
+            trySplash();
+        }
+        setTimeout(() => { splashDataLate = true; trySplash(); }, SPLASH_DATA_MS);
+        setTimeout(() => {
+            if (splashDone) return;
+            hideSplash();
+            showToast('登入比平常久，先讓你看畫面；登入好了會自己換過來');
+        }, SPLASH_AUTH_MS);
+
+        /* 誰的登入流程已經跑完（null＝沒人）。按下登入的那一方要等「自己那個 uid」跑完，
+           才把載入畫面收掉——signIn 回來的時候 applyAuthState 通常還在讀資料。 */
+        let authAppliedUid;
+        const authWaiters = [];
+        function noteAuthApplied(uid) {
+            authAppliedUid = uid;
+            for (let i = authWaiters.length - 1; i >= 0; i--)
+                if (authWaiters[i].uid === uid) { authWaiters[i].res(); authWaiters.splice(i, 1); }
+            markSettled('auth');
+        }
+        function authApplied(uid) {
+            if (authAppliedUid === uid) return Promise.resolve();
+            return new Promise(res => authWaiters.push({ uid, res }));
+        }
+        /* 按下登入之後也蓋上同一個載入畫面，一直到那個人的資料讀好。
+           `signing`：登入的 promise（或已經拿到的結果）。失敗會照原樣丟回去給呼叫的人。
+           ⚠️ 開站那一次還沒收（splashDone 是 false）就不要動它，那一次有自己的規則。
+           ⚠️ 一樣有保險絲：等不到就收，不要把人鎖在貓後面。 */
+        async function coverLogin(signing) {
+            const el = document.getElementById('splash');
+            const cover = !!(el && splashDone);
+            if (cover) el.classList.remove('done');
+            try {
+                const cred = await signing;
+                const uid = cred && cred.user && cred.user.uid;
+                if (uid) await Promise.race([authApplied(uid), new Promise(r => setTimeout(r, SPLASH_AUTH_MS))]);
+                return cred;
+            } finally {
+                if (cover) el.classList.add('done');
+            }
+        }
+        /* ---- 載入畫面：以上 ---- */
 
         const TAB_DATA = {
 'home':       ['courses','missions'],   // 課表要對到課程名稱；任務也在主頁
@@ -22166,7 +22297,13 @@
            這支是 module，上面有 `await adoptIdbLogin()`（還有 App Check 那個 await）：
            等待的那段時間裡網頁可能已經載完、load 事件已經發過了，
            這時才掛上去的 onload **永遠不會被叫**——登入、分頁、所有畫面都不會起來，
-           而且沒有任何錯誤訊息。所以先看現在是不是已經載完，載完就直接跑。 */
+           而且沒有任何錯誤訊息。所以先看現在是不是已經載完，載完就直接跑。
+           ★★ 2026-10-01 改成「HTML 讀完就跑」，不再等 load。
+             load 要等**每一張圖、每一個字型檔**都下載完（背景圖一張三到五百 KB、
+             中文字型切成幾十個小檔），而登入要讀的個人資料、首頁要訂的資料，
+             全都排在 boot 後面才出發——等於叫登入先排在圖片後面。
+             module 本來就是 HTML 解析完才執行，所以走到這裡時畫面上的元素都在了；
+             量版面的地方（分頁列底下那條墨線）自己有等 document.fonts.ready，不靠 load。 */
         const boot = () => {
             buildStaticUI();
             placeNav();          // 手機把分頁列搬到底部（要在 buildStaticUI 之後：按鈕要先存在）
@@ -22195,8 +22332,8 @@
                switchTab 會先把所有頁收起來再開對的那一頁，順便載入該頁的資料。 */
             switchTab(TABS[0][0]);
         };
-        if (document.readyState === 'complete') boot();
-        else window.onload = boot;
+        if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
+        else boot();
     </script>
 </body>
 </html>
