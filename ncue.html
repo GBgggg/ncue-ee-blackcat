@@ -2100,16 +2100,19 @@
 
         /* ---- 掃描線、掃過去的那條光、四周壓暗 ----
            ★ 疊在內容上面（z-index 35，在頁首 40 與彈窗 50 底下），但不吃點擊。
-           ★ 線很淡：一條 1px、每 3px 一條、黑色 14%（淺色 6%）。再濃的話
-             中文小字的橫畫會跟掃描線打架，讀起來像字在抖。 */
+           ★ 線很淡：每 3px 一條、最深處黑色 12%（淺色 3.5%）。再濃的話
+             中文小字的橫畫會跟掃描線打架，讀起來像字在抖。
+           ⚠️ 線是「漸深再漸淺」的三角波，不是 1px 的硬線（2026-10-03 正式站實測後改的）：
+             Windows 筆電常把畫面放大 125%／150%／201%，硬線落在非整數的像素上會被
+             捨入成粗細不一，疊起來就是整頁一條一條的粗條紋（摩爾紋）。平滑的波形捨入了也還是平滑的。 */
         #cyberFx {
             position: fixed; inset: 0; z-index: 35; pointer-events: none;
-            background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, 0.04) 2px 3px);
+            background: repeating-linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.035) 1.5px, transparent 3px);
         }
         html.dark #cyberFx {
             background:
                 radial-gradient(130% 90% at 50% 45%, transparent 62%, rgba(0, 0, 0, 0.42) 100%),
-                repeating-linear-gradient(180deg, transparent 0 2px, rgba(0, 0, 0, 0.14) 2px 3px);
+                repeating-linear-gradient(180deg, transparent 0, rgba(0, 0, 0, 0.12) 1.5px, transparent 3px);
         }
         #cyberFx::before {
             content: ''; position: absolute; left: 0; right: 0; top: 0; height: 22vh;
@@ -2379,6 +2382,17 @@
         /* ---- 選單與對話框：實心面板＋頂端一條霓虹 ---- */
         #logoMenu, #accountMenu { border-radius: 3px !important; border-top: 2px solid var(--accent-bright) !important; }
         [id$="Modal"] > .bg-white { border-top: 2px solid var(--accent-bright) !important; }
+
+        /* ---- 深色模式：直接寫在城市上的字加一圈暗暈 ----
+           ★ 正式站實測：手機上捲到頁面下面，題目來源那一串小字會壓在霓虹招牌上。
+             招牌已經在內容欄裡調暗了，但手機整個寬度都是內容欄，招牌一暗城市就沒了。
+             所以反過來在字的周圍墊一圈跟夜空同色的暈：卡片裡的字本來就在實心底上，多一圈暈看不出來；
+             直接在城市上的字就被一小片夜色托住。只在深色——淺色的城市本來就淡。
+           ★ 用繼承的 text-shadow，自己寫了 text-shadow 的（大標題、按鈕 hover）會蓋掉它，正好。 */
+        html.dark main { text-shadow: 0 0 3px rgba(7, 6, 12, 0.95), 0 0 8px rgba(7, 6, 12, 0.8); }
+        /* bg-slate-200 被上面的接管改成 --rule-strong，而深色的 --rule-strong 帶青色——
+           「分類：全部」那種按鈕會變成一整塊青綠。按鈕底要中性。 */
+        html.dark .bg-slate-200, html.dark .hover\:bg-slate-200:hover, html.dark .hover\:bg-slate-300:hover { background-color: rgba(120, 110, 170, 0.28) !important; }
 
         /* ---- 分段切換鈕（顯示模式、特效…）：選中的那一顆跟分頁列同一個樣子 ----
            ★ 它們選中時是加 bg-white，而深色的「白」是面板色，跟外面那條 sunk 的槽幾乎一樣深，
@@ -2698,6 +2712,12 @@
                 for (var hi = Math.floor(near.length * 0.55); hi < near.length; hi++) {
                     var hx = near[hi].x + near[hi].w * 0.3;
                     if (hx < W - 70 && !signs.some(function (o) { return Math.abs(o.x - hx) < 90; })) { host = near[hi]; break; }
+                }
+                /* 窄螢幕上招牌比較擠，找不到空位就讓最靠近的那塊招牌讓位——貓一定要在。 */
+                if (!host && near.length) {
+                    host = near[Math.floor(near.length * 0.6)];
+                    var hx2 = host.x + host.w * 0.3;
+                    signs = signs.filter(function (o) { return Math.abs(o.x - hx2) >= 70; });
                 }
                 if (host) signs.push({ cat: true, x: Math.min(W - 70, host.x + host.w * 0.3), y: Math.max(host.top - 64, H * 0.6),
                                        col: '#ff2a6d', ph: 3.3, flick: 0 });
@@ -7511,7 +7531,7 @@
                     ['可以關掉特效', '設定 → 外觀，多了「特效：全開／省電」。手機變燙或想省電時切成省電，雨和閃爍都會停。手機有開「減少動態」的話也會自動停。'],
                     ['設定頁的「淺色／深色」現在看得出選了哪一個', '以前兩顆看起來都沒選，現在選中的那一顆會亮起來。'],
                     ['彰師電子換成粉紅色', '同一座夜城，主要的顏色是粉紅。'],
-                    ['幾個看不清楚的地方修好了', '「新增倒數」按鈕的字、深色模式下的倒數卡片、背單字那塊黑板上的小字，以前顏色太淡或底太亮，現在都讀得清楚。'],
+                    ['幾個看不清楚的地方修好了', '「新增倒數」按鈕的字、深色模式下的倒數卡片、背單字那塊黑板上的小字，以前顏色太淡或底太亮，現在都讀得清楚。有些電腦螢幕上會出現的一條一條粗橫紋也拿掉了。'],
                 ]
             },
             {
@@ -8543,7 +8563,14 @@
             if (!useVT) return run();
             /* callback 裡只有同步的工作。資料訂閱是 fire-and-forget，
                不會把畫面卡在轉場中間。 */
-            document.startViewTransition(run);
+            /* ★ 轉場被瀏覽器中途放棄時（分頁被切到背景、上一個轉場還沒走完就又點了一次），
+               它回傳的那幾個 promise 會 reject，沒人接就是 Console 裡一行紅字
+               「Transition was aborted because of invalid state」。
+               2026-10-03 在正式站上實測看到的。被放棄的時候 run 照樣會跑（換頁本身沒事），
+               所以這裡只是把那幾個 promise 接住，不是吞掉真正的錯——
+               「找不到 page-section」那個 throw 在上面、在轉場外面，不受影響。 */
+            const vt = document.startViewTransition(run);
+            if (vt) for (const k of ['ready', 'finished']) if (vt[k] && vt[k].catch) vt[k].catch(() => {});
         }
 
         function applyTab(tab, activePage, handled) {
