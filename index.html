@@ -4287,6 +4287,7 @@
                      ⚠️ 用量條不是裝飾。一份文件撞到 Firestore 的 1 MiB 上限之後
                      症狀是「按儲存沒反應」，而那天之前完全沒有徵兆——這條就是徵兆。 -->
                 <div id="kahootDetailAdminBar"></div>
+                <div id="kahootDetailUnits" class="hidden flex flex-wrap gap-1.5"></div>
                 <div id="kahootDetailList" class="flex flex-col gap-4"></div>
                 <div id="kahootDetailCredit" class="mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4"></div>
             </div>
@@ -8271,6 +8272,21 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-03',
+                title: '英文檢定新增多益、托福模擬題；統測題庫下架',
+                items: [
+                    ['新增多益模擬題', '多益風格的「句子填空」66 題、「閱讀理解」32 題（通知、信件、簡訊、公告等），都是我們自己出的題目，不是正式考古題。'],
+                    ['新增托福模擬題', '托福風格的「學術閱讀」25 題（每篇 4～5 題）與「字彙」30 題，同樣是自己出的。'],
+                    ['統測題庫下架', '統測的英文、外語群英文，以及電機電子群三科都先拿掉了，英文檢定和大學必修裡不會再看到它們。'],
+                    ['約 1,200 題的顯示問題修好了', '有些題目的公式會變成亂碼、題目裡會冒出「<image>」這種字、少數字看起來正常但其實是別的字、同一題出現兩個一模一樣的選項。這些都修好了。'],
+                    ['拿掉 26 題沒有附圖表的題目', '有些考古題要看表格或圖才能作答，但表格沒有跟著搬進來，同學根本答不了，所以先拿掉。'],
+                    ['學測、分科缺表格的題目補回來了', '學測的社會、自然、國綜，和分科的歷史、生物、地理、公民，有二十多題原本因為表格或圖沒有跟著搬進來而被拿掉或看不懂。這次照大考中心的官方考卷重新打字、剪圖補回，答案也對照過官方答案。'],
+                    ['113～115 年的閱讀題組現在看得到文章了', '學測、分科 113 到 115 年有些「題組」題，前面那段共同的文章或圖表以前沒有顯示，只剩問題。現在作答時會一起顯示。'],
+                    ['大學必修題庫改成一門課一張卡，而且分單元', '以前微積分、普通物理、電路學這些課被切成好幾張來源不同的卡。現在合併成一門課一張：微積分、工程數學、普通物理、電路學、電子學、數位邏輯、電磁學、訊號與系統、線性代數。點進去可以照單元（例如電路學的「一階電路」）篩題目，也可以只練某一個單元。'],
+                    ['題目改成依內容歸課', '原本電路學那張卡裡有一半其實是電力系統、邏輯閘、電動機的題目。現在每一題都看過內容才歸課，歸不進這九門的放到大學選修的「電力與電機機械」「機率與統計（綜合）」「資工與離散數學（綜合）」「其他理工題（綜合）」。看圖的題目單元是從題幹猜的，可能不太準。'],
+                ]
+            },
             {
                 date: '2026-10-01',
                 title: '打開網站自動登入變快了，而且登入好之前都是那隻貓',
@@ -16817,7 +16833,7 @@
         };
         /* 內建那一份每次都重新包一層 `_builtin`：卡片靠它決定不要長出編輯／
            刪除鈕。那不是使用者的文件，按下去只會失敗，而畫面上看不出原因。 */
-        const kahootsOf = (scope) => scope ==='builtin' ? state.builtinQuizzes.map(k => ({ ...k, _builtin: true }))
+        const kahootsOf = (scope) => scope ==='builtin' ? state.builtinQuizzes.filter(k => !k.hidden).map(k => ({ ...k, _builtin: true }))
             : state.myKahoots;
         /* 內建題庫沒有 Firestore 路徑——它是檔案。這裡回 null 是刻意的：
            讓任何想拿它去寫入的程式當場壞掉，而不是安靜地寫到別的集合去。 */
@@ -16893,7 +16909,7 @@
             if (!(await loadBuiltinQuizQuestions(id)))
                 return showToast("題目載入失敗，等一下再試一次");
             /* 換一份題庫就把「點開了哪幾則」忘掉：那些 qid 屬於上一份。 */
-            if (viewingQuizId !== id) quizExplainOpen.clear();
+            if (viewingQuizId !== id) { quizExplainOpen.clear(); quizUnitSel =''; }
             viewingQuizId = id;
             $('page-kahoot-main').classList.add('hidden');
             $('page-kahoot-details').classList.remove('hidden');
@@ -16904,6 +16920,21 @@
                   又點進另一份題庫時，這一輪會對著別的畫面重畫。 */
             refreshExplainDrafts(id).then(() => { if (viewingQuizId === id) renderQuizDetail(); });
         }
+
+        /* 單元籤。★ 一題可以屬於兩個單元，所以每顆籤的題數加起來會比總題數多。
+           0 題的單元不畫（跟客群籤同一個規矩）。 */
+        let quizUnitSel = '';
+        function renderQuizUnitChips(rec, allQs) {
+            const box = $('kahootDetailUnits');
+            if (!box) return;
+            const units = (rec.units ||[]).filter(u => u.k > 0);
+            box.classList.toggle('hidden', units.length === 0);
+            if (!units.length) { box.innerHTML =''; return; }
+            const chip = (u, name, n) => `<button data-action="pick-quiz-unit" data-unit="${escapeHTML(u)}" class="px-3 py-1.5 rounded-2xl text-xs font-black ${quizUnitSel === u ?'bg-emerald-500 text-white shadow' :'bg-slate-100 text-slate-500 hover:bg-slate-200'}"><span class="pointer-events-none">${escapeHTML(name)} ${n}</span></button>`;
+            box.innerHTML = chip('','全部', allQs.length) + units.map(u => chip(u.u, (u.u ==='00' ?'' : u.u + ' ') + u.n, u.k)).join('')
+                + (quizUnitSel ? `<button data-action="start-kahoot" data-id="${escapeHTML(rec.id)}" data-unit="${escapeHTML(quizUnitSel)}" class="px-3 py-1.5 rounded-2xl text-xs font-black bg-amber-400 text-white shadow"><span class="pointer-events-none">只練這個單元</span></button>` :'');
+        }
+        function pickQuizUnit(u) { quizUnitSel = String(u ||''); renderQuizDetail(); }
 
         function closeQuizDetail() {
             viewingQuizId = null;
@@ -16916,8 +16947,12 @@
             const list = $('kahootDetailList');
             if (!rec || !list) return;
             $('kahootDetailTitle').textContent = rec.title ||'';
-            const qs = rec.questions ||[];
+            const allQs = rec.questions ||[];
+            /* 單元篩選（課程卡才有）。選到的單元不屬於這張卡（換卡後殘留）就當全部。 */
+            if (quizUnitSel && !(rec.units ||[]).some(u => u.u === quizUnitSel)) quizUnitSel ='';
+            const qs = quizUnitSel ? allQs.filter(q => (q.unit ||[]).includes(quizUnitSel)) : allQs;
             $('kahootDetailMeta').textContent = `${rec.courseName ||'未指定課程'}・${qs.length} 題`;
+            renderQuizUnitChips(rec, allQs);
             $('kahootDetailAdminBar').innerHTML = explainAdminBarHTML(rec.id);
             /* 題組的文章只在**那一組的第一題上面**畫一次，不是每一題都抄一份。 */
             const grpHead = (q, i) => {
@@ -16955,7 +16990,9 @@
                       explainBlockHTML(q, rec.id)}
                 </div>`).join('');
             /* ⚠️ 用**這一份**題庫自己的出處，不是全站共用的那一份。 */
-            $('kahootDetailCredit').innerHTML = quizNoteHTML(rec) + builtinQuizCreditHTML(quizSourceOf(rec));
+            $('kahootDetailCredit').innerHTML = quizNoteHTML(rec) + (rec.srcs && rec.srcs.length > 1
+                ? rec.srcs.map(sl => `<div class="mb-1">${builtinQuizCreditHTML(builtinQuizSources[sl])}</div>`).join('')
+                : builtinQuizCreditHTML(quizSourceOf(rec)));
             icons();
             /* ⚠️ 一次排完整頁的算式（題目、選項、已經點開的詳解）。
                收起來的那些詳解**也在 DOM 裡**，跟著排好沒有壞處：
@@ -16981,6 +17018,12 @@
                 state.builtinQuizzes = (idx.quizzes ||[]).map(q => ({
                     id: q.id, title: q.title, courseName: q.courseName,
                     count: Number(q.count) || 0, src: q.src ||'tmmlu', note: q.note ||'',
+                    /* 2026-10-03 課程卡：同一門課的好幾個來源併成一張（見 tools/unitcourses.mjs）。
+                       ⚠️ 這幾個欄位漏掉不會報錯：hidden 漏了＝來源卡跟課程卡一起列出來（題目重複出現）；
+                         members 漏了＝舊的雲端詳解全部不見；srcs 漏了＝只印一份授權聲明；
+                         units 漏了＝單元籤不出現。 */
+                    hidden: !!q.hidden, members: Array.isArray(q.members) ? q.members : [],
+                    srcs: Array.isArray(q.srcs) ? q.srcs : [], units: Array.isArray(q.units) ? q.units : [],
                     /* ⚠️ 一份題庫可以掛多個標籤（藥理學同時是大學、醫師、藥師）。
                        這裡收成陣列不是字串——收成字串的話那種科目只會出現在一段裡，
                        而畫面上看不出來少了什麼。 */
@@ -17021,6 +17064,9 @@
                    答錯的當下那一塊就要展開，那時候才去讀會變成「詳解慢一拍
                    才冒出來」。讀失敗不算失敗——退回檔案裡那一份。 */
                 await loadQuizExplains(id);
+                /* 課程卡的舊詳解住在來源卡的文件底下（鍵是來源卡的 id）。
+                   ⚠️ 少了這一圈不會報錯，只是已經寫好的詳解在課程卡上一則都沒有。 */
+                for (const m of (rec.members ||[])) await loadQuizExplains(m);
                 return true;
             } catch { return false; }
         }
@@ -17698,7 +17744,7 @@
         function renderKahootSegs() {
             const bar = $('kahootSegBar');
             if (!bar) return;
-            const all = kahootScope ==='builtin' ? (state.builtinQuizzes ||[]) : [];
+            const all = kahootScope ==='builtin' ? (state.builtinQuizzes ||[]).filter(k => !k.hidden) : [];
             const show = kahootScope ==='builtin' && builtinQuizSegments.length > 0 && all.length > 0;
             bar.classList.toggle('hidden', !show);
             if (!show) { bar.innerHTML =''; return; }
@@ -18154,7 +18200,7 @@
             updateKahootSubmit();
         }
 
-        async function startKahoot(kahootId) {
+        async function startKahoot(kahootId, unit) {
             /* ⚠️ 內建題庫的題目是按下去才抓的，索引裡只有題數。少了這一步，
                卡片上明明寫著 168 題，按下去卻說「找不到測驗內容」——而且
                看起來會像是題庫壞了，不是還沒載完。
@@ -18165,12 +18211,16 @@
                 return showToast("題目載入失敗，等一下再試一次");
             const kahoot = kahootsOf(kahootScope).find(k => k.id === kahootId);
             if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) return showToast("找不到測驗內容");
-            activeKahoot = kahoot;
+            /* 只練一個單元：用子集合另做一份，不動原本那份（詳解頁還在用它）。 */
+            const unitQs = unit ? kahoot.questions.filter(q => (q.unit ||[]).includes(unit)) : null;
+            if (unit && !unitQs.length) return showToast("這個單元還沒有題目");
+            const unitName = unit ? ((kahoot.units ||[]).find(u => u.u === unit) ||{}).n ||'' :'';
+            activeKahoot = unit ? { ...kahoot, questions: unitQs, title: `${kahoot.title}・${unitName}` } : kahoot;
             // 題目亂序：同一份測驗練第二次才不會變成背答案的位置
             /* ⚠️ 2026-09-28 起亂序要整組搬（shuffleKeepGroups）。用回單題亂序的話，
                題組的四題會被拆散到整份考卷各處，每一題上面都掛著同一篇文章，
                而文意選填的格子順序也會跳來跳去。 */
-            playQuestions = shuffleQuestionsOn ? shuffleKeepGroups(kahoot.questions, Math.random) : [...kahoot.questions];
+            playQuestions = shuffleQuestionsOn ? shuffleKeepGroups(activeKahoot.questions, Math.random) : [...activeKahoot.questions];
             playAnswers = [];
             currentQIndex = 0;
             currentScore = 0;
@@ -21345,7 +21395,8 @@
 'solve-settings-save':  () => saveSolveSettings(),
 'solve-settings-test':  () => testSolveSettings(),
 'solve-settings-close': () => closeModal('solveSettingsModal'),
-'start-kahoot':    (t) => startKahoot(t.dataset.id),
+'start-kahoot':    (t) => startKahoot(t.dataset.id, t.dataset.unit),
+'pick-quiz-unit':  (t) => pickQuizUnit(t.dataset.unit),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
 'toggle-srs-rev-scope': (t) => toggleSrsRevScope(t.dataset.scope),
