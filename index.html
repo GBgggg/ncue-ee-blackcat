@@ -8283,7 +8283,7 @@
                     ['拿掉 26 題沒有附圖表的題目', '有些考古題要看表格或圖才能作答，但表格沒有跟著搬進來，同學根本答不了，所以先拿掉。'],
                     ['學測、分科缺表格的題目補回來了', '學測的社會、自然、國綜，和分科的歷史、生物、地理、公民，有二十多題原本因為表格或圖沒有跟著搬進來而被拿掉或看不懂。這次照大考中心的官方考卷重新打字、剪圖補回，答案也對照過官方答案。'],
                     ['113～115 年的閱讀題組現在看得到文章了', '學測、分科 113 到 115 年有些「題組」題，前面那段共同的文章或圖表以前沒有顯示，只剩問題。現在作答時會一起顯示。'],
-                    ['大學必修題庫改成一門課一張卡，而且分單元', '以前微積分、普通物理、電路學這些課被切成好幾張來源不同的卡。現在合併成一門課一張：微積分、工程數學、普通物理、電路學、電子學、數位邏輯、電磁學、訊號與系統、線性代數。點進去可以照單元（例如電路學的「一階電路」）篩題目，也可以只練某一個單元。'],
+                    ['大學必修題庫改成一課一個資料夾，裡面分單元', '以前微積分、普通物理、電路學這些課被切成好幾張來源不同的卡。現在合併成一門課一張：微積分、工程數學、普通物理、電路學、電子學、數位邏輯、電磁學、訊號與系統、線性代數。每一課像英文單字一樣是一個資料夾，點開後有「全部題目」和各個單元（例如電路學的「一階電路」），可以只看或只練某一個單元。'],
                     ['題目改成依內容歸課', '原本電路學那張卡裡有一半其實是電力系統、邏輯閘、電動機的題目。現在每一題都看過內容才歸課，歸不進這九門的放到大學選修的「電力與電機機械」「機率與統計（綜合）」「資工與離散數學（綜合）」「其他理工題（綜合）」。看圖的題目單元是從題幹猜的，可能不太準。'],
                 ]
             },
@@ -16901,7 +16901,7 @@
         /* ★ 這一頁要等題目抓回來才有東西畫（索引裡只有題數）。
            抓不到就留在清單上並說一句話——**不要開一個空的詳解頁**，
            那看起來會像「這份題庫是空的」。 */
-        async function openQuizDetail(id) {
+        async function openQuizDetail(id, unit) {
             if (kahootScope !=='builtin') return;
             /* 清單那一層已經擋過一次，這裡是第二道。★ 留著是因為這支是
                動作表上的一個名字，而動作表誰都叫得到（事件委派）。 */
@@ -16910,6 +16910,7 @@
                 return showToast("題目載入失敗，等一下再試一次");
             /* 換一份題庫就把「點開了哪幾則」忘掉：那些 qid 屬於上一份。 */
             if (viewingQuizId !== id) { quizExplainOpen.clear(); quizUnitSel =''; }
+            if (unit !== undefined) quizUnitSel = String(unit ||'');   // 從資料夾的單元卡進來：預選那個單元
             viewingQuizId = id;
             $('page-kahoot-main').classList.add('hidden');
             $('page-kahoot-details').classList.remove('hidden');
@@ -17763,6 +17764,7 @@
 
         function setKahootSeg(seg) {
             kahootSeg = String(seg ||'');
+            quizFolderId ='';
             renderKahoots();
         }
 
@@ -17772,6 +17774,26 @@
             const segs = k.segs ||[];
             return kahootSeg ==='__none' ? segs.length === 0 : segs.includes(kahootSeg);
         }
+
+        /* ---- 課程資料夾（2026-10-03，跟英文單字一樣「一課一個資料夾」）----
+           頂層：有單元的課程卡畫成資料夾；點進去是「全部題目」加每個單元一張卡，右上有「上一層」。
+           ★ 單元卡不是新資料：用同一份課程檔，點下去帶著 data-unit（詳解頁預選那個單元、開始測驗只出那個單元）。
+           ⚠️ 宣告在狀態區旁邊的理由跟其他狀態一樣（暫時性死區，renderKahoots 啟動時就會跑到）。 */
+        let quizFolderId = '';
+        function quizFolderCardHTML(k) {
+            const units = (k.units ||[]).filter(u => u.k > 0);
+            return `<div data-action="open-quiz-folder" data-id="${escapeHTML(k.id)}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-slate-400 transition-colors flex flex-col">
+                <div class="flex items-center gap-3 mb-2 pointer-events-none"><span class="text-3xl">📁</span><h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.courseName ||k.title)}</h4></div>
+                <p class="text-sm text-slate-500 font-bold pointer-events-none">${units.length} 個單元・${k.count || 0} 題</p>
+                <p class="text-[11px] font-bold text-slate-400 mt-3 pointer-events-none">點開看各單元</p>
+            </div>`;
+        }
+        function quizFolderItems(folder) {
+            return [{ ...folder, title:'全部題目', _unit:'' }].concat((folder.units ||[]).filter(u => u.k > 0)
+                .map(u => ({ ...folder, title: (u.u ==='00' ?'' : u.u +' ') + u.n, count: u.k, questions: null, _unit: u.u })));
+        }
+        function openQuizFolder(id) { quizFolderId = String(id ||''); renderKahoots(); scrollTopSmooth(); }
+        function backToQuizFolders() { quizFolderId =''; renderKahoots(); scrollTopSmooth(); }
 
         function renderKahoots() {
             const list = $('kahootList');
@@ -17819,9 +17841,21 @@
 
             const editable = canEditKahoot(kahootScope);
             /* ⚠️ 段與搜尋是**相乘**不是二選一：先挑段，再在段裡搜。 */
-            const filtered = kahootsOf(kahootScope)
+            let filtered = kahootsOf(kahootScope)
                 .filter(matchesKahootSeg)
                 .filter(k => matchesSearch(k.title, k.courseName));
+            /* 資料夾：頂層把有單元的課程卡換成資料夾卡；進了資料夾就只看那一課（不吃段與搜尋，已經在裡面了）。 */
+            let folderHead ='';
+            if (kahootScope ==='builtin') {
+                const folder = quizFolderId ? kahootsOf(kahootScope).find(k => k.id === quizFolderId && (k.units ||[]).length) : null;
+                if (quizFolderId && !folder) quizFolderId ='';
+                if (folder) {
+                    filtered = quizFolderItems(folder);
+                    folderHead = `<div class="col-span-full flex items-center gap-3 flex-wrap"><button data-action="back-to-quiz-folders" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 上一層</button><h3 class="text-lg font-black text-slate-800">📁 ${escapeHTML(folder.courseName ||folder.title)}</h3></div>`;
+                } else {
+                    filtered = filtered.map(k => (k.units ||[]).length ? { ...k, _folder: true } : k);
+                }
+            }
             if (filtered.length === 0) {
                 list.innerHTML = `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${KAHOOT_SCOPE_META[kahootScope].empty}</div>`;
                 renderBuiltinQuizCredit();
@@ -17829,7 +17863,11 @@
                 icons();
                 return;
             }
-            list.innerHTML = filtered.map(k => {
+            list.innerHTML = folderHead + filtered.map(k => {
+                if (k._folder) return quizFolderCardHTML(k);
+                /* 單元卡帶著 data-unit（''＝全部題目）。⚠️ 空字串也要帶：dataset.unit 是 '' 才會清掉上一次選的單元，
+                   undefined 代表「這張卡跟單元無關」，openQuizDetail 會保留原狀。 */
+                const unitAttr = k._unit !== undefined ? ` data-unit="${escapeHTML(k._unit)}"` :'';
                 /* ⚠️ 內建那一份索引只給題數，題目要按下去才抓。寫死成
                    `k.questions.length` 的話，卡片會全部顯示「還沒有題目」
                    並且把開始鈕鎖起來——題目其實好好地在檔案裡。 */
@@ -17841,7 +17879,7 @@
                      是另一個決定，不要順手一起做。 */
                 const openable = k._builtin;
                 return `
-                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-colors flex flex-col justify-between ${openable ?'cursor-pointer' :''}"${openable ? ` data-action="open-quiz-detail" data-id="${escapeHTML(k.id)}"` :''}>
+                <div class="bg-white rounded-3xl p-5 shadow-sm border-2 border-slate-100 hover:border-emerald-300 transition-colors flex flex-col justify-between ${openable ?'cursor-pointer' :''}"${openable ? ` data-action="open-quiz-detail" data-id="${escapeHTML(k.id)}"${unitAttr}` :''}>
                     <div>
                         <div class="flex justify-between items-start mb-2 gap-2">
                             <h4 class="text-xl font-black text-slate-900 break-words min-w-0">${escapeHTML(k.title)}</h4>
@@ -17858,7 +17896,7 @@
                               : kahootScope ==='mine' ?'<span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>' :''}
                         </div>
                     </div>
-                    <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                    <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}"${unitAttr} ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
                         <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' :'開始測驗'}
                     </button>
                     ${openable ? '<p class="text-center text-[11px] font-bold text-slate-400 mt-2 pointer-events-none">點卡片可以看完整題目與解答</p>' :''}
@@ -21411,7 +21449,9 @@
 'toggle-shuffle':  () => toggleShuffle(),
 'set-kahoot-scope':(t) => setKahootScope(t.dataset.scope),
 'pick-quiz-seg':   (t) => setKahootSeg(t.dataset.seg),
-'open-quiz-detail':(t) => openQuizDetail(t.dataset.id),
+'open-quiz-detail':(t) => openQuizDetail(t.dataset.id, t.dataset.unit),
+'open-quiz-folder':(t) => openQuizFolder(t.dataset.id),
+'back-to-quiz-folders':() => backToQuizFolders(),
 'close-quiz-detail':() => closeQuizDetail(),
 'move-draft-q':    (t) => moveDraftQ(parseInt(t.dataset.index), t.dataset.dir),
 'cancel-edit-q':   () => resetKahootQuestionForm(),
