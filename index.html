@@ -824,7 +824,11 @@
         textarea {
             caret-color: var(--accent-bright);
         }
-        input::placeholder, textarea::placeholder { color: var(--ink-3); opacity: .8; }
+        /* ★ 前面加 `html body`（2026-10-05）：Tailwind 的 preflight 也寫了 `input::placeholder { color:#9ca3af }`，
+           特異度跟這條一樣，而 Tailwind 的 <style> 是後插進來的，所以這條一直輸——淺色模式的提示字是
+           灰 400 壓米白，2:1，幾乎看不到，而畫面上不會有任何異狀。`html body` 讓它贏過 preflight（0,0,4 > 0,0,2），
+           但仍輸給 `placeholder:text-slate-500` 這種刻意指定的類別（0,1,1）。 */
+        html body input::placeholder, html body textarea::placeholder { color: var(--ink-3); opacity: .8; }
         /* 核取方塊、單選、滑桿：直接用系統的控制項，只換強調色。 */
         input[type="checkbox"], input[type="radio"], input[type="range"], progress {
             accent-color: var(--accent-bright);
@@ -1459,7 +1463,7 @@
             font-size: 10px; font-weight: 900; letter-spacing: .06em; line-height: 1.5;
             text-transform: uppercase;
             color: currentColor; border: 1px solid currentColor;
-            opacity: .72;
+            opacity: .9;   /* .72 時沒選到的那顆只有 3.0～3.65（10px 字），2026-10-05 調高 */
         }
         /* 目前所在的那一項：**框起來**，不寫字。
            ★ 原本是在說明後面接「（目前所在）」五個字。改成框的理由是那五個字
@@ -2173,6 +2177,34 @@
             .hover\:bg-blue-600, .hover\:bg-teal-500, .hover\:bg-fuchsia-400, .hover\:bg-amber-600, .hover\:bg-amber-400):hover * {
             color: var(--accent-fill-ink) !important;
         }
+        /* ★ 色塊裡面自己有底色的東西，不吃 --accent-fill-ink（2026-10-05，在正式站上逐頁量出來的）。
+           上面那條 `… * { color: var(--accent-fill-ink) }` 是寫給按鈕的：按鈕的字常包在 span 裡，
+           所以連子元素一起換。但彰師電子「資料」頁的「上傳資料」整張卡片本身就是 bg-emerald-500，
+           卡片裡的下拉選單（bg-white → 深色面板）和「貼連結／上傳 PDF／確認存檔」（bg-slate-900 → 深紫）
+           也被一起刷成 --accent-fill-ink。深色模式那是近黑字壓近黑底，1.04～1.2:1，等於沒有字；
+           淺色模式是粉字壓米白，3.3。不報錯，tests/design.mjs 也量不到（它量的是 token 兩兩配對，
+           不是巢狀之後的實際結果）——只有切到那一頁、而且是有上傳權限的人才看得到。
+           作法：自己有底色的子元素把字色要回來。欄位與 bg-white 跟主文字 --ink；
+           bg-slate-900／800 在兩個模式都是深底（HTML 上原本就配 text-white），用白字。
+           只管元素本身、不管它的子孫：下拉選單與這幾顆按鈕的字都直接寫在元素裡，
+           連子孫一起改的話，哪天白底框裡又放一顆實心按鈕，它的字會被這條蓋掉。
+           ⚠️ 前面那串 :is() 與三個 :not() 要跟上面那條一模一樣：兩條都是 !important，
+             比的是特異度，少一個 :not() 這條就輸了，而輸了也不會報錯。 */
+        :is(.bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500, .bg-teal-400\/90, .bg-teal-500,
+            .bg-emerald-400, .bg-blue-400, .bg-blue-600, .bg-emerald-200, .bg-fuchsia-400,
+            .bg-amber-500, .bg-fuchsia-500, .bg-fuchsia-600):not(.border-amber-600):not(.border-fuchsia-600):not(.h-full)
+            :is(select, input, textarea, .bg-white) { color: var(--ink) !important; }
+        :is(.bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500, .bg-teal-400\/90, .bg-teal-500,
+            .bg-emerald-400, .bg-blue-400, .bg-blue-600, .bg-emerald-200, .bg-fuchsia-400,
+            .bg-amber-500, .bg-fuchsia-500, .bg-fuchsia-600):not(.border-amber-600):not(.border-fuchsia-600):not(.h-full)
+            :is(.bg-slate-900, .bg-slate-800) { color: #fff !important; }
+
+        /* ★ 課表格子裡的「@ 教室」小膠囊（2026-10-05）：HTML 上是 `bg-white/80`，
+           而這個類別上面那批接管沒有收——深色模式下它還是一塊八成白的底，
+           字卻跟著 text-teal-700 → --accent 變成霓虹青，青字壓淺灰 1.06:1，教室完全看不到。
+           底改走 --paper-raised、框走 --rule-strong，兩個模式都會跟著換。
+           手機的 `.sched-compact .sched-loc` 把底拿掉（transparent），特異度比這條高，不受影響。 */
+        .sched-loc { background-color: var(--paper-raised) !important; border-color: var(--rule-strong) !important; }
 
         /* ---- 漏網的 Tailwind 顏色（2026-10-03 晚，網頁測試時逐頁掃出來的）----
            ★ 上面那批接管是照「當時 HTML 裡用到的類別」列的，之後新加的幾個沒有人補：
@@ -7519,6 +7551,15 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-05',
+                title: '幾個深色模式下看不到的字修好了',
+                items: [
+                    ['課表上的教室看得到了', '深色模式下，每堂課底下那個「@ 教室」的小標籤以前是淺灰底配亮青色的字，幾乎看不見；現在換成深色底，教室名稱清楚了。'],
+                    ['彰師電子「上傳資料」那張卡片', '深色模式下，選課程、選公開範圍的兩個選單，和「貼連結」「上傳 PDF／照片」「確認存檔」三顆按鈕，字以前是黑的、壓在黑色的底上，等於沒有字；現在都看得到了。'],
+                    ['輸入框裡的灰色提示字深一點了', '淺色模式下，像「一行新增：明天下午三點 交報告」這種輸入框裡的提示字以前太淡，現在稍微深一點，比較讀得到。'],
+                ]
+            },
             {
                 date: '2026-10-03',
                 title: '換上新的樣子：夜晚的霓虹城市',
