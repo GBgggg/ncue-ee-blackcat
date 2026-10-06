@@ -275,11 +275,39 @@
             border-radius: 999px; border: 1.5px solid var(--rule); color: var(--ink-2); font-size: 12px; font-weight: 800;
             background: var(--panel); transition: background var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease); }
         .scratch-toggle.is-on { border-color: var(--accent-bright); background: var(--accent-soft); color: var(--ink); }
-        .scratch { position: fixed; z-index: 60; display: flex; flex-direction: column; background: var(--panel);
+        /* ★ 2026-10-06：草稿紙不論深淺色都是小黑貓筆記那張**淺色**紙（使用者指定）。
+             紙是紙，不跟著主題變黑——深色模式下一張發亮的白紙正是草稿紙該有的樣子，
+             而且拍照存下來的圖不會因為當時開著深色模式就變成黑底。
+           ⚠️ 做法是在 .scratch 自己身上把幾個 token 釘回淺色值，不是一條一條改顏色：
+             工具列的鈕、提示字、筆畫顏色（scratchPrep 讀 .scratch 的 color）全都吃這幾個 token，
+             漏掉一個的症狀是深色模式下那顆鈕變成淺字壓淺紙，而且不會報錯。
+             數值跟 blackcatmd.html 的 --md-paper／--md-rule／--md-ink 同一組；
+             強調色借筆記的「推導藍」，不用站上的霓虹色（青色壓米白紙只有 1.3:1）。 */
+        .scratch { --ink: #1e1708; --ink-2: #3d3424; --ink-3: #6b6152; --rule: #c8c4be;
+            --panel: #fcf9f4; --paper-sunk: rgba(30, 23, 8, .07);
+            --accent-soft: rgba(27, 79, 216, .10); --accent-bright: #1b4fd8;
+            color-scheme: light;
+            position: fixed; z-index: 60; display: flex; flex-direction: column; background: var(--panel);
             color: var(--ink); border-color: var(--rule); box-shadow: 0 0 24px rgba(30, 23, 8, .12);
             transition: transform var(--dur-page) var(--ease); }
         /* ⚠️ 這兩條自己設了 display，跟 Tailwind 的 .hidden 同分，誰贏看樣式的先後——寫明白。 */
         .scratch.hidden, .scratch-toggle.hidden { display: none; }
+        /* ---- 題數（2026-10-06）：下拉選單與自訂的輸入框長在那顆膠囊裡，自己不要再有框與底 ---- */
+        .quiz-count-sel { background: transparent; border: 0; padding: 0 2px; font: inherit; color: var(--ink); cursor: pointer; }
+        .quiz-count-num { width: 3.6rem; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--rule-strong);
+            background: var(--panel); color: var(--ink); font: inherit; text-align: center; }
+        .quiz-count-num.hidden { display: none; }
+        /* ---- 錯題庫（2026-10-06）：按下去之後要看得出「已經收了」 ---- */
+        #kahootWbBtn.is-on { border-color: var(--accent-bright); background: var(--accent-soft); color: var(--ink); }
+        #kahootWbBtn:disabled { opacity: .5; }
+        .wb-chip { flex-shrink: 0; font-size: 11px; font-weight: 900; padding: 3px 10px; border-radius: 999px;
+            border: 1.5px solid var(--rule-strong); color: var(--ink-2); background: var(--panel); }
+        /* ---- 聽力題（2026-10-06） ---- */
+        .quiz-listen { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: var(--radius-lg, 16px);
+            border: 1.5px solid var(--rule); background: var(--paper-sunk); }
+        .quiz-listen-tag { font-size: 11px; font-weight: 900; color: var(--ink-3); }
+        .quiz-listen-script { padding: 12px 14px; border-radius: 12px; border: 1px dashed var(--rule-strong); background: var(--panel); }
+        .wb-chip.is-on { border-color: var(--accent-bright); background: var(--accent-soft); color: var(--ink); }
         @media (orientation: landscape) {
             .scratch { top: 0; right: 0; bottom: 0; width: 46vw; border-left: 1.5px solid var(--rule); }
             #playKahootModal.scratch-open { padding-right: 46vw; }
@@ -293,11 +321,18 @@
             justify-content: center; gap: 4px; font-size: 12px; font-weight: 800; color: var(--ink-2); }
         .scratch-btn.is-on { background: var(--accent-soft); color: var(--ink); box-shadow: inset 0 0 0 1.5px var(--accent-bright); }
         @media (hover: hover) { .scratch-btn:hover { background: var(--paper-sunk); } }
-        /* 計算紙的方格。⚠️ 格線畫在 CSS 背景、不畫進畫布：橡皮擦與「清空」只動畫布，格線不會被擦掉。 */
+        /* 紙：筆記那張 notepaper.webp（頁首點線／No.／Date、紙紋）＋接在下面的 24px 橫線。
+           ★ 寫法照抄 blackcatmd.html 的 .md-sheet（理由都在那邊）：貼圖 610×816 一張一張往下接，
+             下層的漸層是降級——圖沒載到時紙還是紙。橫線落在 24 的整數倍減 1 那一列，跟貼圖對得上。
+           ⚠️ 線畫在 CSS 背景、不畫進畫布：橡皮擦與「清空」只動畫布，線不會被擦掉。
+           ⚠️ 不用 notepaper-dark.webp：深色那張是給筆記頁的，這裡指定永遠淺色。 */
         .scratch-paper { position: relative; flex: 1; min-height: 0;
             background-color: var(--panel);
-            background-image: linear-gradient(var(--rule) 1px, transparent 1px), linear-gradient(90deg, var(--rule) 1px, transparent 1px);
-            background-size: 24px 24px; }
+            background-image: url(notepaper.webp),
+                repeating-linear-gradient(transparent 0 23px, var(--rule) 23px 24px);
+            background-repeat: repeat-y, repeat;
+            background-size: 100% 816px, auto;
+            background-position: top left, top left; }
         .scratch-paper canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block;
             touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
         .scratch-hint { position: absolute; left: 0; right: 0; top: 40%; text-align: center; font-size: 13px; font-weight: 700;
@@ -2247,13 +2282,9 @@
             .bg-amber-500, .bg-fuchsia-500, .bg-fuchsia-600, .bg-slate-900, .bg-slate-800, .bg-red-500, .bg-red-600, .bg-indigo-500):focus-visible {
             clip-path: none;
         }
-        /* hover：字裂成青與洋紅兩層（色差），像訊號不穩的螢幕。只動 text-shadow，不動版面。 */
-        @media (hover: hover) {
-            :is(button, a):is(.bg-emerald-500, .bg-emerald-600, .bg-blue-500, .bg-blue-600, .bg-teal-500,
-                .bg-amber-500, .bg-fuchsia-500, .bg-fuchsia-600, .bg-slate-900, .bg-slate-800):hover {
-                text-shadow: 1.5px 0 rgba(255, 42, 109, 0.75), -1.5px 0 rgba(0, 200, 255, 0.75);
-            }
-        }
+        /* ⚠️ 這裡原本有 hover 時「字裂成青與洋紅兩層」的色差（text-shadow）。2026-10-06 拿掉：
+             使用者要求「取消文字模糊處理」——疊了影子的字看起來像沒對焦。**字上不要再疊任何 text-shadow**——色差、發光、暗暈都一樣，
+             在手機的小字上全部讀成「沒對焦」。要做訊號不穩的感覺，動框線、動底，不動字。 */
 
         /* ---- 深色的次要實心鈕（「新增」「登入」那一類）：深紫面板＋青框 ---- */
         html.dark .bg-slate-900:not(#mainHeader):not(.relative.overflow-hidden),
@@ -2301,17 +2332,14 @@
 
         /* ==========================================================
            大標題（每一頁頂端那一行）
-           ★ 字有一點點色差（青往左、洋紅往右，各 1.5px），然後底下一條
-             「黃＋洋紅＋細線」的 HUD 尺。偶爾整行跳一下（cyberJitter，一輪 7.2 秒裡
+           ★ 底下一條「黃＋洋紅＋細線」的 HUD 尺。偶爾整行跳一下（cyberJitter，一輪 7.2 秒裡
              只有最後那 4% 在動），像訊號被干擾。
+           ⚠️ 字本身原本有色差（青往左、洋紅往右各 1.5px 的 text-shadow），2026-10-06 拿掉——
+             看起來是糊的（理由見上面按鈕 hover 那一段）。
            ★ 選擇器沿用上面大標題那一條（帶 :not(#mainHeader)），特異性才壓得過。
            ========================================================== */
         .bg-slate-900.relative.overflow-hidden:not(#mainHeader) h2 {
-            text-shadow: -1.5px 0 rgba(0, 184, 204, 0.55), 1.5px 0 rgba(224, 0, 122, 0.45);
             animation: cyberJitter 7.2s steps(1, end) infinite;
-        }
-        html.dark .bg-slate-900.relative.overflow-hidden:not(#mainHeader) h2 {
-            text-shadow: -1.5px 0 rgba(0, 240, 255, 0.65), 1.5px 0 rgba(255, 42, 109, 0.65), 0 0 18px rgba(0, 240, 255, 0.18);
         }
         .bg-slate-900.relative.overflow-hidden:not(#mainHeader)::after {
             content: ''; display: block; height: 4px; margin-top: 12px;
@@ -2342,15 +2370,12 @@
         }
         html.dark #mainHeader::after { box-shadow: 0 0 12px rgba(0, 240, 255, 0.55); }
         @keyframes cyberFlow { to { background-position: -200% 0; } }
-        /* 站名：霓虹燈管。深色發光、淺色是 2077 那種錯位的洋紅影子。偶爾閃一下（燈管接觸不良）。 */
+        /* 站名：霓虹燈管，偶爾閃一下（燈管接觸不良）。
+           ⚠️ 原本深色發光、淺色有一層錯位的洋紅影子，2026-10-06 都拿掉（字看起來糊）。 */
         #mainHeader h1 {
             font-family: var(--font-display) !important;
             letter-spacing: 0.04em !important;
-            text-shadow: 1.5px 1.5px 0 rgba(224, 0, 122, 0.45);
             animation: cyberFlicker 9s steps(1, end) infinite;
-        }
-        html.dark #mainHeader h1 {
-            text-shadow: 0 0 6px color-mix(in srgb, var(--accent) 70%, transparent), 0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
         }
         @keyframes cyberFlicker {
             0%, 91%, 100% { opacity: 1; }
@@ -2386,7 +2411,6 @@
             box-shadow: inset 0 -2px 0 var(--accent-tab-ink);
         }
         .tab-btn { border-radius: 2px !important; font-family: var(--font-display); letter-spacing: 0.04em; }
-        .tab-btn.is-ink .tab-label { text-shadow: 0 0 10px color-mix(in srgb, var(--accent-tab-ink) 45%, transparent); }
         #settingsBtn.is-active { box-shadow: inset 0 -2px 0 var(--accent-tab-ink); color: var(--accent-tab-ink) !important; }
 
         /* ---- 手機底部分頁列：浮著的 HUD 面板（切兩個角），不是膠囊 ---- */
@@ -2415,13 +2439,16 @@
         #logoMenu, #accountMenu { border-radius: 3px !important; border-top: 2px solid var(--accent-bright) !important; }
         [id$="Modal"] > .bg-white { border-top: 2px solid var(--accent-bright) !important; }
 
-        /* ---- 深色模式：直接寫在城市上的字加一圈暗暈 ----
+        /* ---- 深色模式：直接寫在城市上的字，墊一塊夜色的底 ----
            ★ 正式站實測：手機上捲到頁面下面，題目來源那一串小字會壓在霓虹招牌上。
              招牌已經在內容欄裡調暗了，但手機整個寬度都是內容欄，招牌一暗城市就沒了。
-             所以反過來在字的周圍墊一圈跟夜空同色的暈：卡片裡的字本來就在實心底上，多一圈暈看不出來；
-             直接在城市上的字就被一小片夜色托住。只在深色——淺色的城市本來就淡。
-           ★ 用繼承的 text-shadow，自己寫了 text-shadow 的（大標題、按鈕 hover）會蓋掉它，正好。 */
-        html.dark main { text-shadow: 0 0 3px rgba(7, 6, 12, 0.95), 0 0 8px rgba(7, 6, 12, 0.8); }
+           ⚠️ 2026-10-05 的解法是 `html.dark main` 整片繼承一圈暗暈（text-shadow），
+             2026-10-06 拿掉：**全站每一個字**都多一圈暈，卡片裡的字看起來就是糊的（使用者要求取消）。
+             改成只在「直接寫在城市上」的那幾塊墊一片半透明的夜色底，字本身不加任何東西。
+             新增直接寫在背景上的小字時，加進這一條。 */
+        html.dark :is(#kahootBuiltinCredit, #kahootDetailCredit):not(.hidden) {
+            background: rgba(7, 6, 12, 0.82); border-radius: 4px; padding: 12px 14px;
+        }
         /* bg-slate-200 被上面的接管改成 --rule-strong，而深色的 --rule-strong 帶青色——
            「分類：全部」那種按鈕會變成一整塊青綠。按鈕底要中性。 */
         html.dark .bg-slate-200, html.dark .hover\:bg-slate-200:hover, html.dark .hover\:bg-slate-300:hover { background-color: rgba(120, 110, 170, 0.28) !important; }
@@ -2458,7 +2485,7 @@
             box-shadow: inset 0 0 12px -4px currentColor;
             animation: cyberCrt 5.4s steps(1, end) infinite;
         }
-        html.dark .oil-empty::before { text-shadow: 0 0 8px currentColor; box-shadow: inset 0 0 14px -4px currentColor, 0 0 14px -6px currentColor; }
+        html.dark .oil-empty::before { box-shadow: inset 0 0 14px -4px currentColor, 0 0 14px -6px currentColor; }
         @keyframes cyberCrt {
             0%, 88%, 100% { opacity: 1; }
             89% { opacity: .4; }
@@ -3901,7 +3928,20 @@
                  內容由 buildStaticUI 填。 -->
             <div class="flex flex-wrap items-center gap-2 mb-5">
                 <div id="kahootScopeTabs" class="flex gap-2"></div>
-                <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="ml-auto px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
+                <!-- 題數（2026-10-06）：這一場考幾題。★ 用原生的下拉選單：手機上會叫出系統的滾輪，
+                     不必自己做一排六顆鈕把這一列擠成兩行。選「自訂…」才長出輸入框。 -->
+                <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
+                <div id="quizCountWrap" class="quiz-count px-3 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 flex items-center gap-1.5">
+                    <i data-lucide="list-ordered" class="w-3.5 h-3.5 pointer-events-none"></i>
+                    <span class="pointer-events-none">題數</span>
+                    <select id="quizCountSel" aria-label="這一場考幾題" class="quiz-count-sel">
+                        <option value="0">全部</option><option value="5">5 題</option><option value="10">10 題</option>
+                        <option value="20">20 題</option><option value="50">50 題</option><option value="custom">自訂…</option>
+                    </select>
+                    <input id="quizCountCustom" type="number" min="1" max="999" step="1" inputmode="numeric" aria-label="自訂題數" class="quiz-count-num hidden">
+                </div>
+                <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
+                </div>
             </div>
             <!-- 客群段的篩選鏈（2026-09-17）。★ 由 renderKahootSegs() 從索引的
                  segments 填，名字不寫死在這裡——那張表是資料不是版面
@@ -5021,6 +5061,23 @@
                     </label>
                 </div>
                 <input type="text" id="qText" maxlength="200" placeholder="輸入題目內容..." class="w-full px-4 py-3 bg-white rounded-xl border-none mb-4 font-medium shadow-sm" aria-label="輸入題目內容...">
+                <!-- 聽力題（2026-10-06）：寫了稿子，這一題就會有播放鍵（裝置內建語音唸），答完才看得到稿子。
+                     收在 details 裡：大部分題目不是聽力題，攤開來只會讓表單變長。 -->
+                <details id="draftListenBox" class="mb-4 bg-white rounded-xl shadow-sm">
+                    <summary class="px-4 py-3 text-xs font-black text-emerald-800 cursor-pointer">🎧 做成聽力題（選填）</summary>
+                    <div class="px-4 pb-4">
+                        <p class="text-[11px] text-emerald-700/70 font-bold mb-2">寫在這裡的稿子會在作答時唸出來（用裝置內建的語音），答完才看得到。題目那一欄寫要問什麼，例如「聽完對話，男生接下來要去哪裡？」</p>
+                        <textarea id="qSay" maxlength="1000" rows="3" placeholder="要唸出來的稿子，例如：W: Excuse me, is this seat taken? M: No, go ahead." class="w-full px-3 py-2 bg-slate-50 rounded-lg border-none text-sm font-medium" aria-label="聽力稿"></textarea>
+                        <div class="flex items-center gap-2 mt-2 flex-wrap">
+                            <label for="qSayLang" class="text-[11px] font-black text-slate-500">用什麼語言唸</label>
+                            <select id="qSayLang" class="px-2 py-1 bg-slate-50 rounded-lg text-xs font-bold">
+                                <option value="en-US">英文（美式）</option><option value="en-GB">英文（英式）</option>
+                                <option value="zh-TW">中文</option><option value="ja-JP">日文</option><option value="ko-KR">韓文</option>
+                            </select>
+                            <button type="button" data-action="draft-say-test" class="speak-btn ml-auto" aria-label="試聽"><i data-lucide="volume-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        </div>
+                    </div>
+                </details>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="0" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt0" maxlength="100" placeholder="選項 1（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 1（必填）"></label>
                     <label class="flex items-center bg-white rounded-xl p-2 shadow-sm border-l-4 border-slate-300 cursor-pointer transition-colors hover:bg-slate-50 focus-within:ring-2 focus-within:ring-emerald-200"><input type="radio" name="correctOpt" value="1" class="mr-3 w-4 h-4 accent-emerald-500 cursor-pointer"><input type="text" id="opt1" maxlength="100" placeholder="選項 2（必填）" class="w-full bg-transparent border-none focus:outline-none text-sm font-medium" aria-label="選項 2（必填）"></label>
@@ -5084,6 +5141,23 @@
                 </button>
             </div>
 
+            <!-- 聽力題（2026-10-06）：播放鍵與逐字稿。不是聽力題就整塊 hidden（見 renderListen）。
+                 放在選項上面：先聽再選，跟考卷的順序一樣。 -->
+            <div id="kahootListenWrap" class="hidden mb-5 shrink-0">
+                <div class="quiz-listen">
+                    <span class="quiz-listen-tag">🎧 聽力</span>
+                    <div id="kahootListenBtns" class="flex items-center gap-2 flex-wrap">
+                        <button data-action="listen-play" class="px-5 py-3 bg-emerald-500 text-white rounded-2xl font-black flex items-center gap-2">
+                            <i data-lucide="headphones" class="w-5 h-5 pointer-events-none"></i><span class="pointer-events-none">播放</span>
+                        </button>
+                        <button data-action="listen-play" data-slow="1" class="px-4 py-3 rounded-2xl font-black border-2 border-slate-200 text-slate-600">慢速</button>
+                        <span id="kahootListenCount" class="text-xs font-bold text-slate-400">按播放開始聽</span>
+                    </div>
+                    <p id="kahootListenNo" class="hidden text-xs font-bold text-rose-500">這台裝置沒有語音引擎，唸不出來——稿子直接放在下面</p>
+                </div>
+                <div id="kahootListenScript" class="hidden mt-3"></div>
+            </div>
+
             <div id="kahootOptionsGrid" class="flex flex-col gap-1">
                 <!-- JS 依每題實際選項數動態生成 A～J；選填題是一排格子加數字鍵 -->
             </div>
@@ -5111,6 +5185,12 @@
             <div id="kahootExplainWrap" class="hidden mt-6 text-left"></div>
             <!-- 答錯時才出現：停住讓人看懂正解，按了才進下一題 -->
             <div id="kahootNextWrap" class="hidden mt-7">
+                <!-- 錯題庫（2026-10-06）。只有一般測驗看得到（見 wbSyncBtn）。
+                     ★ 自己一行、不跟拍照與下一題擠在一起：360px 的手機上三顆並排，「下一題」會被擠成兩行字。 -->
+                <button id="kahootWbBtn" data-action="wb-toggle" class="hidden w-full mb-2 py-3 rounded-2xl font-black text-sm border-2 border-slate-200 text-slate-600 flex items-center justify-center gap-1.5" aria-pressed="false">
+                    <i data-lucide="bookmark-plus" class="w-4 h-4 pointer-events-none"></i>
+                    <span id="kahootWbLabel" class="pointer-events-none">加入錯題庫</span>
+                </button>
                 <!-- 拍照（2026-09-29）：把題目、選項、詳解、草稿紙存成一張圖。放在「下一題」左邊，
                      因為下一題一按，草稿紙就換新的了。 -->
                 <div class="flex gap-2">
@@ -5118,6 +5198,7 @@
                     <i data-lucide="camera" class="w-5 h-5 pointer-events-none"></i>
                     <span id="kahootSnapLabel" class="pointer-events-none">拍照</span>
                 </button>
+
                 <button id="kahootNextBtn" class="flex-1 py-4 bg-emerald-500 text-white rounded-2xl font-black text-lg hover:bg-emerald-600 transition-colors flex items-center justify-center gap-2">
                     <span id="kahootNextLabel">下一題</span>
                     <i data-lucide="arrow-right" class="w-5 h-5 pointer-events-none"></i>
@@ -5189,6 +5270,8 @@
                 <h3 class="text-sm font-black text-slate-700 mb-3 flex items-center gap-2"><i data-lucide="book-open" class="w-4 h-4 text-rose-500"></i> 答錯的題目</h3>
                 <div id="resultWrongList" class="space-y-3 max-h-64 overflow-y-auto pr-1"></div>
             </div>
+            <!-- 錯題庫：「全部加入」或（重考錯題庫時）「答對的移出」。由 renderResultWb 填。 -->
+            <div id="resultWbWrap" class="hidden mb-4"></div>
             <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-colors">回到大廳</button>
         </div>
     </div>
@@ -6209,6 +6292,9 @@
 
         let draftQuestions = [], editingDraftQIndex = null;
         let activeKahoot = null, currentQIndex = 0, currentScore = 0, isKahootTransitioning = false;
+        /* 錯題庫（2026-10-06）：users/{uid}/kahoots/ 底下固定這個 id 的那一份（見「錯題庫」那一節）。
+           上限：題數 300、整份 900 KB（Firestore 一份文件 1 MiB，留一點給欄位名與題組文章）。 */
+        const WRONGBOOK_ID = 'wrongbook', WRONGBOOK_MAX = 300, WRONGBOOK_MAX_BYTES = 900000;
         /* 這一題有沒有按過「我其實不確定」。⚠️ 每一題都要歸零（`renderPlayQuestion`），
            不歸零的話按過一次就整場都不算數，而畫面上只是那顆按鈕看起來一直亮著。
            ★ 宣告在狀態區不是習慣問題：`renderPlayQuestion` 會碰到它，
@@ -6236,6 +6322,9 @@
            一千多行遠，於是那邊漏設了它們也沒人發現。搬到狀態區跟上面那排放在一起，
            下次再多一種出題來源時比較不會漏。 */
         let playQuestions = [], playAnswers = [];
+        /* 聽力題（2026-10-06）：這一題要播的東西（listenOf 的結果）、播了幾次、音檔的那一個 Audio。
+           ★ 宣告在狀態區：renderPlayQuestion 每一題都會碰到（暫時性死區，CLAUDE.md 第一條）。 */
+        let listenNow = null, listenPlays = 0, listenAudio = null;
         /* 這一題的喇叭要唸什麼。空字串＝這種測驗不需要喇叭。
            ★ 它會在作答之後被換掉（挖空的句子 → 填好的句子），所以不能
              每次現場去看 `playQuestions[currentQIndex]` 算——那樣算出來的
@@ -6245,6 +6334,16 @@
         // 題目亂序（記在本機，下次進來沿用）
         let shuffleQuestionsOn = true;
         try { shuffleQuestionsOn = localStorage.getItem('eeblackcat-quiz-shuffle') !=='0'; } catch (e) {}
+        /* 這一場考幾題（2026-10-06）。0＝全部。跟亂序一樣只記在這台裝置（localStorage）：
+           手機上通勤刷 5 題、桌機坐下來考 50 題是合理的，寫進帳號反而會互相蓋掉。
+           ★ 宣告在狀態區：renderKahoots（卡片上的「開始測驗・10 題」）在載入途中就會被叫到。
+           quizCountCustom：使用者是不是選了「自訂…」——選 10 跟自訂打 10 存的數字一樣，
+           但畫面上要分得出來（自訂的那一格要留著）。 */
+        let quizCount = 0, quizCountCustom = false;
+        try {
+            const v = JSON.parse(localStorage.getItem('eeblackcat-quiz-count') ||'null');
+            if (v && Number.isInteger(v.n) && v.n > 0 && v.n <= 999) { quizCount = v.n; quizCountCustom = !!v.custom; }
+        } catch (e) {}
 
         /* ---- 內建題庫（靜態 JSON，2026-09-15）----
            跟內建單字庫同一個形狀：索引進分頁就抓（很小，決定畫面上有幾張卡、
@@ -7551,6 +7650,17 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-06',
+                title: '測驗多了錯題庫、聽力題，還可以選這次考幾題',
+                items: [
+                    ['錯題庫', '答錯停下來的時候，「下一題」旁邊多一顆「加入錯題庫」；測驗結束的錯題清單裡每一題也都有一顆，還有「全部加入」。錯題庫在「我的測驗」最前面，可以整份拿來重考，考完會問你要不要把這次答對的移出去。只有你自己看得到。'],
+                    ['可以選這次考幾題', '測驗頁右上角「題目亂序」旁邊多了「題數」：全部、5、10、20、50，或自己打一個數字。開著亂序的話每次抽到的題目不一樣。有共用文章的題組會整組一起出，所以有時候會比選的多一兩題。這台裝置會記住你選的。'],
+                    ['聽力題', '題目可以變成聽力題：按「播放」由手機或電腦內建的聲音唸出來，也可以按「慢速」。答完才看得到逐字稿。在「我的測驗」出題的時候，打開「做成聽力題」寫下要唸的稿子就可以了，英文、中文、日文、韓文都能唸。'],
+                    ['字變清楚了', '上次換成夜城之後，字的周圍多了一圈光暈、標題和按鈕的字有一點重影，看起來像沒對焦。這些都拿掉了，字現在是清清楚楚的一層。'],
+                    ['草稿紙換成筆記本那張紙', '平板做測驗旁邊那張草稿紙，不管深色還是淺色模式，都是小黑貓筆記那張淺色的橫線紙，筆跡是深色的。拍照存下來的也是同一種紙。'],
+                ]
+            },
             {
                 date: '2026-10-05',
                 title: '幾個深色模式下看不到的字修好了',
@@ -16178,8 +16288,68 @@
             showToast(shuffleQuestionsOn ?'題目會隨機排序 🔀' :'題目照原順序出現');
         }
 
+        /* ---- 題數（2026-10-06）---- */
+        const QUIZ_COUNT_PRESETS = [5, 10, 20, 50];
+        function updateQuizCountUI() {
+            const sel = $('quizCountSel'), num = $('quizCountCustom');
+            if (!sel || !num) return;
+            const custom = quizCountCustom || (quizCount > 0 && !QUIZ_COUNT_PRESETS.includes(quizCount));
+            sel.value = custom ? 'custom' : String(quizCount);
+            num.classList.toggle('hidden', !custom);
+            if (custom && document.activeElement !== num) num.value = quizCount > 0 ? String(quizCount) : '';
+        }
+        function saveQuizCount() {
+            try { localStorage.setItem('eeblackcat-quiz-count', JSON.stringify({ n: quizCount, custom: quizCountCustom })); } catch (e) {}
+        }
+        function onQuizCountSel() {
+            const v = $('quizCountSel').value;
+            if (v === 'custom') {
+                quizCountCustom = true;
+                updateQuizCountUI();
+                const num = $('quizCountCustom');
+                if (num) { num.focus(); num.select && num.select(); }
+                /* ⚠️ 還沒打數字之前沿用原本的題數，不要先歸零成「全部」——
+                     那樣選了自訂、還沒打字就按開始，會一口氣考兩千題。 */
+                saveQuizCount();
+                return;
+            }
+            quizCountCustom = false;
+            quizCount = Number(v) || 0;
+            saveQuizCount();
+            updateQuizCountUI();
+            if (kahootScope) renderKahoots();
+        }
+        function onQuizCountCustom() {
+            const raw = String($('quizCountCustom').value ||'').trim();
+            const n = Math.floor(Number(raw));
+            if (!raw || !Number.isFinite(n) || n < 1) return;      // 打到一半（空白）先不動
+            quizCount = Math.min(999, n);
+            quizCountCustom = true;
+            saveQuizCount();
+            renderKahoots();
+        }
+        /* 從一場的題目裡拿前 n 題（亂序已經在前面做過了）。
+           ★ 題組整組拿：拿到題組的第一題就把同組的全部帶上，所以實際可能多於 n。
+             只拿半組的話，文章底下的第二、三題就被切掉了，而「第 41–45 題共用」的標示會對不上。
+           ★ 組在這裡一定是相鄰的：亂序走 shuffleKeepGroups（整組搬），不亂序時產生器保證同組排在一起。
+           n ≤ 0 或比題目還多＝全部。 */
+        function takeQuizCount(qs, n) {
+            const list = qs || [];
+            if (!(n > 0) || n >= list.length) return [...list];
+            const out = [];
+            for (let i = 0; i < list.length && out.length < n; ) {
+                const g = list[i] && list[i].grp;
+                let j = i + 1;
+                if (g !== undefined && g !== null && g !== '') while (j < list.length && list[j] && list[j].grp === g) j++;
+                out.push(...list.slice(i, j));
+                i = j;
+            }
+            return out;
+        }
+
         function updateKahootScopeUI() {
             updateShuffleToggleUI();
+            updateQuizCountUI();
             const b = $('openCreateKahootBtn');
             if (b) b.classList.toggle('hidden', !canEditKahoot(kahootScope));
             /* 亮起現在這一個分頁。跟 updateStudySubUI 同一套 class 切換，
@@ -16290,7 +16460,7 @@
                     </div>
                     ${/* 題目本身的圖。★ 畫在選項上面：它是題幹的一部分，
                          畫在選項下面的話會看起來像在解釋答案。 */
-                      questionImgHTML(q)}
+                      questionImgHTML(q)}${listenNoteHTML(q, rec.groups)}
                     <div class="flex flex-col gap-1.5 mb-3">
                         ${isFillQ(q) ? `<div class="px-3 py-2 rounded-xl text-sm bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">正解　<span class="font-mono">${escapeHTML(fillShow(q.fill))}</span>（${String(q.fill ||'').length} 格）</div>` :''}
                         ${(q.options ||[]).map((opt, oi) => {
@@ -17172,14 +17342,21 @@
                     filtered = filtered.map(k => (k.units ||[]).length ? { ...k, _folder: true } : k);
                 }
             }
+            /* 錯題庫（2026-10-06）：我的測驗最前面固定一張，不吃搜尋（它不是一份「測驗主題」），
+               也不進底下那一排——它沒有編輯鈕，用出題表單打開的話題組與圖都會掉。 */
+            let wbHead ='';
+            if (kahootScope ==='mine') {
+                filtered = filtered.filter(k => k.id !== WRONGBOOK_ID);
+                wbHead = wrongbookCardHTML();
+            }
             if (filtered.length === 0) {
-                list.innerHTML = `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${KAHOOT_SCOPE_META[kahootScope].empty}</div>`;
+                list.innerHTML = wbHead + `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${KAHOOT_SCOPE_META[kahootScope].empty}</div>`;
                 renderBuiltinQuizCredit();
                 renderKahootSegs();
                 icons();
                 return;
             }
-            list.innerHTML = folderHead + filtered.map(k => {
+            list.innerHTML = folderHead + wbHead + filtered.map(k => {
                 if (k._folder) return quizFolderCardHTML(k);
                 /* 單元卡帶著 data-unit（''＝全部題目）。⚠️ 空字串也要帶：dataset.unit 是 '' 才會清掉上一次選的單元，
                    undefined 代表「這張卡跟單元無關」，openQuizDetail 會保留原狀。 */
@@ -17213,7 +17390,7 @@
                         </div>
                     </div>
                     <button data-action="start-kahoot" data-id="${escapeHTML(k.id)}"${unitAttr} ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
-                        <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' :'開始測驗'}
+                        <i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' : quizCount > 0 && n > quizCount ? `開始測驗・${quizCount} 題` :'開始測驗'}
                     </button>
                     ${openable ? '<p class="text-center text-[11px] font-bold text-slate-400 mt-2 pointer-events-none">點卡片可以看完整題目與解答</p>' :''}
                 </div>`;
@@ -17229,7 +17406,8 @@
             const btn = $('addDraftQuestionBtn');
             btn.textContent ="將此題加入測驗";
             btn.className ="w-full py-2 bg-emerald-500 text-white rounded-xl font-bold shadow-md hover:bg-emerald-600 transition-colors text-sm";
-            setVals({ qText:'', opt0:'', opt1:'', opt2:'', opt3:'' });
+            setVals({ qText:'', opt0:'', opt1:'', opt2:'', opt3:'', qSay:'', qSayLang:'en-US' });
+            { const box = $('draftListenBox'); if (box) box.open = false; }
             /* ⚠️ 多選模式可能勾了好幾個，只清第一個的話下一題會帶著上一題的勾進來，
                而表單看起來是空的（題目與選項都清掉了）。applyDraftMultiMode() 會
                一次清乾淨，順便把 type 切回 radio。 */
@@ -17297,7 +17475,8 @@
                 <div class="p-3 bg-white rounded-xl shadow-sm ${editingDraftQIndex === idx ?'ring-2 ring-blue-400' :''}">
                     <div class="flex justify-between items-start gap-2 mb-1.5">
                         <span class="font-black text-slate-800 text-sm break-words min-w-0">Q${idx + 1}. ${escapeHTML(item.q)}${
-                            isMultiQ(item) ?'<span class="ml-1 align-middle text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">多選</span>' :''}</span>
+                            isMultiQ(item) ?'<span class="ml-1 align-middle text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">多選</span>' :''}${
+                            item.say ?'<span class="ml-1 align-middle text-[10px] font-black px-1.5 py-0.5 rounded bg-sky-100 text-sky-700">🎧 聽力</span>' :''}</span>
                         <div class="flex shrink-0 items-center gap-1">
                             <button data-action="move-draft-q" data-index="${idx}" data-dir="up" ${idx === 0 ?'disabled' :''} class="p-1 ${idx === 0 ?'text-slate-200' :'text-slate-400 hover:text-slate-700'}"><i data-lucide="chevron-up" class="w-4 h-4 pointer-events-none"></i></button>
                             <button data-action="move-draft-q" data-index="${idx}" data-dir="down" ${idx === draftQuestions.length - 1 ?'disabled' :''} class="p-1 ${idx === draftQuestions.length - 1 ?'text-slate-200' :'text-slate-400 hover:text-slate-700'}"><i data-lucide="chevron-down" class="w-4 h-4 pointer-events-none"></i></button>
@@ -17319,7 +17498,9 @@
             const q = draftQuestions[idx];
             // 選項可能只有 2～3 個，補空字串避免把上一題的殘留值留在欄位裡
             const o = [q.options[0] ||'', q.options[1] ||'', q.options[2] ||'', q.options[3] ||''];
-            setVals({ qText: q.q, opt0: o[0], opt1: o[1], opt2: o[2], opt3: o[3] });
+            setVals({ qText: q.q, opt0: o[0], opt1: o[1], opt2: o[2], opt3: o[3], qSay: q.say ||'', qSayLang: q.sayLang ||'en-US' });
+            /* 聽力稿：有寫的話把那一格攤開，不然編輯的人看不到這一題其實是聽力題。 */
+            { const box = $('draftListenBox'); if (box) box.open = !!q.say; }
             /* ⚠️ 先切模式再勾，順序不能換：applyDraftMultiMode() 本來就會把勾的清掉
                （那是它的工作），先勾的話剛填好的正解會被它清乾淨，而畫面上只是
                「這一題編輯進來以後沒有正解」。 */
@@ -17375,6 +17556,15 @@
             const payload = multi
                 ? { q: qText, options: filled.map(o => o.text), correctIdxs: idxs }
                 : { q: qText, options: filled.map(o => o.text), correctIdx: idxs[0] };
+            /* 聽力稿（2026-10-06）。⚠️ 沒寫就整個欄位不放：放一個空字串進去的話，
+               別的地方用 `q.say` 判斷「是不是聽力題」時會被空字串騙過一半（有欄位、沒內容）。 */
+            const say = $('qSay') ? getVal('qSay') :'';
+            if (say.length > 1000) return showToast("聽力稿最多 1000 字");
+            if (say) {
+                payload.say = say;
+                const lang = $('qSayLang') ? $('qSayLang').value :'en-US';
+                if (lang && lang !== 'en-US' && LISTEN_LANG_RE.test(lang)) payload.sayLang = lang;
+            }
             if (editingDraftQIndex !== null) {
                 draftQuestions[editingDraftQIndex] = payload;
                 showToast("題目更新成功");
@@ -17569,12 +17759,23 @@
             const unitQs = unit ? kahoot.questions.filter(q => (q.unit ||[]).includes(unit)) : null;
             if (unit && !unitQs.length) return showToast("這個單元還沒有題目");
             const unitName = unit ? ((kahoot.units ||[]).find(u => u.u === unit) ||{}).n ||'' :'';
-            activeKahoot = unit ? { ...kahoot, questions: unitQs, title: `${kahoot.title}・${unitName}` } : kahoot;
+            /* ★ 一律包一層複本並標上 `_general`：錯題庫靠它認出「這是一般測驗」（克漏字、今日測驗、
+                 單字測驗不走這一支，所以不會有這個旗標）。⚠️ 不要直接改 kahoot 本人——
+                 那是清單裡那一份，標上去之後會一直留著。 */
+            activeKahoot = unit ? { ...kahoot, questions: unitQs, title: `${kahoot.title}・${unitName}`, _general: true }
+                                : { ...kahoot, _general: true };
+            /* 重考錯題庫：題目來自好幾份內建題庫，各自的雲端詳解要先讀（答錯當下就要展開）。
+               讀不到就用收進來時抄的那一份。 */
+            if (kahoot.id === WRONGBOOK_ID)
+                for (const f of new Set(kahoot.questions.filter(q => q.fromBuiltin && q.from).map(q => q.from))) await loadQuizExplains(f);
             // 題目亂序：同一份測驗練第二次才不會變成背答案的位置
             /* ⚠️ 2026-09-28 起亂序要整組搬（shuffleKeepGroups）。用回單題亂序的話，
                題組的四題會被拆散到整份考卷各處，每一題上面都掛著同一篇文章，
                而文意選填的格子順序也會跳來跳去。 */
             playQuestions = shuffleQuestionsOn ? shuffleKeepGroups(activeKahoot.questions, Math.random) : [...activeKahoot.questions];
+            /* 題數（2026-10-06）：亂序之後才切，這樣每次拿到的是不同的 n 題。
+               ⚠️ 不亂序時永遠是前 n 題——那是照順序一段一段練的用法，不是 bug。 */
+            playQuestions = takeQuizCount(playQuestions, quizCount);
             playAnswers = [];
             currentQIndex = 0;
             currentScore = 0;
@@ -17593,7 +17794,10 @@
         /* 一個選項底下的圖（`q.optImg[i]`）。★ 跟題目圖共用 quizImgTag()，
            路徑規則與跳脫只有一份。沒有圖回空字串。 */
         function optImgHTML(q, i) {
-            const list = Array.isArray(q && q.optImg) && Array.isArray(q.optImg[i]) ? q.optImg[i] : [];
+            /* ★ 錯題庫裡的題目把 optImg 存成 { "0":[…] }（Firestore 不收陣列裡的陣列），
+                 所以陣列與物件兩種都認：兩種寫法 `optImg[i]` 拿到的都是那一格的圖。 */
+            const src = q && q.optImg;
+            const list = src && typeof src === 'object' && Array.isArray(src[i]) ? src[i] : [];
             if (!list.length) return '';
             const tags = list.map(quizImgTag).filter(Boolean).join('');
             return tags ? `<span class="quiz-opt-img block">${tags}</span>` : '';
@@ -17685,6 +17889,381 @@
         }
 
         /* ==========================================================
+         * 錯題庫（2026-10-06）
+         *
+         * 答案出來之後可以把這一題收進「錯題庫」，錯題庫放在「我的測驗」最前面，整份拿來重考。
+         *
+         * ★ 存在 users/{uid}/kahoots/wrongbook **一份文件**，不是一題一份：
+         *   「我的測驗」本來就訂閱整個 kahoots 集合，放在這裡就自動跟著來、不必另外訂，
+         *   而且 firestore.rules 的白名單早就有 kahoots——**不用推規則**。
+         *   一份文件上限 1 MiB，所以題數有上限（WRONGBOOK_MAX），寫入前也量一次大小。
+         * ★ 存的是**題目的複本**，不是指回原題庫的代號：內建題庫的檔案會改版、我的測驗會被改，
+         *   錯題庫裡那一題要長得跟當初答錯時一樣。詳解也一起抄（當下看到的那一份），
+         *   重考時若雲端有更新的詳解，mergedExplain 照樣會用新的（它先查 qid）。
+         * ⚠️ Firestore 不收「陣列裡的陣列」：選項圖 `optImg` 是 [[圖…],[圖…]]，直接存會整筆寫入失敗，
+         *   而失敗只會在吐司上說一句「沒存起來」。所以存成 { "0":[…], "1":[…] }，optImgHTML 兩種都認。
+         * ⚠️ 也不收 undefined：作答紀錄上的 fillGot 在非選填題是 undefined，所以先過一次 JSON 再存。
+         * ★ 題組：文章另外存在這份文件的 groups，鍵加上來源（`來源id:原本的組號`）——
+         *   兩份題庫都有第 3 組的話不能撞在一起。題目移光的組在寫入時順手清掉。
+         * ★ 只給「一般測驗」（內建題庫、我的測驗、錯題庫本身）。克漏字／今日測驗／單字測驗
+         *   各自有錯題本與排程，再多一個錯題庫只會讓使用者搞不清楚錯的字到底記在哪。
+         * ========================================================== */
+        const wrongbookDoc = () => (state.myKahoots ||[]).find(k => k.id === WRONGBOOK_ID) || null;
+        const isWrongbookPlay = () => !!(activeKahoot && activeKahoot.id === WRONGBOOK_ID && activeKahoot._general);
+        function wbAllowed() { return !!(activeKahoot && activeKahoot._general) && isSignedInMember(); }
+        function wbHash(str) {
+            let h = 5381;
+            for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+            return (h >>> 0).toString(36);
+        }
+        /* 一題的身分。內建題庫有 qid；我的測驗沒有，用題目＋選項算一個雜湊——
+           改過題目就算新的一題，這是對的（題目都改了）。進過錯題庫的題目帶著 `wbk`，以它為準。 */
+        function wbKeyOf(q) {
+            if (q && q.wbk) return String(q.wbk);
+            if (q && q.qid) return 'q:' + q.qid;
+            return 'h:' + wbHash(JSON.stringify([q && q.q, q && q.options, q && q.fill, q && q.say, q && q.audio]));
+        }
+        function wbHas(q) {
+            const wb = wrongbookDoc(), k = wbKeyOf(q);
+            return !!(wb && (wb.questions ||[]).some(x => wbKeyOf(x) === k));
+        }
+        /* 作答紀錄 → 要存進錯題庫的那一題。 */
+        function wbEntryOf(a) {
+            const { selectedIdx, picks, fillGot, ratio, correct, unsure, ...base } = a || {};
+            const e = JSON.parse(JSON.stringify(base));
+            e.wbk = wbKeyOf(a);
+            if (Array.isArray(e.optImg))
+                e.optImg = Object.fromEntries(e.optImg.map((v, i) => [String(i), v]).filter(([, v]) => Array.isArray(v) && v.length));
+            if (!e.from) {
+                e.from = String((activeKahoot && activeKahoot.id) ||'');
+                e.fromTitle = String((activeKahoot && activeKahoot.title) ||'');
+                /* 重考時要不要去讀那一科的雲端詳解：只有內建題庫有。我的測驗的 id 拿去讀只是白花一次讀取。 */
+                e.fromBuiltin = !!(activeKahoot && activeKahoot._builtin);
+            }
+            const ex = mergedExplain(a);
+            if (ex) e.explain = JSON.parse(JSON.stringify(ex));
+            let grp = null;
+            const g = groupOf(a, activeKahoot && activeKahoot.groups);
+            if (g) {
+                /* 在錯題庫裡重考時，組號早就是換過的那一種了，不要再套一層來源。 */
+                const key = isWrongbookPlay() ? String(a.grp) : `${e.from}:${a.grp}`;
+                e.grp = key; grp = [key, JSON.parse(JSON.stringify(g))];
+            } else delete e.grp;
+            if (!e.addedAt) e.addedAt = Date.now();
+            return { e, grp };
+        }
+        /* 整份寫回去。★ 先改記憶體裡那一份再寫：訂閱的快照晚一拍才到，
+           連按兩題的時候第二題要看得到第一題已經在裡面了，不然會互相蓋掉。 */
+        async function wbSave(questions, groups) {
+            const p = PU('kahoots');
+            if (!p) return 'nologin';
+            const used = new Set(questions.map(q => q.grp).filter(g => g !== undefined && g !== null && g !== ''));
+            const gs = {};
+            for (const k of used) if (groups && groups[k]) gs[k] = groups[k];
+            const old = wrongbookDoc();
+            const payload = { title:'錯題庫', wrongbook: true, courseId:'', courseName:'', questions, groups: gs,
+                              createdAt: (old && old.createdAt) || Date.now(), updatedAt: Date.now() };
+            if (u8len(JSON.stringify(payload)) > WRONGBOOK_MAX_BYTES) return 'full';
+            const prev = old ? { ...old } : null;
+            if (old) Object.assign(old, payload);
+            else state.myKahoots = [{ id: WRONGBOOK_ID, ...payload }, ...(state.myKahoots ||[])];
+            try {
+                await setDoc(doc(db, p, WRONGBOOK_ID), payload);
+                return 'ok';
+            } catch (err) {
+                /* 寫不進去就把記憶體那一份退回去，不然畫面會說「已加入」而雲端沒有。 */
+                if (prev) Object.assign(old, prev);
+                else state.myKahoots = (state.myKahoots ||[]).filter(k => k.id !== WRONGBOOK_ID);
+                console.warn('錯題庫寫入失敗:', err && (err.code || err));
+                return 'fail';
+            }
+        }
+        async function wbAdd(list) {
+            const wb = wrongbookDoc();
+            const qs = [...((wb && wb.questions) ||[])], groups = { ...((wb && wb.groups) ||{}) };
+            const have = new Set(qs.map(wbKeyOf));
+            let added = 0;
+            for (const a of list) {
+                const k = wbKeyOf(a);
+                if (have.has(k)) continue;
+                if (qs.length >= WRONGBOOK_MAX) { showToast(`錯題庫最多 ${WRONGBOOK_MAX} 題，先重考、移掉幾題會的再加`); break; }
+                const { e, grp } = wbEntryOf(a);
+                qs.push(e); have.add(k); added++;
+                if (grp) groups[grp[0]] = grp[1];
+            }
+            if (!added) return 0;
+            const r = await wbSave(qs, groups);
+            if (r === 'full') { showToast('錯題庫太大了（題組文章很佔空間），先移掉幾題再加'); return -1; }
+            if (r !== 'ok') { showToast('沒存進錯題庫，等一下再試一次'); return -1; }
+            return added;
+        }
+        async function wbRemove(list) {
+            const wb = wrongbookDoc();
+            if (!wb) return 0;
+            const drop = new Set(list.map(wbKeyOf));
+            const qs = (wb.questions ||[]).filter(q => !drop.has(wbKeyOf(q)));
+            const n = (wb.questions ||[]).length - qs.length;
+            if (!n) return 0;
+            const r = await wbSave(qs, wb.groups ||{});
+            if (r !== 'ok') { showToast('沒改到錯題庫，等一下再試一次'); return -1; }
+            return n;
+        }
+        /* 作答畫面「下一題」旁邊那顆。答完停下來的時候才看得到（答對會自動跳題）。 */
+        function wbSyncBtn() {
+            const btn = $('kahootWbBtn');
+            if (!btn) return;
+            const a = playAnswers[playAnswers.length - 1];
+            const show = wbAllowed() && !!a;
+            btn.classList.toggle('hidden', !show);
+            if (!show) return;
+            const on = wbHas(a);
+            btn.setAttribute('aria-pressed', String(on));
+            btn.classList.toggle('is-on', on);
+            $('kahootWbLabel').textContent = isWrongbookPlay() ? (on ?'移出錯題庫' :'已移出') : (on ?'已在錯題庫' :'加入錯題庫');
+        }
+        async function wbToggleCurrent() {
+            const a = playAnswers[playAnswers.length - 1];
+            if (!a || !wbAllowed()) return;
+            const btn = $('kahootWbBtn');
+            if (btn) btn.disabled = true;
+            const on = wbHas(a);
+            const r = on ? await wbRemove([a]) : await wbAdd([a]);
+            if (btn) btn.disabled = false;
+            if (r > 0) showToast(on ?'從錯題庫拿掉了' :'收進錯題庫了（在「我的測驗」最前面）');
+            wbSyncBtn();
+            renderKahoots();
+        }
+        /* 結果頁的錯題清單：每一題一顆、外加「全部加入」。 */
+        function wbChipHTML(a, i) {
+            if (!wbAllowed()) return '';
+            const on = wbHas(a);
+            return `<button data-action="wb-toggle-answer" data-i="${i}" aria-pressed="${on}" class="wb-chip ${on ?'is-on' :''}">${
+                isWrongbookPlay() ? (on ?'移出錯題庫' :'已移出') : (on ?'✓ 已在錯題庫' :'＋ 錯題庫')}</button>`;
+        }
+        async function wbToggleAnswer(i) {
+            const a = playAnswers[Number(i)];
+            if (!a || !wbAllowed()) return;
+            const on = wbHas(a);
+            const r = on ? await wbRemove([a]) : await wbAdd([a]);
+            if (r > 0) showToast(on ?'從錯題庫拿掉了' :'收進錯題庫了');
+            renderKahootWrongList(); renderResultWb(); renderKahoots();
+        }
+        function renderResultWb() {
+            const box = $('resultWbWrap');
+            if (!box) return;
+            let html = '';
+            if (wbAllowed()) {
+                if (isWrongbookPlay()) {
+                    const ok = (playAnswers ||[]).filter(a => a.correct && wbHas(a));
+                    if (ok.length) html = `<button data-action="wb-drop-correct" class="w-full py-3 rounded-2xl font-black text-sm border-2 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors">這次答對的 ${ok.length} 題移出錯題庫</button>
+                        <p class="text-[11px] font-bold text-slate-400 mt-1.5">答錯的會留著，下次再考</p>`;
+                } else {
+                    const wrong = (playAnswers ||[]).filter(a => !a.correct);
+                    const left = wrong.filter(a => !wbHas(a));
+                    if (left.length) html = `<button data-action="wb-add-wrong" class="w-full py-3 rounded-2xl font-black text-sm border-2 border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors">答錯的 ${left.length} 題全部加入錯題庫</button>`;
+                    else if (wrong.length) html = '<p class="text-xs font-bold text-slate-400">答錯的題目都已經在錯題庫裡了（「我的測驗」最前面）</p>';
+                }
+            }
+            box.innerHTML = html;
+            box.classList.toggle('hidden', !html);
+        }
+        async function wbAddWrong() {
+            const wrong = (playAnswers ||[]).filter(a => !a.correct);
+            const r = await wbAdd(wrong);
+            if (r > 0) showToast(`收進錯題庫了（${r} 題）`);
+            renderKahootWrongList(); renderResultWb(); renderKahoots();
+        }
+        async function wbDropCorrect() {
+            const ok = (playAnswers ||[]).filter(a => a.correct);
+            const r = await wbRemove(ok);
+            if (r > 0) showToast(`移出 ${r} 題，錯題庫還剩 ${((wrongbookDoc() ||{}).questions ||[]).length} 題`);
+            renderKahootWrongList(); renderResultWb(); renderKahoots();
+        }
+        /* 我的測驗最前面那張卡。★ 還沒有任何一題的時候也要在：這是使用者唯一知道
+           「有錯題庫這種東西、它在哪裡」的地方。 */
+        function wrongbookCardHTML() {
+            const wb = wrongbookDoc();
+            const n = ((wb && wb.questions) ||[]).length;
+            const srcs = new Set(((wb && wb.questions) ||[]).map(q => q.fromTitle).filter(Boolean));
+            return `
+                <div class="wb-card bg-white rounded-3xl p-5 shadow-sm border-2 border-rose-100 flex flex-col justify-between">
+                    <div>
+                        <div class="flex justify-between items-start mb-2 gap-2">
+                            <h4 class="text-xl font-black text-slate-900 flex items-center gap-2"><i data-lucide="bookmark" class="w-5 h-5 text-rose-500"></i> 錯題庫</h4>
+                            ${n ? `<button data-action="delete" data-type="kahoot" data-id="${WRONGBOOK_ID}" class="text-slate-300 hover:text-red-500" aria-label="清空錯題庫"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                        </div>
+                        <p class="text-sm text-slate-500 font-bold mb-2">${n
+                            ? `收了 ${srcs.size || 1} 份測驗裡答錯的題目`
+                            : '答錯時按「加入錯題庫」，題目就會收到這裡'}</p>
+                        <div class="flex items-center gap-2 mb-4">
+                            <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">${n} 題</span>
+                            <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>
+                        </div>
+                    </div>
+                    <button data-action="start-kahoot" data-id="${WRONGBOOK_ID}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                        <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' : quizCount > 0 && n > quizCount ? `重考・${quizCount} 題` :'重考錯題'}
+                    </button>
+                </div>`;
+        }
+        /* ---- 錯題庫：結束（tests/quizplus.mjs 從 wrongbookDoc 那一行抽到這裡） ---- */
+
+        /* ==========================================================
+         * 聽力題（2026-10-06）
+         *
+         * 題目（或它所屬的題組）可以帶「要播出來的東西」，兩種擇一：
+         *   say    一段稿子，交給裝置內建的語音引擎唸（3.5 那一套，不花錢、多數裝置離線也會唸）。
+         *          sayLang 是語言代碼，預設 en-US。
+         *   audio  一個音檔（data/quiz/ 底下的相對路徑或 https），逐字稿另外寫在 script。
+         * 作答前看不到稿子，答完才攤開逐字稿——聽力題的稿子先給就不是聽力題了。
+         *
+         * ★ 不自動播放，跟全站「按了才唸」同一條規則（3.5 開頭寫了理由）：
+         *   打開測驗的那一刻人可能在圖書館。按一下播放鍵的成本很小，被手機出賣的成本很大。
+         * ★ 題組也可以是聽力的（多益那種一段對話配三題）：題目自己沒有就看它的題組。
+         * ⚠️ 裝置沒有語音引擎、而這一題又只有稿子：直接把稿子攤開來，題目照樣做得下去。
+         *   畫一顆按了沒聲音的播放鍵比沒有還糟——使用者會以為是自己的耳機壞了。
+         * ⚠️ 長稿要切段唸：Chrome 的線上語音一段唸超過十幾秒會自己斷掉（老問題，不報錯，
+         *   症狀是唸到一半沒聲音）。照句號切、每段兩百字以內，排隊送進去。
+         * ========================================================== */
+        const LISTEN_LANG_RE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$/;
+        function listenAudioSrc(a) {
+            const s = String(a ||'').trim();
+            if (!/\.(mp3|m4a|aac|ogg|oga|opus|wav|webm)$/i.test(s)) return '';
+            return quizImgSrc(s);      // 路徑規則跟圖同一份：相對路徑擋 ..，外部只收 https
+        }
+        /* 這一題要播什麼。回 null＝不是聽力題。 */
+        function listenOf(q, groups) {
+            const pick = (o) => {
+                if (!o) return null;
+                const src = o.audio ? listenAudioSrc(o.audio) : '';
+                const say = typeof o.say === 'string' ? o.say.trim() : '';
+                if (!src && !say) return null;
+                return { src, say: src ?'' : say,
+                         lang: LISTEN_LANG_RE.test(String(o.sayLang ||'')) ? String(o.sayLang) :'en-US',
+                         script: String((src ? o.script : (o.script || say)) ||'').trim() };
+            };
+            return pick(q) || pick(groupOf(q, groups));
+        }
+        const isListenQ = (q, groups) => !!listenOf(q, groups);
+        function pickVoiceFor(lang) {
+            try {
+                const list = speechSynthesis.getVoices() || [];
+                const want = String(lang).toLowerCase().replace('_', '-');
+                const base = want.split('-')[0];
+                const L = (v) => String(v.lang ||'').toLowerCase().replace('_', '-');
+                return list.find(v => L(v) === want && v.localService)
+                    || list.find(v => L(v) === want)
+                    || list.find(v => L(v).split('-')[0] === base && v.localService)
+                    || list.find(v => L(v).split('-')[0] === base)
+                    || null;
+            } catch (e) { return null; }
+        }
+        /* 長稿切段：先照句尾標點切，太長的再照逗號、最後硬切。 */
+        function listenChunks(text, max = 200) {
+            const out = [];
+            const parts = String(text ||'').split(/(?<=[.!?。！？；;\n])\s*/).map(x => x.trim()).filter(Boolean);
+            for (let p of parts) {
+                while (p.length > max) {
+                    let cut = Math.max(p.lastIndexOf(', ', max), p.lastIndexOf('，', max), p.lastIndexOf(' ', max));
+                    if (cut < max / 3) cut = max;
+                    out.push(p.slice(0, cut).trim()); p = p.slice(cut).trim();
+                }
+                if (p) out.push(p);
+            }
+            return out;
+        }
+        /* 唸聽力稿。★ 跟 speakEnglish 同一套保險（先 cancel、壓著 utterance、收樣式前比對是不是自己），
+             多的是語言與切段。壓著的是**整串**，不是最後一段：Chrome 回收的是沒有人指著的那一段。 */
+        function speakListen(text, lang, rate, btn) {
+            const chunks = listenChunks(speechText(text));
+            if (!SPEAK_OK || !chunks.length) return;
+            try {
+                if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
+                const v = lang === 'en-US' ? pickEnVoice() : pickVoiceFor(lang);
+                if (speakBtnOn) speakBtnOn.classList.remove('is-speaking');
+                speakBtnOn = btn || null;
+                if (speakBtnOn) speakBtnOn.classList.add('is-speaking');
+                const off = () => { if (btn && speakBtnOn === btn) { btn.classList.remove('is-speaking'); speakBtnOn = null; } };
+                const us = chunks.map((c, i) => {
+                    const u = new SpeechSynthesisUtterance(c);
+                    u.lang = lang; u.rate = rate;
+                    if (v) u.voice = v;
+                    if (i === chunks.length - 1) u.onend = off;
+                    u.onerror = off;
+                    return u;
+                });
+                speakHold = us;
+                us.forEach(u => speechSynthesis.speak(u));
+            } catch (e) { /* 唸不出來就算了，不要跳錯誤打斷作答 */ }
+        }
+        function listenStop() {
+            try { if (listenAudio) listenAudio.pause(); } catch (e) {}
+            try { if (SPEAK_OK && (speechSynthesis.speaking || speechSynthesis.pending)) speechSynthesis.cancel(); } catch (e) {}
+        }
+        function updateListenCount() {
+            const el = $('kahootListenCount');
+            if (el) el.textContent = listenPlays ? `聽了 ${listenPlays} 次` :'按播放開始聽';
+        }
+        function showListenScript() {
+            const L = listenNow, box = $('kahootListenScript');
+            if (!L || !box || !L.script) return;
+            box.innerHTML = `<div class="quiz-listen-script"><p class="text-[11px] font-black text-slate-400 mb-1">逐字稿</p><p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${mathHTML(L.script)}</p></div>`;
+            box.classList.remove('hidden');
+            renderMath(box);
+        }
+        /* 每一題畫的時候叫一次：停掉上一題的聲音、決定這一題有沒有播放鍵。 */
+        function renderListen(qData) {
+            listenStop();
+            const wrap = $('kahootListenWrap');
+            listenNow = null; listenPlays = 0;
+            if (!wrap) return;
+            const box = $('kahootListenScript');
+            if (box) { box.classList.add('hidden'); box.innerHTML = ''; }
+            const L = listenOf(qData, activeKahoot && activeKahoot.groups);
+            listenNow = L;
+            wrap.classList.toggle('hidden', !L);
+            if (!L) return;
+            const can = !!L.src || SPEAK_OK;
+            $('kahootListenBtns').classList.toggle('hidden', !can);
+            $('kahootListenNo').classList.toggle('hidden', can);
+            if (!can) showListenScript();
+            updateListenCount();
+        }
+        function listenPlay(slow, btn) {
+            const L = listenNow;
+            if (!L) return;
+            if (L.src) {
+                try {
+                    if (!listenAudio || listenAudio._src !== L.src) {
+                        if (listenAudio) listenAudio.pause();
+                        listenAudio = new Audio(L.src);
+                        listenAudio._src = L.src;
+                    }
+                    listenAudio.playbackRate = slow ? 0.75 : 1;
+                    listenAudio.currentTime = 0;
+                    const pr = listenAudio.play();
+                    if (pr && pr.catch) pr.catch(() => showToast('音檔播不出來，檢查一下網路再按一次'));
+                } catch (e) { showToast('音檔播不出來'); }
+            } else speakListen(L.say, L.lang, slow ? 0.65 : 0.92, btn);
+            listenPlays++;
+            updateListenCount();
+        }
+        /* 詳解頁與錯題清單：稿子直接印出來（那兩個地方本來就是攤開答案的）。 */
+        function listenNoteHTML(q, groups) {
+            const L = listenOf(q, groups);
+            if (!L) return '';
+            return `<div class="quiz-listen-script mb-3"><p class="text-[11px] font-black text-slate-400 mb-1">🎧 聽力題・逐字稿</p><p class="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">${L.script ? mathHTML(L.script) :'（這一題是音檔，沒有附逐字稿）'}</p></div>`;
+        }
+        /* 出題表單的「試聽」。 */
+        function draftSayTest(btn) {
+            const say = String(($('qSay') || {}).value ||'').trim();
+            if (!say) return showToast('先寫稿子再試聽');
+            if (!SPEAK_OK) return showToast('這台裝置沒有語音引擎，唸不出來');
+            const lang = String(($('qSayLang') || {}).value ||'en-US');
+            speakListen(say, LISTEN_LANG_RE.test(lang) ? lang :'en-US', 0.92, btn);
+        }
+        /* ---- 聽力題：結束（tests/quizplus.mjs 從 LISTEN_LANG_RE 那一行抽到這裡） ---- */
+
+        /* ==========================================================
          * 草稿紙（2026-09-29）：做測驗時旁邊一張可以用 Apple Pencil 等觸控筆寫的計算紙。
          *
          * ★ 只給平板：手機螢幕切一半給草稿紙，題目就只剩一條縫；桌機沒有筆。
@@ -17732,7 +18311,8 @@
             const dpr = window.devicePixelRatio || 1;
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            /* 墨水色跟著主題走（深色模式是淺色字），每次畫都重讀一次。 */
+            /* 墨水色讀 .scratch 的 color。2026-10-06 起紙固定是淺色、墨固定深色（見 CSS 那一段），
+               但還是每次畫都重讀一次：哪天紙又要跟著主題走，這裡不必改。 */
             ctx.strokeStyle = ctx.fillStyle = getComputedStyle($('scratchPad')).color;
         }
         function scratchDrawStroke(ctx, st) {
@@ -17916,11 +18496,12 @@
             const pad = getComputedStyle($('scratchPad'));
             ctx.scale(scale, scale);
             ctx.fillStyle = pad.backgroundColor; ctx.fillRect(0, 0, w, h);
-            /* 方格對齊原本那張紙的格線（24 px 一格），所以要從紙的座標原點算偏移。 */
-            ctx.strokeStyle = pad.borderTopColor || '#d8c79c'; ctx.lineWidth = 1;
+            /* 橫線對齊原本那張紙（2026-10-06 起是筆記紙：每 24 px 一條、落在第 23 列），
+               所以要從紙的座標原點算偏移。⚠️ 紙的頁首貼圖不畫進來：拍的是「寫過的那一塊」，
+               多半不在第一張紙的頂端，硬畫上去會在算式中間冒出一行 No.／Date。 */
+            ctx.strokeStyle = pad.borderTopColor || '#c8c4be'; ctx.lineWidth = 1;
             ctx.beginPath();
-            for (let x = Math.ceil(x0 / 24) * 24; x < x1; x += 24) { ctx.moveTo(x - x0 + .5, 0); ctx.lineTo(x - x0 + .5, h); }
-            for (let y = Math.ceil(y0 / 24) * 24; y < y1; y += 24) { ctx.moveTo(0, y - y0 + .5); ctx.lineTo(w, y - y0 + .5); }
+            for (let y = Math.ceil((y0 - 23) / 24) * 24 + 23; y < y1; y += 24) { ctx.moveTo(0, y - y0 + .5); ctx.lineTo(w, y - y0 + .5); }
             ctx.stroke();
             ctx.translate(-x0, -y0);
             ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -18191,6 +18772,8 @@
                 qImgs.innerHTML = html;
                 qImgs.classList.toggle('hidden', !html);
             }
+            /* 聽力題：停掉上一題的聲音、畫這一題的播放鍵（不是聽力題就整塊收起來）。 */
+            renderListen(qData);
             /* 唸題目只給英文的那幾種測驗（克漏字／今日測驗／錯題複習／單字冊）。
                ★ 判準借 `kahootFeedsSrs()`：會寫回記憶曲線的，就是那幾種英文測驗。
                  公有／我的測驗的題目是自己打的中文，掛一顆英文喇叭上去
@@ -18290,6 +18873,8 @@
             }
             /* 作答之後那顆鈕就沒有意義了（這一題已經定案），收起來免得被按。 */
             $('kahootUnsureWrap').classList.add('hidden');
+            /* 聽力題：答完才攤開逐字稿。 */
+            showListenScript();
 
             // 直接在選項上給回饋。三個狀態各自是一個 class，不再去改寫
             // className 字串——上一版為了蓋掉底色會先用正規表示式把
@@ -18348,6 +18933,7 @@
                 renderMath(wrap);
                 // 答錯不自動跳：每個人看懂正解需要的時間不一樣，交給使用者決定
                 $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ?'看結果' :'下一題';
+                wbSyncBtn();
                 $('kahootNextWrap').classList.remove('hidden');
                 icons();
                 /* ★ 答錯的當下也要把圖攤開來——這一眼正是這個功能存在的理由。
@@ -18433,12 +19019,14 @@
             };
             $('resultWrongList').innerHTML = wrong.map(a => {
                 const full = Array.isArray(a.optionWords) && a.optionWords.some(Boolean);
+                /* 錯題庫那顆（只有一般測驗有，見 wbChipHTML）。索引是在 playAnswers 裡的位置。 */
+                const wb = wbChipHTML(a, playAnswers.indexOf(a));
                 return `
-                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">
+                    <div class="bg-slate-50 rounded-2xl p-4 border border-slate-100">${wb ? `<div class="flex justify-end mb-1.5">${wb}</div>` :''}
                         ${/* 題組題只有「第 (41) 格」這種題幹，沒有文章就看不懂——收在一個可以展開的小塊裡。 */
                           (() => { const g = groupOf(a, activeKahoot && activeKahoot.groups);
                                    return g ? `<details class="mb-2"><summary class="text-[11px] font-black text-slate-400 cursor-pointer">看題組內容</summary><div class="quiz-group mt-1.5">${groupBodyHTML(g)}</div></details>` :''; })()}
-                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${mathHTML(a.q)}</p>${/* 有圖才叫：沒圖的題目（克漏字、單字冊）一個外部名字都不碰 */ a.img ? questionImgHTML(a) :''}${full ? `
+                        <p class="font-black text-slate-800 text-sm mb-2 break-words">${mathHTML(a.q)}</p>${listenNoteHTML(a, activeKahoot && activeKahoot.groups)}${/* 有圖才叫：沒圖的題目（克漏字、單字冊）一個外部名字都不碰 */ a.img ? questionImgHTML(a) :''}${full ? `
                         <div class="space-y-1.5">${(a.options ||[]).map((_, i) => row(a, i)).join('')}</div>
                         <p class="text-[11px] font-bold text-slate-400 mt-2">還有不會的嗎？勾起來一起記進錯題本</p>` : `
                         ${wrongLines(a)}`}
@@ -18455,6 +19043,7 @@
                ★ 其他測驗（單字測驗、克漏字）沒有 `drill`，這裡直接回 false。 */
             if (maybeDrillAgain()) return;
             endDrill();
+            listenStop();
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
             /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
@@ -18496,6 +19085,7 @@
 '先把下面錯的弄懂，再挑戰一次';
 
             renderKahootWrongList();
+            renderResultWb();
             $('kahootResultModal').classList.remove('hidden');
             $('kahootResultModal').classList.add('flex');
             icons();
@@ -18512,6 +19102,7 @@
             if (answered > 0 && currentQIndex < total) {
                 if (!confirm(`還有 ${total - answered} 題沒作答，確定要離開嗎？目前分數不會保留。`)) return;
             }
+            listenStop();
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
             $('kahootNextWrap').classList.add('hidden');
@@ -20772,6 +21363,12 @@
 'solve-settings-test':  () => testSolveSettings(),
 'solve-settings-close': () => closeModal('solveSettingsModal'),
 'start-kahoot':    (t) => startKahoot(t.dataset.id, t.dataset.unit),
+'wb-toggle':       ()  => wbToggleCurrent(),
+'listen-play':     (t) => listenPlay(!!t.dataset.slow, t),
+'draft-say-test':  (t) => draftSayTest(t),
+'wb-toggle-answer': (t) => wbToggleAnswer(t.dataset.i),
+'wb-add-wrong':    ()  => wbAddWrong(),
+'wb-drop-correct': ()  => wbDropCorrect(),
 'pick-quiz-unit':  (t) => pickQuizUnit(t.dataset.unit),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
@@ -21414,6 +22011,13 @@
             /* 多選開關是 checkbox，要聽 change 不是 click——聽 click 的話用鍵盤
                （空白鍵）切換不會觸發，而那種漏法在滑鼠上完全看不出來。 */
             { const t = $('draftMultiToggle'); if (t) t.addEventListener('change', applyDraftMultiMode); }
+            /* 題數：下拉選單聽 change；自訂的數字聽 input（邊打邊存），離開時再把畫面對齊一次
+               （打了 0 或空白就離開的話，格子要回到實際在用的那個數字）。 */
+            if ($('quizCountSel')) $('quizCountSel').addEventListener('change', onQuizCountSel);
+            if ($('quizCountCustom')) {
+                $('quizCountCustom').addEventListener('input', onQuizCountCustom);
+                $('quizCountCustom').addEventListener('blur', updateQuizCountUI);
+            }
             bind('closeResultBtn', () => { $('kahootResultModal').classList.add('hidden'); $('kahootResultModal').classList.remove('flex'); });
 
             // 回報字數。用 input 而不是 keyup：貼上與注音選字都涵蓋得到
