@@ -292,11 +292,23 @@
             transition: transform var(--dur-page) var(--ease); }
         /* ⚠️ 這兩條自己設了 display，跟 Tailwind 的 .hidden 同分，誰贏看樣式的先後——寫明白。 */
         .scratch.hidden, .scratch-toggle.hidden { display: none; }
-        /* ---- 題數（2026-10-06）：下拉選單與自訂的輸入框長在那顆膠囊裡，自己不要再有框與底 ---- */
-        .quiz-count-sel { background: transparent; border: 0; padding: 0 2px; font: inherit; color: var(--ink); cursor: pointer; }
-        .quiz-count-num { width: 3.6rem; padding: 2px 6px; border-radius: 8px; border: 1px solid var(--rule-strong);
+        /* ---- 題數（2026-10-06）----
+           ★ 第一版是灰底膠囊裡一個透明、沒有框也沒有箭頭的下拉選單，讀起來是「題數 全部」兩個字，
+             看不出那是可以按的，也看不出「全部」指的是什麼（使用者回報：標示不清楚）。
+             改成：外框＋「每次考」＋一格有框、有向下箭頭的選單＋「題」，有設上限時整顆亮起來
+             （跟錯題庫鈕 is-on 同一套 token，深色主題自己會換色，不必另外寫 html.dark）。
+           ⚠️ 選單用 appearance:none 把系統箭頭拿掉、自己畫一個：各家系統的箭頭大小不一，
+             Safari 甚至沒有，原本那版在 iPhone 上就是一行字。箭頭 pointer-events:none，點到它等於點到選單。 */
+        .quiz-count { display: flex; align-items: center; gap: 6px; padding: 5px 8px 5px 12px; border-radius: 16px;
+            border: 1.5px solid var(--rule-strong); background: var(--panel); color: var(--ink-2); font-size: 12px; font-weight: 900; }
+        .quiz-count.is-on { border-color: var(--accent-bright); background: var(--accent-soft); color: var(--ink); }
+        .quiz-count-pick { position: relative; display: inline-flex; align-items: center; }
+        .quiz-count-sel { appearance: none; -webkit-appearance: none; background: var(--panel); border: 1px solid var(--rule-strong);
+            border-radius: 10px; padding: 3px 24px 3px 9px; font: inherit; color: var(--ink); cursor: pointer; }
+        .quiz-count-caret { position: absolute; right: 6px; width: 14px; height: 14px; pointer-events: none; color: var(--ink-3); }
+        .quiz-count-num { width: 3.6rem; padding: 3px 6px; border-radius: 10px; border: 1px solid var(--rule-strong);
             background: var(--panel); color: var(--ink); font: inherit; text-align: center; }
-        .quiz-count-num.hidden { display: none; }
+        .quiz-count-num.hidden, .quiz-count-unit.hidden { display: none; }
         /* ---- 錯題庫（2026-10-06）：按下去之後要看得出「已經收了」 ---- */
         #kahootWbBtn.is-on { border-color: var(--accent-bright); background: var(--accent-soft); color: var(--ink); }
         #kahootWbBtn:disabled { opacity: .5; }
@@ -3931,14 +3943,18 @@
                 <!-- 題數（2026-10-06）：這一場考幾題。★ 用原生的下拉選單：手機上會叫出系統的滾輪，
                      不必自己做一排六顆鈕把這一列擠成兩行。選「自訂…」才長出輸入框。 -->
                 <div class="ml-auto flex flex-wrap items-center justify-end gap-2">
-                <div id="quizCountWrap" class="quiz-count px-3 py-2 rounded-2xl text-xs font-black bg-slate-100 text-slate-500 flex items-center gap-1.5">
+                <div id="quizCountWrap" class="quiz-count" title="每次按「開始測驗」要考幾題">
                     <i data-lucide="list-ordered" class="w-3.5 h-3.5 pointer-events-none"></i>
-                    <span class="pointer-events-none">題數</span>
-                    <select id="quizCountSel" aria-label="這一場考幾題" class="quiz-count-sel">
-                        <option value="0">全部</option><option value="5">5 題</option><option value="10">10 題</option>
-                        <option value="20">20 題</option><option value="50">50 題</option><option value="custom">自訂…</option>
-                    </select>
-                    <input id="quizCountCustom" type="number" min="1" max="999" step="1" inputmode="numeric" aria-label="自訂題數" class="quiz-count-num hidden">
+                    <span class="pointer-events-none">每次考</span>
+                    <span class="quiz-count-pick">
+                        <select id="quizCountSel" aria-label="每次測驗考幾題" class="quiz-count-sel">
+                            <option value="0">全部題目</option><option value="5">5 題</option><option value="10">10 題</option>
+                            <option value="20">20 題</option><option value="50">50 題</option><option value="custom">自訂題數…</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="quiz-count-caret"></i>
+                    </span>
+                    <input id="quizCountCustom" type="number" min="1" max="999" step="1" inputmode="numeric" placeholder="幾" aria-label="自訂題數" class="quiz-count-num hidden">
+                    <span id="quizCountUnit" class="quiz-count-unit pointer-events-none hidden">題</span>
                 </div>
                 <button id="shuffleToggleBtn" data-action="toggle-shuffle" class="px-4 py-2 rounded-2xl text-xs font-black transition-all flex items-center gap-2"><i data-lucide="shuffle" class="w-3.5 h-3.5 pointer-events-none"></i> <span id="shuffleToggleLabel">題目亂序</span></button>
                 </div>
@@ -7650,6 +7666,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-06',
+                title: '多益、托福有聽力題了，「考幾題」也更好認',
+                items: [
+                    ['多益聽力模擬題', '內建題庫的「英文檢定」多了一份多益聽力，49 題：第二大題（聽一句話、選哪個回應最合理）、第三大題（兩個人的對話）、第四大題（廣播、留言、導覽這類一個人講的）。按「播放」由手機或電腦唸出來，答完看得到逐字稿和中文解說。題目都是我們自己寫的，不是考古題。'],
+                    ['托福聽力模擬題', '也多了一份托福聽力，32 題：聽一句話選回應、校園對話、校園公告、上課講課（蜜蜂跳舞、城市為什麼比較熱、顏料管怎麼改變了畫畫）。一樣是自己寫的。'],
+                    ['對話聽得出是兩個人在講', '聽力稿裡寫了「W:」「M:」的，現在會換人唸：盡量用一個女生、一個男生的聲音，裝置上只有一種聲音的話就把高低拉開。以前會把「W」這個字母也唸出來，而且從頭到尾同一個人在講。自己出的聽力題也一樣適用。'],
+                    ['「考幾題」看得出來是可以按的', '測驗頁右上角原本寫「題數 全部」，看不太出來那是一個可以選的地方。現在寫成「每次考 全部題目 ▾」，有外框和下拉箭頭；選了 10 題之類的上限，整顆會亮起來，提醒你這次不是全部都考。'],
+                ]
+            },
             {
                 date: '2026-10-06',
                 title: '測驗多了錯題庫、聽力題，還可以選這次考幾題',
@@ -16296,6 +16322,10 @@
             const custom = quizCountCustom || (quizCount > 0 && !QUIZ_COUNT_PRESETS.includes(quizCount));
             sel.value = custom ? 'custom' : String(quizCount);
             num.classList.toggle('hidden', !custom);
+            /* 自訂的格子後面補一個「題」，有設上限時整顆亮起來——一眼看得出「這次不是全部」。 */
+            const unit = $('quizCountUnit'), wrap = $('quizCountWrap');
+            if (unit) unit.classList.toggle('hidden', !custom);
+            if (wrap) wrap.classList.toggle('is-on', quizCount > 0);
             if (custom && document.activeElement !== num) num.value = quizCount > 0 ? String(quizCount) : '';
         }
         function saveQuizCount() {
@@ -16326,6 +16356,7 @@
             quizCount = Math.min(999, n);
             quizCountCustom = true;
             saveQuizCount();
+            { const w = $('quizCountWrap'); if (w) w.classList.add('is-on'); }   // 不叫整支 updateQuizCountUI：會改到正在打的格子
             renderKahoots();
         }
         /* 從一場的題目裡拿前 n 題（亂序已經在前面做過了）。
@@ -18171,23 +18202,81 @@
             }
             return out;
         }
+        /* 說話者（2026-10-06，內建多益／托福聽力題那一輪加的）。
+           稿子裡寫 `W:`／`M:`（也收 Woman／Man／Narrator／N／Professor／Student）就換人唸：
+           標籤本身不唸，女聲男聲盡量挑兩個不同的聲音，挑不到就同一個聲音、把音高拉開。
+           ★ 原本標籤會被照字唸出來（「W, excuse me…」），而且一段對話從頭到尾同一個人在講，
+             聽的人分不出哪一句是誰說的——多益第三大題整題就是在問「男的說了什麼」。
+           ★ 標籤不必換行也認得（出題表單的範例就寫成一行）。前面一定要是開頭或空白：
+             「at 5 p.m.: 」那種不會被當成換人。
+           ⚠️ 沒有任何標籤的稿子整段走原本那條路（同一個聲音、音高不動），舊題目聽起來一模一樣。 */
+        const LISTEN_SPK_RE = /(?:^|\s)(W|M|N|Woman|Man|Narrator|Professor|Student)\s*[:：]\s*/gi;
+        function listenTurns(text) {
+            const s = String(text ||''), turns = [];
+            let who = '', last = 0, m;
+            LISTEN_SPK_RE.lastIndex = 0;
+            while ((m = LISTEN_SPK_RE.exec(s))) {
+                const body = s.slice(last, m.index).trim();
+                if (body) turns.push({ who, text: body });
+                who = m[1].toLowerCase(); last = LISTEN_SPK_RE.lastIndex;
+            }
+            const tail = s.slice(last).trim();
+            if (tail) turns.push({ who, text: tail });
+            return turns;
+        }
+        /* 從名字猜聲音的性別。★ 只是猜：Windows（Zira／David／Mark）、iPhone（Samantha／Aaron…）、
+             Chrome 線上（Google US English 是女聲、UK English Male）猜得到；Android 的名字多半不帶性別，
+             那就兩邊都挑不到，退回「同一個聲音、音高拉開」。
+           ⚠️ 先比女聲：female 裡面有 male，男聲那條用 \bmale\b 才不會把女聲也收進去。 */
+        /* ⚠️ 名字一律用 \b 包起來：沒包的話 eric 會吃到 "American"、mark 會吃到 "Denmark"。 */
+        const LISTEN_F_RE = /female|woman|\b(zira|samantha|aria|jenny|susan|karen|moira|tessa|victoria|allison|ava|nicky|serena|kate|libby|sonia|emma|michelle)\b|google us english$/i;
+        const LISTEN_M_RE = /\bmale\b|\b(man|david|mark|guy|alex|fred|daniel|aaron|tom|oliver|arthur|ryan|eric|christopher|rishi|george|james|andrew|brian)\b/i;
+        function listenVoicePair(lang) {
+            let list = [];
+            try { list = speechSynthesis.getVoices() || []; } catch (e) {}
+            const want = String(lang).toLowerCase().replace('_', '-'), base = want.split('-')[0];
+            const L = (v) => String(v.lang ||'').toLowerCase().replace('_', '-');
+            const same = list.filter(v => L(v) === want);
+            const pool = same.concat(list.filter(v => L(v) !== want && L(v).split('-')[0] === base));
+            const first = (arr) => arr.find(v => v.localService) || arr[0] || null;
+            const f = first(pool.filter(v => LISTEN_F_RE.test(v.name ||'')));
+            const m = first(pool.filter(v => !LISTEN_F_RE.test(v.name ||'') && LISTEN_M_RE.test(v.name ||'')));
+            return { f, m };
+        }
+        /* 稿子 → 一串「誰、用哪個聲音、什麼音高、唸哪一段」。 */
+        function listenPlan(text, lang) {
+            const base = lang === 'en-US' ? pickEnVoice() : pickVoiceFor(lang);
+            const turns = listenTurns(text);
+            if (!turns.some(t => t.who)) return [{ voice: base, pitch: 1, text: String(text ||'') }];
+            const pair = listenVoicePair(lang);
+            const two = !!(pair.f && pair.m && pair.f !== pair.m);
+            const order = [];      // 沒寫性別的說話者（Professor／Student）照出場順序一男一女輪
+            return turns.map(t => {
+                if (!t.who || t.who === 'n' || t.who === 'narrator') return { voice: base, pitch: 1, text: t.text };
+                let g = /^(w|woman)$/.test(t.who) ? 'f' : /^(m|man)$/.test(t.who) ? 'm' : '';
+                if (!g) { if (!order.includes(t.who)) order.push(t.who); g = order.indexOf(t.who) % 2 ? 'f' : 'm'; }
+                return { voice: (two ? pair[g] : (pair[g] || base)), pitch: two ? 1 : (g === 'f' ? 1.2 : 0.8), text: t.text };
+            });
+        }
         /* 唸聽力稿。★ 跟 speakEnglish 同一套保險（先 cancel、壓著 utterance、收樣式前比對是不是自己），
-             多的是語言與切段。壓著的是**整串**，不是最後一段：Chrome 回收的是沒有人指著的那一段。 */
+             多的是語言、說話者與切段。壓著的是**整串**，不是最後一段：Chrome 回收的是沒有人指著的那一段。 */
         function speakListen(text, lang, rate, btn) {
-            const chunks = listenChunks(speechText(text));
-            if (!SPEAK_OK || !chunks.length) return;
+            if (!SPEAK_OK) return;
+            const parts = [];
+            listenPlan(text, lang).forEach(p => listenChunks(speechText(p.text)).forEach(c => parts.push({ ...p, text: c })));
+            if (!parts.length) return;
             try {
                 if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
-                const v = lang === 'en-US' ? pickEnVoice() : pickVoiceFor(lang);
                 if (speakBtnOn) speakBtnOn.classList.remove('is-speaking');
                 speakBtnOn = btn || null;
                 if (speakBtnOn) speakBtnOn.classList.add('is-speaking');
                 const off = () => { if (btn && speakBtnOn === btn) { btn.classList.remove('is-speaking'); speakBtnOn = null; } };
-                const us = chunks.map((c, i) => {
-                    const u = new SpeechSynthesisUtterance(c);
+                const us = parts.map((p, i) => {
+                    const u = new SpeechSynthesisUtterance(p.text);
                     u.lang = lang; u.rate = rate;
-                    if (v) u.voice = v;
-                    if (i === chunks.length - 1) u.onend = off;
+                    if (p.pitch !== 1) u.pitch = p.pitch;
+                    if (p.voice) u.voice = p.voice;
+                    if (i === parts.length - 1) u.onend = off;
                     u.onerror = off;
                     return u;
                 });
