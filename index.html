@@ -3971,7 +3971,13 @@
                  條件就是保留原始著作權聲明，拿掉它這批題目就不能放在站上。
                  內容由 renderBuiltinQuizCredit() 從索引檔的 source 填，不寫死在
                  這裡——換資料來源的時候才不會留下一段錯的聲明。 -->
-            <div id="kahootBuiltinCredit" class="hidden mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4"></div>
+            <!-- 2026-10-06：預設收起來（一長串小字佔掉半個畫面）。★ 收起來不是拿掉：
+                 字還在頁面上，點一下就展開，MIT 要的「保留聲明」照樣成立。
+                 ★ <details> 本身只建一次、只換裡面那一格，所以使用者打開之後換段、搜尋都不會被關回去。 -->
+            <details id="kahootBuiltinCredit" class="hidden mt-6 text-xs text-slate-400 leading-relaxed border-t border-slate-100 pt-4">
+                <summary id="kahootBuiltinCreditSum" class="cursor-pointer font-black select-none">題目來源與授權</summary>
+                <div id="kahootBuiltinCreditList" class="mt-2"></div>
+            </details>
             </div>
 
             <!-- 完整題目與解答。★ 只有內建題庫進得來：公有與我的測驗把答案
@@ -5292,6 +5298,34 @@
         </div>
     </div>
 
+    <!-- 錯題庫（2026-10-06 晚）：收進哪一本、新增／改名。
+         ★ z-[60]：「收進哪一本」是從作答畫面（z-50）上面叫出來的，同一層的話會被壓在底下。
+         ★ 沒有背景模糊：理由同 vocabFolderModal 那段註解。 -->
+    <div id="wbPickModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[60] p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="wbPickTitle">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-rose-400">
+            <h3 id="wbPickTitle" class="text-2xl font-bold mb-5 text-slate-900">收進哪一本錯題冊？</h3>
+            <div id="wbPickList" class="space-y-2 mb-5"></div>
+            <p class="text-xs font-black text-slate-400 mb-2">或開一本新的</p>
+            <div class="flex gap-2">
+                <input type="text" id="wbPickNewName" maxlength="30" placeholder="名字（如：期中考、英文文法）" class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-rose-400 font-bold" aria-label="新錯題冊的名字">
+                <button data-action="wb-pick-new" class="shrink-0 px-4 py-3 bg-rose-500 text-white rounded-2xl font-bold hover:bg-rose-400 transition-colors">開新的並收進去</button>
+            </div>
+            <button data-close="wbPickModal" class="w-full mt-5 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+        </div>
+    </div>
+    <div id="wbNameModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[60] p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="wbNameTitle">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-rose-400">
+            <h3 id="wbNameTitle" class="text-2xl font-bold mb-6 text-slate-900">新增錯題冊</h3>
+            <input type="hidden" id="wbNameId" value="">
+            <input type="text" id="wbNameInput" maxlength="30" placeholder="名字（如：期中考、英文文法）" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-rose-400 font-bold text-lg" aria-label="錯題冊的名字">
+            <div class="flex gap-4 pt-6">
+                <button data-close="wbNameModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                <button data-action="wb-name-save" class="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-bold shadow-lg hover:bg-rose-400 transition-colors">儲存</button>
+            </div>
+        </div>
+    </div>
+
+
     <!-- 記帳 -->
     <div id="expenseModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500">
@@ -6311,6 +6345,11 @@
         /* 錯題庫（2026-10-06）：users/{uid}/kahoots/ 底下固定這個 id 的那一份（見「錯題庫」那一節）。
            上限：題數 300、整份 900 KB（Firestore 一份文件 1 MiB，留一點給欄位名與題組文章）。 */
         const WRONGBOOK_ID = 'wrongbook', WRONGBOOK_MAX = 300, WRONGBOOK_MAX_BYTES = 900000;
+        /* 2026-10-06 晚：錯題庫變成資料夾。上面那些上限現在是「一本」的；本數另外封頂，冊名 30 字。
+           wbFolderOpen＝我的測驗是不是正站在資料夾裡（renderKahoots 載入途中就會讀，所以宣告在這裡）；
+           wbPending＝「收進哪一本」視窗開著時，等著被收的那幾題與收完要重畫什麼。 */
+        const WB_BOOKS_MAX = 30, WB_NAME_MAX = 30;
+        let wbFolderOpen = false, wbPending = null;
         /* 這一題有沒有按過「我其實不確定」。⚠️ 每一題都要歸零（`renderPlayQuestion`），
            不歸零的話按過一次就整場都不算數，而畫面上只是那顆按鈕看起來一直亮著。
            ★ 宣告在狀態區不是習慣問題：`renderPlayQuestion` 會碰到它，
@@ -7666,6 +7705,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-06',
+                title: '錯題庫可以分成好幾本了',
+                items: [
+                    ['錯題庫變成一個資料夾', '「我的測驗」最前面的錯題庫現在是一個資料夾，點開裡面可以放好幾本錯題冊，名字自己取，例如「期中考」「英文文法」。每一本都可以單獨重考、改名、刪掉。之前收的錯題都還在，就是資料夾裡的第一本「錯題庫」。'],
+                    ['收錯題時選要放哪一本', '答錯按「加入錯題庫」（或結束時按「全部加入」），如果你已經有錯題冊，會問你要收進哪一本，也可以當場打個名字開一本新的。還沒有任何一本的話就直接收進「錯題庫」，不用多按。'],
+                    ['重考時答對的移出那一本', '重考某一本錯題冊時，「移出」只會從這一本拿掉，不會動到其他本。'],
+                    ['題目來源先收起來', '內建題庫最下面那一長串題目來源與授權，現在預設收起來，只剩一行「題目來源與授權」，想看再點開。'],
+                ]
+            },
             {
                 date: '2026-10-06',
                 title: '多益、托福有聽力題了，「考幾題」也更好認',
@@ -16406,6 +16455,7 @@
             /* 切到別的分頁要先回清單。不回的話詳解頁會留在畫面上，
                而它顯示的是另一個分頁的東西。 */
             if (viewingQuizId) closeQuizDetail();
+            wbFolderOpen = false;
             kahootScope = scope;
             if (scope ==='builtin') loadBuiltinQuizIndex();
             renderKahoots();
@@ -17249,7 +17299,9 @@
             const show = kahootScope ==='builtin' && all.length > 0;
             box.classList.toggle('hidden', !show);
             if (!show) return;
-            box.innerHTML = all.map(s => `<div class="mb-1">${builtinQuizCreditHTML(s)}</div>`).join('');
+            const list = $('kahootBuiltinCreditList'), sum = $('kahootBuiltinCreditSum');
+            if (sum) sum.textContent = `題目來源與授權（${all.length} 份，點開看）`;
+            if (list) list.innerHTML = all.map(s => `<div class="mb-1">${builtinQuizCreditHTML(s)}</div>`).join('');
         }
 
         /* 客群段的篩選鏈。只在內建分頁出現——「我的測驗」是使用者自己出的題，
@@ -17377,8 +17429,16 @@
                也不進底下那一排——它沒有編輯鈕，用出題表單打開的話題組與圖都會掉。 */
             let wbHead ='';
             if (kahootScope ==='mine') {
-                filtered = filtered.filter(k => k.id !== WRONGBOOK_ID);
-                wbHead = wrongbookCardHTML();
+                filtered = filtered.filter(k => !isWbDoc(k));
+                /* 站在資料夾裡：整片只畫冊子（不吃搜尋，已經在裡面了）。 */
+                if (wbFolderOpen) {
+                    list.innerHTML = wrongbookFolderBodyHTML();
+                    renderBuiltinQuizCredit();
+                    renderKahootSegs();
+                    icons();
+                    return;
+                }
+                wbHead = wrongbookFolderHTML();
             }
             if (filtered.length === 0) {
                 list.innerHTML = wbHead + `<div class="oil-empty col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">${KAHOOT_SCOPE_META[kahootScope].empty}</div>`;
@@ -17797,7 +17857,7 @@
                                 : { ...kahoot, _general: true };
             /* 重考錯題庫：題目來自好幾份內建題庫，各自的雲端詳解要先讀（答錯當下就要展開）。
                讀不到就用收進來時抄的那一份。 */
-            if (kahoot.id === WRONGBOOK_ID)
+            if (isWbDoc(kahoot))
                 for (const f of new Set(kahoot.questions.filter(q => q.fromBuiltin && q.from).map(q => q.from))) await loadQuizExplains(f);
             // 題目亂序：同一份測驗練第二次才不會變成背答案的位置
             /* ⚠️ 2026-09-28 起亂序要整組搬（shuffleKeepGroups）。用回單題亂序的話，
@@ -17939,9 +17999,31 @@
          * ★ 只給「一般測驗」（內建題庫、我的測驗、錯題庫本身）。克漏字／今日測驗／單字測驗
          *   各自有錯題本與排程，再多一個錯題庫只會讓使用者搞不清楚錯的字到底記在哪。
          * ========================================================== */
-        const wrongbookDoc = () => (state.myKahoots ||[]).find(k => k.id === WRONGBOOK_ID) || null;
-        const isWrongbookPlay = () => !!(activeKahoot && activeKahoot.id === WRONGBOOK_ID && activeKahoot._general);
+        /* ---- 2026-10-06 晚：錯題庫變成資料夾，裡面放好幾本自己取名的錯題冊 ----
+         * ★ 每一本還是一份文件（同一個 kahoots 集合、帶 `wrongbook: true`），上面那幾條理由一條都沒變。
+         *   最早那一本的 id 固定是 WRONGBOOK_ID：舊帳號已經存在那裡，搬家要改寫每個人的資料，
+         *   不搬也不會壞——它只是資料夾裡的第一本（名字可以改）。新開的 id 是 `wb-` 開頭。
+         * ★ 一般測驗裡「在不在錯題庫」問的是**任何一本**：鈕亮著＝某一本已經有這題，
+         *   再按一次是從所有收著它的冊子拿掉（使用者想的是「取消剛剛那一下」）。重考某一本時只動那一本。
+         * ★ 收題：一本都沒有就直接收進「錯題庫」（第一次用的人不必先想名字）；
+         *   有一本以上就跳出來問收進哪一本，那裡也能當場開一本新的。
+         * ⚠️ 冊名是使用者打的字：進 innerHTML 一律 escapeHTML（CLAUDE.md 第四條），吐司走 textContent 不必。 */
+        const isWbDoc = (k) => !!(k && (k.wrongbook || k.id === WRONGBOOK_ID));
+        /* 先開的排前面。⚠️ 同一毫秒開的兩本要有固定的先後（舊的那本最前、其餘照 id）：
+           不然記憶體裡那一份（新的插在最前面）跟訂閱的快照（照新舊排）會給出不同順序，卡片會跳。 */
+        const wbBooks = () => (state.myKahoots ||[]).filter(isWbDoc).sort((a, b) =>
+            ((a.createdAt || 0) - (b.createdAt || 0)) || ((b.id === WRONGBOOK_ID) - (a.id === WRONGBOOK_ID)) || String(a.id).localeCompare(String(b.id)));
+        const wbBook = (id) => wbBooks().find(k => k.id === id) || null;
+        const wbName = (b) => String((b && b.title) ||'錯題庫');
+        const wrongbookDoc = () => wbBook(WRONGBOOK_ID);
+        const isWrongbookPlay = () => !!(activeKahoot && activeKahoot._general && isWbDoc(activeKahoot));
         function wbAllowed() { return !!(activeKahoot && activeKahoot._general) && isSignedInMember(); }
+        function wbNewId() { return 'wb-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+        /* 冊名：空白壓成一格、頭尾去掉、1～30 字。不合格回空字串。 */
+        function wbCleanName(s) {
+            const t = String(s ?? '').replace(/\s+/g, ' ').trim();
+            return t && t.length <= WB_NAME_MAX ? t :'';
+        }
         function wbHash(str) {
             let h = 5381;
             for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
@@ -17954,10 +18036,14 @@
             if (q && q.qid) return 'q:' + q.qid;
             return 'h:' + wbHash(JSON.stringify([q && q.q, q && q.options, q && q.fill, q && q.say, q && q.audio]));
         }
-        function wbHas(q) {
-            const wb = wrongbookDoc(), k = wbKeyOf(q);
-            return !!(wb && (wb.questions ||[]).some(x => wbKeyOf(x) === k));
+        /* 收著這一題的冊子。給了 id 就只看那一本。 */
+        function wbBooksWith(q, id) {
+            const k = wbKeyOf(q);
+            return (id ? [wbBook(id)].filter(Boolean) : wbBooks()).filter(b => (b.questions ||[]).some(x => wbKeyOf(x) === k));
         }
+        function wbHas(q, id) { return wbBooksWith(q, id).length > 0; }
+        /* 重考某一本時，「在不在」只問那一本；其他時候問全部。 */
+        function wbHasHere(q) { return isWrongbookPlay() ? wbHas(q, activeKahoot.id) : wbHas(q); }
         /* 作答紀錄 → 要存進錯題庫的那一題。 */
         function wbEntryOf(a) {
             const { selectedIdx, picks, fillGot, ratio, correct, unsure, ...base } = a || {};
@@ -17983,62 +18069,114 @@
             if (!e.addedAt) e.addedAt = Date.now();
             return { e, grp };
         }
-        /* 整份寫回去。★ 先改記憶體裡那一份再寫：訂閱的快照晚一拍才到，
+        /* 整本寫回去。`title` 給 null＝沿用原本的名字（新的一本沒給就叫「錯題庫」）。
+           ★ 先改記憶體裡那一份再寫：訂閱的快照晚一拍才到，
            連按兩題的時候第二題要看得到第一題已經在裡面了，不然會互相蓋掉。 */
-        async function wbSave(questions, groups) {
+        async function wbSave(id, title, questions, groups) {
             const p = PU('kahoots');
             if (!p) return 'nologin';
             const used = new Set(questions.map(q => q.grp).filter(g => g !== undefined && g !== null && g !== ''));
             const gs = {};
             for (const k of used) if (groups && groups[k]) gs[k] = groups[k];
-            const old = wrongbookDoc();
-            const payload = { title:'錯題庫', wrongbook: true, courseId:'', courseName:'', questions, groups: gs,
+            const old = wbBook(id);
+            const payload = { title: title || wbName(old), wrongbook: true, courseId:'', courseName:'', questions, groups: gs,
                               createdAt: (old && old.createdAt) || Date.now(), updatedAt: Date.now() };
             if (u8len(JSON.stringify(payload)) > WRONGBOOK_MAX_BYTES) return 'full';
             const prev = old ? { ...old } : null;
             if (old) Object.assign(old, payload);
-            else state.myKahoots = [{ id: WRONGBOOK_ID, ...payload }, ...(state.myKahoots ||[])];
+            else state.myKahoots = [{ id, ...payload }, ...(state.myKahoots ||[])];
             try {
-                await setDoc(doc(db, p, WRONGBOOK_ID), payload);
+                await setDoc(doc(db, p, id), payload);
                 return 'ok';
             } catch (err) {
                 /* 寫不進去就把記憶體那一份退回去，不然畫面會說「已加入」而雲端沒有。 */
-                if (prev) Object.assign(old, prev);
-                else state.myKahoots = (state.myKahoots ||[]).filter(k => k.id !== WRONGBOOK_ID);
+                if (prev) { for (const k of Object.keys(old)) delete old[k]; Object.assign(old, prev); }
+                else state.myKahoots = (state.myKahoots ||[]).filter(k => k.id !== id);
                 console.warn('錯題庫寫入失敗:', err && (err.code || err));
                 return 'fail';
             }
         }
-        async function wbAdd(list) {
-            const wb = wrongbookDoc();
-            const qs = [...((wb && wb.questions) ||[])], groups = { ...((wb && wb.groups) ||{}) };
+        /* 收進某一本。那一本還不存在就用 `title` 開一本新的。 */
+        async function wbAdd(list, id = WRONGBOOK_ID, title = null) {
+            const book = wbBook(id);
+            const qs = [...((book && book.questions) ||[])], groups = { ...((book && book.groups) ||{}) };
             const have = new Set(qs.map(wbKeyOf));
             let added = 0;
             for (const a of list) {
                 const k = wbKeyOf(a);
                 if (have.has(k)) continue;
-                if (qs.length >= WRONGBOOK_MAX) { showToast(`錯題庫最多 ${WRONGBOOK_MAX} 題，先重考、移掉幾題會的再加`); break; }
+                if (qs.length >= WRONGBOOK_MAX) { showToast(`一本錯題冊最多 ${WRONGBOOK_MAX} 題，先重考、移掉幾題會的再加`); break; }
                 const { e, grp } = wbEntryOf(a);
                 qs.push(e); have.add(k); added++;
                 if (grp) groups[grp[0]] = grp[1];
             }
             if (!added) return 0;
-            const r = await wbSave(qs, groups);
-            if (r === 'full') { showToast('錯題庫太大了（題組文章很佔空間），先移掉幾題再加'); return -1; }
+            const r = await wbSave(id, book ? null : (title ||'錯題庫'), qs, groups);
+            if (r === 'full') { showToast('這本錯題冊太大了（題組文章很佔空間），先移掉幾題，或收進另一本'); return -1; }
             if (r !== 'ok') { showToast('沒存進錯題庫，等一下再試一次'); return -1; }
             return added;
         }
-        async function wbRemove(list) {
-            const wb = wrongbookDoc();
-            if (!wb) return 0;
+        /* 拿掉。給了 id 只動那一本，沒給就從每一本收著它的冊子拿掉。 */
+        async function wbRemove(list, id) {
             const drop = new Set(list.map(wbKeyOf));
-            const qs = (wb.questions ||[]).filter(q => !drop.has(wbKeyOf(q)));
-            const n = (wb.questions ||[]).length - qs.length;
-            if (!n) return 0;
-            const r = await wbSave(qs, wb.groups ||{});
-            if (r !== 'ok') { showToast('沒改到錯題庫，等一下再試一次'); return -1; }
+            let n = 0;
+            for (const b of (id ? [wbBook(id)].filter(Boolean) : wbBooks())) {
+                const qs = (b.questions ||[]).filter(q => !drop.has(wbKeyOf(q)));
+                const k = (b.questions ||[]).length - qs.length;
+                if (!k) continue;
+                const r = await wbSave(b.id, null, qs, b.groups ||{});
+                if (r !== 'ok') { showToast('沒改到錯題庫，等一下再試一次'); return -1; }
+                n += k;
+            }
             return n;
         }
+        /* ---- 收進哪一本 ---- */
+        /* `done` 是收完之後要重畫的那幾塊（作答畫面與結果頁要重畫的不一樣）。 */
+        async function wbCollectInto(list, id, title, done) {
+            const r = await wbAdd(list, id, title);
+            if (r > 0) showToast(`收進「${wbName(wbBook(id))}」了${r > 1 ? `（${r} 題）` :''}`);
+            if (done) done();
+            return r;
+        }
+        function wbCollect(list, done) {
+            if (!list.length) return;
+            if (!wbBooks().length) return wbCollectInto(list, WRONGBOOK_ID, null, done);
+            wbPending = { list, done };
+            renderWbPick();
+            openModal('wbPickModal');
+        }
+        function renderWbPick() {
+            const box = $('wbPickList');
+            if (!box) return;
+            const n = wbPending ? wbPending.list.length : 0;
+            const t = $('wbPickTitle');
+            if (t) t.textContent = n > 1 ? `這 ${n} 題收進哪一本？` :'收進哪一本錯題冊？';
+            box.innerHTML = wbBooks().map(b => `<button data-action="wb-pick" data-id="${escapeHTML(b.id)}" class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border-2 border-slate-100 bg-white hover:border-rose-300 transition-colors text-left">
+                    <span class="font-black text-slate-800 truncate pointer-events-none">${escapeHTML(wbName(b))}</span>
+                    <span class="text-xs font-black text-slate-400 shrink-0 pointer-events-none">${(b.questions ||[]).length} 題</span>
+                </button>`).join('');
+            const inp = $('wbPickNewName');
+            if (inp) inp.value ='';
+        }
+        async function wbPick(id) {
+            const p = wbPending;
+            wbPending = null;
+            closeModal('wbPickModal');
+            if (!p || !wbBook(id)) return;
+            await wbCollectInto(p.list, id, null, p.done);
+        }
+        async function wbPickNew() {
+            const inp = $('wbPickNewName');
+            const name = wbCleanName(inp && inp.value);
+            if (!name) return showToast(`錯題冊的名字請打 1～${WB_NAME_MAX} 個字`);
+            if (wbBooks().length >= WB_BOOKS_MAX) return showToast(`錯題冊最多 ${WB_BOOKS_MAX} 本，先刪掉用不到的再開新的`);
+            const p = wbPending;
+            wbPending = null;
+            closeModal('wbPickModal');
+            if (!p) return;
+            await wbCollectInto(p.list, wbNewId(), name, p.done);
+        }
+        /* ---- 作答畫面與結果頁 ---- */
         /* 作答畫面「下一題」旁邊那顆。答完停下來的時候才看得到（答對會自動跳題）。 */
         function wbSyncBtn() {
             const btn = $('kahootWbBtn');
@@ -18047,37 +18185,49 @@
             const show = wbAllowed() && !!a;
             btn.classList.toggle('hidden', !show);
             if (!show) return;
-            const on = wbHas(a);
+            const on = wbHasHere(a);
             btn.setAttribute('aria-pressed', String(on));
             btn.classList.toggle('is-on', on);
-            $('kahootWbLabel').textContent = isWrongbookPlay() ? (on ?'移出錯題庫' :'已移出') : (on ?'已在錯題庫' :'加入錯題庫');
+            /* 冊名走 textContent，不必跳脫。只收在一本裡就說是哪一本，好幾本就不列了。 */
+            const where = on && !isWrongbookPlay() ? wbBooksWith(a) : [];
+            $('kahootWbLabel').textContent = isWrongbookPlay() ? (on ?'移出這本錯題冊' :'已移出')
+                : on ? (where.length === 1 ? `已在「${wbName(where[0])}」` :'已在錯題庫') :'加入錯題庫';
+        }
+        /* 一題的開關，作答畫面與結果頁共用。重考某一本時只進出那一本（不問收進哪本）。 */
+        async function wbToggleOne(a, done) {
+            if (isWrongbookPlay()) {
+                const id = activeKahoot.id, on = wbHas(a, id);
+                const r = on ? await wbRemove([a], id) : await wbAdd([a], id);
+                if (r > 0) showToast(on ?`從「${wbName(wbBook(id))}」拿掉了` :`放回「${wbName(wbBook(id))}」了`);
+                return done();
+            }
+            if (wbHas(a)) {
+                const r = await wbRemove([a]);
+                if (r > 0) showToast('從錯題庫拿掉了');
+                return done();
+            }
+            await wbCollect([a], done);
         }
         async function wbToggleCurrent() {
             const a = playAnswers[playAnswers.length - 1];
             if (!a || !wbAllowed()) return;
             const btn = $('kahootWbBtn');
             if (btn) btn.disabled = true;
-            const on = wbHas(a);
-            const r = on ? await wbRemove([a]) : await wbAdd([a]);
-            if (btn) btn.disabled = false;
-            if (r > 0) showToast(on ?'從錯題庫拿掉了' :'收進錯題庫了（在「我的測驗」最前面）');
-            wbSyncBtn();
-            renderKahoots();
+            try { await wbToggleOne(a, () => { wbSyncBtn(); renderKahoots(); }); }
+            finally { if (btn) btn.disabled = false; }
         }
         /* 結果頁的錯題清單：每一題一顆、外加「全部加入」。 */
         function wbChipHTML(a, i) {
             if (!wbAllowed()) return '';
-            const on = wbHas(a);
+            const on = wbHasHere(a);
             return `<button data-action="wb-toggle-answer" data-i="${i}" aria-pressed="${on}" class="wb-chip ${on ?'is-on' :''}">${
-                isWrongbookPlay() ? (on ?'移出錯題庫' :'已移出') : (on ?'✓ 已在錯題庫' :'＋ 錯題庫')}</button>`;
+                isWrongbookPlay() ? (on ?'移出這本' :'已移出') : (on ?'✓ 已在錯題庫' :'＋ 錯題庫')}</button>`;
         }
+        const wbAfterResult = () => { renderKahootWrongList(); renderResultWb(); renderKahoots(); };
         async function wbToggleAnswer(i) {
             const a = playAnswers[Number(i)];
             if (!a || !wbAllowed()) return;
-            const on = wbHas(a);
-            const r = on ? await wbRemove([a]) : await wbAdd([a]);
-            if (r > 0) showToast(on ?'從錯題庫拿掉了' :'收進錯題庫了');
-            renderKahootWrongList(); renderResultWb(); renderKahoots();
+            await wbToggleOne(a, wbAfterResult);
         }
         function renderResultWb() {
             const box = $('resultWbWrap');
@@ -18085,58 +18235,111 @@
             let html = '';
             if (wbAllowed()) {
                 if (isWrongbookPlay()) {
-                    const ok = (playAnswers ||[]).filter(a => a.correct && wbHas(a));
-                    if (ok.length) html = `<button data-action="wb-drop-correct" class="w-full py-3 rounded-2xl font-black text-sm border-2 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors">這次答對的 ${ok.length} 題移出錯題庫</button>
+                    const ok = (playAnswers ||[]).filter(a => a.correct && wbHas(a, activeKahoot.id));
+                    if (ok.length) html = `<button data-action="wb-drop-correct" class="w-full py-3 rounded-2xl font-black text-sm border-2 border-emerald-200 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition-colors">這次答對的 ${ok.length} 題移出這本錯題冊</button>
                         <p class="text-[11px] font-bold text-slate-400 mt-1.5">答錯的會留著，下次再考</p>`;
                 } else {
                     const wrong = (playAnswers ||[]).filter(a => !a.correct);
                     const left = wrong.filter(a => !wbHas(a));
                     if (left.length) html = `<button data-action="wb-add-wrong" class="w-full py-3 rounded-2xl font-black text-sm border-2 border-rose-200 text-rose-600 bg-rose-50 hover:bg-rose-100 transition-colors">答錯的 ${left.length} 題全部加入錯題庫</button>`;
-                    else if (wrong.length) html = '<p class="text-xs font-bold text-slate-400">答錯的題目都已經在錯題庫裡了（「我的測驗」最前面）</p>';
+                    else if (wrong.length) html = '<p class="text-xs font-bold text-slate-400">答錯的題目都已經在錯題庫裡了（「我的測驗」最前面那個資料夾）</p>';
                 }
             }
             box.innerHTML = html;
             box.classList.toggle('hidden', !html);
         }
         async function wbAddWrong() {
-            const wrong = (playAnswers ||[]).filter(a => !a.correct);
-            const r = await wbAdd(wrong);
-            if (r > 0) showToast(`收進錯題庫了（${r} 題）`);
-            renderKahootWrongList(); renderResultWb(); renderKahoots();
+            const left = (playAnswers ||[]).filter(a => !a.correct && !wbHas(a));
+            await wbCollect(left, wbAfterResult);
         }
         async function wbDropCorrect() {
+            if (!isWrongbookPlay()) return;
+            const id = activeKahoot.id;
             const ok = (playAnswers ||[]).filter(a => a.correct);
-            const r = await wbRemove(ok);
-            if (r > 0) showToast(`移出 ${r} 題，錯題庫還剩 ${((wrongbookDoc() ||{}).questions ||[]).length} 題`);
-            renderKahootWrongList(); renderResultWb(); renderKahoots();
+            const r = await wbRemove(ok, id);
+            if (r > 0) showToast(`移出 ${r} 題，「${wbName(wbBook(id))}」還剩 ${((wbBook(id) ||{}).questions ||[]).length} 題`);
+            wbAfterResult();
         }
-        /* 我的測驗最前面那張卡。★ 還沒有任何一題的時候也要在：這是使用者唯一知道
+        /* ---- 我的測驗：錯題庫資料夾 ---- */
+        /* 頂層那張資料夾卡。★ 一本都沒有的時候也要在：這是使用者唯一知道
            「有錯題庫這種東西、它在哪裡」的地方。 */
-        function wrongbookCardHTML() {
-            const wb = wrongbookDoc();
-            const n = ((wb && wb.questions) ||[]).length;
-            const srcs = new Set(((wb && wb.questions) ||[]).map(q => q.fromTitle).filter(Boolean));
+        function wrongbookFolderHTML() {
+            const books = wbBooks();
+            const total = books.reduce((s, b) => s + (b.questions ||[]).length, 0);
+            return `
+                <div data-action="open-wb-folder" class="wb-card cursor-pointer bg-white rounded-3xl p-5 shadow-sm border-2 border-rose-100 hover:border-rose-300 transition-colors flex flex-col">
+                    <div class="flex items-center gap-3 mb-2 pointer-events-none"><span class="text-3xl">📁</span><h4 class="text-xl font-black text-slate-900">錯題庫</h4></div>
+                    <p class="text-sm text-slate-500 font-bold pointer-events-none">${books.length
+                        ? `${books.length} 本錯題冊・${total} 題`
+                        : '答錯時按「加入錯題庫」，題目就會收到這裡'}</p>
+                    <div class="flex items-center gap-2 mt-3 pointer-events-none">
+                        <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>
+                    </div>
+                    <p class="text-[11px] font-bold text-slate-400 mt-3 pointer-events-none">點開看裡面的錯題冊，也可以自己開新的一本</p>
+                </div>`;
+        }
+        /* 資料夾裡的一本。 */
+        function wrongbookCardHTML(b) {
+            const n = ((b && b.questions) ||[]).length, id = escapeHTML(b.id);
+            const srcs = new Set(((b && b.questions) ||[]).map(q => q.fromTitle).filter(Boolean));
             return `
                 <div class="wb-card bg-white rounded-3xl p-5 shadow-sm border-2 border-rose-100 flex flex-col justify-between">
                     <div>
                         <div class="flex justify-between items-start mb-2 gap-2">
-                            <h4 class="text-xl font-black text-slate-900 flex items-center gap-2"><i data-lucide="bookmark" class="w-5 h-5 text-rose-500"></i> 錯題庫</h4>
-                            ${n ? `<button data-action="delete" data-type="kahoot" data-id="${WRONGBOOK_ID}" class="text-slate-300 hover:text-red-500" aria-label="清空錯題庫"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                            <h4 class="text-xl font-black text-slate-900 flex items-center gap-2 break-words min-w-0"><i data-lucide="bookmark" class="w-5 h-5 text-rose-500 shrink-0"></i> ${escapeHTML(wbName(b))}</h4>
+                            <div class="flex gap-2 shrink-0">
+                                <button data-action="wb-rename" data-id="${id}" class="text-slate-300 hover:text-blue-500" aria-label="改這本錯題冊的名字"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="delete" data-type="kahoot" data-id="${id}" class="text-slate-300 hover:text-red-500" aria-label="刪掉這本錯題冊"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                            </div>
                         </div>
                         <p class="text-sm text-slate-500 font-bold mb-2">${n
                             ? `收了 ${srcs.size || 1} 份測驗裡答錯的題目`
-                            : '答錯時按「加入錯題庫」，題目就會收到這裡'}</p>
+                            : '還是空的：答錯時按「加入錯題庫」，選這一本'}</p>
                         <div class="flex items-center gap-2 mb-4">
                             <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">${n} 題</span>
-                            <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-500">🔒 只有你看得到</span>
                         </div>
                     </div>
-                    <button data-action="start-kahoot" data-id="${WRONGBOOK_ID}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                    <button data-action="start-kahoot" data-id="${id}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
                         <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' : quizCount > 0 && n > quizCount ? `重考・${quizCount} 題` :'重考錯題'}
                     </button>
                 </div>`;
         }
-        /* ---- 錯題庫：結束（tests/quizplus.mjs 從 wrongbookDoc 那一行抽到這裡） ---- */
+        /* 打開資料夾之後的整片：上一層、＋新增，然後每一本一張。 */
+        function wrongbookFolderBodyHTML() {
+            const books = wbBooks();
+            const head = `<div class="col-span-full flex items-center gap-3 flex-wrap">
+                    <button data-action="wb-folder-back" class="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm text-sm"><i data-lucide="arrow-left" class="w-4 h-4 pointer-events-none"></i> 上一層</button>
+                    <h3 class="text-lg font-black text-slate-800">📁 錯題庫</h3>
+                    <button data-action="wb-new" class="ml-auto px-4 py-2 bg-rose-500 text-white rounded-xl font-bold hover:bg-rose-400 transition-colors flex items-center gap-2 shadow-sm text-sm"><i data-lucide="plus" class="w-4 h-4 pointer-events-none"></i> 新增錯題冊</button>
+                </div>`;
+            return head + (books.length ? books.map(wrongbookCardHTML).join('')
+                : `<div class="col-span-full text-center py-10 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">還沒有錯題冊<br><span class="text-xs">可以先按「新增錯題冊」取好名字（例如「期中考」），或答錯時按「加入錯題庫」</span></div>`);
+        }
+        function openWbFolder() { wbFolderOpen = true; renderKahoots(); scrollTopSmooth(); }
+        function closeWbFolder() { wbFolderOpen = false; renderKahoots(); scrollTopSmooth(); }
+        /* 新增／改名共用一個小視窗。`id` 空的＝新增。 */
+        function openWbName(id) {
+            const b = id ? wbBook(id) : null;
+            if (!b && wbBooks().length >= WB_BOOKS_MAX) return showToast(`錯題冊最多 ${WB_BOOKS_MAX} 本，先刪掉用不到的再開新的`);
+            const t = $('wbNameTitle');
+            if (t) t.textContent = b ?'改錯題冊的名字' :'新增錯題冊';
+            $('wbNameId').value = b ? b.id :'';
+            $('wbNameInput').value = b ? wbName(b) :'';
+            openModal('wbNameModal');
+        }
+        async function saveWbName() {
+            const id = $('wbNameId').value;
+            const name = wbCleanName($('wbNameInput').value);
+            if (!name) return showToast(`錯題冊的名字請打 1～${WB_NAME_MAX} 個字`);
+            const b = id ? wbBook(id) : null;
+            if (id && !b) { closeModal('wbNameModal'); return; }
+            const r = b ? await wbSave(b.id, name, b.questions ||[], b.groups ||{}) : await wbSave(wbNewId(), name, [], {});
+            if (r !== 'ok') return showToast('沒存起來，等一下再試一次');
+            closeModal('wbNameModal');
+            showToast(b ?'改好名字了' :`開了一本「${name}」`);
+            renderKahoots();
+        }
+        /* ---- 錯題庫：結束（tests/quizplus.mjs 從 2026-10-06 晚那一行抽到這裡） ---- */
 
         /* ==========================================================
          * 聽力題（2026-10-06）
@@ -21458,6 +21661,13 @@
 'wb-toggle-answer': (t) => wbToggleAnswer(t.dataset.i),
 'wb-add-wrong':    ()  => wbAddWrong(),
 'wb-drop-correct': ()  => wbDropCorrect(),
+'wb-pick':         (t) => wbPick(t.dataset.id),
+'wb-pick-new':     ()  => wbPickNew(),
+'open-wb-folder':  ()  => openWbFolder(),
+'wb-folder-back':  ()  => closeWbFolder(),
+'wb-new':          ()  => openWbName(''),
+'wb-rename':       (t) => openWbName(t.dataset.id),
+'wb-name-save':    ()  => saveWbName(),
 'pick-quiz-unit':  (t) => pickQuizUnit(t.dataset.unit),
 'edit-kahoot':     (t) => openKahootModal(t.dataset.id),   // 權限在 openKahootModal 內依公有／我的判斷
 'set-vocab-scope': (t) => switchVocabScope(t.dataset.scope),
@@ -22087,6 +22297,11 @@
             bind('addVocabBookBtn', () => openVocabBookModal());
             bind('confirmSaveVocabBook', saveVocabBook);
             bind('confirmSaveVocabFolder', saveVocabFolder);
+            /* 錯題冊的名字打完按 Enter 就送出（手機鍵盤上的「完成」也是這一顆）。 */
+            for (const [id, fn] of [['wbPickNewName', () => wbPickNew()], ['wbNameInput', () => saveWbName()]]) {
+                const el = $(id);
+                if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); fn(); } });
+            }
             bind('addVocabWordBtn', () => openVocabWordModal());
             bind('confirmSaveVocabWord', saveVocabWord);
             bind('startVocabQuizBtn', startVocabQuiz);
