@@ -3,14 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>筆記小黑貓 - Markdown ＋ 數學公式</title>
+<title>錯題本小黑貓 - 答錯的題目排成筆記</title>
 <link rel="icon" href="logomain.jpg">
-<meta name="description" content="筆記小黑貓：Markdown 加數學公式，橫線紙版面，只有你自己看得到。手機也能寫。">
+<meta name="description" content="錯題本小黑貓：測驗答錯的題目自動排成筆記紙，可以拖、可以調留白，匯出到 GoodNotes 之後題目還能搬。只有你自己看得到。">
 
-<!-- ★ CSP：第二層防線。這一頁的第一層是 DOMPurify（下面那段）。
+<!-- ★ CSP：第二層防線。這一頁的第一層是「每一個字都跳脫」（題目文字全部走 escapeHTML，
+     算式交給 KaTeX 而且 trust:false），沒有任何地方把資料當 HTML 原樣塞進去。
      整頁是單檔內嵌 script，所以 'unsafe-inline' 非開不可，這條擋不住
      被注入的 inline script 本身；它擋的是下一步——載不到外部 script，
      也送不出去任何東西（connect-src 只留 Firebase）。
+     ★ img-src 只有 'self'：題目圖只收站上 data/quiz/ 底下的檔案（理由見 qImgSrc）。
+       外部網址的圖就算寫進資料也畫不出來，而且匯出時轉圖片會被跨來源擋住。
      改了外部來源要跟著改這裡，也要改 firebase.json。 -->
 <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
@@ -18,7 +21,7 @@
     style-src 'self' 'unsafe-inline';
     font-src 'self' data:;
     img-src 'self' data: blob:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com;
+    connect-src 'self' data: https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com;
     frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
     worker-src 'self';
     base-uri 'self';
@@ -34,61 +37,32 @@
     }
 </script>
 
-<!-- ★ 三支原本是**跨來源**資源（cdnjs），現在搬進 vendor/ 自己 host。
-     搬的理由是資安：沒有 SRI 的第三方 script 等於「上游哪天被換掉，
-     我們照跑不誤，而且察覺不到」——這一頁還特別敏感，因為它跑的是
-     DOMPurify，消毒器本身被換掉的話下面那段防護就整個是假的。
-
-     ★ 順帶解掉的是離線：原本這裡寫著「CORE 不能加，因為 addAll 對跨來源
-     會整批失敗」。搬成同源之後那個限制消失了，marked 與 DOMPurify
-     已經加進 CORE（兩支加起來 56KB）。
-     ★ KaTeX **刻意還是不進 CORE**：js 加 20 個 woff2 字型共約 570KB，
-     而多數人開這一頁不是為了寫公式。它走 sw.js「同源靜態資源快取優先」
-     那條路——用過一次就留在快取裡，之後離線也排得出來。
-
-     三支各有各的降級（同源之後仍然要留著：檔案還是可能沒到）：
-       KaTeX      沒到 → 公式顯示 $…$ 原文（橘色等寬）
-       marked     沒到 → 預覽顯示 Markdown 原文
-       DOMPurify  沒到 → **拒絕渲染 HTML**，退回純文字
-
-     ★ 第三支是唯一不做降級的。少了它等於把使用者打的字當程式跑，
-     而筆記將來要開分享——那時執行的是別人寫的字。 -->
+<!-- ★ KaTeX 自己 host（vendor/），理由跟以前的筆記頁一樣：沒有 SRI 的第三方 script
+     等於「上游哪天被換掉，我們照跑不誤」。它**不進 sw.js 的 CORE**（js 加字型約 570KB），
+     走「同源靜態資源快取優先」那條路，用過一次就留在快取裡。
+     沒到 → 算式顯示原文（\( … \) 那一串），不會整頁壞掉。
+     ★ html-to-image 與 gnwrite.js（寫 GoodNotes 檔）**按匯出才載**：多數時候用不到。 -->
 <link rel="stylesheet" href="vendor/katex.min.css">
 <script defer src="vendor/katex.min.js"></script>
-<script defer src="vendor/marked.min.js"></script>
-<script defer src="vendor/purify.min.js"></script>
 <style>
 /* ==========================================================
    外殼 token：這一頁**故意不跟另外三個產品共用**
 
-   ★ 跟模擬器一樣**不鋪背景圖**：這是滿版不捲動的工作區，
-   鋪了也只會被筆記紙蓋住，只剩邊縫露出幾條——那不是背景，是雜訊。
+   ★ 跟模擬器一樣**不鋪背景圖**：這是滿版不捲動的工作區，主角是一疊紙。
+   ★ 工作台是中性灰，不是站上的暖奶黃：紙的顏色（#fcf9f4）是從真的筆記紙
+   量出來的，暖奶黃的桌子配暖白的紙看起來像同一塊布做的兩件衣服；
+   中性灰上紙才浮得起來（GoodNotes 那類 App 的桌面一律是中性灰，同一個道理）。
+   ★ 所以 `tests/design.mjs` 那條「兩個檔案的 token 必須一致」**不含這一頁**。
 
-   ★★ 2026-08-13 從站上那組暖奶黃改成中性灰，理由不是「想換個顏色」：
-   這一頁的主角是**一張紙**，而紙的顏色（#fcf9f4）是從真的筆記紙量出來的，
-   動不了。暖奶黃的外殼跟那張紙只差一點點——差一點點的兩個暖色放在一起，
-   看起來不像「紙放在桌上」，像「同一塊布做的兩件衣服」（架構.md 那一輪
-   已經為了同樣的理由把紙從 #fffdf6 改掉過一次，那次只修了紙，沒修桌子）。
-   工作台改成中性灰之後紙才浮得起來——GoodNotes 那類手寫筆記 App 的
-   桌面一律是中性灰，也是同一個道理。
-
-   ★ 所以 `tests/design.mjs` 那條「兩個檔案的 token 必須一致」**不含這一頁**，
-   它比的是 publicnew 與 blackcatspice。這裡動色值不必去動另外兩個檔案，
-   但反過來也一樣：主站改配色時**不要**順手把這裡一起改回去。
-
-   對比全部量過（門檻 4.5，量的是最小的那級字 11.5px）：
+   對比（門檻 4.5，量的是最小的那級字 11.5px）：
      淺色 ink-3 對 raised 5.57／對 paper 4.97；accent 對 paper 5.37
      深色 ink-3 對 raised 5.46／對 paper 6.46
    ========================================================== */
 :root{
-    /* paper＝工作台（紙外面那片桌子）／raised＝頁首與側欄／sunk＝分段控制的凹槽 */
     --paper:#eaeaee; --paper-raised:#f7f7f9; --paper-sunk:#dcdce0;
     --ink:#1c1c1e; --ink-2:#48484a; --ink-3:#63636a;
     --rule:#d3d3d8; --accent:#7a5905; --accent-fill:#7a5905;
     --accent-bright:#8a6605;
-    /* ★ hover 底改成中性的黑透明，不是原本那片暖黃。灰底上鋪暖黃等於
-       把剛剛趕走的那個暖色又請回來，而且只出現在滑鼠底下——
-       症狀是「滑過去的地方會變一個顏色」，不是「這一項被選中了」。 */
     --accent-soft:rgba(0,0,0,.055);
     --ok:#2f7d8c; --bad:#c0392b;
     --ease:cubic-bezier(0.22, 1, 0.36, 1);
@@ -103,53 +77,23 @@ html.dark{
 }
 
 /* ==========================================================
-   筆記紙與四種語意色
+   紙
 
-   ★ 筆記紙自己一組 token，不沿用 --paper。站上的紙是「向日葵的暖奶黃」，
-   配的是背景那張畫；筆記紙要的是**筆記本**——更白、線更明顯，
-   而且它是不透明的。
+   ★★ 紙**不跟深色模式變**。匯出到 GoodNotes 的一定是那張淺色的紙，
+   畫面上的紙就是匯出的樣子——深色模式下換成深色紙的話，
+   使用者看到的跟拿到的是兩個東西（「我排的時候不是這個顏色」）。
+   深色模式只把紙外面那片桌子變暗，跟 GoodNotes 深色模式下照樣是白紙一樣。
 
-   ★★ 2026-08-13 改成真的那張紙：色值不再是挑的，是從 `素材/md maker/筆記紙.pdf`
-   量出來的（紙 #fcf9f4、線 #c8c4be、線距 24px）。原本挑的 #fffdf6／#e6dcc0
-   偏黃，那是把站上那張暖奶黃的紙又抄了一次，看起來像同一塊布做的兩件衣服。
-   量出來的紙是中性的暖白、線是灰的——那才是筆記本。
-
-   ★★ 顏色是**語意**不是色票。使用者不挑顏色，只標「這是定義」「這是答案」：
-     一、自己挑的話，同一本筆記裡「藍色」這個月是推導、下個月是重點，
-         三個月後自己也讀不出規則
-     二、挑死的色碼在深色模式下是看不見的
-
-   對比全部量過（門檻 4.5）。**取的是紙面最壞的那一個像素，不是紙的平均色**——
-   貼圖有紙紋顆粒（淺色最暗 #f0ece6、深色最亮 #23262f）：
-     淺色紙：藍 5.65／橘 5.03／金 5.03／墨 15.11／螢光底上的字 13.42
-     深色紙：藍 7.28／橘 8.10／金 9.26／墨 11.34／螢光底上的字 12.52
-   ★ 那條 1px 橫線**不算**在字底裡（字坐在線上面不是線裡面，只有下伸部會碰到）。
-   要是哪天行高與線距脫鉤、字真的壓到線上，這個前提就不成立了，對比要重算。
+   ★ 一頁 610×816（CSS px），跟以前的筆記頁同一張貼圖 notepaper.webp（2 倍解析度 1220×1632）：
+     頁首 3 格（72px：點線／No.／Date）、線距 24px、最後一條線之後留 1 格。
+     匯出時 1px = 0.75pt（96 dpi 換到 72 dpi），一頁是 457.5 × 612 pt，
+     跟使用者那本 GoodNotes 筆記（446.9 × 587.5 pt，比例 1.315）差 2.4%，比例相同到小數第二位。
+   ⚠️ 線距 24 跟貼圖是綁死的（tools/notepaper.py 照這個重採樣過），改這裡要重產貼圖。
    ========================================================== */
 :root{
-    --md-paper:#fcf9f4; --md-rule:#c8c4be; --md-ink:#1e1708;
-    --md-derive:#1b4fd8;      /* 藍：推導 */
-    --md-annot:#a8460b;       /* 橘：標註 */
-    --md-answer:#8a5a06;      /* 金：答案 */
-    --md-mark-bg:#fdf0a8; --md-mark-ink:#2a2205;   /* 黃螢光：定義 */
-    /* ★ 行距＝橫線間距，兩者必須是同一個數。24 不是挑的，是原紙的線距
-       （量到的週期 63.599 source px ＠260ppi ÷ 2.65 ＝ 24）。改這個數字
-       就要重跑 `tools/notepaper.py` 重產貼圖，否則圖上的線與 CSS 的線會
-       各走各的——症狀是捲到圖片結束的地方橫線突然錯開，而且不會報錯。 */
-    --md-line:24px;
-    /* ★★ 一頁的三個數字，彼此是綁死的：
-         816 = 34 格 × 24  （頁首 3 格 ＋ 書寫 30 格 ＋ 下方頁邊 1 格）
-         72  = 頁首 3 格   （點線／No.／Date，原紙就長這樣）
-         720 = 書寫 30 格  ＝ 816 − 72 − 24
-       ★ 整頁高度**必須是行距的整數倍**，否則每一頁都會比上一頁往下偏一點，
-       翻到第五頁就看得出來字沒有坐在線上。改任何一個都要三個一起算，
-       而且要重跑 `tools/notepaper.py`。頁寬 610 是原紙寬換算過來的。 */
-    --md-page-w:610px; --md-page-h:816px; --md-head:72px; --md-body-h:720px;
-}
-html.dark{
-    --md-paper:#171b24; --md-rule:#2a3140; --md-ink:#d9e0ea;
-    --md-derive:#8fb4ff; --md-annot:#ffab6b; --md-answer:#f5c451;
-    --md-mark-bg:#4a3f14; --md-mark-ink:#ffe9a3;
+    --sheet-paper:#fcf9f4; --sheet-rule:#c8c4be; --sheet-ink:#1e1708;
+    --sheet-dim:#6b6358;    /* 題目旁的小字（出處、填答格數）：對紙 5.6 */
+    --sheet-ans:#8a5a06;    /* 正解：金色，對紙 5.03（以前筆記頁「答案」那個色） */
 }
 
 *{box-sizing:border-box}
@@ -158,7 +102,7 @@ body{background:var(--paper);color:var(--ink);overflow:hidden;
      font:16px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
      -webkit-text-size-adjust:100%}
 a{color:var(--accent)}
-button,input{font:inherit;color:var(--ink)}
+button,input,select{font:inherit;color:var(--ink)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
 button:not(:disabled):active{transform:scale(.97)}
 @media (prefers-reduced-motion: reduce){
@@ -168,36 +112,27 @@ button:not(:disabled):active{transform:scale(.97)}
 
 /* ---- 全螢幕版面：整頁不捲動，捲的是裡面那兩塊 ---- */
 #app{height:100dvh;display:flex;flex-direction:column;min-height:0}
-/* ★ 頁首從兩排壓成一排。原本第二排放的是「新增／檢視／說明／匯出／刪除」，
-   那是**針對某一篇**的操作，跟站名擺在同一個區塊裡等於把「這個網站」與
-   「這份文件」混成一團。現在第一排只有身分與全站的東西，
-   文件的操作跟著文件走（在 #editHead 裡）。 */
-header{flex:none;background:var(--paper-raised);padding:0}
+header{flex:none;background:var(--paper-raised);padding:0;border-bottom:1px solid var(--rule)}
 .hbar{padding:5px 8px;display:flex;align-items:center;gap:6px;min-height:44px}
 .hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
 .tsep{width:1px;height:18px;background:var(--rule);margin:0 4px}
 
-/* ★ 按鈕改成「沒有框」。灰工作台上每多一個框就多一條線，而畫面上
-   真正該有線的只有紙。改成靠底色回饋：平時透明、滑過去才有一塊淡底。 */
+/* ★ 按鈕沒有框：灰工作台上每多一個框就多一條線，而畫面上真正該有線的只有紙。 */
 .btn{font-weight:700;border-radius:9px;min-height:32px;padding:0 11px;font-size:14px;
-     background:transparent;border:1px solid transparent;cursor:pointer;
+     background:transparent;border:1px solid transparent;cursor:pointer;white-space:nowrap;
      transition:background var(--dur-fast) var(--ease)}
 .btn:hover{background:var(--accent-soft)}
-/* ★ 原本有 `.btn.primary` 與 `.btn.on`（塗滿金色）。兩個都刪掉了不是忘了搬：
-   唯一的 primary 是「＋ 新增一篇」，它已經變成分頁列最右邊那顆＋；
-   而 `.on` 那三顆是三選一，改用 `.seg` 的凹槽表示。留著沒人用的規則，
-   下一個人只要加一個 class 就會讓金色塊莫名其妙地回到灰工作台上。 */
-.btn.danger{color:var(--bad);border-color:transparent}
+.btn:disabled{opacity:.45;cursor:default}
+.btn:disabled:hover{background:transparent}
+/* 整頁唯一一顆實心鈕：匯出。它是這一頁存在的理由，所以只有它長這樣。 */
+.btn.primary{background:var(--accent-fill);color:#fff}
+.btn.primary:hover{background:var(--accent-fill);filter:brightness(1.08)}
+.btn.danger{color:var(--bad)}
 .btn.danger:hover{background:rgba(192,57,43,.1)}
 .btn.tiny{min-height:28px;padding:0 9px;font-size:13.5px;border-radius:8px}
-/* 只有圖示的方鈕（側欄開關、關分頁） */
 .btn.icon{min-width:32px;padding:0;font-size:15px;line-height:1}
 
-/* ---- 分段控制：一個凹槽，選中的那一格浮起來 ----
-   ★ 側欄的「篇目／頁面」與文件的「並排／只編輯／只閱讀」是同一種東西——
-   一組互斥的選項。用同一個外觀，使用者只要學一次。
-   原本那三顆是各自獨立的按鈕，選中態靠塗滿金色——那看起來像「三顆按鈕，
-   其中一顆被按住了」，不像「三選一」。 */
+/* ---- 分段控制：一個凹槽，選中的那一格浮起來 ---- */
 .seg{display:flex;gap:2px;padding:2px;background:var(--paper-sunk);border-radius:9px}
 .seg button{flex:1;min-height:26px;padding:0 10px;border:0;border-radius:7px;
             background:transparent;font-size:13px;font-weight:700;color:var(--ink-2);
@@ -231,21 +166,13 @@ html.dark .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.5)}
 .logo-menu-item small{font-size:13px;font-weight:600;color:var(--ink-3);margin-top:1px}
 .logo-menu-item:hover{background:var(--accent-soft)}
 .logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
-/* 目前所在的那一項不是連結，也不該有游標與 hover 回饋。
-   ★ 2026-09-21 起改成**框起來**，不再在說明後面接「（目前所在）」五個字：
-   那五個字要用讀的，而這是一張一眼掃過去的選單。讀螢幕的人拿到的是
-   那一項身上的 aria-current="page"，兩者缺一不可。
-   ★ 框走 --accent-bright（非文字那一階），--accent 是字色，當框偏暗。
+/* 目前所在的那一項框起來（不寫「（目前所在）」五個字）；讀螢幕的人拿到 aria-current。
    四個檔案要一致，tests/logomenu.mjs 會比對。 */
 .logo-menu-item.is-here{cursor:default;outline:2px solid var(--accent-bright);
                         outline-offset:-2px;border-radius:10px}
 .logo-menu-item.is-here:hover{background:transparent}
-/* beta 徽章：絕對定位貼右緣，不排進 flex 流。
-   這個容器是 flex-column，直接塞一個 <span> 進去會自成一列，
-   選單只是無聲地長高一截、不會報錯。
-   四個檔案（publicnew／ncue／blackcatmd／blackcatspice）要一致，
-   tests/logomenu.mjs 會比對——漏改的症狀是「從這一頁看沒有 beta、
-   從主站看有」，畫面上同樣沒有任何異常。 */
+/* beta 徽章：絕對定位貼右緣，不排進 flex 流（直接塞進 flex-column 會自成一列）。
+   四個檔案（publicnew／ncue／blackcatmd／blackcatspice）要一致。 */
 .logo-menu-item.has-beta{padding-right:74px}
 .beta-tag{position:absolute;right:15px;top:50%;transform:translateY(-50%);
           padding:2px 7px;border-radius:999px;
@@ -253,345 +180,160 @@ html.dark .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.5)}
           text-transform:uppercase;
           color:var(--accent);background:var(--accent-soft);border:1px solid var(--rule)}
 
-/* ==========================================================
-   文件分頁列：同時開好幾篇
-
-   ★ 分頁不是「另一種按鈕列」，是**紙的耳朵**：選中的那一張跟工作台同色、
-   往下咬進去，未選的沉在頁首的灰裡。所以選中態靠的是**接得起來**
-   （分頁底色 ＝ 下面工作台的底色，中間沒有線），不是靠塗一塊顏色。
-   塗顏色只說得出「這個跟別的不一樣」，接起來才說得出「這一張在最上面」。
-
-   ★★ 分頁列的順序**不跟著更新時間重排**。左邊的清單照時間排是對的
-   （那是拿來找東西的），分頁列照時間排的話，打一個字整列就重新洗牌——
-   「我剛剛那篇跳到哪裡去了」。順序就是打開的順序，只增不動。
-
-   ★ 一個分頁裡是**兩顆並排的 button**，不是一顆 button 裡面塞一顆。
-   按鈕不能巢狀（HTML 不合法，而且瀏覽器的行為各家不同），
-   症狀是「按叉叉結果切了分頁」。
-   ========================================================== */
-#mdTabs{flex:none;display:flex;align-items:flex-end;gap:6px;
-        padding:0 8px;background:var(--paper-raised);
-        border-bottom:1px solid var(--rule)}
-/* ★ 捲的是這一層不是整列：右邊那顆「＋」必須永遠在，
-   分頁多到捲出去的時候使用者還是要新增得了。 */
-#mdTabStrip{flex:1;min-width:0;display:flex;align-items:flex-end;gap:2px;
-            overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
-#mdTabStrip::-webkit-scrollbar{display:none}
-.md-tab{flex:none;display:flex;align-items:center;max-width:14rem;
-        height:32px;padding-right:3px;border-radius:9px 9px 0 0;
-        transition:background var(--dur-fast) var(--ease)}
-.md-tab:hover{background:var(--accent-soft)}
-/* ★★ 往下多 1px 蓋掉 #mdTabs 的底線——少了這 1px，選中的分頁與工作台
-   之間會有一條細線，看起來就只是「一顆比較亮的按鈕」。 */
-.md-tab.is-open{background:var(--paper);margin-bottom:-1px;padding-bottom:1px}
-.tab-go{flex:1;min-width:0;max-width:100%;height:100%;padding:0 4px 0 11px;
-        border:0;background:transparent;cursor:pointer;
-        font-size:13.5px;font-weight:700;color:var(--ink-3);
-        text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.md-tab.is-open .tab-go{color:var(--ink)}
-/* ★ 叉叉平常是透明的（不是 display:none）——用 display 切換的話，
-   分頁寬度會在滑鼠移進去的瞬間變一下，整列跟著抖。 */
-.tab-x{flex:none;width:19px;height:19px;padding:0;border:0;border-radius:6px;
-       background:transparent;color:var(--ink-3);font-size:13px;line-height:1;
-       cursor:pointer;opacity:0;transition:opacity var(--dur-fast) var(--ease)}
-.md-tab:hover .tab-x,.md-tab.is-open .tab-x,.tab-x:focus-visible{opacity:1}
-.tab-x:hover{background:rgba(0,0,0,.14);color:var(--ink)}
-html.dark .tab-x:hover{background:rgba(255,255,255,.16)}
-#btnNew{flex:none;align-self:center;min-width:30px;height:30px;padding:0;
-        border:0;border-radius:8px;background:transparent;color:var(--ink-2);
-        font-size:17px;font-weight:700;line-height:1;cursor:pointer;
-        transition:background var(--dur-fast) var(--ease)}
-#btnNew:hover{background:var(--accent-soft);color:var(--ink)}
-
 /* ---- 工作區 ---- */
 #work{flex:1;display:flex;min-height:0}
-/* ★ 側欄改成 flex 直排：上面是固定的分段控制，下面是會捲的內容。
-   整欄一起捲的話，捲到第四十頁縮圖時「篇目／頁面」那組按鈕已經看不到了。 */
 #listCol{flex:none;width:16rem;min-height:0;display:flex;flex-direction:column;
          border-right:1px solid var(--rule);background:var(--paper-raised)}
-/* 側欄收起來那條規則寫在檔尾的 `@media (min-width: 821px)` 裡——
-   ★ 用 body 的 class 不是在 #listCol 上加 .hidden（手機那兩條主從切換
-   也是選 #listCol，混用兩種機制會互相蓋掉），而且**只在桌機生效**
-   （理由寫在那條 media query 裡）。 */
-#sideSeg{flex:none;margin:8px 8px 0}
-#sideBody{flex:1;min-height:0;overflow:auto;padding:8px}
-#editCol{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;padding:10px;gap:8px}
-#editHead{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px}
-/* ★ 標題也拿掉框：它是這份文件的名字，不是一個要人填的欄位。
-   點下去（focus）才長出底色，那時它才是輸入框。 */
-#mdTitle{flex:1;min-width:9rem;padding:5px 10px;border-radius:9px;
-         border:1px solid transparent;background:transparent;
-         font-weight:900;font-size:15px;
-         transition:background var(--dur-fast) var(--ease)}
-#mdTitle:hover{background:var(--accent-soft)}
-#mdTitle:focus{background:var(--paper-raised);border-color:var(--rule)}
-/* ★ `grid-template-rows:1fr` 不能省：少了它那一列是 auto，
-   而編輯區的 `max-height:100%` 就會拿一個「由內容決定」的高度去算百分比——
-   那是循環定義，瀏覽器會當成沒設，紙又會被字撐到比一頁還長。 */
-#panes{flex:1;min-height:0;display:grid;gap:8px;
-       grid-template-columns:1fr 1fr;grid-template-rows:1fr}
-#panes.single{grid-template-columns:1fr}
+#listHead{flex:none;display:flex;align-items:center;gap:6px;padding:8px 8px 0 12px}
+#listHead b{font-size:13px;color:var(--ink-3);font-weight:800}
+#btnNew{margin-left:auto}
+#bookList{flex:1;min-height:0;overflow:auto;padding:8px}
+#editCol{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column}
+#editHead,#selBar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px 10px 0}
+#selBar{padding:6px 10px;margin:8px 10px 0;border-radius:12px;background:var(--paper-raised);
+        border:1px solid var(--rule)}
+#selBar .lbl{font-size:13px;font-weight:800;color:var(--ink-2);white-space:nowrap}
+#selBar .num{font-size:13px;font-weight:800;min-width:3.6em;text-align:center;white-space:nowrap}
+/* 標題拿掉框：它是這本的名字，點下去才長出底色、那時它才是輸入框。 */
+#bookTitle{flex:1;min-width:8rem;padding:5px 10px;border-radius:9px;
+           border:1px solid transparent;background:transparent;font-weight:900;font-size:15px;
+           transition:background var(--dur-fast) var(--ease)}
+#bookTitle:hover{background:var(--accent-soft)}
+#bookTitle:focus{background:var(--paper-raised);border-color:var(--rule)}
+#saveState{font-size:13px;font-weight:700;color:var(--ink-3);white-space:nowrap}
+.chk{display:flex;align-items:center;gap:5px;font-size:13.5px;font-weight:700;color:var(--ink-2);
+     cursor:pointer;white-space:nowrap;padding:0 4px}
+.chk input{width:16px;height:16px;accent-color:var(--accent-fill);margin:0}
 
-/* ---- 篇目 ----
-   ★ 一樣拿掉框。十六篇筆記就是十六個圓角方框，那是十六條線。
-   選中態改成塗一塊底＋左邊一條金色的短棒——短棒比整圈框輕，
-   而且它只出現在被選中的那一項，不會變成滿滿的格線。 */
-.md-item{position:relative;display:block;width:100%;text-align:left;
-         padding:7px 10px;margin-bottom:2px;
-         border-radius:9px;border:0;background:transparent;
-         cursor:pointer;transition:background var(--dur-fast) var(--ease)}
-.md-item:hover{background:var(--accent-soft)}
-.md-item.is-open{background:var(--accent-soft)}
-.md-item.is-open::before{content:"";position:absolute;left:3px;top:9px;bottom:9px;
-                         width:3px;border-radius:2px;background:var(--accent-bright)}
-.md-item b{display:block;font-size:14px;font-weight:800;
-           overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.md-item small{font-size:11.5px;color:var(--ink-3)}
-.hint{color:var(--ink-3);font-size:13px;padding:10px 2px}
+.bk{position:relative;display:block;width:100%;text-align:left;padding:7px 10px;margin-bottom:2px;
+    border-radius:9px;border:0;background:transparent;cursor:pointer;
+    transition:background var(--dur-fast) var(--ease)}
+.bk:hover,.bk.is-open{background:var(--accent-soft)}
+.bk.is-open::before{content:"";position:absolute;left:3px;top:9px;bottom:9px;
+                    width:3px;border-radius:2px;background:var(--accent-bright)}
+.bk b{display:block;font-size:14px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bk small{font-size:11.5px;color:var(--ink-3)}
+.hint{color:var(--ink-3);font-size:14px;padding:16px 14px;line-height:1.7}
+.hint b{color:var(--ink-2)}
+
+/* ---- 一疊紙 ----
+   ★ 紙用 transform: scale 縮放，外面包一層撐出縮放後的大小（transform 不佔版面）。
+     所以紙裡面的座標永遠是 610×816 的那一套，存檔與匯出都用這一套，跟螢幕多大無關。 */
+#sheets{flex:1;min-height:0;overflow:auto;padding:14px 12px 40px;
+        display:flex;flex-direction:column;align-items:center;gap:18px;
+        -webkit-user-select:none;user-select:none}
+.sheet-wrap{flex:none;position:relative}
+.sheet-n{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:11px;
+         color:var(--ink-3);line-height:1}
+.sheet{position:absolute;left:0;top:0;width:610px;height:816px;transform-origin:0 0;
+       background-color:var(--sheet-paper);
+       /* 上層是真的那張紙（頁首、紙紋），下層從貼圖底下那 23px 的透明尾巴接著畫線。
+          下層同時是降級：貼圖沒載到也還是一張有線的紙。 */
+       background-image:url(notepaper.webp),
+           repeating-linear-gradient(transparent 0 23px, var(--sheet-rule) 23px 24px);
+       background-size:610px 816px,auto;background-repeat:no-repeat,repeat;
+       border-radius:2px;
+       /* ★ 不能 overflow:hidden：拖到別張紙上的那一段路，題目會被自己那張紙切掉、看起來消失了。
+            題目的位置本來就夾在紙裡面（放開時 clamp），用不到裁切。 */
+       box-shadow:0 1px 3px rgba(0,0,0,.14),0 8px 24px rgba(0,0,0,.10)}
+/* 拖曳中那一題所在的紙整張浮到最上層：每張紙都有 transform，各自是一個疊放層，
+   不浮上來的話往下一頁拖時題目會被壓在下一張紙底下。 */
+.sheet-wrap.lift{z-index:30}
+html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
+.sheet.drop{outline:3px solid var(--accent-bright);outline-offset:3px}
+
+/* 一題 = 題目框（.it-box，裡面是放大縮小過的 .qbox）＋ 下面的作答空間（.it-gap）。 */
+.it{position:absolute;touch-action:pan-x pan-y}
+.it.sel{touch-action:none;z-index:5}
+.it.dragging{z-index:20;opacity:.92;cursor:grabbing;
+             /* 讓「手指底下是哪一張紙」量得到底下那張，而不是拖著的題目自己。 */
+             pointer-events:none}
+.it-box{position:relative;cursor:grab;border-radius:3px}
+.it:hover .it-box{box-shadow:0 0 0 1px rgba(122,89,5,.35)}
+.it.sel .it-box{box-shadow:0 0 0 2px var(--accent-bright)}
+.it-box > .qbox{transform-origin:0 0}
+.it-gap{position:relative;pointer-events:none}
+.it.sel .it-gap{border:1.5px dashed rgba(122,89,5,.55);border-top:0;border-radius:0 0 6px 6px;
+                background:rgba(232,196,106,.08)}
+.it-gap .gap-lbl{position:absolute;left:8px;top:4px;font-size:12px;font-weight:700;color:#8a6a12;display:none}
+.it.sel .it-gap .gap-lbl{display:block}
+/* 兩個把手：右下角拉大小、作答空間底下拉高度。只在選中的那一題出現。 */
+.h-size,.h-gap{position:absolute;display:none;pointer-events:auto;touch-action:none;
+               background:var(--accent-fill);border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.35)}
+.it.sel .h-size,.it.sel .h-gap{display:block}
+.h-size{right:-9px;bottom:-9px;width:18px;height:18px;border-radius:50%;cursor:nwse-resize}
+.h-gap{left:50%;bottom:-8px;width:46px;height:14px;margin-left:-23px;border-radius:8px;cursor:ns-resize}
 
 /* ==========================================================
-   頁面縮圖
+   題目本身（.qbox）
 
-   ★ 縮圖是把**已經排好的** `.md-page` 整個複製一份再縮小，不是另外畫一次。
-   另外畫的話那是第二套排版規則，兩套遲早會不一樣，而症狀是
-   「縮圖跟真的頁面長得不一樣」——沒有人會覺得那是 bug，只會覺得縮圖沒用。
-
-   ★★ 縮圖只有**一個**比例數字（--thumb-k）。頁寬、頁高、scale 三個都從它算，
-   改一個就是三個一起改。分開寫的話最容易發生的是「框的比例對、
-   裡面的紙比例不對」，於是縮圖右邊或下面露出一條底色。
+   ★★ 每一條規則都只掛在 .qbox 底下，不靠祖先：匯出時把它複製一份放到畫面外去轉圖片，
+   靠祖先的樣式在複製品身上會全部掉光（症狀是「匯出來的字變成另一個大小」）。
+   ★ 底色是紙的顏色、不透明：匯出後題目是一張圖疊在橫線紙上，透明的話線會穿過字。
+   ★ 寬 578 ＝ 610 − 左右各 16（跟以前筆記頁的頁邊一樣）。縮放是外面那層 transform，
+     這裡永遠按 578 排，所以同一題縮成多大，裡面的換行都一樣。
    ========================================================== */
-#mdThumbs{display:flex;flex-direction:column;align-items:center;gap:12px;
-          --thumb-k:.246}
-.thumb-wrap{flex:none;display:flex;flex-direction:column;align-items:center;gap:3px}
-.thumb{position:relative;padding:0;cursor:pointer;
-       width:calc(var(--md-page-w) * var(--thumb-k));
-       height:calc(var(--md-page-h) * var(--thumb-k));
-       border:2px solid transparent;border-radius:4px;
-       background:var(--md-paper);overflow:hidden;
-       box-shadow:0 1px 3px rgba(0,0,0,.22);
-       transition:border-color var(--dur-fast) var(--ease)}
-.thumb:hover{border-color:var(--accent-bright)}
-/* ★★ `.thumb-in` 一定要掛 `md-body`：語意色、標題、表格全部是
-   `.md-body xxx` 選出來的。複製到別的祖先底下而忘了掛，
-   症狀是縮圖整片變成沒有顏色的黑字——看起來像「縮圖本來就這樣」。 */
-.thumb-in{transform-origin:top left;transform:scale(var(--thumb-k));
-          pointer-events:none}
-/* 縮圖裡不要再有第二層影子（縮小之後那圈影子會糊成一塊灰邊） */
-.thumb-in .md-page{box-shadow:none;border-radius:0}
-.thumb-n{font-size:11px;color:var(--ink-3);line-height:1}
+.qbox{width:578px;padding:6px 8px 8px;background:var(--sheet-paper);color:var(--sheet-ink);
+      font:14px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
+      word-break:break-word;overflow-wrap:anywhere}
+.qbox .q-stem{display:flex;gap:.45em}
+.qbox .q-no{flex:none;font-weight:800}
+.qbox .q-txt{flex:1;min-width:0;white-space:pre-wrap}
+.qbox .q-tag{font-size:12px;font-weight:800;color:var(--sheet-dim);margin-left:.3em;white-space:nowrap}
+.qbox .q-grp{margin:0 0 6px;padding:6px 9px;border-left:3px solid var(--sheet-rule);white-space:pre-wrap}
+.qbox .q-listen{margin:0 0 6px;font-size:13px;white-space:pre-wrap}
+.qbox .q-listen b{color:var(--sheet-dim);font-size:12px}
+.qbox .q-img{display:block;max-width:100%;max-height:340px;margin:6px 0 2px;background:#fff}
+.qbox .q-opts{list-style:none;margin:4px 0 0;padding:0 0 0 1.4em;display:grid;gap:2px 14px}
+.qbox .q-opts.short{grid-template-columns:repeat(auto-fill,minmax(122px,1fr))}
+.qbox .q-opts li{display:flex;gap:.35em;min-width:0}
+.qbox .q-opts .q-l{flex:none;font-weight:700}
+.qbox .q-opts .q-o{flex:1;min-width:0}
+.qbox .q-opts .q-img{max-height:150px}
+.qbox .q-foot{display:flex;justify-content:space-between;gap:10px;margin-top:4px;font-size:12px;color:var(--sheet-dim)}
+.qbox .q-ans{color:var(--sheet-ans);font-weight:700}
+.qbox .q-ans::before{content:"\2605 "}
+.qbox .q-src{margin-left:auto;text-align:right}
+.qbox .katex{font-size:1.05em}
+.qbox .q-tex-raw{font-family:ui-monospace,monospace;font-size:.92em;color:#a8460b}
 
-/* ---- 橫線紙 ----
-   ★ 用 `background-image` 不是 `background` 簡寫——簡寫會把底色一起洗掉，
-   症狀是紙變透明。
+/* 量高度用：放在畫面外、寬 578，不縮放。 */
+#measure{position:fixed;left:-30000px;top:0;width:578px;visibility:hidden;pointer-events:none}
+/* 匯出時轉圖片用：一樣在畫面外，但**不能** visibility:hidden——html-to-image 會把它抄進
+   每一個元素的樣式裡，轉出來是一張只有底色的空白圖（2026-10-07 第一次匯出就是這樣）。 */
+#snap{position:fixed;left:-30000px;top:0;width:578px;pointer-events:none}
 
-   ★★ 兩層背景，順序有意義：
-     上層 `notepaper.webp` 是真的那張紙（頁首的點線／No.／Date、紙紋顆粒），
-          一頁 610×816，只鋪一次不重複；
-     下層 repeating-linear-gradient 從貼圖底下那 23px 的**透明尾巴**接下去。
-   兩層的線都落在 24px 的整數倍上（貼圖是照這個對齊重採樣過的），所以接得起來。
-   下層同時也是**降級**：圖沒載到（離線第一次開、或 GitHub Pages 還沒同步）
-   就只是少了頁首與顆粒，紙還是紙——這比整片空白好太多，而空白正是
-   「只寫貼圖不寫漸層」會發生的事。
+/* 匯出中的遮罩 */
+#busy{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,.35)}
+#busy > div{background:var(--paper-raised);color:var(--ink);border-radius:16px;padding:18px 24px;
+            font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.3);min-width:14rem;text-align:center}
+#busy small{display:block;font-weight:600;color:var(--ink-3);font-size:12.5px;margin-top:4px}
 
-   ★★★ `background-attachment: local` 少了會壞而且不報錯：預設值是 scroll，
-   意思是背景釘在**元素**上不跟著內容捲。捲個兩三行之後字就浮在兩條線中間，
-   而畫面看起來一切正常。會捲的容器一定要 local。
-
-   ★ padding-top 用 --md-head（72px＝3 格）把第一行字讓到 Date 線底下，
-   而且它是 24 的整數倍——不是的話整篇的字會坐在線與線之間。 */
-.md-sheet{
-    background-color:var(--md-paper);
-    background-image:url(notepaper.webp),
-        repeating-linear-gradient(
-            transparent 0 calc(var(--md-line) - 1px),
-            var(--md-rule) calc(var(--md-line) - 1px) var(--md-line));
-    /* ★★ 貼圖是 `repeat-y`：捲過第一張紙的底之後，下面接的是**一模一樣的下一張**
-       （頁首的點線／No.／Date 也在），不是一片沒完沒了的橫線。
-       ★ 代價要講清楚：textarea 沒辦法讓文字「跳過」下一張的頁首那三格，
-       所以第二張以後的 No./Date 會在字的底下。這是 textarea 的天花板——
-       要讓字真的避開，只能改用 contenteditable，而那會弄壞「打的是原文」。
-       ★ 預覽區的 `.md-page` 是一張一張獨立的方塊，各自只鋪一張，不受這條影響。 */
-    background-repeat:repeat-y,repeat;
-    /* ★ 寬度用 100% 不是 --md-page-w：`.md-page` 本來就是 610 寬，兩者一樣；
-       但編輯區是跟著欄寬伸縮的，寫死 610 的話寬一點的螢幕上，
-       紙紋與頁首會在 610px 那裡切一刀，右邊只剩 CSS 畫的線。
-       ★ 高度**一定要寫死** 816：橫向拉伸不影響橫線的位置，縱向會。 */
-    background-size:100% var(--md-page-h),auto;
-    background-position:top left,top left;
-    background-attachment:local,local;
-    color:var(--md-ink);
-    line-height:var(--md-line);
-}
-/* 深色版是重算出來的不是反相（`tools/notepaper.py` 開頭寫了為什麼）。
-   ★ 頁首在深色也要在：兩個模式的 padding-top 一樣，切換主題時整篇字
-   不可以上下跳一格。 */
-html.dark .md-sheet{background-image:url(notepaper-dark.webp),
-    repeating-linear-gradient(
-        transparent 0 calc(var(--md-line) - 1px),
-        var(--md-rule) calc(var(--md-line) - 1px) var(--md-line))}
-
-/* ---- 編輯區：也是一張完整的紙，只是它自己會捲 ----
-
-   ★★ 它**不分頁**，而且不是偷懶。textarea 沒有辦法把自己的內容切成幾塊
-   （它裡面沒有節點可以搬），硬要分頁只能改用 contenteditable，
-   而那會把「使用者打的是 Markdown 原文」這件事整個弄壞。
-   而且就算做得到也沒有意義：左邊是原文、右邊是排版後的結果，
-   兩邊的行本來就對不起來，在原文上畫分頁線只會誤導。
-
-   ★★★ 但**紙不可以長得比一頁還長**。原本讓它填滿整欄，於是螢幕愈高、
-   那張紙就愈往下延伸，看起來像紙壞掉了——而它其實只是一個很高的輸入框。
-   所以尺寸釘成跟 `.md-page` 一模一樣（610×816、同樣的影子），
-   捲的是**紙裡面的字**。畫面上永遠只有「一頁」這一種紙的形狀。 */
-#mdInput{
-    font-family:ui-monospace,"Cascadia Code","Noto Sans TC",monospace;
-    font-size:14px;resize:none;
-    /* ★★ 順序是 `height:100%` 配 `max-height:一頁`，不是反過來。
-       寫成 `height:816px; max-height:100%` 量出來**不會夾**——欄高 500 的時候
-       紙還是 816，直接溢出到工作區外面。反過來寫兩種情況都對：
-       欄夠高就停在一頁，欄不夠高就跟著欄縮。 */
-    width:var(--md-page-w);max-width:100%;
-    height:100%;max-height:var(--md-page-h);
-    justify-self:center;
-    border:0;border-radius:2px;
-    padding:var(--md-head) 16px var(--md-line);
-    min-height:0;overflow:auto;
-    box-shadow:0 1px 3px rgba(0,0,0,.14),0 8px 24px rgba(0,0,0,.10);
-}
-html.dark #mdInput{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
-/* ★ 沒有邊框可以變色了，所以聚焦改用外框線（`outline` 不佔版面，
-   用 border 會讓紙在點下去的瞬間縮 1px）。 */
-#mdInput:focus{outline:2px solid var(--accent-bright);outline-offset:2px}
-
-/* ---- 預覽區：一頁一張紙 ----
-   ★ 捲動的是這一層，紙本身不捲（`.md-page` 是固定尺寸的方塊）。
-   所以 `.md-page` 用不到 background-attachment——它沒有自己的捲軸。 */
-#mdPreview{
-    min-height:0;overflow:auto;
-    display:flex;flex-direction:column;align-items:center;gap:16px;
-    padding:0 8px 16px;
-}
-/* ★ 這裡不必再補 `#mdPreview.hidden`——`.hidden` 已經是 `!important`
-   （為什麼要那樣寫，看下面 .hidden 那一段）。 */
-.md-page{
-    flex:none;position:relative;
-    width:var(--md-page-w);height:var(--md-page-h);
-    padding:var(--md-head) 16px calc(var(--md-page-h) - var(--md-head) - var(--md-body-h));
-    border-radius:2px;
-    /* ★ 紙要看得出是一張紙，靠的是影子不是邊框：畫邊框等於在紙上多印一條線，
-       而這張紙上已經有 33 條線了。 */
-    box-shadow:0 1px 3px rgba(0,0,0,.14),0 8px 24px rgba(0,0,0,.10);
-    /* ★★ 超出的內容要**看不見**不是被推開：分頁邏輯保證塞得下，
-       但公式或表格偶爾會比算出來的高一點點。overflow 沒關的話，
-       多出來的那一點會疊到下一張紙上，看起來像「兩頁印在一起」。 */
-    overflow:hidden;
-}
-html.dark .md-page{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
-/* 頁碼印在下方頁邊那一格裡（那一格本來就是空的） */
-.md-page::after{
-    content:attr(data-page);position:absolute;left:0;right:0;
-    bottom:4px;text-align:center;
-    font-size:11px;line-height:1;color:var(--ink-3);opacity:.7;
-}
-/* ★ 手機不分頁：一頁 610px 縮到 360px 是 0.59 倍，14px 的字會變成 8px。
-   「完整一頁」在手機上就是「完整一頁都看不清楚」，所以那邊維持連續的紙。
-   這條規則與 `mdPagedNow()` 的斷點必須是同一個數字。 */
-@media (max-width: 820px){
-    #mdPreview{display:block;padding:0}
-    .md-page{width:auto;height:auto;min-height:100%;
-             padding:var(--md-head) 16px 14px;box-shadow:none;border-radius:14px}
-    .md-page::after{content:none}
-    /* 手機上紙就是整個畫面，不用再擺一張 610 寬的紙在中間留白 */
-    #mdInput{width:100%;height:100%;max-height:none;box-shadow:none;border-radius:14px}
-}
-
-/* ---- 四種語意色 ---- */
-.md-body .md-derive{color:var(--md-derive)}
-.md-body .md-annot{color:var(--md-annot)}
-.md-body .md-def{background:var(--md-mark-bg);color:var(--md-mark-ink);
-                 padding:1px 5px;border-radius:3px}
-.md-body .md-answer{color:var(--md-answer);font-weight:700}
-/* ★ 星號用 ::before 產生，不寫進使用者的字裡。寫進去的話「改成不是答案」
-   會留下一顆孤兒星號，而那要使用者自己去刪。
-   ★ 而且寫成碼位 \2605，不要直接打那個字元——`tests/design.mjs` 把
-   「註解外面出現中文或★」當成「有個註解沒關好」的代理指標，
-   那個指標很準也很便宜，不該為了一個裝飾字元把它弄鈍。 */
-.md-body .md-answer::before{content:"\2605";margin-right:.25em}
-
-/* ★ 標題的上邊距**必須是 --md-line 的整數倍**。原本是 .5 倍，
-   於是標題底下的每一行都比橫線低半格，而且愈往下看愈明顯。
-   紙上的字沒有「半行」這回事——空一行就是空一整行。 */
-.md-body h1,.md-body h2,.md-body h3{color:var(--md-derive);font-weight:900;
-    margin:var(--md-line) 0 0}
-/* ★ 每一頁的第一塊不留上邊距：標題被分頁推到次頁時，那 24px 會變成
-   「頁首底下憑空空一行」，而使用者只會覺得這一頁排歪了。 */
-.md-page > :first-child{margin-top:0 !important}
-.md-body h1{font-size:20px} .md-body h2{font-size:17px} .md-body h3{font-size:15px}
-.md-body p,.md-body li{margin:0}
-/* ★★ 原文裡的空行＝紙上真的空一格（產生器見 mdKeepBlankLines）。
-   高度寫死一格而不是靠 `<br>` 撐：空的 `<p>` 沒有行框，高度是 0，
-   而 0 的那一塊在分頁時完全不佔位——症狀是「空行有時候有、有時候沒有」。
-   釘成 --md-line 的一倍，`mdSnapBlock` 量到的餘數就是 0，不會再補格。 */
-.md-body .md-blank{height:var(--md-line)}
-.md-body ul,.md-body ol{padding-left:1.6em;margin:0}
-.md-body ul{list-style:disc} .md-body ol{list-style:decimal}
-.md-body code{font-family:ui-monospace,monospace;font-size:.92em;
-              background:rgba(0,0,0,.05);padding:1px 4px;border-radius:3px}
-html.dark .md-body code{background:rgba(255,255,255,.08)}
-.md-body blockquote{border-left:3px solid var(--md-annot);padding-left:10px;
-                    margin:0;color:var(--md-annot)}
-.md-body table{border-collapse:collapse;width:100%}
-.md-body th,.md-body td{border:1px solid var(--md-rule);padding:4px 8px;text-align:left}
-.md-body th{color:var(--md-annot)}
-/* ★ KaTeX 的字級要壓回紙的行距裡。預設 1.21em 會把公式那一行撐高，
-   於是橫線紙從那一行開始整片對不齊。 */
-.md-body .katex{font-size:1.02em}
-/* 還沒被 KaTeX 接手（沒載到／語法錯）的公式維持等寬，至少排得整齊 */
-.md-tex-raw{font-family:ui-monospace,monospace;font-size:.92em;color:var(--md-annot)}
-
-#mdHelp{flex:none;font-size:13px;background:var(--paper-raised);
-        border:1px solid var(--rule);border-radius:12px;padding:9px 12px}
-#mdHelp.hidden{display:none}
-#mdHelp code{background:var(--accent-soft);padding:1px 5px;border-radius:4px;
-             font-family:ui-monospace,monospace}
-#mdHelp div + div{margin-top:3px}
-
-#saveState{font-size:13px;font-weight:700;color:var(--ink-3);white-space:nowrap}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200;
        background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:12px;
        font-weight:700;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);
        max-width:calc(100% - 32px)}
-#toast.hidden{display:none}
-/* ★★★ `!important` 不是偷懶，是這一頁踩過的坑。
-   `.hidden` 是 class（0,1,0），而版面用的是 id 選擇器（1,0,0）——
-   只要哪個 id 規則裡有 `display:`，那個元素就**關不掉**，而 CSS 不會報錯。
-   實際發生過的症狀：還沒選任何一篇時，`#panes`（display:grid）與
-   `#editHead`（display:flex）照樣顯示，於是一張空白的紙從上面一路延伸到底，
-   而「左邊選一篇」那行提示被擠在旁邊——看起來像版面壞掉，不像少了一行 CSS。
-   主站 `publicnew.html` 早就是 `!important`，這一頁是新檔案，抄的時候漏了。
-   `tests/mdnote.mjs` 會掃「id 設了 display 又會被加 hidden」的組合。 */
+/* ★ `!important` 不能省：版面用的是 id 選擇器（1,0,0），.hidden 是 class（0,1,0），
+   只要哪個 id 規則裡有 display，那個元素就關不掉，而 CSS 不會報錯（以前的筆記頁踩過）。 */
 .hidden{display:none !important}
 
 /* ==========================================================
-   手機：不擋，改版面
-
-   ★ 電路那頁硬擋手機，因為拉線需要大螢幕。筆記相反——課堂上用手機
-   記一段是最常見的情境，擋掉等於把最主要的使用時機丟掉。
-
-   做法是主從切換：手機上一次只看得到「篇目清單」或「編輯器」其中一個，
-   而不是把兩欄壓成各半（各半的結果是兩邊都不能用）。
+   手機：主從切換（一次只看清單或紙），不是把兩欄壓成各半
    ========================================================== */
 @media (max-width: 820px){
-    #panes{grid-template-columns:1fr !important}
-    #listCol{width:100%;border-right:0;border-bottom:1px solid var(--rule)}
-    /* 手機上兩欄互斥。桌機沒有 .phone-* 這兩個 class，所以完全不受影響。 */
+    #listCol{width:100%;border-right:0}
     body.phone-edit #listCol{display:none}
     body.phone-list #editCol{display:none}
     .desk-only{display:none !important}
-    /* ★★ 側欄的收合鈕在手機上要**沒有作用**：手機本來就是主從切換
-       （一次只看得到一邊），再疊一層「收起來」的話，在篇目那一邊按下去
-       就是兩邊都不見——畫面全空，而且沒有東西可以按回來。
-       所以 `.side-off` 只在桌機生效，鈕本身也藏起來（`.desk-only`）。 */
-    .md-tab{max-width:9rem}
+    #sheets{padding:10px 6px 40px}
+    /* 兩排工具列在手機上各自只佔一行、可以左右滑：換行的話兩排加起來要吃掉螢幕四分之一，
+       紙只剩一半。 */
+    #editHead,#selBar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    #editHead::-webkit-scrollbar,#selBar::-webkit-scrollbar{display:none}
+    #editHead > *,#selBar > *{flex:none}
+    #bookTitle{flex:none;width:9rem;min-width:0}
+    #selBar .lbl:not(#selNo){display:none}
 }
 @media (min-width: 821px){
     .phone-only{display:none !important}
@@ -603,8 +345,7 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
 <div id="app">
 
 <header>
-  <!-- logo 的行為跟主站與模擬器一致：點一下展開選單，不是直接跳頁。
-       關閉的三條路：點選單外面、按 Esc、選了任何一項。 -->
+  <!-- logo 的行為跟主站與模擬器一致：點一下展開選單，不是直接跳頁。 -->
   <div class="hbar">
     <button id="btnSide" class="btn tiny icon desk-only" title="收合／展開側欄"
             aria-expanded="true" aria-controls="listCol">&#9776;</button>
@@ -612,14 +353,14 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
       <div id="logoBtn" role="button" tabindex="0"
            aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
         <img src="logomain.jpg" alt="">
-        <div class="htitle">筆記小黑貓<small>BLACKCAT MD</small></div>
+        <div class="htitle">錯題本小黑貓<small>BLACKCAT NOTEBOOK</small></div>
         <span id="logoChev" aria-hidden="true">&#9662;</span>
       </div>
       <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
         <a class="logo-menu-item" href="./" role="menuitem">小黑貓<small>主頁、學習、理財</small></a>
         <a class="logo-menu-item" href="ncue.html" role="menuitem">彰師電子小黑貓<small>課程評價、教材、消息</small></a>
         <span class="logo-menu-item is-here has-beta" role="menuitem" aria-current="page">
-          筆記小黑貓<span class="beta-tag">beta</span><small>Markdown ＋ 數學公式</small></span>
+          錯題本小黑貓<span class="beta-tag">beta</span><small>答錯的題目排成筆記</small></span>
         <a class="logo-menu-item has-beta" href="blackcatspice.html" role="menuitem">電路小黑貓<span class="beta-tag">beta</span><small>免安裝，用電腦開</small></a>
       </div>
     </div>
@@ -628,82 +369,83 @@ html.dark .md-body code{background:rgba(255,255,255,.08)}
       <button id="themeBtn" class="btn tiny icon" title="切換深色／淺色">&#9681;</button>
     </div>
   </div>
-
-  <!-- 文件分頁列：同時開好幾篇，切分頁不必回清單。
-       ★ 「＋」在分頁列的最右邊而不是在頁首——新增一篇的結果就是多一個分頁，
-       按鈕放在它會出現的地方，不必再解釋一次它會做什麼。 -->
-  <div id="mdTabs">
-    <div id="mdTabStrip" role="tablist" aria-label="開著的筆記"></div>
-    <button id="btnNew" title="新增一篇" aria-label="新增一篇">＋</button>
-  </div>
 </header>
 
-<div id="mdHelp" class="hidden">
-  <div><code>==定義==</code> 黃螢光　<code>!!標註!!</code> 橘字　<code>@@答案@@</code> 金字並自動加 ★</div>
-  <div><code>$x=a\sin\theta$</code> 行內公式　<code>$$…$$</code> 獨立成行的公式</div>
-  <div><code># 標題</code>　<code>- 清單</code>　<code>| 表格 |</code>　<code>&gt; 引用</code>（標準 Markdown 都能用）</div>
-  <div style="color:var(--ink-3)">※ 公式語法跟課本一樣是 LaTeX；打錯的那一條會用橘色等寬字顯示原文，不會整頁壞掉。</div>
-</div>
-
 <div id="work">
-  <!-- 側欄：上面是分段控制（固定），下面是會捲的內容。
-       「頁面」那一段是把排好的頁複製一份縮小，點一下捲到那一頁。 -->
   <div id="listCol">
-    <div id="sideSeg" class="seg">
-      <button data-side="list" class="sideOpt on">篇目</button>
-      <button data-side="pages" class="sideOpt">頁面</button>
+    <div id="listHead">
+      <b>我的錯題本</b>
+      <button id="btnNew" class="btn tiny" title="開一本空的">＋ 新的一本</button>
     </div>
-    <div id="sideBody">
-      <div id="mdList"></div>
-      <div id="mdThumbs" class="hidden"></div>
-    </div>
+    <div id="bookList"></div>
   </div>
 
   <div id="editCol">
     <div id="loginHint" class="hint hidden">
-      登入後才能使用筆記，內容只有你自己看得到。<br>
+      登入後才能使用錯題本，內容只有你自己看得到。<br>
       請先到<a href="./">小黑貓主頁</a>登入，再回到這一頁。
     </div>
-    <div id="emptyHint" class="hint hidden">左邊選一篇，或按上面的「＋ 新增一篇」開始寫。</div>
+    <div id="emptyHint" class="hint hidden">
+      <b>錯題本怎麼來？</b><br>
+      做完一份測驗之後，在結算頁按「<b>排成錯題本</b>」，答錯的題目就會一題一題排上筆記紙，
+      每題底下自動留好寫算式的空間。<br>
+      排好之後可以拖、可以調大小，最後按「<b>匯出到 GoodNotes</b>」，到 iPad 上題目一樣可以搬。<br>
+      <a href="./">去做測驗</a>
+    </div>
 
-    <!-- 文件自己的工具列。★ 這些全部是「針對這一篇」的操作，所以它們跟著
-         文件走，不放在頁首——頁首那排是身分與全站的東西。 -->
+    <!-- 這一本的工具列 -->
     <div id="editHead" class="hidden">
-      <button id="btnBack" class="btn tiny phone-only">&#8592; 篇目</button>
-      <input id="mdTitle" maxlength="80" placeholder="這篇的標題">
-      <div class="seg">
-        <button data-view="split" class="viewOpt desk-only">並排</button>
-        <button data-view="edit" class="viewOpt">只編輯</button>
-        <button data-view="read" class="viewOpt">只閱讀</button>
-      </div>
+      <button id="btnBack" class="btn tiny phone-only">&#8592; 清單</button>
+      <input id="bookTitle" maxlength="40" placeholder="這本的名字" aria-label="這本錯題本的名字">
       <span id="saveState"></span>
-      <span class="tsep"></span>
-      <button id="btnHelp" class="btn tiny">標記怎麼打</button>
-      <button id="btnExport" class="btn tiny">匯出 .md</button>
-      <button id="btnDelete" class="btn tiny danger">刪除這篇</button>
+      <span class="tsep desk-only"></span>
+      <div class="seg" id="densitySeg" role="group" aria-label="每題底下留多少空間">
+        <button data-density="low">留白少</button>
+        <button data-density="mid">中</button>
+        <button data-density="high">多</button>
+      </div>
+      <label class="chk"><input type="checkbox" id="ansChk"> 附正解</label>
+      <button id="btnFlow" class="btn tiny" title="照題號重新排一次，每題底下照「留白」自動留空間">重新自動排版</button>
+      <button id="btnAddPage" class="btn tiny" title="最後面多一張空白紙">＋ 一頁</button>
+      <button id="btnExport" class="btn tiny primary">匯出到 GoodNotes</button>
+      <button id="btnDelete" class="btn tiny danger">刪除這本</button>
     </div>
-    <div id="panes" class="hidden">
-      <textarea id="mdInput" class="md-sheet" spellcheck="false"
-                placeholder="從這裡開始寫。
 
-# CH7
-==兩曲線之間的面積== 先定上下再積分
-$$\int_a^b [f(x)-g(x)]\,dx$$
-@@答案 24@@"></textarea>
-      <!-- ★ 紙在 `.md-page` 上不在這裡：這一層只負責捲動與置中。
-           兩個都掛 `.md-sheet` 的話，捲動時會看到「紙裡面還有紙」。 -->
-      <div id="mdPreview" class="md-body"></div>
+    <!-- 選中的那一題的工具列。★ 固定在這裡、不浮在題目旁邊：手機上浮動的小工具列
+         一定會蓋到旁邊那一題，而且手指一拖題目它就跟著跑。 -->
+    <div id="selBar" class="hidden" role="group" aria-label="選中的這一題">
+      <span class="lbl" id="selNo">第 1 題</span>
+      <span class="tsep"></span>
+      <span class="lbl">作答空間</span>
+      <button class="btn tiny icon" data-sel="gap-" aria-label="少一行">−</button>
+      <span class="num" id="selGap">8 行</span>
+      <button class="btn tiny icon" data-sel="gap+" aria-label="多一行">＋</button>
+      <span class="tsep"></span>
+      <span class="lbl">大小</span>
+      <button class="btn tiny icon" data-sel="sc-" aria-label="縮小">−</button>
+      <span class="num" id="selSc">100%</span>
+      <button class="btn tiny icon" data-sel="sc+" aria-label="放大">＋</button>
+      <span class="tsep"></span>
+      <button class="btn tiny" data-sel="up">往前</button>
+      <button class="btn tiny" data-sel="down">往後</button>
+      <button class="btn tiny danger" data-sel="del">拿掉這題</button>
+      <button class="btn tiny" data-sel="close" style="margin-left:auto">完成</button>
     </div>
+
+    <div id="sheets" class="hidden" aria-label="錯題本的頁面"></div>
   </div>
 </div>
 
 </div>
+<div id="measure" aria-hidden="true"></div>
+<div id="snap" aria-hidden="true"></div>
+<div id="busy" class="hidden" role="status"><div><span id="busyText">匯出中…</span><small id="busySub"></small></div></div>
 <div id="toast" class="hidden" role="status"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, initializeAuth, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc }
+import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, getDoc, query, where }
     from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 const $ = id => document.getElementById(id);
@@ -714,49 +456,73 @@ const $ = id => document.getElementById(id);
    ★ 全部宣告在最前面。這個專案的暫時性死區已經踩過六次，
    症狀一律是「一載入就掛、畫面全白」，而 `node --check` 看不出來。
    ========================================================== */
-let notes = [];
-let mdNotesLoaded = false;
-/* ★★ 這個集合是整支程式最重要的一樣東西。它擋的是本專案最貴的那個坑：
-   面板開了、游標能打字，而雲端那篇還在路上——這時候自動存檔寫下去，
-   就是拿空的內容覆蓋掉使用者整晚寫的東西。
-   規則：**沒有在這個集合裡的篇章，一個字都不准寫回雲端。**
-   id 進來只有兩條路——從 onSnapshot 真的收到過，或本機剛建立的新篇。 */
-const mdReadyIds = new Set();
-let currentNoteId = null;
-/* ★★ 預設是「只編輯」不是「並排」。並排的問題不是擠，是**畫面上會有兩張紙**——
-   左邊那張還因為 textarea 分不了頁而一路往下鈣，看起來像紙壞掉了。
-   一次只看一邊，畫面上永遠只有一張完整的紙。並排的按鈕留著，要對照的人自己按。 */
-let mdView = 'edit';
-let mdSaveTimer = null;
-let mdDirty = false;          // 有沒有還沒寫回雲端的改動
-let mdPreviewTimer = null;
+let books = [];               // 這個人的每一本錯題本（雲端快照＋本機還沒寫回去的改動）
+let booksLoaded = false;
+/* ★★ 這個集合擋的是以前筆記頁最貴的那個坑：畫面開了、可以拖了，而雲端那本還在路上——
+   這時候自動存檔寫下去，就是拿空的內容蓋掉整本。
+   規則：**沒有在這個集合裡的本子，一個字都不准寫回雲端。**
+   id 進來只有兩條路——從 onSnapshot 真的收到過，或本機剛開的新本。 */
+const readyIds = new Set();
+let curId = null;
+let saveTimer = null;
+let dirty = false;            // 目前這本有沒有還沒寫回雲端的改動
 let unsub = null;
 let toastTimer = null;
-/* ---- 分頁列與側欄 ----
-   ★ 一樣宣告在這裡。這幾個被 renderTabs()／applySide()／renderThumbs() 碰到，
-   而那三支在頁面載入的最後會被叫到——宣告晚一步就是暫時性死區，
-   症狀是畫面全白，而 `node --check` 看不出來。 */
-let openTabs = [];            // 開著的分頁，順序＝打開的順序（不照時間重排）
-let mdTabsRestored = false;   // 第一批快照回來之前不還原分頁（見 initMdSubs）
-let sideMode = 'list';        // 側欄看的是「篇目」還是「頁面縮圖」
+let selKey = null;            // 選中的那一題（題目的 k）
+let drag = null;              // 拖曳中的狀態（移動／拉大小／拉作答空間）
+let zoom = 1;                 // 紙縮放的倍率（螢幕寬度決定）
+let layoutTimer = 0;
+let exporting = false;
+let openedFromUrl = false;
+let deleteArmed = 0;          // 「刪除這本」第一下按下去的時間（第二下才真的刪）
 let sideOpen = true;
+let deliverSink = null;       // 測試用：匯出的檔案交給它，不下載（只有 ?wbtest=1 會設）
+/* 這一輪在本機拿掉的題目。★ 雲端快照合併的時候要跳過它們：
+   不記的話，拿掉之後還沒存檔的 0.8 秒內剛好來一份快照，題目又會長回來。 */
+const removedKeys = new Set();
+/* 每一題量出來的「原本的高度」（寬 578、不縮放），key 是題目的 k。 */
+const natH = new Map();
+const itemEls = new Map();    // k → 畫面上那一題的元素
+let ro = null;                // 量高度用的 ResizeObserver（題目圖、算式晚到時會變高）
+
+/* ---- 紙的幾何（CSS px；匯出時 × 0.75 變成 pt） ----
+   ★ 這幾個數字跟 notepaper.webp 綁死：頁首 3 格、線距 24、每頁 34 格。 */
+const PAGE_W = 610, PAGE_H = 816, LINE = 24, HEAD = 72;
+const MARGIN_X = 16, BASE_W = 578;         // 題目框寬＝610 − 16 × 2
+const BODY_TOP = HEAD + 2;                 // 第一題的頂端：頁首那條雙線底下
+const BODY_BOTTOM = PAGE_H - LINE;         // 最後一條線
+const PT_PER_PX = 0.75;
+const BOOK_ITEMS_MAX = 150;                // 一本最多幾題（Firestore 一份文件 1 MB，一題約 1–3 KB）
+const BOOK_BYTES_MAX = 900000;
+const SC_MIN = 0.5, SC_MAX = 1;
+const GAP_MAX = 30;
+/* 留白三段：每一題型的預設行數（作答空間＝題目框底下到下一題之間的橫線格數）。
+   ★ 數字是照使用者那本工數 GoodNotes 筆記量的：一行就寫得完的小題 3–4 行、
+     一般計算題 6–9 行、拉普拉斯解微分方程那種 12 行以上。選擇題通常只要寫幾步。 */
+const DENSITY = {
+    low:  { choice: 3, fill: 4, calc: 6 },
+    mid:  { choice: 5, fill: 6, calc: 10 },
+    high: { choice: 8, fill: 9, calc: 15 }
+};
+const LETTERS = ['A','B','C','D','E','F','G','H','I','J'];
 
 const escapeHTML = s => String(s ?? '')
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 
 function showToast(msg){
     const t = $('toast');
-    /* ★ 順序是「先顯示、再寫字」。藏起來的 live region 改內容螢幕閱讀器
-       不會播報——先寫字再顯示的話，role="status" 等於白加了。 */
+    /* ★ 先顯示、再寫字：藏起來的 live region 改內容，螢幕閱讀器不會播報。 */
     t.classList.remove('hidden');
     t.textContent = msg;
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(() => t.classList.add('hidden'), 3000);
+    toastTimer = setTimeout(() => t.classList.add('hidden'), 3200);
 }
 
 /* ---------- 主題：與主站共用同一個鍵 ---------- */
 const THEME_KEY = 'eeblackcat-theme';
+const SIDE_KEY = 'eeblackcat-wbnote-side';
 const applyTheme = t => {
     document.documentElement.classList.toggle('dark', t === 'dark');
     try { localStorage.setItem(THEME_KEY, t); } catch(e){}
@@ -781,7 +547,7 @@ logoBtn.addEventListener('keydown', e => {
     }
 });
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
-addEventListener('keydown', e => { if (e.key === 'Escape') setLogoMenu(false); });
+addEventListener('keydown', e => { if (e.key === 'Escape') { setLogoMenu(false); if (selKey) selectItem(null); } });
 
 /* ---------- Firebase：同一個專案、同一個來源，登入狀態直接沿用 ---------- */
 const firebaseConfig = {
@@ -796,30 +562,29 @@ const appId = "eeblackcat-c605d";
 const P  = n => `artifacts/${appId}/public/data/${n}`;
 const PU = n => auth.currentUser && !auth.currentUser.isAnonymous
                 ? `artifacts/${appId}/users/${auth.currentUser.uid}/${n}` : null;
+/* ★★ 錯題本存在 settings 這個集合裡，一本一份文件（id 是 wbnote_xxx，欄位 kind:'wbnote'）。
+   **不新開集合、也不用以前筆記用的 notes**：私人集合有白名單（firestore.rules），
+   新的集合要改規則再到主控台推一次，漏推的症狀是「按了沒反應」——而 notes 那一條
+   從 2026-08-13 加進去之後有沒有推上去，到 2026-10-07 都還在路線圖的「待你動手」裡。
+   settings 是課表、讀書計時都在用的，確定活著。
+   ⚠️ 主站「排成錯題本」寫的是同一個地方（publicnew.html 的 WBN_PREFIX），兩邊要一致。 */
+const BOOK_COL = 'settings';
+const BOOK_KIND = 'wbnote';
+const BOOK_PREFIX = 'wbnote_';
 const app = initializeApp(firebaseConfig), db = getFirestore(app);
 let auth;
 /* ★★ 登入狀態只存 localStorage，IndexedDB 完全不進清單（2026-09-24 第三刀）。
-   Firebase 開機時會把清單上**每一個**儲存區先測一遍能不能用
-   （`PersistenceUserManager.create` 裡那個 `Promise.all(... _isAvailable())`），
-   全部測完才開始還原登入。iPhone 裝成 App、換過兩次頁之後，IndexedDB
-   有時候**連測試都不回話**——不是失敗，是永遠不回——於是 `onAuthStateChanged`
-   從來不觸發，畫面停在 HTML 寫死的「訪客・無名小貓」。v140 把 localStorage
-   排第一、IndexedDB 留著當備用，還是會被這個測試卡住（使用者：「切兩次後便訪客」）。
+   Firebase 開機時會把清單上**每一個**儲存區先測一遍能不能用，全部測完才開始還原登入；
+   iPhone 裝成 App、換過兩次頁之後，IndexedDB 有時候**連測試都不回話**，
+   於是 `onAuthStateChanged` 從來不觸發，畫面停在「訪客」。
    所以 IndexedDB 整個拿掉，舊登入改由下面這段**自己搬一次**，而且有逾時。
-   ⚠️ 搬過就記一個旗子，之後永遠不再讀 IndexedDB。不記的話：登出 → localStorage
-     清空 → 下次開站又從 IndexedDB 把舊登入搬回來 ＝ 登出不掉。
-   ⚠️ 四頁（主站、ncue 產生檔、筆記、模擬器）這段要一致，理由同 v140。 */
+   ⚠️ 搬過就記一個旗子，之後永遠不再讀 IndexedDB（不記的話登出不掉）。
+   ⚠️ 四頁（主站、ncue 產生檔、錯題本、模擬器）這段要一致，理由同 v140。 */
 /* ★★ iPhone／iPad：換頁時不要把上一頁「凍起來」留著（2026-09-24 第四刀）。
-   Safari 換頁時會把上一頁整頁凍進「上一頁快取」，好讓返回鍵能瞬間回去。
-   被凍住的頁**還握著**它開過的小資料庫（Firestore、登入、Firebase 自己的心跳紀錄），
-   卻已經不會動了。切一次、凍一頁還撐得住；切第二次、凍兩頁，
-   新的那一頁去開資料庫就等不到回應（使用者：「切兩次後便訪客」）。
-   裝成 App 之後根本沒有返回鍵，這個快取對我們只有壞處沒有好處。
-   掛一個空的 `unload` 監聽器，Safari 就不會把這一頁放進那個快取——
-   換頁時舊頁是真的關掉、放掉資料庫。萬一還是被凍了又被叫回來
-   （`pageshow` 的 persisted），就整頁重新載入，不要拿一頁半死的畫面給人。
-   ⚠️ 只對 iOS 做：Chrome 已經不鼓勵 `unload`，而其他平台也沒有這個問題。
-   ⚠️ 四頁都要有（主站、ncue 產生檔、筆記、模擬器）——任何一頁被凍住都會卡到下一頁。 */
+   被凍住的頁還握著它開過的小資料庫，切第二次之後新的那一頁去開資料庫就等不到回應。
+   掛一個空的 `unload` 監聽器，Safari 就不會把這一頁放進「上一頁快取」；
+   萬一還是被凍了又被叫回來（`pageshow` 的 persisted），就整頁重新載入。
+   ⚠️ 只對 iOS 做。⚠️ 四頁都要有。 */
 if (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) {
     addEventListener('unload', () => {});
     addEventListener('pageshow', (e) => { if (e.persisted) location.reload(); });
@@ -844,8 +609,7 @@ async function adoptIdbLogin() {
                 } catch (e) { res(null); try { o.result.close(); } catch (e2) {} }
             };
         });
-        /* 1.5 秒拿不到就算了：卡住的那台這次先當訪客（不會被蓋，因為下面的
-           訪客分支只在 localStorage 真的空的時候才匿名登入），下次開站再試。 */
+        /* 1.5 秒拿不到就算了：這次先當訪客，下次開站再試。 */
         const v = await Promise.race([read, new Promise(r => setTimeout(() => r(undefined), 1500))]);
         if (v === undefined) return;                 // 逾時或出錯：不記旗子，下次再搬
         if (v) localStorage.setItem(AUTH_LS_KEY, JSON.stringify(v));
@@ -860,8 +624,8 @@ onAuthStateChanged(auth, async (user) => {
     const me = (user && !user.isAnonymous) ? user : null;
     if (!me){
         $('whoami').textContent = '訪客';
-        stopMdSubs();
-        renderShell();
+        stopSubs();
+        renderAll();
         return;
     }
     let name = '已登入';
@@ -870,893 +634,973 @@ onAuthStateChanged(auth, async (user) => {
         if (s.exists()) name = s.data().displayName || '無名小貓';
     } catch(e){}
     $('whoami').textContent = name;
-    initMdSubs();
-    renderShell();
+    startSubs();
+    renderAll();
 });
 
 /* ==========================================================
-   語意標記：三個，故意只有三個
+   題目 → HTML
 
-   每多一個標記就多一件要記的事，而使用者是自己。三份手寫筆記
-   （`素材/md maker/`）裡真正在用的就是這三種：黃螢光標定義、橘字寫旁註、★ 標答案。
-   藍色不給標記——標題與公式自動是藍的，那正是手寫筆記裡藍筆的位置。
+   ★ 這裡收到的題目是主站「排成錯題本」存進來的那一份（publicnew.html 的 wbNoteSnap）：
+     { q, options?, optImg?, img?, grp?, listen?, multi?, fill?, from, ans }
+     全部是字串或字串陣列，**每一個字都要跳脫**（CLAUDE.md 第四條）——題目來自題庫檔，
+     也來自使用者自己出的題，而自己出的題可以寫任何東西。
+   ★ 算式的寫法跟主站一樣只認 \( … \)（行內）與 \[ … \]（獨立一行），不認 $ … $：
+     題目裡會出現「$100」這種價錢（理由寫在主站 3.7 那一節）。
    ========================================================== */
-const MD_MARKS = [
-    { name:'mdDef',    mark:'==', cls:'md-def' },
-    { name:'mdAnnot',  mark:'!!', cls:'md-annot' },
-    { name:'mdAnswer', mark:'@@', cls:'md-answer' }
-];
-
-let mdMarkedSetup = false;
-function mdSetupMarked(){
-    if (mdMarkedSetup || !window.marked) return;
-    const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
-    marked.use({ extensions: MD_MARKS.map(({ name, mark, cls }) => ({
-        name, level:'inline',
-        /* start 是給 marked 找「下一個可能的起點」用的。回 -1 表示這一段沒有，
-           marked 就不必逐字問——漏寫的話大段文字會慢得有感。 */
-        start(src){ return src.indexOf(mark); },
-        tokenizer(src){
-            const re = new RegExp('^' + esc(mark) + '([\\s\\S]+?)' + esc(mark));
-            const m = re.exec(src);
-            if (!m) return;
-            return { type:name, raw:m[0], text:m[1],
-                     tokens: this.lexer.inlineTokens(m[1]) };
-        },
-        /* ★ 內容走 parseInline 而不是直接塞 text：標記裡面還可以有粗體、
-           行內程式碼與公式佔位符。直接塞的話那些會變成原文。 */
-        renderer(token){
-            return `<span class="${cls}">${this.parser.parseInline(token.tokens)}</span>`;
-        }
-    })) });
-    mdMarkedSetup = true;
+function mathHTML(str) {
+    const s = String(str ?? '');
+    if (!s) return '';
+    const re = /\\\(([\s\S]*?)\\\)|\\\[([\s\S]*?)\\\]/g;
+    let out = '', last = 0, m;
+    while ((m = re.exec(s)) !== null) {
+        out += escapeHTML(s.slice(last, m.index));
+        const disp = m[2] !== undefined;
+        out += `<span class="qtex" data-tex="${escapeHTML(disp ? m[2] : m[1])}"${disp ? ' data-disp="1"' : ''}>${escapeHTML(m[0])}</span>`;
+        last = m.index + m[0].length;
+    }
+    return last ? out + escapeHTML(s.slice(last)) : escapeHTML(s);
+}
+/* 把一塊裡還沒排的算式交給 KaTeX。沒載到就先留原文，載到了再回來排（defer 的 script）。
+   ★ throwOnError: true ＋ 吃掉錯誤＝排不出來就留原文，不印 KaTeX 那個紅字。 */
+function renderMath(root) {
+    const K = window.katex;
+    const jobs = root.querySelectorAll('.qtex:not([data-done])');
+    if (!jobs.length) return;
+    if (!K) return;
+    jobs.forEach(el => {
+        try {
+            K.render(el.dataset.tex, el, { displayMode: el.dataset.disp === '1', throwOnError: true, trust: false, strict: 'ignore' });
+            el.dataset.done = '1';
+        } catch (e) { el.classList.add('q-tex-raw'); el.dataset.done = '1'; }
+    });
+}
+/* 題目圖只收站上 data/quiz/ 底下的相對路徑（跟主站 quizImgSrc 同一條規則，再嚴一點）。
+   ★ 外部網址一律不收：CSP 本來就擋，而且匯出轉圖片時跨來源的圖會整張空白。
+   ★ `cab:`（檔案櫃那一種）不收：題目圖本來就不該是它（主站 questionImgHTML 那段）。
+   ⚠️ 擋 `..`，不然它可以指到網站上任何一個檔案。 */
+function qImgSrc(src) {
+    const s = String(src || '').trim();
+    if (/^[\w.\-]+(\/[\w.\-]+)*$/.test(s) && !s.split('/').includes('..')) return 'data/quiz/' + s;
+    return '';
+}
+function imgsHTML(list) {
+    return (Array.isArray(list) ? list : []).map(im => {
+        const url = qImgSrc(im && im.src);
+        return url ? `<img class="q-img" src="${escapeHTML(url)}" alt="${escapeHTML((im && im.alt) || '')}">` : '';
+    }).join('');
+}
+/* 選項短的（每一個都不超過 14 個字、沒有圖、沒有獨立一行的算式）就橫排，像考卷那樣；
+   長的一個一行。 */
+function optsShort(s) {
+    const opts = s.options || [];
+    if (opts.length < 2) return false;
+    const hasImg = s.optImg && Object.keys(s.optImg).some(k => Array.isArray(s.optImg[k]) && s.optImg[k].length);
+    if (hasImg) return false;
+    return opts.every(o => { const t = String(o ?? ''); return !/\\\[/.test(t) && t.replace(/\\\(|\\\)/g, '').length <= 14; });
+}
+function qHTML(item, no, withAns) {
+    const s = item.s || {};
+    let h = '';
+    const g = s.grp;
+    if (g && (g.text || (g.img && g.img.length))) h += `<div class="q-grp">${mathHTML(g.text)}${imgsHTML(g.img)}</div>`;
+    if (s.listen) h += `<div class="q-listen"><b>聽力題・逐字稿</b><br>${mathHTML(s.listen)}</div>`;
+    const tags = [s.multi ? '複選' : '', s.fill ? `填答 ${Number(s.fill) || ''} 格` : ''].filter(Boolean)
+        .map(t => `<span class="q-tag">（${escapeHTML(t)}）</span>`).join('');
+    h += `<div class="q-stem"><span class="q-no">${no}.</span><span class="q-txt">${mathHTML(s.q)}${tags}</span></div>`;
+    h += imgsHTML(s.img);
+    const opts = Array.isArray(s.options) ? s.options : [];
+    if (opts.length) {
+        h += `<ol class="q-opts${optsShort(s) ? ' short' : ''}">` + opts.map((o, i) =>
+            `<li><span class="q-l">(${LETTERS[i] || i + 1})</span><span class="q-o">${mathHTML(o)}${imgsHTML(s.optImg && s.optImg[String(i)])}</span></li>`).join('') + '</ol>';
+    }
+    const ans = withAns && s.ans ? `<span class="q-ans">${mathHTML(s.ans)}</span>` : '';
+    const src = s.from ? `<span class="q-src">${escapeHTML(s.from)}</span>` : '';
+    if (ans || src) h += `<div class="q-foot">${ans}${src}</div>`;
+    return `<div class="qbox">${h}</div>`;
 }
 
-/* ---- 公式的佔位符 ----
-   用私有使用區的字元：它們不會出現在任何一份筆記裡，而且 DOMPurify
-   不會去動文字節點的內容，所以佔位符一定活得到最後。
-   用 `@@MATH0@@` 這種寫法的話，只要有人真的打了那串字就會壞掉。
+/* ==========================================================
+   一本的資料形狀
 
-   ★ 一定要寫成  這種明碼轉義，不要直接把字元貼進原始碼——
-   它在編輯器裡是看不見的，只要有人順手清理空白就會被刪掉，
-   而症狀是所有公式變成一串數字。 */
-const MD_TEX_OPEN = '\uE000', MD_TEX_CLOSE = '\uE001';
+   { kind:'wbnote', title, flow, density, ans, pages, items:[…], createdAt, updatedAt }
+   一題：{ k, s:{題目}, sc, gap, page, x, y }
+     k     題目的身分（主站 wbKeyOf：同一題收兩次不會變兩題）
+     sc    縮放（0.5–1，1 = 頁寬）
+     gap   作答空間幾行；null = 跟著「留白」自動
+     page/x/y  位置（CSS px，紙的左上角是 0,0）。主站剛加進來的題目沒有位置。
+   ★★ flow（自動排版）：true 的時候位置全部照題號重算——改留白、改大小、拿掉一題，
+     後面的題目會自己往前補。**一拖就變 false**：拖過的人就是要自己擺，
+     不能下一次改留白時把他擺好的位置全部洗掉。「重新自動排版」把它改回 true。
+   ========================================================== */
+const curBook = () => books.find(b => b.id === curId) || null;
+function kindOf(s) {
+    if (s && s.fill) return 'fill';
+    if (s && Array.isArray(s.options) && s.options.length) return 'choice';
+    return 'calc';
+}
+function gapOf(book, it) {
+    if (Number.isFinite(it.gap)) return clamp(Math.round(it.gap), 0, GAP_MAX);
+    const d = DENSITY[book.density] || DENSITY.mid;
+    return d[kindOf(it.s)];
+}
+const scOf = (it) => clamp(Number(it.sc) || 1, SC_MIN, SC_MAX);
+const placed = (it) => Number.isFinite(it.page) && Number.isFinite(it.x) && Number.isFinite(it.y);
+/* 一題實際畫出來的高度（還沒量到就先當 3 行，量到了會重排一次）。
+   ★ 比一頁還高的題目自動縮到放得下（不然它永遠排不進任何一頁）。 */
+function boxH(it) {
+    const h = natH.get(it.k) || LINE * 3;
+    return h * effSc(it);
+}
+function effSc(it) {
+    const h = natH.get(it.k) || LINE * 3;
+    return Math.min(scOf(it), (BODY_BOTTOM - BODY_TOP) / h);
+}
+const ceilLine = (y) => Math.ceil(y / LINE) * LINE;
 
-function mdExtractMath(src, store){
-    /* ★ 先抽 $$…$$ 再抽 $…$。順序不能反——反過來的話 $$ 會先被當成
-       一對空的行內公式吃掉，症狀是整段公式變成兩個錢字號。 */
-    let out = src.replace(/\$\$([\s\S]+?)\$\$/g, (m, tex) => {
-        store.push({ tex, display:true });
-        return MD_TEX_OPEN + (store.length - 1) + MD_TEX_CLOSE;
-    });
-    /* 行內公式不跨行，而且前面是反斜線的錢字號要當成純文字（\$100）。 */
-    out = out.replace(/(^|[^\\])\$([^\n$]+?)\$/g, (m, pre, tex) => {
-        store.push({ tex, display:false });
-        return pre + MD_TEX_OPEN + (store.length - 1) + MD_TEX_CLOSE;
-    });
-    return out;
+/* 照題號從頭排。
+   ★ 下一題的頂端＝這一題框的底「往下取到整條線」再加作答空間的行數，
+     所以每一題都從一條線的正下方開始，作答空間是整數行——跟手寫筆記一樣。
+   ★ 這一題連同它的作答空間放不下就換下一頁：題目在這頁底、空間在下一頁，等於沒有空間。
+     只有「整頁空白還是放不下」的時候才硬放（作答空間被頁底截掉）。 */
+function flowLayout(book) {
+    let page = 0, y = BODY_TOP;
+    for (const it of book.items) {
+        const h = boxH(it), need = ceilLine(h) + gapOf(book, it) * LINE;
+        if (y > BODY_TOP && y + need > BODY_BOTTOM) { page++; y = BODY_TOP; }
+        it.page = page; it.x = MARGIN_X; it.y = y;
+        y = ceilLine(y + h) + gapOf(book, it) * LINE + 2;
+        if (y >= BODY_BOTTOM) { page++; y = BODY_TOP; }
+    }
+}
+/* 自己擺的本子裡，新加進來的題目（主站剛排進來、還沒有位置的）接在最後面。 */
+function placeLoose(book) {
+    let page = 0, y = BODY_TOP;
+    for (const it of book.items) if (placed(it)) {
+        const bottom = ceilLine(it.y + boxH(it)) + gapOf(book, it) * LINE + 2;
+        if (it.page > page || (it.page === page && bottom > y)) { page = it.page; y = bottom; }
+    }
+    for (const it of book.items) if (!placed(it)) {
+        const h = boxH(it), need = ceilLine(h) + gapOf(book, it) * LINE;
+        if (y > BODY_TOP && y + need > BODY_BOTTOM) { page++; y = BODY_TOP; }
+        it.page = page; it.x = MARGIN_X; it.y = y;
+        y = ceilLine(y + h) + gapOf(book, it) * LINE + 2;
+    }
+}
+function pageCount(book) {
+    let n = Math.max(1, Number(book.pages) || 1);
+    for (const it of book.items) if (placed(it)) n = Math.max(n, it.page + 1);
+    return n;
+}
+function layout(book) {
+    if (book.flow) flowLayout(book); else placeLoose(book);
+    if (book.flow) book.pages = pageCount({ ...book, pages: 1 });
 }
 
-/* 把已經消毒過的 DOM 裡的佔位符換成 KaTeX 排好的公式。
-   ★ 走文字節點而不是 innerHTML 字串取代：字串取代會連 `<code>` 裡的
-   佔位符一起換掉，而那裡使用者要的正是原文。 */
-function mdFillMath(root, store){
-    if (!store.length) return;
-    const K = window.katex;   /* ★ 取一次就好，理由見 mdRenderPreview */
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const jobs = [];
-    for (let n = walker.nextNode(); n; n = walker.nextNode())
-        if (n.nodeValue.indexOf(MD_TEX_OPEN) >= 0) jobs.push(n);
-
-    for (const node of jobs){
-        const frag = document.createDocumentFragment();
-        const parts = node.nodeValue.split(new RegExp(MD_TEX_OPEN + '(\\d+)' + MD_TEX_CLOSE));
-        parts.forEach((part, i) => {
-            if (i % 2 === 0){ if (part) frag.appendChild(document.createTextNode(part)); return; }
-            const item = store[Number(part)];
-            if (!item) return;
-            const span = document.createElement('span');
-            /* ★ 先把 LaTeX 原文寫進去，再讓 KaTeX 換掉。反過來（先留空等 KaTeX 填）
-               的症狀是公式整片空白，而且不會報錯。 */
-            span.textContent = item.display ? '$$' + item.tex + '$$' : '$' + item.tex + '$';
-            span.className = 'md-tex-raw';
-            if (K){
-                try {
-                    K.render(item.tex, span, {
-                        throwOnError: true, displayMode: item.display,
-                        trust: false            /* \href、\includegraphics 一律不給 */
-                    });
-                    span.className = 'md-derive';   /* 公式是藍的，跟手寫筆記一樣 */
-                } catch (e){
-                    /* 打錯的那一條維持橘色原文。寫筆記時公式打到一半是常態，
-                       整頁不該因此壞掉。 */
+/* ==========================================================
+   雲端：訂閱、合併、存檔
+   ========================================================== */
+function normBook(id, d) {
+    const items = (Array.isArray(d.items) ? d.items : []).filter(it => it && it.k && it.s)
+        .map(it => ({ k: String(it.k), s: it.s, sc: Number(it.sc) || 1,
+                      gap: Number.isFinite(it.gap) ? it.gap : null,
+                      page: Number.isFinite(it.page) ? it.page : undefined,
+                      x: Number.isFinite(it.x) ? it.x : undefined,
+                      y: Number.isFinite(it.y) ? it.y : undefined }));
+    return { id, title: String(d.title || '錯題本'), flow: d.flow !== false, density: DENSITY[d.density] ? d.density : 'mid',
+             ans: !!d.ans, pages: Number(d.pages) || 1, items,
+             createdAt: Number(d.createdAt) || Date.now(), updatedAt: Number(d.updatedAt) || 0 };
+}
+function startSubs() {
+    stopSubs();
+    const path = PU(BOOK_COL);
+    if (!path) return;
+    unsub = onSnapshot(query(collection(db, path), where('kind', '==', BOOK_KIND)), (snap) => {
+        const seen = new Set();
+        const hadCur = !!curBook();
+        let curChanged = false;
+        snap.forEach(ds => {
+            seen.add(ds.id);
+            readyIds.add(ds.id);
+            const remote = normBook(ds.id, ds.data());
+            const i = books.findIndex(b => b.id === ds.id);
+            if (i < 0) { books.push(remote); return; }
+            const local = books[i];
+            if (ds.id === curId && dirty) {
+                /* ★ 這一本正在改、還沒存回去：不整本蓋掉（會把剛拖好的位置洗回去），
+                     只把雲端多出來的題目（主站另一個分頁剛排進來的）接到後面。 */
+                const have = new Set(local.items.map(it => it.k));
+                for (const it of remote.items) if (!have.has(it.k) && !removedKeys.has(it.k)) {
+                    local.items.push({ ...it, page: undefined, x: undefined, y: undefined });
+                    curChanged = true;
                 }
+                return;
             }
-            frag.appendChild(span);
+            /* 自己剛寫上去的那一份回來了（updatedAt 一樣），不必重畫。 */
+            if (remote.updatedAt === local.updatedAt && remote.items.length === local.items.length) return;
+            books[i] = remote;
+            if (ds.id === curId) curChanged = true;
         });
-        node.parentNode.replaceChild(frag, node);
-    }
-}
-
-/* ==========================================================
-   分頁
-
-   一頁 = 30 行 = 720px。跟 CSS 的 --md-body-h 是同一個數字，
-   但這裡**不去讀 CSS 變數**——讀回來的是字串、還要處理單位與 zoom，
-   而算錯的症狀是「每頁差一行」，很難看出來。改成量真的那個容器：
-   `page.clientHeight - padding`，量到多少就是多少。
-
-   ★ 為什麼不是用 CSS 做：CSS 沒有把一段文字切成兩塊的能力
-   （`break-inside` 只在列印與多欄裡有效，而多欄是橫向排的）。
-   要真的分頁只能自己量、自己搬節點。
-
-   ★★ 演算法是「先全部倒進第一頁，再把裝不下的往後搬」，
-   不是「一塊一塊試著放」。理由是**只有瀏覽器知道一段文字會排成幾行**——
-   中英混排、KaTeX、`word-break` 都會影響，自己算一定會算錯。
-   ========================================================== */
-const MD_PAGE_BREAK = 820;      /* 與 CSS 那條 @media 必須是同一個數字 */
-const mdPagedNow = () => window.innerWidth > MD_PAGE_BREAK;
-
-/* ==========================================================
-   空行＝空一格
-
-   ★★★ 2026-08-13 回報：「我在第二頁打出的東西跑到空的第一頁」。
-   原因是 Markdown 把**連續空行只當成段落分隔**，不管你空了幾行高度都是 0
-   （這一頁又把 `.md-body p` 的 margin 設成 0，所以連段落間距都沒有）。
-   使用者在編輯區按了四十次 Enter 把字推到第二張紙上，預覽卻把那四十行
-   全部收掉，字回到第一頁的第一行。編輯區是一張連續的紙、所見即所得，
-   預覽是 Markdown——兩邊的行位置從**第一個空行**就開始對不上，
-   而且沒有任何錯誤訊息，看起來像「這篇筆記自己跳掉了」。
-
-   ★ 這也是把既有的宣告補回來：`mdSnapGrid` 的註解早就寫著
-   「空一行就是空一整行」，但當時只有公式那一塊照做。
-
-   做法是在交給 marked 之前，把每一個空行換成一塊 `<p class="md-blank">`
-   （高度剛好一格）。兩個刻意的例外：
-
-     一、**code fence 裡面不動**。那裡的空行是內容，換掉就是改了使用者的程式碼。
-        （四個空白縮排的程式碼區塊沒有處理——在筆記裡幾乎沒人這樣寫，
-          而要正確判斷它得把 Markdown 的區塊規則抄一遍。）
-     二、**清單項目之間不動**。插一塊 HTML 進去會把清單切成兩個，
-        `1. 2. 3.` 的編號會從頭數起——那是比「少一行空白」嚴重得多的錯。
-
-   ★ 順序：這一支跑在 `mdExtractMath` **之後**。反過來的話，$$…$$ 裡
-   跨行的空行會先被換成 `<p>`，公式就再也不成立了。
-   ========================================================== */
-const MD_BLANK = '<p class="md-blank"></p>';
-/* ★ 底下這兩支刻意**不用「帶次數限定的正規表示式」**（就是那種用大括號寫
-   幾次到幾次的寫法）。測試是把出貨的這段原始碼抽出來真的跑一遍，而抽取器
-   靠配對大括號找函式邊界——字串、正規表示式**甚至註解**裡的大括號都會讓它
-   在半路收工，訊息是「括號沒有配平」或「ln is not defined」，
-   看起來像原始碼壞了。這一段的註解本身就踩過一次，所以連舉例都不能寫。 */
-/* ★ 寫成有大括號的本體不是囉嗦：抽取器沒看到大括號就會拿第一組小括號
-   （也就是參數列）當邊界，抽出來是半截的 `const mdIndent = (ln)`。 */
-const mdIndent = (ln) => { return ln.length - ln.trimStart().length; };
-/* 是不是 code fence 的界線？回傳 '`' 或 '~'，不是就回 null。 */
-const mdFenceOf = (ln) => {
-    if (mdIndent(ln) > 3) return null;
-    const s = ln.trimStart();
-    if (s.startsWith('```')) return '`';
-    if (s.startsWith('~~~')) return '~';
-    return null;
-};
-/* 是不是清單項目的開頭（`- `、`* `、`+ `、`1. `、`1) `）？ */
-const mdIsListLine = (ln) => {
-    if (mdIndent(ln) > 3) return false;
-    const s = ln.trimStart();
-    return /^[-*+]\s/.test(s) || /^\d+[.)]\s/.test(s);
-};
-function mdKeepBlankLines(src){
-    const lines = src.split('\n');
-    const out = [];
-    let fence = null;                       // 目前在哪一種 fence 裡（``` 或 ~~~）
-    for (let i = 0; i < lines.length; i++){
-        const ln = lines[i];
-        const f  = mdFenceOf(ln);
-        if (fence !== null){                // fence 裡面：原封不動，只找收尾
-            out.push(ln);
-            if (f === fence) fence = null;
-            continue;
+        /* 雲端已經沒有的（別的分頁刪掉了），本機也拿掉；本機剛開、還沒寫上去的留著。 */
+        books = books.filter(b => seen.has(b.id) || b._local);
+        const first = !booksLoaded;
+        booksLoaded = true;
+        if (!openedFromUrl) {
+            openedFromUrl = true;
+            const want = new URLSearchParams(location.search).get('nb');
+            if (want && books.some(b => b.id === want)) { openBook(want); return; }
         }
-        if (f){ fence = f; out.push(ln); continue; }
-        if (ln.trim() !== ''){ out.push(ln); continue; }
-
-        /* 一整串空行一次處理完，才數得出到底空了幾行。 */
-        let j = i;
-        while (j < lines.length && lines[j].trim() === '') j++;
-        const k = j - i;
-        const prev = out.length ? out[out.length - 1] : '';
-        const next = j < lines.length ? lines[j] : '';
-        i = j - 1;
-        if (mdIsListLine(prev) && mdIsListLine(next)){
-            /* 例外二：留給 Markdown 自己處理，不然清單會被切開。 */
-            for (let n = 0; n < k; n++) out.push('');
-            continue;
-        }
-        /* 每一塊都要被空行夾著才會各自成為一個 HTML 區塊；
-           少了那些空行，k 個 <p> 會黏成同一塊，高度只剩一格。 */
-        for (let n = 0; n < k; n++){ out.push(''); out.push(MD_BLANK); }
-        out.push('');
-    }
-    return out.join('\n');
-}
-
-/* 把一塊補到整數格。
-
-   ★★ 為什麼需要這個：KaTeX 排出來的東西高度是「它需要多高就多高」，
-   不會剛好是 24 的整數倍——量到的是獨立公式 40.98px、行內的巢狀根號
-   會把那一行撐成 30.02px。差幾 px 看起來沒事，但**那一塊之後的每一行
-   都會離開橫線**，而且愈往下愈明顯。這正是鋪了真的紙之後才看得見的錯。
-
-   ★ 補的是 `padding-bottom` 不是 `margin-bottom`：相鄰的邊距會被合併掉，
-   量到的高度根本不會變（試過，段落還是 40.98）。padding 不會合併。 */
-function mdSnapBlock(el, L){
-    el.style.paddingBottom = '0';
-    const over = el.getBoundingClientRect().height % L;
-    if (over > 0.5) el.style.paddingBottom = (L - over).toFixed(2) + 'px';
-}
-
-/* ★ 行距**從 CSS 讀回來**，不要在 JS 裡再寫一個 24。
-   兩邊各寫一份的話，改了 --md-line 而忘了改這裡，症狀是整篇字慢慢離開橫線。 */
-function mdSnapGrid(root){
-    const L = parseFloat(getComputedStyle(root).lineHeight) || 24;
-    /* 獨立公式自己先補：它可能被包在一段有文字的段落裡，
-       只補外面那一塊的話，同一段裡公式**後面**的字仍然是歪的。
-       ★ 上下邊距歸零是刻意的：KaTeX 預設 1em（16px）不是整數格。
-       想讓公式跟前後空開的人，在原文裡空一行就好——空一行就是空一整行。 */
-    for (const d of root.querySelectorAll('.katex-display')){
-        d.style.marginTop = '0'; d.style.marginBottom = '0';
-        mdSnapBlock(d, L);
-    }
-    for (const b of root.children) mdSnapBlock(b, L);
-    return L;
-}
-
-function mdNewPage(box){
-    const p = document.createElement('div');
-    p.className = 'md-page md-sheet';
-    p.dataset.page = String(box.children.length + 1);
-    box.appendChild(p);
-    return p;
-}
-
-/* 把 el 從「相對於自己頂端 limitPx」的地方切成兩塊，回傳後半塊（切不動就回 null）。
-
-   ★ 切點用二分搜尋**問瀏覽器**：從段落開頭到第 i 個字的那段 Range 有多高？
-   高度對 i 是單調不減的，所以二分搜尋成立。找到的是「還放得下的最後一個字」，
-   而那個位置正好是瀏覽器自己選的斷行點——所以切完不會出現斷在詞中間的英文。 */
-function mdSplitBlock(el, limitPx){
-    /* ★★ 公式裡面的文字節點要跳過。KaTeX 排出來的是一堆 span 加 MathML，
-       切點掉進去的話會把一條式子從中間剖成兩半——而那看起來像
-       「這條公式我打錯了」，不像分頁出的錯。 */
-    const texts = [];
-    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
-        acceptNode: (n) => (n.parentElement && n.parentElement.closest('.katex'))
-            ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT,
+        /* ★ 別本的快照（或自己存檔的回音）不重畫這一本：重畫會把題目的 HTML 全部重做一次，
+             KaTeX 很貴，而且正在拖的那一題會被抽走。 */
+        if (first || curChanged || (hadCur && !curBook())) renderAll(); else renderList();
+    }, (err) => {
+        console.warn('錯題本讀不到:', err && (err.code || err));
+        booksLoaded = true;
+        showToast('錯題本讀不到，等一下再重新整理一次');
+        renderAll();
     });
-    for (let n = w.nextNode(); n; n = w.nextNode()) texts.push(n);
-    const total = texts.reduce((a, t) => a + t.data.length, 0);
-    if (!total) return null;
-
-    const seek = (i) => {
-        let k = i;
-        for (const t of texts){
-            if (k <= t.data.length) return [t, k];
-            k -= t.data.length;
-        }
-        const last = texts[texts.length - 1];
-        return [last, last.data.length];
-    };
-    const r = document.createRange();
-    const heightTo = (i) => {
-        const [t, k] = seek(i);
-        r.selectNodeContents(el);
-        r.setEnd(t, k);
-        return r.getBoundingClientRect().height;
-    };
-
-    let lo = 0, hi = total;
-    while (lo < hi){
-        const mid = Math.ceil((lo + hi) / 2);
-        if (heightTo(mid) <= limitPx) lo = mid; else hi = mid - 1;
-    }
-    /* 一個字都放不下 → 整塊搬走，不要切出一個空殼 */
-    if (lo <= 0) return null;
-
-    const [t, k] = seek(lo);
-    const cut = document.createRange();
-    cut.setStart(t, k);
-    cut.setEndAfter(el.lastChild);
-    const rest = el.cloneNode(false);          /* 同一個標籤與 class，內容不帶 */
-    rest.appendChild(cut.extractContents());
-    return rest.textContent.trim() ? rest : null;
 }
-
-function mdPaginate(box){
-    const first = box.firstElementChild;
-    if (!first) return;
-    const L = mdSnapGrid(first);
-    const room = first.clientHeight
-               - parseFloat(getComputedStyle(first).paddingTop)
-               - parseFloat(getComputedStyle(first).paddingBottom);
-    let page = first, guard = 0;
-    while (page.scrollHeight > page.clientHeight){
-        /* ★ 防無限迴圈：切不動又只有一塊的時候（例如一張比整頁還高的表格）
-           就讓它留在這一頁被裁掉，不要再繞。少了這道保險，
-           症狀是分頁卡住整個分頁停止回應——而且不會有錯誤訊息。 */
-        if (++guard > 400) break;
-        const top = page.getBoundingClientRect().top
-                  + parseFloat(getComputedStyle(page).paddingTop);
-        const kids = [...page.children];
-        let i = kids.findIndex(k => k.getBoundingClientRect().bottom > top + room + 0.5);
-        if (i < 0) break;
-        let carry = null;
-        const straddle = kids[i];
-        if (straddle.getBoundingClientRect().top < top + room - 0.5){
-            carry = mdSplitBlock(straddle, room - (straddle.getBoundingClientRect().top - top));
-            if (carry){
-                i += 1;                        /* 前半留下，從下一塊開始搬 */
-                /* ★ 前半是這一頁的最後一塊，**不要**再補格：補上去就超出這一頁了。
-                   而且不補也不會歪——下一頁的字是從頁首底下重新起算的，
-                   格子每一頁都會自己歸零。 */
-                straddle.style.paddingBottom = '0';
-                mdSnapBlock(carry, L);
-            }
-            else if (i === 0) break;           /* 第一塊就切不動：裁掉，不然會空轉 */
-        }
-        const next = mdNewPage(box);
-        if (carry) next.appendChild(carry);
-        for (const k of kids.slice(i)) next.appendChild(k);
-        page = next;
-    }
+function stopSubs() {
+    flushSave();
+    if (unsub) { unsub(); unsub = null; }
+    books = []; booksLoaded = false; curId = null; selKey = null;
+    /* ★ 登出要清掉：留著的話，下一個人登入的空窗裡任何一次存檔都會寫到**他的**路徑下，
+         而內容是上一個人的（以前筆記頁 mdReadyIds 同一個理由）。 */
+    readyIds.clear(); removedKeys.clear(); natH.clear();
 }
-
-/* ★★ 縮圖只在這裡更新，不要讓每個呼叫端各自記得要更新一次。
-   下面 mdRenderPages() 有**三條**離開的路（正常、沒有消毒器、marked 解析失敗），
-   漏掉任何一條的症狀都是「側欄的縮圖停在上一個版本」——
-   而那看起來像「剛剛那段沒有存到」，是一個完全不同的問題。 */
-function mdRenderPreview(src){
-    mdRenderPages(src);
-    renderThumbs();
+function payloadOf(b) {
+    /* ★ 一律走 JSON 來回一次：Firestore 不收 undefined（整份寫入會失敗），
+         而還沒有位置的題目正是 undefined。 */
+    const items = JSON.parse(JSON.stringify(b.items.map(it => ({ k: it.k, s: it.s, sc: scOf(it),
+        gap: Number.isFinite(it.gap) ? it.gap : null, page: it.page, x: it.x, y: it.y }))));
+    return { kind: BOOK_KIND, title: b.title, flow: !!b.flow, density: b.density, ans: !!b.ans,
+             pages: pageCount(b), items, createdAt: b.createdAt, updatedAt: b.updatedAt };
 }
-
-function mdRenderPages(src){
-    const box = $('mdPreview');
-    if (!box) return;
-    /* ★ 兩支函式庫各讀一次就好，不要在迴圈或分支裡重複取。
-       在深處才取的話，「根本沒載到」會被 try/catch 吃掉，
-       偽裝成「這份筆記的語法有問題」——兩個完全不同的問題。 */
-    const M = window.marked, P2 = window.DOMPurify;
-
-    /* ★ 每次都從一張白紙開始。沿用上一次的頁面看起來省事，
-       但刪掉一整段之後多出來的空白頁不會自己消失。 */
-    box.textContent = '';
-    const page1 = mdNewPage(box);
-
-    /* ★★ 沒有消毒器就不渲染 HTML。這是唯一不做降級的一支：
-       少了它等於把使用者打的字當程式跑，而筆記將來要開分享。 */
-    if (!M || !P2){
-        page1.textContent = src;
-        box.classList.add('md-tex-raw');
+function scheduleSave() {
+    const b = curBook();
+    if (!b) return;
+    dirty = true;
+    $('saveState').textContent = '還沒存…';
+    clearTimeout(saveTimer);
+    /* 停 0.8 秒才寫：Firestore 免費額度算的是次數，拖一題就寫一次的話一晚上就是幾百次。 */
+    saveTimer = setTimeout(() => saveBook(b.id), 800);
+}
+function flushSave() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; if (dirty && curId) saveBook(curId); }
+}
+async function saveBook(id) {
+    saveTimer = null;
+    const b = books.find(x => x.id === id);
+    const path = PU(BOOK_COL);
+    if (!b || !path) return;
+    if (!readyIds.has(id) && !b._local) {
+        /* 看得見的「存檔失敗」比安靜地寫成空的好。 */
+        $('saveState').textContent = '雲端還沒讀到，先不存';
         return;
     }
-    box.classList.remove('md-tex-raw');
-    mdSetupMarked();
-
-    const store = [];
-    let html;
+    b.updatedAt = Date.now();
+    const payload = payloadOf(b);
+    if (new TextEncoder().encode(JSON.stringify(payload)).length > BOOK_BYTES_MAX) {
+        $('saveState').textContent = '這本太大了，存不進去';
+        showToast('這本錯題本太大了，拿掉幾題或分成兩本再存');
+        return;
+    }
     try {
-        /* ★ 先抽公式再補空行，順序不能反（理由寫在 mdKeepBlankLines 的抬頭）。 */
-        html = M.parse(mdKeepBlankLines(mdExtractMath(src, store)), { breaks:true, gfm:true });
-    } catch (e){
-        page1.textContent = src;
+        await setDoc(doc(db, path, id), payload);
+        if (id === curId) { dirty = false; $('saveState').textContent = '已存'; }
+        delete b._local;
+        readyIds.add(id);
+    } catch (err) {
+        console.warn('錯題本存檔失敗:', err && (err.code || err));
+        if (id === curId) $('saveState').textContent = '沒存起來';
+        showToast('沒存起來，等一下再試一次');
+    }
+}
+function newBookId() { return BOOK_PREFIX + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+function newBook() {
+    if (!PU(BOOK_COL)) return showToast('先登入才能開錯題本');
+    if (!booksLoaded) return showToast('還在讀你的錯題本，等一下');
+    const now = Date.now();
+    const b = { id: newBookId(), title: '新的錯題本', flow: true, density: 'mid', ans: false, pages: 1, items: [],
+                createdAt: now, updatedAt: now, _local: true };
+    books.push(b);
+    readyIds.add(b.id);
+    openBook(b.id);
+    scheduleSave();
+    setTimeout(() => { $('bookTitle').focus(); $('bookTitle').select(); }, 30);
+}
+async function deleteBook() {
+    const b = curBook();
+    if (!b) return;
+    /* 按兩下才刪（第一下按鈕變成「再按一次刪除」，3 秒內有效）。
+       ★ 不用瀏覽器的 confirm()：iPad 裝成 App 時那個視窗有時候整頁卡住。 */
+    if (Date.now() - deleteArmed > 3000) {
+        deleteArmed = Date.now();
+        $('btnDelete').textContent = '再按一次刪除';
+        setTimeout(() => { if (Date.now() - deleteArmed >= 3000) $('btnDelete').textContent = '刪除這本'; }, 3100);
         return;
     }
-    /* 消毒。KaTeX 還沒進來，所以這裡消的純粹是使用者打的 prose。
-       ★ 公式**故意不經過**消毒器：KaTeX 產生的 MathML／span 會被啃掉，
-       症狀是公式少一半括號，看起來像「這條我打錯了」。 */
-    page1.innerHTML = P2.sanitize(html, { USE_PROFILES: { html:true } });
-    /* ★★ 公式要在分頁**之前**填。KaTeX 會把一行 `$…$` 換成一整塊排版好的
-       東西，高度跟原本的佔位符差很多——先分頁的話量到的是假的高度，
-       症狀是有些頁只排到一半就換頁、有些頁滿出來。 */
-    mdFillMath(page1, store);
-    /* ★ 手機不分頁，但**還是要補格**：橫線紙在手機上也是橫線紙，
-       公式把後面的字推歪這件事跟分不分頁無關。 */
-    if (mdPagedNow()) mdPaginate(box); else mdSnapGrid(page1);
+    deleteArmed = 0;
+    $('btnDelete').textContent = '刪除這本';
+    clearTimeout(saveTimer); saveTimer = null; dirty = false;
+    const path = PU(BOOK_COL);
+    books = books.filter(x => x.id !== b.id);
+    curId = null; selKey = null;
+    renderAll();
+    if (!path || (b._local && !readyIds.has(b.id))) return;
+    try { await deleteDoc(doc(db, path, b.id)); showToast(`刪掉「${b.title}」了`); }
+    catch (e) { showToast('沒刪成功，等一下再試一次'); }
 }
-
-/* ★ 跨過斷點要重排：桌機分頁、手機連續紙，是兩種完全不同的版面。
-   只在**真的跨過去**的時候才重排——每一個 resize 事件都重排的話，
-   拉視窗大小會卡（每次都是整份重新排版加量測）。 */
-let mdWasPaged = mdPagedNow();
-addEventListener('resize', () => {
-    const now = mdPagedNow();
-    if (now === mdWasPaged) return;
-    mdWasPaged = now;
-    if ($('mdInput')) mdRenderPreview($('mdInput').value);
-});
 
 /* ==========================================================
-   篇目、開啟、新增、刪除
+   畫面
    ========================================================== */
-function renderMdList(){
-    const box = $('mdList');
-    const list = [...notes].sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
-    if (!list.length){ box.innerHTML = '<div class="hint">還沒有筆記</div>'; return; }
-    box.innerHTML = list.map(n => `
-        <button class="md-item${n.id === currentNoteId ? ' is-open' : ''}" data-id="${escapeHTML(n.id)}">
-            <b>${escapeHTML(n.title || '未命名')}</b>
-            <small>${n.updatedAt ? new Date(n.updatedAt).toLocaleDateString() : ''}</small>
-        </button>`).join('');
+function renderAll() {
+    const inUse = !!(auth && auth.currentUser && !auth.currentUser.isAnonymous);
+    const b = inUse ? curBook() : null;
+    $('loginHint').classList.toggle('hidden', inUse);
+    $('emptyHint').classList.toggle('hidden', !inUse || !!b || !booksLoaded);
+    $('editHead').classList.toggle('hidden', !b);
+    $('sheets').classList.toggle('hidden', !b);
+    $('btnNew').disabled = !inUse;
+    renderList();
+    if (b) renderBook(); else { $('sheets').innerHTML = ''; itemEls.clear(); $('selBar').classList.add('hidden'); }
 }
-$('mdList').addEventListener('click', (e) => {
-    const b = e.target.closest('.md-item');
-    if (b) openNote(b.dataset.id);
+function renderList() {
+    const box = $('bookList');
+    const inUse = !!(auth && auth.currentUser && !auth.currentUser.isAnonymous);
+    if (!inUse) { box.innerHTML = '<div class="hint">登入後這裡會列出你的錯題本。</div>'; return; }
+    if (!booksLoaded) { box.innerHTML = '<div class="hint">讀取中…</div>'; return; }
+    const list = [...books].sort((a, c) => (c.updatedAt || 0) - (a.updatedAt || 0));
+    if (!list.length) { box.innerHTML = '<div class="hint">還沒有錯題本。做完測驗在結算頁按「排成錯題本」，或按上面「＋ 新的一本」。</div>'; return; }
+    box.innerHTML = list.map(b => {
+        const d = new Date(b.updatedAt || b.createdAt || Date.now());
+        return `<button class="bk${b.id === curId ? ' is-open' : ''}" data-id="${escapeHTML(b.id)}">
+            <b>${escapeHTML(b.title)}</b><small>${b.items.length} 題・${d.getMonth() + 1}/${d.getDate()}</small></button>`;
+    }).join('');
+}
+$('bookList').addEventListener('click', (e) => {
+    const b = e.target.closest('.bk');
+    if (b) openBook(b.dataset.id);
 });
-
-const setSaveState = (t) => { $('saveState').textContent = t; };
-
-/* ==========================================================
-   文件分頁列
-
-   ★ 分頁裝的是「開著的篇」，不是「全部的篇」——全部的篇在左邊的清單裡。
-   兩者的差別就是分頁存在的理由：清單會愈長愈難找，分頁只有正在來回看的
-   那幾篇。所以分頁**不會自己出現**，只有真的開過才進去。
-
-   ★★ 分頁只是一組 id，內容還是一份 textarea 一次只裝一篇。
-   要「每個分頁各自一份編輯器」的話，那是好幾份未存的狀態同時活著——
-   而這一頁最貴的坑（`mdReadyIds`、切篇前 flush）全部是為了「一次一篇」
-   才成立的。多開幾份等於把那些保險全部重寫一次。
-   ========================================================== */
-/* ★★★ 分頁列存**兩份**，不是一份。這是踩過的坑，症狀完全不報錯：
-   只寫 localStorage 的話，那份是「整個瀏覽器共用一格」，而分頁列是
-   **每個視窗各自一份**的狀態。開兩個筆記分頁的時候，任何一次
-   Firestore 快照（新增一篇、改一個標題，兩邊都會收到）都會讓
-   **另一個視窗**把它自己的分頁清單寫回同一格，蓋掉你剛剛新增的那一個。
-   實際看到的是「按了＋，新分頁出現了，重新整理之後就不見了」——
-   而且那個視窗自己看起來一切正常，錯是別的視窗造成的。
-
-   所以：
-     sessionStorage（每個分頁一份，F5 不會掉）＝ 這個視窗的真實狀態，還原時先讀它；
-     localStorage（整個瀏覽器一份）＝ 只當「上次關掉瀏覽器前開著哪幾篇」的後備。
-   兩邊都寫，讀的時候 session 優先。多視窗互不干擾，關掉再開也還原得回來。 */
-const TABS_KEY = 'blackcatmd-tabs';
-const saveTabs = () => {
-    const s = JSON.stringify(openTabs);
-    try { sessionStorage.setItem(TABS_KEY, s); } catch(e){}
-    try { localStorage.setItem(TABS_KEY, s); } catch(e){}
-};
-/* ★ 只有 sessionStorage 真的**存在**（不是空字串）才算數：這個視窗開過筆記，
-   就以它為準；沒有的話才退回 localStorage。用 `!== null` 不是看真假值，
-   不然「這個視窗把分頁全關光了」會被當成沒存過，一重整又把舊的那幾篇叫回來。 */
-const loadTabs = () => {
-    let raw = null;
-    try { raw = sessionStorage.getItem(TABS_KEY); } catch(e){}
-    if (raw === null){ try { raw = localStorage.getItem(TABS_KEY); } catch(e){} }
-    try { const v = JSON.parse(raw || '[]'); return Array.isArray(v) ? v : []; }
-    catch(e){ return []; }
-};
-
-function renderTabs(){
-    const strip = $('mdTabStrip');
-    if (!strip) return;
-    /* 分頁指到已經不存在的篇（別台裝置刪掉、或換了帳號）就不要畫出來——
-       畫出來是一個點不開的死分頁。 */
-    const rows = openTabs.map(id => notes.find(n => n.id === id)).filter(Boolean);
-    strip.innerHTML = rows.map(n => `
-        <div class="md-tab${n.id === currentNoteId ? ' is-open' : ''}" data-id="${escapeHTML(n.id)}">
-          <button class="tab-go" data-id="${escapeHTML(n.id)}" role="tab"
-                  aria-selected="${n.id === currentNoteId}"
-                  >${escapeHTML(n.title || '未命名')}</button>
-          <button class="tab-x" data-id="${escapeHTML(n.id)}"
-                  aria-label="關閉 ${escapeHTML(n.title || '未命名')}">&#215;</button>
-        </div>`).join('');
-    /* ★ 分頁多到捲出畫面時，切過去要讓它自己捲回來看得見的地方。
-       少了這行的症狀是「按了清單裡的某一篇，分頁列看起來沒反應」。 */
-    strip.querySelector('.md-tab.is-open')
-         ?.scrollIntoView({ block:'nearest', inline:'nearest' });
-}
-
-function closeTab(id){
-    /* ★★ 關掉的是**分頁**不是筆記——內容還在雲端，左邊清單裡點得回來。
-       但還沒寫出去的字必須先 flush：不 flush 的話「關掉分頁」＝
-       安靜地丟掉最後 0.8 秒打的東西。 */
-    if (id === currentNoteId) flushMdSave();
-    const i = openTabs.indexOf(id);
-    if (i < 0) return;
-    openTabs.splice(i, 1);
-    saveTabs();
-    if (id !== currentNoteId){ renderTabs(); return; }
-    /* 關掉的是正在看的那個：接手右邊那個，沒有就左邊那個。
-       ★ 這時 currentNoteId 還指著剛關掉的 id，而 openNote() 第一行的
-       flushMdSave() 在上面已經跑過了（mdDirty 已經是 false），所以不會重存。 */
-    const next = openTabs[i] || openTabs[i - 1] || null;
-    if (next){ openNote(next); return; }
-    currentNoteId = null;
-    mdDirty = false;
-    document.body.classList.remove('phone-edit');
-    document.body.classList.add('phone-list');
-    renderTabs(); renderMdList(); renderShell();
-}
-
-$('mdTabs').addEventListener('click', (e) => {
-    const x = e.target.closest('.tab-x');
-    if (x){ closeTab(x.dataset.id); return; }
-    const g = e.target.closest('.tab-go');
-    if (g && g.dataset.id !== currentNoteId) openNote(g.dataset.id);
-});
-
-function openNote(id){
-    /* ★ 先把上一篇還沒寫出去的存掉，**再**換 id。
-       順序反過來就是「A 篇的字寫進 B 篇」。 */
-    flushMdSave();
-    const n = notes.find(x => x.id === id);
-    if (!n) return;
-    currentNoteId = id;
-    mdDirty = false;
-    /* 開過的篇才進分頁列（push 不是 unshift：新的排在右邊，
-       已經在列上的那幾個位置不動——會跑的分頁是點不到的分頁）。 */
-    if (!openTabs.includes(id)){ openTabs.push(id); saveTabs(); }
-    $('mdTitle').value = n.title || '';
-    $('mdInput').value = n.body || '';
-    mdRenderPreview(n.body || '');
-    setSaveState('已儲存');
+function openBook(id) {
+    if (curId !== id) { flushSave(); dirty = false; selKey = null; removedKeys.clear(); }
+    curId = id;
     document.body.classList.remove('phone-list');
     document.body.classList.add('phone-edit');
-    renderTabs();
-    renderMdList();
-    renderShell();
+    $('saveState').textContent = '';
+    renderAll();
+    $('sheets').scrollTop = 0;
 }
 
-async function newNote(){
-    if (!auth.currentUser || auth.currentUser.isAnonymous){
-        showToast('請先到小黑貓主頁登入'); return;
-    }
-    const id = 'n' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
-    const now = Date.now();
-    const note = {
-        title:'未命名', body:'', createdAt: now, updatedAt: now,
-        /* ★ 分享的欄位先留著，第一版一律 false。欄位之後再加不是不行，
-           但「已經存了兩百篇才想到要加」等於要寫一支回填腳本，
-           而那支腳本會在半夜跑壞。 */
-        shared:false, shareId:null
-    };
-    /* 本機剛建立的篇章直接算「已就緒」：它的內容就是我們自己給的，
-       沒有「雲端那份還在路上」的問題。 */
-    mdReadyIds.add(id);
-    notes.push({ id, ...note });
-    openNote(id);
-    $('mdInput').focus();
-    try { await setDoc(doc(db, PU('notes'), id), note); }
-    catch (e){ showToast('建立筆記失敗：' + (e.code || e.message)); }
-}
+/* 整本重畫：題目 HTML 只在這裡產生一次（KaTeX 很貴），之後拖、改留白只改位置。 */
+function renderBook() {
+    const b = curBook();
+    if (!b) return;
+    if (document.activeElement !== $('bookTitle')) $('bookTitle').value = b.title;
+    document.querySelectorAll('#densitySeg button').forEach(x => x.classList.toggle('on', x.dataset.density === b.density));
+    $('ansChk').checked = !!b.ans;
+    $('btnFlow').textContent = b.flow ? '自動排版中' : '重新自動排版';
+    $('btnFlow').disabled = !!b.flow;
+    $('btnAddPage').classList.toggle('hidden', !!b.flow);
+    $('btnExport').disabled = !b.items.length;
 
-async function deleteCurrentNote(){
-    const id = currentNoteId;
-    if (!id){ showToast('先選一篇筆記'); return; }
-    if (!confirm('刪除這篇筆記？刪掉就找不回來了。')) return;
-    clearTimeout(mdSaveTimer); mdSaveTimer = null; mdDirty = false;
-    /* ★ currentNoteId 要**先**收回 null，再去 openNote 下一個分頁：
-       openNote 第一行是 flushMdSave()，還指著剛刪掉那篇的話，
-       它會把已經刪掉的那篇再寫回雲端一次（症狀是「刪掉的筆記又出現了」）。 */
-    currentNoteId = null;
-    notes = notes.filter(n => n.id !== id);
-    mdReadyIds.delete(id);
-    const i = openTabs.indexOf(id);
-    if (i >= 0){ openTabs.splice(i, 1); saveTabs(); }
-    const next = i >= 0 ? (openTabs[i] || openTabs[i - 1] || null) : null;
-    if (next){ openNote(next); }
-    else {
-        document.body.classList.remove('phone-edit');
-        document.body.classList.add('phone-list');
-        renderTabs(); renderMdList(); renderShell();
+    const box = $('sheets');
+    /* ★ 重畫前記住捲到哪裡：清空的那一瞬間內容高度是 0，捲動位置會被夾回最上面，
+         於是「勾一下附正解」整疊紙就跳回第一頁。 */
+    const keepScroll = box.scrollTop;
+    if (drag) { drag.el.style.transform = ''; drag = null; }
+    if (ro) ro.disconnect();
+    itemEls.clear();
+    box.innerHTML = '';
+    if (!b.items.length) {
+        box.innerHTML = '<div class="hint" style="max-width:30rem">這本還是空的。做完測驗在結算頁按「排成錯題本」，選這一本，答錯的題目就會排進來。</div>';
     }
-    try { await deleteDoc(doc(db, PU('notes'), id)); }
-    catch (e){ showToast('刪除失敗：' + (e.code || e.message)); }
+    ro = new ResizeObserver((entries) => {
+        let changed = false;
+        for (const en of entries) {
+            const k = en.target.dataset.k;
+            const h = en.target.offsetHeight;
+            if (k && h && Math.abs((natH.get(k) || 0) - h) > 0.5) { natH.set(k, h); changed = true; }
+        }
+        if (changed) queueLayout();
+    });
+    b.items.forEach((it, i) => {
+        const el = document.createElement('div');
+        el.className = 'it';
+        el.dataset.k = it.k;
+        el.innerHTML = `<div class="it-box">${qHTML(it, i + 1, b.ans)}<span class="h-size" data-h="size" title="拉這裡放大縮小"></span></div>
+                        <div class="it-gap"><span class="gap-lbl"></span><span class="h-gap" data-h="gap" title="拉這裡調作答空間"></span></div>`;
+        const q = el.querySelector('.qbox');
+        q.dataset.k = it.k;
+        renderMath(q);
+        itemEls.set(it.k, el);
+        ro.observe(q);
+        /* 圖晚到會變高：ResizeObserver 會收到，但先量一次讓第一次排版就接近對的。 */
+        q.querySelectorAll('img').forEach(im => im.addEventListener('error', () => { im.remove(); }, { once: true }));
+    });
+    /* 先把題目放進一個暫時的頁裡量高度，再排版、再放到真的頁上。 */
+    const tmp = $('measure');
+    tmp.innerHTML = '';
+    for (const el of itemEls.values()) tmp.appendChild(el);
+    for (const [k, el] of itemEls) { const q = el.querySelector('.qbox'); const h = q.offsetHeight; if (h) natH.set(k, h); }
+    layout(b);
+    placeSheets(b);
+    box.scrollTop = keepScroll;
+}
+/* 頁的數量對了、每一題放到它那一頁、位置與大小套上去。 */
+function placeSheets(b) {
+    const box = $('sheets');
+    const n = pageCount(b);
+    let wraps = [...box.querySelectorAll('.sheet-wrap')];
+    while (wraps.length < n) {
+        const w = document.createElement('div');
+        const idx = wraps.length;      // 第幾張紙（0 起算），是數字
+        w.className = 'sheet-wrap';
+        w.innerHTML = `<div class="sheet" data-page="${idx}"></div><div class="sheet-n">${idx + 1} / ${n}</div>`;
+        box.appendChild(w);
+        wraps.push(w);
+    }
+    while (wraps.length > n) wraps.pop().remove();
+    wraps.forEach((w, i) => {
+        w.style.width = PAGE_W * zoom + 'px'; w.style.height = PAGE_H * zoom + 'px';
+        w.querySelector('.sheet').style.transform = `scale(${zoom})`;
+        w.querySelector('.sheet-n').textContent = `${i + 1} / ${n}`;
+    });
+    const sheets = wraps.map(w => w.querySelector('.sheet'));
+    b.items.forEach((it, i) => {
+        const el = itemEls.get(it.k);
+        if (!el) return;
+        const sh = sheets[clamp(it.page | 0, 0, n - 1)];
+        if (el.parentNode !== sh) sh.appendChild(el);
+        positionItem(b, it, el, i);
+    });
+    syncSelBar();
+}
+function positionItem(b, it, el, i) {
+    const s = effSc(it), h = boxH(it);
+    el.style.left = it.x + 'px';
+    el.style.top = it.y + 'px';
+    el.style.width = BASE_W * s + 'px';
+    el.classList.toggle('sel', it.k === selKey);
+    const box = el.querySelector('.it-box');
+    box.style.height = h + 'px';
+    box.querySelector('.qbox').style.transform = `scale(${s})`;
+    const gap = el.querySelector('.it-gap');
+    const g = gapOf(b, it);
+    /* 作答空間的上緣是題目框的底往下取到整條線（跟排版時一樣），所以框底到線之間那一點也算進去。 */
+    gap.style.height = (ceilLine(it.y + h) - (it.y + h) + g * LINE) + 'px';
+    gap.querySelector('.gap-lbl').textContent = `作答空間 ${g} 行${Number.isFinite(it.gap) ? '' : '（自動）'}`;
+    const no = el.querySelector('.q-no');
+    if (no && i !== undefined) no.textContent = (i + 1) + '.';
+}
+function queueLayout() {
+    if (layoutTimer) return;
+    layoutTimer = requestAnimationFrame(() => {
+        layoutTimer = 0;
+        const b = curBook();
+        if (!b || drag) return;
+        layout(b);
+        placeSheets(b);
+    });
+}
+/* 紙的縮放跟著那一欄的寬度：手機上整張放得下，大螢幕最多放大到 1.25 倍。 */
+function updateZoom() {
+    const w = $('sheets').clientWidth - 28;
+    const z = clamp(w / PAGE_W, 0.3, 1.25);
+    if (Math.abs(z - zoom) < 0.005) return;
+    zoom = z;
+    const b = curBook();
+    if (b) placeSheets(b);
+}
+new ResizeObserver(updateZoom).observe($('sheets'));
+
+/* ---------- 選中一題 ---------- */
+function selectItem(k) {
+    selKey = k;
+    for (const [kk, el] of itemEls) el.classList.toggle('sel', kk === k);
+    syncSelBar();
+}
+function syncSelBar() {
+    const b = curBook();
+    const i = b ? b.items.findIndex(it => it.k === selKey) : -1;
+    $('selBar').classList.toggle('hidden', i < 0);
+    if (i < 0) return;
+    const it = b.items[i];
+    $('selNo').textContent = `第 ${i + 1} 題`;
+    $('selGap').textContent = `${gapOf(b, it)} 行`;
+    $('selSc').textContent = `${Math.round(effSc(it) * 100)}%`;
+    $('selBar').querySelector('[data-sel="up"]').disabled = i === 0;
+    $('selBar').querySelector('[data-sel="down"]').disabled = i === b.items.length - 1;
+}
+$('selBar').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-sel]');
+    const b = curBook();
+    if (!btn || !b) return;
+    const i = b.items.findIndex(it => it.k === selKey);
+    if (i < 0) return;
+    const it = b.items[i], act = btn.dataset.sel;
+    if (act === 'close') return selectItem(null);
+    if (act === 'gap-' || act === 'gap+') it.gap = clamp(gapOf(b, it) + (act === 'gap+' ? 1 : -1), 0, GAP_MAX);
+    if (act === 'sc-' || act === 'sc+') it.sc = clamp(Math.round((effSc(it) + (act === 'sc+' ? 0.1 : -0.1)) * 10) / 10, SC_MIN, SC_MAX);
+    if (act === 'up' || act === 'down') {
+        const j = act === 'up' ? i - 1 : i + 1;
+        if (j < 0 || j >= b.items.length) return;
+        [b.items[i], b.items[j]] = [b.items[j], b.items[i]];
+        /* 自己擺的本子：順序換了，位置也對調（不然「往前」只改了題號，紙上看不出來）。 */
+        if (!b.flow) for (const f of ['page', 'x', 'y']) [b.items[i][f], b.items[j][f]] = [b.items[j][f], b.items[i][f]];
+    }
+    if (act === 'del') {
+        b.items.splice(i, 1);
+        removedKeys.add(it.k);
+        const el = itemEls.get(it.k);
+        if (el) el.remove();
+        itemEls.delete(it.k);
+        selKey = null;
+        showToast('拿掉了（只從這本拿掉，錯題庫裡還在）');
+    }
+    afterChange(b, act === 'up' || act === 'down');
+});
+function afterChange(b, renumber) {
+    layout(b);
+    placeSheets(b);
+    if (renumber) b.items.forEach((it, i) => { const el = itemEls.get(it.k); if (el) positionItem(b, it, el, i); });
+    renderList();
+    scheduleSave();
 }
 
 /* ==========================================================
-   存檔
+   拖曳：移動、拉大小、拉作答空間
 
-   自動存檔，打完字停 0.8 秒才寫。每個按鍵都寫的話，一篇筆記一個晚上
-   就是好幾千次寫入——Firestore 的免費額度是用「次數」算的。
+   ★ 滑鼠與觸控筆按下去就能拖；手指要先點一下選起來才拖得動——
+     不然整張紙都是題目，手指根本捲不動頁面（選中的那一題才是 touch-action:none）。
+   ★ 位置用紙的座標（除以 zoom），存檔與匯出跟螢幕大小無關。
+   ★ 拖到別張紙上：放開時看手指底下是哪一張紙，就搬到那一張。
    ========================================================== */
-function scheduleMdSave(){
-    if (!currentNoteId) return;
-    mdDirty = true;
-    setSaveState('編輯中…');
-    clearTimeout(mdSaveTimer);
-    mdSaveTimer = setTimeout(flushMdSave, 800);
+function sheetAt(x, y) {
+    for (const el of document.elementsFromPoint(x, y)) if (el.classList && el.classList.contains('sheet')) return el;
+    return null;
 }
-function flushMdSave(){
-    clearTimeout(mdSaveTimer); mdSaveTimer = null;
-    if (!mdDirty || !currentNoteId) return;
-    saveNote(currentNoteId, $('mdTitle').value, $('mdInput').value);
-}
-async function saveNote(id, title, body){
-    /* ★★ 這道閘門是整支程式最重要的一行。沒有在 mdReadyIds 裡，代表
-       「雲端那篇還沒回來」——這時候寫下去就是拿一份殘缺的內容覆蓋掉
-       使用者真正的筆記。寧可存檔失敗（有吐司、看得見），
-       也不要安靜地把一篇寫掉。 */
-    if (!mdReadyIds.has(id)){
-        setSaveState('未存檔');
-        showToast('這篇還沒從雲端載回來，先不存檔');
+$('sheets').addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.it');
+    const b = curBook();
+    if (!el || !b) {
+        if (!e.target.closest('#selBar') && selKey) selectItem(null);
         return;
     }
-    if (id !== currentNoteId) return;   /* 已經切到別篇，這次排程作廢 */
-    const now = Date.now();
-    const local = notes.find(n => n.id === id);
-    if (local){ local.title = title; local.body = body; local.updatedAt = now; }
-    mdDirty = false;
-    setSaveState('儲存中…');
-    try {
-        await setDoc(doc(db, PU('notes'), id), { title, body, updatedAt: now }, { merge:true });
-        setSaveState('已儲存');
-        renderMdList();
-    } catch (e){
-        mdDirty = true;                 /* 沒寫成功就不能算乾淨 */
-        setSaveState('存檔失敗');
-        showToast('存檔失敗：' + (e.code || e.message));
+    const k = el.dataset.k;
+    const it = b.items.find(x => x.k === k);
+    if (!it) return;
+    const handle = e.target.dataset && e.target.dataset.h;
+    if (e.pointerType === 'touch' && selKey !== k && !handle) {
+        /* 手指：第一下只選起來，不拖。放開時才選（手指要是在捲頁就不算）。 */
+        const sx = e.clientX, sy = e.clientY;
+        const up = (ev) => {
+            el.removeEventListener('pointerup', up);
+            if (Math.hypot(ev.clientX - sx, ev.clientY - sy) < 8) selectItem(k);
+        };
+        el.addEventListener('pointerup', up);
+        return;
     }
-}
-
-/* ==========================================================
-   訂閱：登入才有，登出即停並清空
-   ========================================================== */
-function initMdSubs(){
-    stopMdSubs();
-    const path = PU('notes');
-    if (!path) return;
-    unsub = onSnapshot(collection(db, path), (snap) => {
-        const incoming = snap.docs.map(d => ({ id:d.id, ...d.data() }));
-        /* ★ 真的收到過的篇章才准寫回去（見 saveNote 的閘門）。 */
-        incoming.forEach(n => mdReadyIds.add(n.id));
-        notes = incoming;
-        mdNotesLoaded = true;
-        /* ★★ 分頁列要等**第一批快照回來**才還原，不能在載入時就還原：
-           那時 notes 是空的，對不上的分頁會被當成「這篇沒了」而
-           整列洗掉，然後我們又把洗掉的結果存回去——
-           症狀是「重新整理一次，開著的分頁就全沒了」，而且救不回來。
-           ★ 存的那兩份都是這台瀏覽器的，不是這個帳號的。所以還原時
-           一定要用「這個帳號真的有這篇」過濾一次，換帳號才不會看到
-           一排點不開的分頁。（session 優先於 local 的理由見 loadTabs。） */
-        if (!mdTabsRestored){
-            mdTabsRestored = true;
-            openTabs = loadTabs().filter(id => notes.some(n => n.id === id));
-        } else {
-            /* ★ `id === currentNoteId` 這個例外不能省：剛按下「新增一篇」時
-               那一篇只存在本機，setDoc 還沒回來。這中間若有別的改動觸發快照，
-               沒有例外的話正在寫的那個分頁會被當成「這篇沒了」而關掉——
-               而使用者正在上面打字。 */
-            openTabs = openTabs.filter(id =>
-                id === currentNoteId || notes.some(n => n.id === id));
-        }
-        saveTabs();
-        renderTabs();
-        renderMdList();
-        /* ★★ 正在編輯的那一篇**不要**用雲端那份覆蓋回輸入框。
-           覆蓋的症狀是「打到一半游標跳走、剛打的字被吃掉」——
-           自己存檔觸發的回音也會走到這裡，所以這條路每次存檔都會發生。
-           只有在「沒有未存的改動」而且內容真的不一樣時才回填
-           （那才是別台裝置改的）。 */
-        if (currentNoteId && !mdDirty){
-            const cur = incoming.find(n => n.id === currentNoteId);
-            if (cur && $('mdInput').value !== (cur.body || '')){
-                $('mdInput').value = cur.body || '';
-                $('mdTitle').value = cur.title || '';
-                mdRenderPreview(cur.body || '');
-            }
-        }
-        renderShell();
-    }, (err) => {
-        console.warn('訂閱 notes 失敗:', err.code || err);
-        /* ★ 讀不到 ≠ 沒有筆記。維持 mdNotesLoaded=false、而且**不清空
-           mdReadyIds**——清掉的話下一次存檔會被閘門擋住，但更糟的是
-           使用者看到一份空清單，以為筆記全沒了。 */
-        showToast('讀不到雲端的筆記，這次先不要編輯');
-    });
-}
-function stopMdSubs(){
-    if (unsub){ try { unsub(); } catch(e){} unsub = null; }
-    /* ★ 登出要把閘門一起收回。留著 ready 的話，下一個人登入的空窗裡
-       任何一次存檔都會寫到**他的**筆記路徑下，而內容是上一個人的。 */
-    clearTimeout(mdSaveTimer); mdSaveTimer = null;
-    notes = []; mdReadyIds.clear();
-    mdNotesLoaded = false; mdDirty = false; currentNoteId = null;
-    /* ★★ 分頁列也要清，理由跟 mdReadyIds 同一個：留著的話，下一個人登入的
-       空窗裡看到的是**上一個人的**篇名。
-       ★ 但**故意不呼叫 saveTabs()**——存起來的那兩份是「上次開著哪幾篇」，
-       登出把它們洗成空的話，同一個人下次登入回來分頁列是空的。
-       清的是記憶體裡這份，存起來的那兩份等下次真的還原時再用帳號過濾。 */
-    openTabs = []; mdTabsRestored = false;
-    renderTabs(); renderMdList(); renderThumbs();
-}
-
-/* ==========================================================
-   檢視模式與外殼
-   ========================================================== */
-function applyMdView(){
-    /* 手機上並排沒有意義（兩邊都會太窄），直接當成只編輯。 */
-    const narrow = matchMedia('(max-width: 820px)').matches;
-    const v = (narrow && mdView === 'split') ? 'edit' : mdView;
-    $('panes').classList.toggle('single', v !== 'split');
-    $('mdInput').classList.toggle('hidden', v === 'read');
-    const wasHidden = $('mdPreview').classList.contains('hidden');
-    $('mdPreview').classList.toggle('hidden', v === 'edit');
-    document.querySelectorAll('.viewOpt').forEach(b =>
-        b.classList.toggle('on', b.dataset.view === mdView));
-    /* ★★ 從「只編輯」切回來要重排一次。分頁靠的是量高度，而 display:none
-       的元素量出來全部是 0——不重排的話會看到整份內容擠在第一頁裡，
-       而且完全不會報錯（那正是「量測型程式碼」最典型的壞法）。 */
-    if (wasHidden && v !== 'edit' && $('mdInput')) mdRenderPreview($('mdInput').value);
-}
-/* ==========================================================
-   側欄：篇目／頁面縮圖
-
-   ★★ 縮圖是把**已經排好的** `.md-page` 複製一份縮小，不是另外畫一次。
-   另外畫等於維護第二套排版規則，而兩套遲早會不一樣——症狀是
-   「縮圖跟真的那一頁長得不一樣」，沒有人會回報這種事，只會不再用它。
-   ========================================================== */
-const SIDE_KEY = 'blackcatmd-side';
-
-function applySide(){
-    document.body.classList.toggle('side-off', !sideOpen);
-    $('btnSide').setAttribute('aria-expanded', String(sideOpen));
-    document.querySelectorAll('.sideOpt').forEach(b =>
-        b.classList.toggle('on', b.dataset.side === sideMode));
-    /* 手機不分頁（一頁 610px 縮到 360px 是看不清楚的），沒有頁可以縮，
-       所以那一組分段控制在手機上整個收起來。 */
-    const canPage = mdPagedNow();
-    const pages = canPage && sideMode === 'pages';
-    $('sideSeg').classList.toggle('hidden', !canPage);
-    $('mdList').classList.toggle('hidden', pages);
-    $('mdThumbs').classList.toggle('hidden', !pages);
-    renderThumbs();
-}
-
-function renderThumbs(){
-    const box = $('mdThumbs');
-    if (!box) return;
-    /* 看不到的時候不要做——每敲一個字就複製四十頁的 DOM，那是打字會頓的原因，
-       而且頓起來看不出跟縮圖有關。 */
-    if (!sideOpen || sideMode !== 'pages' || !mdPagedNow()){ box.textContent = ''; return; }
-    const pages = $('mdPreview').querySelectorAll('.md-page');
-    if (!pages.length){ box.innerHTML = '<div class="hint">還沒有內容</div>'; return; }
-
-    /* ★ 先接在 fragment 上再一次掛進去。一張一張 appendChild 的話，
-       每接一張就重排一次整條側欄。 */
-    const frag = document.createDocumentFragment();
-    pages.forEach((p, i) => {
-        const wrap = document.createElement('div');
-        wrap.className = 'thumb-wrap';
-        const btn = document.createElement('button');
-        btn.className = 'thumb';
-        btn.dataset.page = String(i);
-        btn.setAttribute('aria-label', '跳到第 ' + (i + 1) + ' 頁');
-        /* ★★ 內層一定要掛 `md-body`：語意色、標題、表格全部是
-           `.md-body xxx` 選出來的。複製到別的祖先底下而忘了掛，
-           症狀是縮圖整片變成沒有顏色的黑字——看起來像「縮圖本來就長這樣」。 */
-        const inner = document.createElement('div');
-        inner.className = 'thumb-in md-body';
-        const clone = p.cloneNode(true);
-        /* 頁碼寫在縮圖**底下**，不是印在縮圖裡（縮到 0.246 倍的 11px 字
-           糊成一團灰點，比沒有還糟）。 */
-        clone.removeAttribute('data-page');
-        inner.appendChild(clone);
-        btn.appendChild(inner);
-        const n = document.createElement('span');
-        n.className = 'thumb-n';
-        n.textContent = String(i + 1);
-        wrap.appendChild(btn); wrap.appendChild(n);
-        frag.appendChild(wrap);
-    });
-    box.textContent = '';
-    box.appendChild(frag);
-}
-
-$('mdThumbs').addEventListener('click', (e) => {
-    const b = e.target.closest('.thumb');
-    if (!b) return;
-    const p = $('mdPreview').querySelectorAll('.md-page')[Number(b.dataset.page)];
-    if (!p) return;
-    p.scrollIntoView({
-        /* 尊重系統的「減少動態效果」——平滑捲動是這一頁唯一會自己跑起來的東西。 */
-        behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-        block: 'start'
-    });
+    e.preventDefault();
+    if (selKey !== k) selectItem(k);
+    drag = { k, it, el, mode: handle || 'move', sx: e.clientX, sy: e.clientY, cx: e.clientX, cy: e.clientY,
+             scroll0: $('sheets').scrollTop, edge: 0,
+             x0: it.x, y0: it.y, sc0: effSc(it), gap0: gapOf(b, it), page0: it.page, moved: false, id: e.pointerId };
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
 });
-
-function renderShell(){
-    const inUse = !!(auth.currentUser && !auth.currentUser.isAnonymous);
-    const has = inUse && !!(currentNoteId && notes.some(n => n.id === currentNoteId));
-    $('loginHint').classList.toggle('hidden', inUse);
-    $('emptyHint').classList.toggle('hidden', !inUse || has);
-    $('editHead').classList.toggle('hidden', !has);
-    $('panes').classList.toggle('hidden', !has);
-    if (has) applyMdView();
+/* 拖動的位移（紙的座標）。★ 算進捲動的量：拖到畫面邊緣時整疊紙會自己捲，
+   題目跟著紙走，所以「手指移了多少」要加上「紙捲了多少」。 */
+function dragDelta(d, x, y) {
+    return [(x - d.sx) / zoom, (y - d.sy + ($('sheets').scrollTop - d.scroll0)) / zoom];
+}
+function dragMoveTo(d, x, y) {
+    const [dx, dy] = dragDelta(d, x, y);
+    d.el.style.transform = `translate(${dx}px, ${dy}px)`;
+    document.querySelectorAll('.sheet.drop').forEach(s => s.classList.remove('drop'));
+    const sh = sheetAt(x, y);
+    if (sh && Number(sh.dataset.page) !== d.it.page) sh.classList.add('drop');
+}
+/* 拖到那一欄的上下邊緣 48px 內就自己捲（手指停著不動也繼續捲），才拖得到畫面外的另一頁。 */
+function dragAutoScroll() {
+    const d = drag;
+    if (!d || d.mode !== 'move' || !d.edge) { if (d) d.raf = 0; return; }
+    $('sheets').scrollTop += d.edge * 14;
+    dragMoveTo(d, d.cx, d.cy);
+    d.raf = requestAnimationFrame(dragAutoScroll);
+}
+addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const b = curBook();
+    const [dx, dy] = dragDelta(drag, e.clientX, e.clientY);
+    if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+    drag.moved = true;
+    drag.cx = e.clientX; drag.cy = e.clientY;
+    const { it, el } = drag;
+    if (drag.mode === 'move') {
+        el.classList.add('dragging');
+        const wrap = el.closest('.sheet-wrap');
+        if (wrap) wrap.classList.add('lift');
+        dragMoveTo(drag, e.clientX, e.clientY);
+        const r = $('sheets').getBoundingClientRect();
+        drag.edge = e.clientY < r.top + 48 ? -1 : e.clientY > r.bottom - 48 ? 1 : 0;
+        if (drag.edge && !drag.raf) drag.raf = requestAnimationFrame(dragAutoScroll);
+    } else if (drag.mode === 'size') {
+        const nat = natH.get(it.k) || LINE * 3;
+        const maxW = Math.min(BASE_W, PAGE_W - it.x);
+        const w = clamp(BASE_W * drag.sc0 + dx, BASE_W * SC_MIN, maxW);
+        it.sc = Math.min(w / BASE_W, (BODY_BOTTOM - BODY_TOP) / nat);
+        if (b.flow) { layout(b); placeSheets(b); } else positionItem(b, it, el);
+        syncSelBar();
+    } else if (drag.mode === 'gap') {
+        it.gap = clamp(Math.round(drag.gap0 + dy / LINE), 0, GAP_MAX);
+        if (b.flow) { layout(b); placeSheets(b); } else positionItem(b, it, el);
+        syncSelBar();
+    }
+});
+function endDrag(e) {
+    if (!drag || (e && e.pointerId !== drag.id)) return;
+    const d = drag;
+    drag = null;
+    const b = curBook();
+    d.el.classList.remove('dragging');
+    d.el.style.transform = '';
+    document.querySelectorAll('.sheet-wrap.lift').forEach(w => w.classList.remove('lift'));
+    document.querySelectorAll('.sheet.drop').forEach(s => s.classList.remove('drop'));
+    if (!b || !d.moved) return;
+    if (d.raf) cancelAnimationFrame(d.raf);
+    if (d.mode === 'move' && e && e.type === 'pointerup') {
+        const [dx, dy] = dragDelta(d, e.clientX, e.clientY);
+        /* 放開的地方：手指底下那張紙；不在任何一張紙上就留在原本那張。 */
+        const sh = sheetAt(e.clientX, e.clientY);
+        const fromSheet = d.el.parentNode;
+        let page = d.it.page, x = d.x0 + dx, y = d.y0 + dy;
+        if (sh && sh !== fromSheet) {
+            const r0 = fromSheet.getBoundingClientRect(), r1 = sh.getBoundingClientRect();
+            page = Number(sh.dataset.page);
+            x += (r0.left - r1.left) / zoom;
+            y += (r0.top - r1.top) / zoom;
+        }
+        const w = BASE_W * effSc(d.it), h = boxH(d.it);
+        d.it.page = page;
+        d.it.x = Math.round(clamp(x, 0, PAGE_W - w));
+        d.it.y = Math.round(clamp(y, 0, PAGE_H - Math.min(h, PAGE_H)));
+        if (b.flow) {
+            b.flow = false;
+            showToast('改成自己擺了。想恢復照題號排，按「重新自動排版」');
+        }
+    }
+    afterChange(b, false);
+    renderBookHead(b);
+}
+addEventListener('pointerup', endDrag);
+addEventListener('pointercancel', endDrag);
+function renderBookHead(b) {
+    $('btnFlow').textContent = b.flow ? '自動排版中' : '重新自動排版';
+    $('btnFlow').disabled = !!b.flow;
+    $('btnAddPage').classList.toggle('hidden', !!b.flow);
 }
 
-/* ==========================================================
-   事件
-   ========================================================== */
-$('btnNew').onclick = newNote;
-$('btnDelete').onclick = deleteCurrentNote;
-$('btnHelp').onclick = () => $('mdHelp').classList.toggle('hidden');
+/* ---------- 這一本的工具列 ---------- */
+$('bookTitle').addEventListener('input', () => {
+    const b = curBook();
+    if (!b) return;
+    b.title = $('bookTitle').value.slice(0, 40) || '錯題本';
+    renderList();
+    scheduleSave();
+});
+$('densitySeg').addEventListener('click', (e) => {
+    const btn = e.target.closest('button[data-density]');
+    const b = curBook();
+    if (!btn || !b) return;
+    b.density = btn.dataset.density;
+    /* ★ 選了「留白」就是要整本照這個留：自己調過的那幾題也一起回到自動。
+         不然「我按了多，怎麼有幾題沒變」——而使用者早就忘了自己調過哪幾題。 */
+    for (const it of b.items) it.gap = null;
+    document.querySelectorAll('#densitySeg button').forEach(x => x.classList.toggle('on', x.dataset.density === b.density));
+    afterChange(b, false);
+});
+$('ansChk').addEventListener('change', () => {
+    const b = curBook();
+    if (!b) return;
+    b.ans = $('ansChk').checked;
+    renderBook();
+    scheduleSave();
+});
+$('btnFlow').onclick = () => {
+    const b = curBook();
+    if (!b) return;
+    b.flow = true;
+    renderBookHead(b);
+    afterChange(b, false);
+    showToast('照題號重新排好了');
+};
+$('btnAddPage').onclick = () => {
+    const b = curBook();
+    if (!b) return;
+    b.pages = pageCount(b) + 1;
+    placeSheets(b);
+    scheduleSave();
+    const last = $('sheets').lastElementChild;
+    if (last) last.scrollIntoView({ block: 'start', behavior: 'smooth' });
+};
+$('btnDelete').onclick = deleteBook;
+$('btnNew').onclick = newBook;
 $('btnBack').onclick = () => {
-    flushMdSave();
+    flushSave();
+    selectItem(null);
     document.body.classList.remove('phone-edit');
     document.body.classList.add('phone-list');
 };
-document.querySelectorAll('.viewOpt').forEach(b => b.onclick = () => {
-    mdView = b.dataset.view; applyMdView();
-});
-
 $('btnSide').onclick = () => {
     sideOpen = !sideOpen;
     try { localStorage.setItem(SIDE_KEY, sideOpen ? '1' : '0'); } catch(e){}
-    applySide();
+    document.body.classList.toggle('side-off', !sideOpen);
+    $('btnSide').setAttribute('aria-expanded', String(sideOpen));
 };
-document.querySelectorAll('.sideOpt').forEach(b => b.onclick = () => {
-    sideMode = b.dataset.side;
-    /* ★★★ 「頁面」要看得到頁才有東西可縮。而「只編輯」模式下預覽區是
-       `display:none`——量出來的高度**全部是 0**，於是分頁邏輯把整份內容
-       塞進第一頁，縮圖就只有孤零零的一張，而且是錯的。
-       症狀完全不會報錯，看起來像「這份筆記只有一頁」。
-       所以切到「頁面」時順手把檢視換成看得見紙的那一種：
-       桌機並排（原文與頁面對照著看），窄螢幕只閱讀（並排會兩邊都太窄）。 */
-    if (sideMode === 'pages' && mdView === 'edit'){
-        mdView = matchMedia('(max-width: 820px)').matches ? 'read' : 'split';
-        applyMdView();
-    }
-    applySide();
-});
-$('btnExport').onclick = () => {
-    const n = notes.find(x => x.id === currentNoteId);
-    if (!n){ showToast('先選一篇筆記'); return; }
-    /* 匯出的是 Markdown 原文，不是渲染後的 HTML——原文在別的編輯器
-       打得開，HTML 只能看。 */
-    const blob = new Blob([n.body || ''], { type:'text/markdown;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = (n.title || '未命名') + '.md';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-};
+try { sideOpen = localStorage.getItem(SIDE_KEY) !== '0'; } catch(e){}
+document.body.classList.toggle('side-off', !sideOpen);
 
-/* ★ 兩個節流時間刻意不一樣：預覽 150ms 是為了跟得上手感，
-   存檔 800ms 是為了少寫幾次 Firestore。 */
-$('mdInput').addEventListener('input', (e) => {
-    const v = e.target.value;
-    clearTimeout(mdPreviewTimer);
-    mdPreviewTimer = setTimeout(() => mdRenderPreview(v), 150);
-    scheduleMdSave();
-});
-$('mdTitle').addEventListener('input', scheduleMdSave);
+/* ==========================================================
+   匯出到 GoodNotes
+
+   ★ 為什麼是 .goodnotes 不是 PDF：GoodNotes 匯入 PDF 時把整頁當成紙，裡面的題目
+     用套索圈不起來（2026-10-07 iPad 實測，三種 PDF 寫法全部搬不動）。
+     .goodnotes 裡每一題是 GoodNotes 自己的「圖片物件」，跟在 App 裡插入的照片一樣能拖能縮。
+     檔案格式由 vendor/gnwrite.js 寫（移植自 gnnote，MIT）。
+   步驟：每一題轉成一張 PNG（html-to-image）→ 紙轉成一頁 PDF → 打包 → 分享或下載。
+   ========================================================== */
+function loadScript(src, test) {
+    if (test()) return Promise.resolve(true);
+    return new Promise((res) => {
+        const js = document.createElement('script');
+        js.src = src;
+        js.onload = () => res(!!test());
+        js.onerror = () => { js.remove(); res(false); };
+        document.head.appendChild(js);
+    });
+}
+/* 轉圖片時要抄的樣式（跟主站拍照那一份同一個理由）：
+   ⚠️ 不給的話 html-to-image 會把每個元素的**全部**計算後樣式抄一份，一題就是好幾 MB 的 SVG。 */
+function SNAP_STYLE_PROPS() {
+    return ['display','position','top','right','bottom','left','float','clear','z-index','box-sizing',
+     'width','height','min-width','min-height','max-width','max-height',
+     'margin-top','margin-right','margin-bottom','margin-left','padding-top','padding-right','padding-bottom','padding-left',
+     'border-top-width','border-right-width','border-bottom-width','border-left-width',
+     'border-top-style','border-right-style','border-bottom-style','border-left-style',
+     'border-top-color','border-right-color','border-bottom-color','border-left-color',
+     'border-top-left-radius','border-top-right-radius','border-bottom-left-radius','border-bottom-right-radius',
+     'font-family','font-size','font-weight','font-style','font-variant','font-feature-settings','line-height','letter-spacing','word-spacing',
+     'text-align','text-indent','text-transform','text-decoration-line','text-decoration-color','text-decoration-style','white-space','word-break','overflow-wrap',
+     'vertical-align','color','opacity','visibility','overflow-x','overflow-y','transform','transform-origin',
+     'background-color','background-image','background-size','background-position','background-repeat','background-clip',
+     'flex-direction','flex-wrap','flex-grow','flex-shrink','flex-basis','justify-content','align-items','align-self','align-content','order',
+     'gap','row-gap','column-gap','grid-template-columns','grid-template-rows','grid-column-start','grid-column-end','grid-row-start','grid-row-end',
+     'list-style-type','border-collapse','border-spacing','table-layout','object-fit','fill','stroke','stroke-width','content'];
+}
+function isWebKit() { return /AppleWebKit/.test(navigator.userAgent) && !/Chrome\/|Chromium|Edg\/|Firefox/.test(navigator.userAgent); }
+/* 圖片裡要嵌的字型：**只有 KaTeX**（主站拍照那一段 iPad 實測過：讓 html-to-image 自己找的話，
+   它會把中文字型的幾百個小檔全部重抓一遍，一張圖 11 秒）。中文字退回系統字型。 */
+const fontCSS = { faces: null, data: new Map() };
+async function katexFontCSS(root) {
+    if (!fontCSS.faces) {
+        try {
+            const txt = await (await fetch('vendor/katex.min.css')).text();
+            fontCSS.faces = (txt.match(/@font-face\{[^}]*\}/g) || []).map(block => ({
+                block,
+                family: ((block.match(/font-family:\s*([^;]+)/) || [])[1] || '').replace(/["']/g, '').trim(),
+                url: (block.match(/url\(([^)]+\.woff2)\)/) || [])[1] || ''
+            })).filter(f => f.family && f.url);
+        } catch (e) { fontCSS.faces = []; }
+    }
+    const used = new Set();
+    for (const el of root.querySelectorAll('.katex, .katex *'))
+        used.add(getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g, '').trim());
+    let css = '';
+    for (const f of fontCSS.faces) {
+        if (!used.has(f.family)) continue;
+        if (!fontCSS.data.has(f.url)) {
+            try {
+                const blob = await (await fetch('vendor/' + f.url)).blob();
+                const url = await new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(blob); });
+                fontCSS.data.set(f.url, f.block.replace(/src:[^;}]+/, `src:url(${url}) format("woff2")`));
+            } catch (e) { fontCSS.data.set(f.url, ''); }
+        }
+        css += fontCSS.data.get(f.url);
+    }
+    return css;
+}
+const canvasPng = (c) => new Promise((res) => c.toBlob(b => res(b), 'image/png'));
+const canvasJpeg = (c, q) => new Promise((res) => c.toBlob(b => res(b), 'image/jpeg', q));
+const bytesOf = async (blob) => new Uint8Array(await blob.arrayBuffer());
+/* 一題 → PNG。★ 拍的是畫面外的一份複製品（寬 578、不縮放），不是紙上那一題：
+   紙上那一題被 transform 縮過，而且外面還有選取框。 */
+async function questionPng(H, qbox, R) {
+    const holder = $('snap');
+    const cl = qbox.cloneNode(true);
+    cl.style.transform = '';
+    holder.appendChild(cl);
+    try {
+        await Promise.all([...cl.querySelectorAll('img')].map(i => (i.decode ? i.decode().catch(() => {}) : 0)));
+        const opt = { pixelRatio: R, backgroundColor: '#fcf9f4', includeStyleProperties: SNAP_STYLE_PROPS() };
+        opt.fontEmbedCSS = await katexFontCSS(cl);
+        const svgUrl = await H.toSvg(cl, opt);
+        const loadImg = () => new Promise((res, rej) => {
+            const im = new Image();
+            im.onload = () => res(im); im.onerror = () => rej(new Error('SVG 載不進來'));
+            im.src = svgUrl;
+        });
+        let img = await loadImg();
+        /* ⚠️ Safari（含 iPad 上所有瀏覽器）第一張常常字型還沒嵌好：先畫一次暖身，再開一張新的畫。 */
+        if (isWebKit()) {
+            const warm = document.createElement('canvas'); warm.width = warm.height = 8;
+            warm.getContext('2d').drawImage(img, 0, 0, 8, 8);
+            await new Promise(r => setTimeout(r, 30));
+            img = await loadImg();
+        }
+        const w = cl.offsetWidth, h = cl.offsetHeight;
+        const c = document.createElement('canvas');
+        c.width = Math.ceil(w * R); c.height = Math.ceil(h * R);
+        const cx = c.getContext('2d');
+        cx.fillStyle = '#fcf9f4'; cx.fillRect(0, 0, c.width, c.height);
+        cx.drawImage(img, 0, 0, c.width, c.height);
+        return { png: await bytesOf(await canvasPng(c)), w, h };
+    } finally { cl.remove(); }
+}
+/* 紙：notepaper.webp 畫到一張 1220×1632 的畫布上，底下先鋪紙色與橫線
+   （貼圖最下面 23px 是透明的尾巴，畫面上靠 CSS 的漸層接線，這裡自己畫）。 */
+async function paperPdf(G) {
+    const c = document.createElement('canvas');
+    c.width = 1220; c.height = 1632;
+    const cx = c.getContext('2d');
+    cx.fillStyle = '#fcf9f4'; cx.fillRect(0, 0, c.width, c.height);
+    cx.fillStyle = '#c8c4be';
+    for (let y = 23; y < PAGE_H; y += LINE) cx.fillRect(0, y * 2, c.width, 2);
+    try {
+        const im = new Image();
+        im.src = 'notepaper.webp';
+        await im.decode();
+        cx.fillStyle = '#fcf9f4'; cx.fillRect(0, 0, c.width, c.height);
+        cx.fillStyle = '#c8c4be';
+        for (let y = 23; y < PAGE_H; y += LINE) cx.fillRect(0, y * 2, c.width, 2);
+        cx.drawImage(im, 0, 0, c.width, c.height);
+    } catch (e) { /* 貼圖沒到：只有線的紙，照樣能用 */ }
+    const jpg = await bytesOf(await canvasJpeg(c, 0.86));
+    return G.paperPdfFromJpeg(jpg, c.width, c.height, PAGE_W * PT_PER_PX, PAGE_H * PT_PER_PX);
+}
+function busy(on, text, sub) {
+    $('busy').classList.toggle('hidden', !on);
+    if (text) $('busyText').textContent = text;
+    $('busySub').textContent = sub || '';
+}
+function fileNameOf(b) { return (String(b.title || '錯題本').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40) || '錯題本') + '.goodnotes'; }
+async function exportGoodnotes() {
+    const b = curBook();
+    if (!b || exporting) return;
+    if (!b.items.length) return showToast('這本還沒有題目');
+    exporting = true;
+    selectItem(null);
+    busy(true, '匯出中…', '準備工具');
+    try {
+        const [okH, okG] = await Promise.all([
+            loadScript('vendor/html-to-image.min.js', () => window.htmlToImage),
+            loadScript('vendor/gnwrite.js', () => window.GnWrite)
+        ]);
+        if (!okH || !okG) throw new Error('匯出工具載不到（網路斷了？）');
+        const H = window.htmlToImage, G = window.GnWrite;
+        try { await document.fonts.ready; } catch (e) {}
+        layout(b); placeSheets(b);
+        const n = pageCount(b);
+        const pages = Array.from({ length: n }, () => ({ images: [] }));
+        /* 解析度：一題寬 578px × 3 ≈ 1734 像素。GoodNotes 裡放大到兩倍還是清楚的字，
+           而 30 題的檔案大約 2–4 MB。 */
+        const R = 3;
+        for (let i = 0; i < b.items.length; i++) {
+            const it = b.items[i];
+            busy(true, '匯出中…', `題目轉成圖片 ${i + 1} / ${b.items.length}`);
+            const el = itemEls.get(it.k);
+            if (!el) continue;
+            const { png, h } = await questionPng(H, el.querySelector('.qbox'), R);
+            const s = effSc(it);
+            pages[clamp(it.page | 0, 0, n - 1)].images.push({
+                x: it.x * PT_PER_PX, y: it.y * PT_PER_PX,
+                w: BASE_W * s * PT_PER_PX, h: h * s * PT_PER_PX, data: png
+            });
+        }
+        busy(true, '匯出中…', '打包成 GoodNotes 筆記本');
+        const paper = await paperPdf(G);
+        const bytes = await G.write({ title: b.title, pageW: PAGE_W * PT_PER_PX, pageH: PAGE_H * PT_PER_PX, paperPdf: paper, pages });
+        busy(false);
+        await deliver(new File([bytes], fileNameOf(b), { type: 'application/octet-stream' }));
+    } catch (err) {
+        console.warn('匯出失敗:', err);
+        busy(false);
+        showToast('匯出失敗：' + ((err && err.message) || '不知道為什麼') + '，再試一次');
+    } finally {
+        exporting = false;
+    }
+}
+/* iPhone／iPad：跳出分享選單（可以直接選 GoodNotes）；其他裝置：下載。
+   ★ 分享選單被取消（使用者按了關閉）不算失敗，不要再下載一次。 */
+async function deliver(file) {
+    if (deliverSink) return deliverSink(file);
+    const touch = navigator.maxTouchPoints > 1 && /iP(hone|ad|od)|Macintosh/.test(navigator.userAgent);
+    if (touch && navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], title: file.name }); return; }
+        catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(file);
+    a.download = file.name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    showToast('下載好了：用 GoodNotes 打開這個檔案，題目可以直接拖');
+}
+$('btnExport').onclick = exportGoodnotes;
 
 /* ★ 手機切到別的 App 走的是 visibilitychange，不是 beforeunload——
-   只綁後者的話，手機使用者每次切走都會掉最後 0.8 秒的字，而他不會知道。 */
+   只綁後者的話，手機使用者每次切走都會掉最後 0.8 秒的改動。 */
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushMdSave();
+    if (document.visibilityState === 'hidden') flushSave();
 });
-addEventListener('beforeunload', flushMdSave);
-/* 轉個方向就從並排變單欄（或反過來），要重算一次。
-   ★ 側欄也要跟著重算：跨過斷點之後「頁面」那一段有沒有東西可看會變。 */
-matchMedia('(max-width: 820px)').addEventListener?.('change', () => {
-    applyMdView(); applySide();
-});
+addEventListener('beforeunload', flushSave);
+/* KaTeX 是 defer 載的：它比第一次畫晚到的話，載到之後把已經畫好的題目補排一次。 */
+addEventListener('load', () => { for (const el of itemEls.values()) renderMath(el); });
 
-/* ★ 側欄的開合記在這台瀏覽器上。預設是**開著**——沒有值的時候要展開，
-   所以判斷寫成「不等於 '0'」而不是「等於 '1'」（後者會讓第一次來的人
-   看到一片空白的左邊）。 */
-try { sideOpen = localStorage.getItem(SIDE_KEY) !== '0'; } catch(e){}
-applySide();
+/* 測試用的掛勾：tests 與無頭瀏覽器檢查拿它直接塞一本進來看排版（不碰雲端）。
+   ★ 只在網址帶 ?wbtest=1 時才有，正式使用者不會碰到。 */
+if (new URLSearchParams(location.search).get('wbtest') === '1') {
+    window.__wb = {
+        load(book) {
+            const b = normBook(book.id || 'wbnote_test', book);
+            b._local = true;
+            books = [b]; booksLoaded = true; readyIds.add(b.id);
+            curId = b.id;
+            document.body.classList.remove('phone-list'); document.body.classList.add('phone-edit');
+            renderBook();
+            ['loginHint', 'emptyHint'].forEach(id => $(id).classList.add('hidden'));
+            $('editHead').classList.remove('hidden'); $('sheets').classList.remove('hidden');
+            return b;
+        },
+        book: () => curBook(),
+        state: () => ({ zoom, selKey, pages: curBook() ? pageCount(curBook()) : 0 }),
+        relayout() { const b = curBook(); layout(b); placeSheets(b); },
+        /* 匯出但不下載：把檔案的位元組交回來（給檢查程式拿去用 gnnote 讀回）。 */
+        async exportBytes() {
+            let got = null;
+            deliverSink = (f) => { got = f; };
+            try { await exportGoodnotes(); } finally { deliverSink = null; }
+            return got ? Array.from(new Uint8Array(await got.arrayBuffer())) : null;
+        }
+    };
+}
 
-renderTabs();
-renderMdList();
-renderShell();
+renderAll();
 
-/* Service Worker：跟其他兩頁共用同一支 */
-/* ★ 上面有 await（搬舊登入），load 可能已經發過了，所以先看 readyState（理由見主站 boot）。 */
+/* Service Worker：跟其他頁共用同一支。
+   ★ 上面有 await（搬舊登入），load 可能已經發過了，所以先看 readyState。 */
 if ('serviceWorker' in navigator) {
     const reg = () => navigator.serviceWorker.register('sw.js').catch(() => {});
     if (document.readyState === 'complete') reg(); else addEventListener('load', reg, { once: true });

@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v158';
+const CACHE = 'blackcat-v159';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -27,7 +27,7 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './logoncueee.jpg',           // 彰師電子的 logo（ncue.html 用）
               './ncue.html',            // 彰師電子（獨立頁）
               './blackcatspice.html',   // 電路模擬器（獨立頁）
-              './blackcatmd.html',      // 筆記編輯器（獨立頁）
+              './blackcatmd.html',      // 錯題本（獨立頁；2026-10-07 以前是筆記編輯器）
               /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
                  搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`
                  那種浮動版本等於「上游下一次發布的程式碼會自動在使用者的
@@ -46,8 +46,11 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
                  不進 CORE 是同一個判斷：不是「翻到才需要」的東西才預先抓。
                  tests/latex.mjs 有一條在釘這件事。 */
               './vendor/lucide.min.js',
-              './vendor/marked.min.js',
-              './vendor/purify.min.js',
+              /* ⚠️ 2026-10-07：marked 與 DOMPurify 從 CORE 拿掉了。它們是以前筆記頁
+                 （Markdown）沒有就不能用的東西；筆記頁改成錯題本之後沒有任何一頁載它們，
+                 留在 CORE 只是叫每一個裝成 App 的人白抓 56KB。檔案還在 vendor/。
+                 ★ 錯題本匯出要用的 html-to-image 與 gnwrite.js **也不進**：按「匯出」才載，
+                   走下面「同源靜態資源快取優先」那條路（跟 KaTeX 同一個判斷）。 */
               /* ⚠️ 2026-09-01：ts-fsrs（每日測驗的排程器）從 CORE 拿掉了。
                  每日測驗那三天用的是 FSRS，09-01 退回五階 Leitner，
                  主站的 <script> 也一起拿掉了，所以再放進 CORE 只是叫每一個

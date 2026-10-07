@@ -5294,6 +5294,8 @@
             </div>
             <!-- 錯題庫：「全部加入」或（重考錯題庫時）「答對的移出」。由 renderResultWb 填。 -->
             <div id="resultWbWrap" class="hidden mb-4"></div>
+            <!-- 錯題本（筆記紙那一種，2026-10-07）：「把答錯的 N 題排成錯題本」。由 renderResultWbn 填。 -->
+            <div id="resultWbnWrap" class="hidden mb-4"></div>
             <button id="closeResultBtn" class="w-full py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-colors">回到大廳</button>
         </div>
     </div>
@@ -5322,6 +5324,27 @@
                 <button data-close="wbNameModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
                 <button data-action="wb-name-save" class="flex-1 py-4 bg-rose-500 text-white rounded-2xl font-bold shadow-lg hover:bg-rose-400 transition-colors">儲存</button>
             </div>
+        </div>
+    </div>
+    <!-- 排成錯題本（2026-10-07）：選一本或開新的，排完給一個「打開錯題本」的連結。
+         ★ 跟上面兩個一樣 z-[60]、而且寫在測驗視窗**後面**：它是從結算頁打開的，要蓋在結算頁上面。 -->
+    <div id="wbnModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-[60] p-4 hidden" role="dialog" aria-modal="true" aria-labelledby="wbnTitle">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-md p-6 md:p-8 shadow-2xl border-t-8 border-amber-400">
+            <h3 id="wbnTitle" class="text-2xl font-bold mb-2 text-slate-900">排進哪一本錯題本？</h3>
+            <p id="wbnSub" class="text-sm font-bold text-slate-500 mb-5"></p>
+            <div id="wbnBody">
+                <div id="wbnList" class="space-y-2 mb-5"></div>
+                <p class="text-xs font-black text-slate-400 mb-2">或開一本新的</p>
+                <div class="flex gap-2">
+                    <input type="text" id="wbnNewName" maxlength="40" placeholder="名字（如：工數期中）" class="flex-1 min-w-0 px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-400 font-bold" aria-label="新錯題本的名字">
+                    <button data-action="wbn-new" class="shrink-0 px-4 py-3 bg-slate-900 text-white rounded-2xl font-bold hover:bg-slate-800 transition-colors">開新的並排進去</button>
+                </div>
+            </div>
+            <div id="wbnDone" class="hidden">
+                <p id="wbnDoneText" class="font-bold text-slate-700 mb-4"></p>
+                <a id="wbnOpenLink" href="blackcatmd.html" class="block w-full text-center py-4 bg-slate-900 text-white rounded-2xl font-bold shadow-lg hover:bg-slate-800 transition-colors">打開錯題本</a>
+            </div>
+            <button data-close="wbnModal" class="w-full mt-5 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">關閉</button>
         </div>
     </div>
 
@@ -6350,6 +6373,12 @@
            wbPending＝「收進哪一本」視窗開著時，等著被收的那幾題與收完要重畫什麼。 */
         const WB_BOOKS_MAX = 30, WB_NAME_MAX = 30;
         let wbFolderOpen = false, wbPending = null;
+        /* 錯題本（筆記紙那一種，2026-10-07）。存在 users/{uid}/settings/wbnote_xxx（一本一份，kind:'wbnote'）。
+           ★ 放 settings 不開新集合：私人集合有白名單，新集合要改 firestore.rules 再推上主控台，漏推就是「按了沒反應」。
+           ⚠️ 錯題本那一頁（blackcatmd.html 的 BOOK_COL／BOOK_KIND／BOOK_PREFIX）讀寫同一個地方，兩邊要一致。
+           wbnPending＝視窗開著時，等著被排進去的那幾題（已經轉成錯題本要的形狀）。 */
+        const WBN_COL = 'settings', WBN_KIND = 'wbnote', WBN_PREFIX = 'wbnote_', WBN_ITEMS_MAX = 150, WBN_BYTES_MAX = 900000;
+        let wbnPending = null;
         /* 這一題有沒有按過「我其實不確定」。⚠️ 每一題都要歸零（`renderPlayQuestion`），
            不歸零的話按過一次就整場都不算數，而畫面上只是那顆按鈕看起來一直亮著。
            ★ 宣告在狀態區不是習慣問題：`renderPlayQuestion` 會碰到它，
@@ -7706,6 +7735,16 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-10-07',
+                title: '筆記變成錯題本：答錯的題目排成筆記紙，可以帶到 GoodNotes',
+                items: [
+                    ['把答錯的題目排成錯題本', '做完測驗，結算頁多一顆「把答錯的 N 題排成錯題本」。選一本或開一本新的，答錯的題目就會一題一題排上橫線筆記紙，每題底下自動留好寫算式的空間。選擇題留得少一點、計算題留得多一點。'],
+                    ['可以拖、可以調大小', '在錯題本裡點一下題目就能選起來：拖著走可以搬到別的位置，連搬到別頁都可以；拉右下角的圓點放大縮小；拉底下那條調作答空間要幾行。整本的「留白」可以選少、中、多，也可以勾「附正解」把答案印在每題右下角。想恢復照題號整齊排好，按「重新自動排版」。'],
+                    ['匯出到 GoodNotes 之後題目還能搬', '按「匯出到 GoodNotes」會做出一本 GoodNotes 筆記本，紙就是小黑貓那張 No./Date 筆記紙。iPad 上直接用 GoodNotes 打開，每一題都是一張可以用套索拖、可以縮放的圖，底下的空白直接用筆寫。'],
+                    ['原本的筆記功能拿掉了', '選單裡的「筆記小黑貓」換成「錯題本小黑貓」，以前寫的 Markdown 筆記在網站上看不到了（還存在雲端，沒有刪掉）。'],
+                ]
+            },
+            {
                 date: '2026-10-06',
                 title: '錯題庫可以分成好幾本了',
                 items: [
@@ -8697,7 +8736,7 @@
             const items = [
                 ['cat',  '小黑貓',         './',                 '主頁、學習、理財'],
                 ['ncue', '彰師電子小黑貓', 'ncue.html',          '課程評價、教材、消息'],
-                ['md',   '筆記小黑貓',     'blackcatmd.html',    'Markdown ＋ 數學公式'],
+                ['md',   '錯題本小黑貓',   'blackcatmd.html',    '答錯的題目排成筆記'],
                 ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開', true]
             ];
             /* ★ beta 寫成獨立的一份名單，不是接在上面那張表的第六欄。
@@ -18342,6 +18381,148 @@
         /* ---- 錯題庫：結束（tests/quizplus.mjs 從 2026-10-06 晚那一行抽到這裡） ---- */
 
         /* ==========================================================
+         * 錯題本：把答錯的題目排成筆記紙（2026-10-07）
+         *
+         * 結算頁按「排成錯題本」→ 選一本或開新的 → 這裡把題目轉成錯題本要的形狀、接在那一本後面，
+         * 排版、拖曳、匯出 GoodNotes 都在 blackcatmd.html（錯題本小黑貓）做。
+         * ★ 跟上面的「錯題庫」是兩件事：錯題庫是拿來**重考**的（一份測驗），錯題本是拿來**寫**的（一疊紙）。
+         *   同一題可以兩邊都在，互不影響。
+         * ★ 存進去的是「畫得出題目」的最少欄位（wbNoteSnap），作答紀錄、詳解一律不帶：
+         *   錯題本一份文件要裝一百多題，而且它只需要把題目印出來。
+         * (tests/wbnote.mjs 從這一行抽到「錯題本：結束」)
+         * ========================================================== */
+        function wbNoteSnap(a) {
+            const groups = activeKahoot && activeKahoot.groups;
+            const str = (v, n) => String(v ?? '').slice(0, n);
+            /* 圖只收站上的相對路徑：錯題本那一頁的 CSP 只放 'self'，外部網址的圖存了也畫不出來。 */
+            const imgs = (list) => (Array.isArray(list) ? list : [])
+                .filter(im => im && quizImgSrc(im.src) && !/^https:/i.test(String(im.src).trim()))
+                .slice(0, 6).map(im => ({ src: String(im.src).trim(), alt: str(im.alt, 80) }));
+            const s = { q: str(a && a.q, 4000), from: str(activeKahoot && activeKahoot.title, 60) };
+            const img = imgs(a && a.img);
+            if (img.length) s.img = img;
+            const opts = Array.isArray(a && a.options) ? a.options : [];
+            if (!isFillQ(a) && opts.length) {
+                s.options = opts.slice(0, 10).map(o => str(o, 600));
+                /* ★ 選項圖存成物件 { "1":[…] }：Firestore 不收陣列裡的陣列（錯題庫那邊同一個坑）。 */
+                const oi = {};
+                const src = a.optImg;
+                for (let i = 0; i < s.options.length; i++) {
+                    const list = src && typeof src === 'object' ? imgs(src[i] ?? src[String(i)]) : [];
+                    if (list.length) oi[String(i)] = list;
+                }
+                if (Object.keys(oi).length) s.optImg = oi;
+            }
+            if (isMultiQ(a)) s.multi = true;
+            if (isFillQ(a)) s.fill = String(a.fill ?? '').length;
+            const g = groupOf(a, groups);
+            if (g) {
+                s.grp = { text: str(g.text, 6000) };
+                const gi = imgs(g.img);
+                if (gi.length) s.grp.img = gi;
+            }
+            const L = listenOf(a, groups);
+            if (L) s.listen = L.script ? str(L.script, 4000) :'（這一題是音檔，沒有附逐字稿）';
+            /* 正解（錯題本那邊勾「附正解」才印）。 */
+            const letter = (i) => `(${KAHOOT_LETTERS[i] || i + 1})`;
+            let ans ='';
+            if (isFillQ(a)) ans = fillShow(a.fill);
+            else if (isMultiQ(a)) ans = [...correctSetOf(a)].sort((x, y) => x - y).map(i => `${letter(i)} ${opts[i] ??''}`).join('　');
+            else if (Number.isInteger(a && a.correctIdx) && opts[a.correctIdx] !== undefined)
+                ans = `${letter(a.correctIdx)} ${opts[a.correctIdx]}` + (a.chinese ? `　${a.chinese}` :'');
+            if (ans) s.ans = str(ans, 1200);
+            return { k: wbKeyOf(a), s };
+        }
+        function renderResultWbn() {
+            const box = $('resultWbnWrap');
+            if (!box) return;
+            const wrong = (playAnswers ||[]).filter(a => !a.correct);
+            const show = isSignedInMember() && wrong.length > 0;
+            box.innerHTML = show ? `<button data-action="wbn-open" class="w-full py-3 rounded-2xl font-black text-sm border-2 border-amber-300 text-amber-800 bg-amber-50 hover:bg-amber-100 transition-colors">把答錯的 ${wrong.length} 題排成錯題本</button>
+                <p class="text-[11px] font-bold text-slate-400 mt-1.5">一題一題排上筆記紙、底下留好寫算式的空間，可以匯出到 GoodNotes</p>` :'';
+            box.classList.toggle('hidden', !show);
+        }
+        async function openWbnModal() {
+            if (!isSignedInMember()) return showToast('登入後才能用錯題本');
+            const wrong = (playAnswers ||[]).filter(a => !a.correct);
+            if (!wrong.length) return;
+            /* 同一份測驗裡同一題出現兩次（題庫重複）只算一題。 */
+            const seen = new Set();
+            wbnPending = wrong.map(wbNoteSnap).filter(x => !seen.has(x.k) && seen.add(x.k));
+            $('wbnTitle').textContent ='排進哪一本錯題本？';
+            $('wbnSub').textContent = `答錯的 ${wbnPending.length} 題`;
+            $('wbnBody').classList.remove('hidden');
+            $('wbnDone').classList.add('hidden');
+            $('wbnNewName').value = String((activeKahoot && activeKahoot.title) ||'').slice(0, 40);
+            const list = $('wbnList');
+            list.innerHTML ='<p class="text-sm font-bold text-slate-400">讀取你的錯題本…</p>';
+            openModal('wbnModal');
+            let books = [];
+            try {
+                const snap = await getDocs(query(collection(db, PU(WBN_COL)), where('kind','==', WBN_KIND)));
+                snap.forEach(d => books.push({ id: d.id, ...d.data() }));
+            } catch (e) {
+                list.innerHTML ='<p class="text-sm font-bold text-rose-500">讀不到你的錯題本，可以先開一本新的</p>';
+                return;
+            }
+            books.sort((x, y) => (y.updatedAt || 0) - (x.updatedAt || 0));
+            /* 冊名、題數都跳脫（CLAUDE.md 第四條：冊名是使用者打的）。 */
+            list.innerHTML = books.length ? books.map(b => `<button data-action="wbn-pick" data-id="${escapeHTML(b.id)}" class="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border-2 border-slate-100 bg-white hover:border-amber-300 transition-colors text-left">
+                    <span class="font-black text-slate-800 truncate pointer-events-none">${escapeHTML(String(b.title ||'錯題本'))}</span>
+                    <span class="text-xs font-black text-slate-400 shrink-0 pointer-events-none">${(Array.isArray(b.items) ? b.items.length : 0)} 題</span>
+                </button>`).join('')
+                :'<p class="text-sm font-bold text-slate-400">還沒有錯題本，在下面取個名字開第一本</p>';
+        }
+        /* 接在那一本後面（沒有就開新的）。已經在裡面的題目跳過。 */
+        async function wbnSaveInto(id, title) {
+            const path = PU(WBN_COL);
+            const add0 = wbnPending ||[];
+            if (!path || !add0.length) return;
+            const ref = doc(db, path, id);
+            let cur = null;
+            try {
+                const ds = await getDoc(ref);
+                if (ds.exists()) cur = ds.data();
+            } catch (e) { return showToast('讀不到那一本，等一下再試一次'); }
+            if (cur && cur.kind !== WBN_KIND) return showToast('那一本讀不懂，換一本試試');
+            const items = Array.isArray(cur && cur.items) ? cur.items :[];
+            const have = new Set(items.map(it => it && it.k));
+            let add = add0.filter(x => !have.has(x.k));
+            const room = WBN_ITEMS_MAX - items.length;
+            let cut = 0;
+            if (add.length > room) { cut = add.length - Math.max(0, room); add = add.slice(0, Math.max(0, room)); }
+            const now = Date.now();
+            /* ★ 新的題目不給位置（page／x／y）：錯題本那一頁打開時自己接在最後面排。
+                 這裡不知道每一題排出來多高，硬算一個位置只會跟那一頁的排法打架。 */
+            const fresh = add.map(x => ({ k: x.k, s: x.s, sc: 1, gap: null }));
+            const name = String((cur && cur.title) || title ||'錯題本').slice(0, 40);
+            const payload = cur ? { ...cur, items: [...items, ...fresh], updatedAt: now }
+                : { kind: WBN_KIND, title: name, flow: true, density:'mid', ans: false, pages: 1, items: fresh, createdAt: now, updatedAt: now };
+            const clean = JSON.parse(JSON.stringify(payload));
+            if (u8len(JSON.stringify(clean)) > WBN_BYTES_MAX) return showToast('那一本已經太滿了，開一本新的再排');
+            if (fresh.length) {
+                try { await setDoc(ref, clean); }
+                catch (e) { console.warn('錯題本寫入失敗:', e && (e.code || e)); return showToast('沒存起來，等一下再試一次'); }
+            }
+            wbnPending = null;
+            $('wbnTitle').textContent = fresh.length ?'排好了' :'都已經在裡面了';
+            $('wbnSub').textContent ='';
+            $('wbnDoneText').textContent = (fresh.length
+                ? `「${name}」多了 ${fresh.length} 題，現在一共 ${items.length + fresh.length} 題。`
+                : `這幾題本來就在「${name}」裡了。`) + (cut ? `（一本最多 ${WBN_ITEMS_MAX} 題，有 ${cut} 題放不下，開一本新的再排）` :'');
+            $('wbnOpenLink').href = 'blackcatmd.html?nb=' + encodeURIComponent(id);
+            $('wbnBody').classList.add('hidden');
+            $('wbnDone').classList.remove('hidden');
+        }
+        function wbnPick(id) { if (id && id.startsWith(WBN_PREFIX)) return wbnSaveInto(id, null); }
+        function wbnPickNew() {
+            const name = String(($('wbnNewName') ||{}).value ||'').replace(/\s+/g,' ').trim().slice(0, 40);
+            if (!name) return showToast('先幫這本取個名字');
+            return wbnSaveInto(WBN_PREFIX + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name);
+        }
+        /* ---- 錯題本：結束 ---- */
+
+        /* ==========================================================
          * 聽力題（2026-10-06）
          *
          * 題目（或它所屬的題組）可以帶「要播出來的東西」，兩種擇一：
@@ -19378,6 +19559,7 @@
 
             renderKahootWrongList();
             renderResultWb();
+            renderResultWbn();
             $('kahootResultModal').classList.remove('hidden');
             $('kahootResultModal').classList.add('flex');
             icons();
@@ -21663,6 +21845,9 @@
 'wb-drop-correct': ()  => wbDropCorrect(),
 'wb-pick':         (t) => wbPick(t.dataset.id),
 'wb-pick-new':     ()  => wbPickNew(),
+'wbn-open':        ()  => openWbnModal(),
+'wbn-pick':        (t) => wbnPick(t.dataset.id),
+'wbn-new':         ()  => wbnPickNew(),
 'open-wb-folder':  ()  => openWbFolder(),
 'wb-folder-back':  ()  => closeWbFolder(),
 'wb-new':          ()  => openWbName(''),
