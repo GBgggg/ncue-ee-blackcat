@@ -270,21 +270,26 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
    ★★ 每一條規則都只掛在 .qbox 底下，不靠祖先：匯出時把它複製一份放到畫面外去轉圖片，
    靠祖先的樣式在複製品身上會全部掉光（症狀是「匯出來的字變成另一個大小」）。
    ★ 底色是紙的顏色、不透明：匯出後題目是一張圖疊在橫線紙上，透明的話線會穿過字。
-   ★ 寬 578 ＝ 610 − 左右各 16（跟以前筆記頁的頁邊一樣）。縮放是外面那層 transform，
-     這裡永遠按 578 排，所以同一題縮成多大，裡面的換行都一樣。
+   ★ 寬 582：框從 x=12 排到 594。紙上的橫線從 13.5 畫到 591.5（量 notepaper.webp），
+     框比線頭再往左 1.5px，**線頭與那一欄點整個蓋住**——2026-10-07 使用者看到框左邊露出一小截線頭，
+     他那本 PDF 的題目圖也是從線頭左邊一點點開始（8～11pt）。字從 x=14 開始，就是線的起點。
+     縮放是外面那層 transform，這裡永遠按 582 排，所以同一題縮成多大，裡面的換行都一樣。
    ========================================================== */
-.qbox{width:578px;padding:6px 8px 8px;background:var(--sheet-paper);color:var(--sheet-ink);
+.qbox{width:582px;background:var(--sheet-paper);color:var(--sheet-ink);
       font:14px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
-      word-break:break-word;overflow-wrap:anywhere}
+      word-break:break-word;overflow-wrap:anywhere;
+      /* 高度由 positionItem 撐到整數格（框上下緣夾在兩條線之間），內容放在那幾格的正中間。 */
+      display:flex;flex-direction:column;justify-content:center;overflow:hidden}
+.qbox .q-in{padding:5px 6px 6px 2px}  /* 左邊 2px：字從 x=14 開始，就是橫線的起點 */
 .qbox .q-stem{display:flex;gap:.45em}
 .qbox .q-no{flex:none;font-weight:800}
 .qbox .q-txt{flex:1;min-width:0;white-space:pre-wrap}
 .qbox .q-tag{font-size:12px;font-weight:800;color:var(--sheet-dim);margin-left:.3em;white-space:nowrap}
-.qbox .q-grp{margin:0 0 6px;padding:6px 9px;border-left:3px solid var(--sheet-rule);white-space:pre-wrap}
+.qbox .q-grp{margin:0 0 6px;white-space:pre-wrap}   /* 不畫左邊那條豎線：題目一律從線頭切齊 */
 .qbox .q-listen{margin:0 0 6px;font-size:13px;white-space:pre-wrap}
 .qbox .q-listen b{color:var(--sheet-dim);font-size:12px}
 .qbox .q-img{display:block;max-width:100%;max-height:340px;margin:6px 0 2px;background:#fff}
-.qbox .q-opts{list-style:none;margin:4px 0 0;padding:0 0 0 1.4em;display:grid;gap:2px 14px}
+.qbox .q-opts{list-style:none;margin:4px 0 0;padding:0;display:grid;gap:2px 14px}   /* (A)(B) 跟題號切齊，不縮排 */
 .qbox .q-opts.short{grid-template-columns:repeat(auto-fill,minmax(122px,1fr))}
 .qbox .q-opts li{display:flex;gap:.35em;min-width:0}
 .qbox .q-opts .q-l{flex:none;font-weight:700}
@@ -297,11 +302,11 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
 .qbox .katex{font-size:1.05em}
 .qbox .q-tex-raw{font-family:ui-monospace,monospace;font-size:.92em;color:#a8460b}
 
-/* 量高度用：放在畫面外、寬 578，不縮放。 */
-#measure{position:fixed;left:-30000px;top:0;width:578px;visibility:hidden;pointer-events:none}
+/* 量高度用：放在畫面外、寬 582，不縮放。 */
+#measure{position:fixed;left:-30000px;top:0;width:582px;visibility:hidden;pointer-events:none}
 /* 匯出時轉圖片用：一樣在畫面外，但**不能** visibility:hidden——html-to-image 會把它抄進
    每一個元素的樣式裡，轉出來是一張只有底色的空白圖（2026-10-07 第一次匯出就是這樣）。 */
-#snap{position:fixed;left:-30000px;top:0;width:578px;pointer-events:none}
+#snap{position:fixed;left:-30000px;top:0;width:582px;pointer-events:none}
 
 /* 匯出中的遮罩 */
 #busy{position:fixed;inset:0;z-index:150;display:flex;align-items:center;justify-content:center;
@@ -480,7 +485,7 @@ let deliverSink = null;       // 測試用：匯出的檔案交給它，不下�
 /* 這一輪在本機拿掉的題目。★ 雲端快照合併的時候要跳過它們：
    不記的話，拿掉之後還沒存檔的 0.8 秒內剛好來一份快照，題目又會長回來。 */
 const removedKeys = new Set();
-/* 每一題量出來的「原本的高度」（寬 578、不縮放），key 是題目的 k。 */
+/* 每一題量出來的「原本的高度」（寬 582、不縮放），key 是題目的 k。 */
 const natH = new Map();
 const itemEls = new Map();    // k → 畫面上那一題的元素
 let ro = null;                // 量高度用的 ResizeObserver（題目圖、算式晚到時會變高）
@@ -488,9 +493,15 @@ let ro = null;                // 量高度用的 ResizeObserver（題目圖、�
 /* ---- 紙的幾何（CSS px；匯出時 × 0.75 變成 pt） ----
    ★ 這幾個數字跟 notepaper.webp 綁死：頁首 3 格、線距 24、每頁 34 格。 */
 const PAGE_W = 610, PAGE_H = 816, LINE = 24, HEAD = 72;
-const MARGIN_X = 16, BASE_W = 578;         // 題目框寬＝610 − 16 × 2
-const BODY_TOP = HEAD + 2;                 // 第一題的頂端：頁首那條雙線底下
-const BODY_BOTTOM = PAGE_H - LINE;         // 最後一條線
+const MARGIN_X = 12, BASE_W = 582;         // 題目框從 12 到 594，蓋住橫線的線頭（理由見 .qbox 那一段）
+const COL = 24;                            // 線上的點每 24px 一顆；拖曳放開時左右對齊到這一欄
+/* ★★ 題目框的上下緣都夾在兩條線之間（使用者那本工數筆記就是這樣：題目那條白底的圖剛好佔滿幾格，
+   上下各露出一條線）。量過 notepaper.webp：每一條線佔 24n−0.5 到 24n+1 這 1.5px（第一條在 72）。
+   所以框頂＝某條線 + 2、框底＝往下某條線 − 1，框高永遠是 24k − 3。
+   ⚠️ 改線距或換貼圖要重量這兩個數字：差 1px 的症狀是框邊壓到線上、整頁看起來每一題都「歪一點點」。 */
+const LINE_TOP = 2, LINE_BOT = 1;
+const BODY_TOP = HEAD + LINE_TOP;          // 第一題的頂端：頁首那條雙線（72）底下
+const BODY_BOTTOM = PAGE_H - LINE;         // 最後一條線（792）
 const PT_PER_PX = 0.75;
 const BOOK_ITEMS_MAX = 150;                // 一本最多幾題（Firestore 一份文件 1 MB，一題約 1–3 KB）
 const BOOK_BYTES_MAX = 900000;
@@ -717,7 +728,9 @@ function qHTML(item, no, withAns) {
     const ans = withAns && s.ans ? `<span class="q-ans">${mathHTML(s.ans)}</span>` : '';
     const src = s.from ? `<span class="q-src">${escapeHTML(s.from)}</span>` : '';
     if (ans || src) h += `<div class="q-foot">${ans}${src}</div>`;
-    return `<div class="qbox">${h}</div>`;
+    /* ★ 外層 .qbox 的高度會被撐到整數格（positionItem），量高度量的是裡面的 .q-in——
+         量外層的話「撐出來的高度」又被當成內容高度，下一次再往上取一格，一路長下去。 */
+    return `<div class="qbox"><div class="q-in">${h}</div></div>`;
 }
 
 /* ==========================================================
@@ -746,45 +759,56 @@ function gapOf(book, it) {
 }
 const scOf = (it) => clamp(Number(it.sc) || 1, SC_MIN, SC_MAX);
 const placed = (it) => Number.isFinite(it.page) && Number.isFinite(it.x) && Number.isFinite(it.y);
-/* 一題實際畫出來的高度（還沒量到就先當 3 行，量到了會重排一次）。
+/* 內容高度 h → 題目框的高度：往上取到整格（24k − 3，理由見 LINE_TOP 那一段）。 */
+const snapBoxH = (h) => Math.max(1, Math.ceil((h + LINE_TOP + LINE_BOT) / LINE)) * LINE - LINE_TOP - LINE_BOT;
+/* 框頂對齊到格子上（某條線 + 2）。 */
+const snapTop = (y) => Math.round((y - LINE_TOP) / LINE) * LINE + LINE_TOP;
+/* 一頁最高放得下的框：從 BODY_TOP 到最後一條線上面 1px。 */
+const BOX_MAX = BODY_BOTTOM - LINE_BOT - BODY_TOP;
+/* 內容縮放後的高度（還沒量到就先當 3 行，量到了會重排一次）。
    ★ 比一頁還高的題目自動縮到放得下（不然它永遠排不進任何一頁）。 */
-function boxH(it) {
+function rawH(it) {
     const h = natH.get(it.k) || LINE * 3;
     return h * effSc(it);
 }
 function effSc(it) {
     const h = natH.get(it.k) || LINE * 3;
-    return Math.min(scOf(it), (BODY_BOTTOM - BODY_TOP) / h);
+    return Math.min(scOf(it), BOX_MAX / h);
 }
-const ceilLine = (y) => Math.ceil(y / LINE) * LINE;
+/* 一題的題目框實際的高度（已經對齊到格子）。 */
+function boxH(it) { return snapBoxH(rawH(it)); }
+/* 這一題底下那條線：框底 + 1。作答空間從這條線往下數 gap 格。 */
+const lineBelow = (it) => Math.ceil((it.y + boxH(it) + LINE_BOT) / LINE) * LINE;
 
 /* 照題號從頭排。
-   ★ 下一題的頂端＝這一題框的底「往下取到整條線」再加作答空間的行數，
-     所以每一題都從一條線的正下方開始，作答空間是整數行——跟手寫筆記一樣。
+   ★ 每一題的框頂在一條線下面 2px、框底在一條線上面 1px（佔滿整數格），
+     作答空間是框底那條線往下數整數格，下一題從作答空間最後一條線底下開始——跟手寫筆記一樣。
    ★ 這一題連同它的作答空間放不下就換下一頁：題目在這頁底、空間在下一頁，等於沒有空間。
      只有「整頁空白還是放不下」的時候才硬放（作答空間被頁底截掉）。 */
+function placeAt(book, it, page, y) {
+    it.page = page; it.x = MARGIN_X; it.y = y;
+    /* 下一題的頂端：這一題底下那條線 + 作答空間 + 2。 */
+    return y + boxH(it) + LINE_BOT + gapOf(book, it) * LINE + LINE_TOP;
+}
+const fitsFrom = (book, it, y) => y + boxH(it) + LINE_BOT + gapOf(book, it) * LINE <= BODY_BOTTOM;
 function flowLayout(book) {
     let page = 0, y = BODY_TOP;
     for (const it of book.items) {
-        const h = boxH(it), need = ceilLine(h) + gapOf(book, it) * LINE;
-        if (y > BODY_TOP && y + need > BODY_BOTTOM) { page++; y = BODY_TOP; }
-        it.page = page; it.x = MARGIN_X; it.y = y;
-        y = ceilLine(y + h) + gapOf(book, it) * LINE + 2;
-        if (y >= BODY_BOTTOM) { page++; y = BODY_TOP; }
+        if (y > BODY_TOP && !fitsFrom(book, it, y)) { page++; y = BODY_TOP; }
+        y = placeAt(book, it, page, y);
+        if (y + LINE > BODY_BOTTOM) { page++; y = BODY_TOP; }
     }
 }
 /* 自己擺的本子裡，新加進來的題目（主站剛排進來、還沒有位置的）接在最後面。 */
 function placeLoose(book) {
     let page = 0, y = BODY_TOP;
     for (const it of book.items) if (placed(it)) {
-        const bottom = ceilLine(it.y + boxH(it)) + gapOf(book, it) * LINE + 2;
-        if (it.page > page || (it.page === page && bottom > y)) { page = it.page; y = bottom; }
+        const next = lineBelow(it) + gapOf(book, it) * LINE + LINE_TOP;
+        if (it.page > page || (it.page === page && next > y)) { page = it.page; y = next; }
     }
     for (const it of book.items) if (!placed(it)) {
-        const h = boxH(it), need = ceilLine(h) + gapOf(book, it) * LINE;
-        if (y > BODY_TOP && y + need > BODY_BOTTOM) { page++; y = BODY_TOP; }
-        it.page = page; it.x = MARGIN_X; it.y = y;
-        y = ceilLine(y + h) + gapOf(book, it) * LINE + 2;
+        if (y > BODY_TOP && !fitsFrom(book, it, y)) { page++; y = BODY_TOP; }
+        y = placeAt(book, it, page, y);
     }
 }
 function pageCount(book) {
@@ -1031,11 +1055,11 @@ function renderBook() {
         el.dataset.k = it.k;
         el.innerHTML = `<div class="it-box">${qHTML(it, i + 1, b.ans)}<span class="h-size" data-h="size" title="拉這裡放大縮小"></span></div>
                         <div class="it-gap"><span class="gap-lbl"></span><span class="h-gap" data-h="gap" title="拉這裡調作答空間"></span></div>`;
-        const q = el.querySelector('.qbox');
-        q.dataset.k = it.k;
+        const q = el.querySelector('.qbox'), qin = q.firstElementChild;
+        qin.dataset.k = it.k;
         renderMath(q);
         itemEls.set(it.k, el);
-        ro.observe(q);
+        ro.observe(qin);
         /* 圖晚到會變高：ResizeObserver 會收到，但先量一次讓第一次排版就接近對的。 */
         q.querySelectorAll('img').forEach(im => im.addEventListener('error', () => { im.remove(); }, { once: true }));
     });
@@ -1043,7 +1067,7 @@ function renderBook() {
     const tmp = $('measure');
     tmp.innerHTML = '';
     for (const el of itemEls.values()) tmp.appendChild(el);
-    for (const [k, el] of itemEls) { const q = el.querySelector('.qbox'); const h = q.offsetHeight; if (h) natH.set(k, h); }
+    for (const [k, el] of itemEls) { const h = el.querySelector('.q-in').offsetHeight; if (h) natH.set(k, h); }
     layout(b);
     placeSheets(b);
     box.scrollTop = keepScroll;
@@ -1085,11 +1109,14 @@ function positionItem(b, it, el, i) {
     el.classList.toggle('sel', it.k === selKey);
     const box = el.querySelector('.it-box');
     box.style.height = h + 'px';
-    box.querySelector('.qbox').style.transform = `scale(${s})`;
+    const q = box.querySelector('.qbox');
+    q.style.transform = `scale(${s})`;
+    /* 撐到整數格：縮放前的高度＝框高 ÷ 縮放（匯出時複製的就是這一個，所以圖也剛好佔滿那幾格）。 */
+    q.style.height = (h / s) + 'px';
     const gap = el.querySelector('.it-gap');
     const g = gapOf(b, it);
-    /* 作答空間的上緣是題目框的底往下取到整條線（跟排版時一樣），所以框底到線之間那一點也算進去。 */
-    gap.style.height = (ceilLine(it.y + h) - (it.y + h) + g * LINE) + 'px';
+    /* 作答空間：框底到底下那條線（1px）再往下 g 格，最後一條線落在虛線框的底邊。 */
+    gap.style.height = (lineBelow(it) - (it.y + h) + g * LINE) + 'px';
     gap.querySelector('.gap-lbl').textContent = `作答空間 ${g} 行${Number.isFinite(it.gap) ? '' : '（自動）'}`;
     const no = el.querySelector('.q-no');
     if (no && i !== undefined) no.textContent = (i + 1) + '.';
@@ -1249,7 +1276,7 @@ addEventListener('pointermove', (e) => {
         const nat = natH.get(it.k) || LINE * 3;
         const maxW = Math.min(BASE_W, PAGE_W - it.x);
         const w = clamp(BASE_W * drag.sc0 + dx, BASE_W * SC_MIN, maxW);
-        it.sc = Math.min(w / BASE_W, (BODY_BOTTOM - BODY_TOP) / nat);
+        it.sc = Math.min(w / BASE_W, BOX_MAX / nat);
         if (b.flow) { layout(b); placeSheets(b); } else positionItem(b, it, el);
         syncSelBar();
     } else if (drag.mode === 'gap') {
@@ -1283,8 +1310,14 @@ function endDrag(e) {
         }
         const w = BASE_W * effSc(d.it), h = boxH(d.it);
         d.it.page = page;
-        d.it.x = Math.round(clamp(x, 0, PAGE_W - w));
-        d.it.y = Math.round(clamp(y, 0, PAGE_H - Math.min(h, PAGE_H)));
+        /* 左右對齊到點的那一欄（12、36、60…）：放在最左邊那一欄就跟自動排版的題目切齊，
+             而且一樣蓋住線頭。最右邊夾到框不出紙。 */
+        const maxX = MARGIN_X + Math.floor((PAGE_W - w - MARGIN_X) / COL) * COL;   // 最右邊那一欄（整行寬的題目就是 12，不能左右動）
+        d.it.x = clamp(MARGIN_X + Math.round((x - MARGIN_X) / COL) * COL, MARGIN_X, Math.max(MARGIN_X, maxX));
+        /* ★ 上下對齊格子（框頂＝某條線 + 2），左右不吸：左右擺哪裡都不會壓到線。
+             最低放到框底剛好在最後一條線上面——
+             框高是 24k − 3，所以「最後一條線 − 1 − 框高」本身就落在格子上。 */
+        d.it.y = clamp(snapTop(y), BODY_TOP, Math.max(BODY_TOP, BODY_BOTTOM - LINE_BOT - h));
         if (b.flow) {
             b.flow = false;
             showToast('改成自己擺了。想恢復照題號排，按「重新自動排版」');
@@ -1433,7 +1466,7 @@ async function katexFontCSS(root) {
 const canvasPng = (c) => new Promise((res) => c.toBlob(b => res(b), 'image/png'));
 const canvasJpeg = (c, q) => new Promise((res) => c.toBlob(b => res(b), 'image/jpeg', q));
 const bytesOf = async (blob) => new Uint8Array(await blob.arrayBuffer());
-/* 一題 → PNG。★ 拍的是畫面外的一份複製品（寬 578、不縮放），不是紙上那一題：
+/* 一題 → PNG。★ 拍的是畫面外的一份複製品（寬 582、不縮放），不是紙上那一題：
    紙上那一題被 transform 縮過，而且外面還有選取框。 */
 async function questionPng(H, qbox, R) {
     const holder = $('snap');
@@ -1512,7 +1545,7 @@ async function exportGoodnotes() {
         layout(b); placeSheets(b);
         const n = pageCount(b);
         const pages = Array.from({ length: n }, () => ({ images: [] }));
-        /* 解析度：一題寬 578px × 3 ≈ 1734 像素。GoodNotes 裡放大到兩倍還是清楚的字，
+        /* 解析度：一題寬 582px × 3 ≈ 1746 像素。GoodNotes 裡放大到兩倍還是清楚的字，
            而 30 題的檔案大約 2–4 MB。 */
         const R = 3;
         for (let i = 0; i < b.items.length; i++) {
@@ -1520,11 +1553,12 @@ async function exportGoodnotes() {
             busy(true, '匯出中…', `題目轉成圖片 ${i + 1} / ${b.items.length}`);
             const el = itemEls.get(it.k);
             if (!el) continue;
-            const { png, h } = await questionPng(H, el.querySelector('.qbox'), R);
+            const { png } = await questionPng(H, el.querySelector('.qbox'), R);
             const s = effSc(it);
+            /* 高度用對齊過的框高（不是圖量出來的整數像素），框上下緣才會剛好夾在兩條線之間。 */
             pages[clamp(it.page | 0, 0, n - 1)].images.push({
                 x: it.x * PT_PER_PX, y: it.y * PT_PER_PX,
-                w: BASE_W * s * PT_PER_PX, h: h * s * PT_PER_PX, data: png
+                w: BASE_W * s * PT_PER_PX, h: boxH(it) * PT_PER_PX, data: png
             });
         }
         busy(true, '匯出中…', '打包成 GoodNotes 筆記本');

@@ -5459,7 +5459,7 @@
 
     <script type="module">
         import { initializeApp } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
@@ -5473,6 +5473,11 @@
             messagingSenderId:"1012329411307",
             appId:"1:1012329411307:web:63b87debbbc3e4778044ae"
         };
+        /* Google 登入用的「OAuth 用戶端 ID」——Google 那邊認這個網站是誰的編號，公開的，不是密碼。
+           只給「裝成 App 時的 Google 登入」用（那條路見「Google 登入的第二條路」）。
+           來源：Firebase 主控台 → Authentication → 登入方式 → Google → 網頁 SDK 設定 →
+           「網路用戶端 ID」。★ 留空的話那條路整個關掉，退回原本 Firebase 的彈窗／跳轉。 */
+        const GOOGLE_WEB_CLIENT_ID = '1012329411307-7ldso0v3uh9f50fdqtgj2q0vqs20o14o.apps.googleusercontent.com';
         /* 這支 Worker 同時是報價代理、推播、AI 與「檔案櫃」。
            ★ 網址只寫在這一個地方。理財那一頁原本自己存了一份，
            換網域時一定會漏掉另一份，而漏掉的症狀是那一頁靜靜不動、不報錯。 */
@@ -6187,6 +6192,12 @@
            理由跟這個檔案裡其他狀態一樣——被 window.onload 之後的流程碰到的東西
            一律放頂端，不然會是暫時性死區，而症狀是整頁全白。 */
         let pendingGoogleCred = null;
+        /* 從 Google 跳回來、正在換登入的那幾百毫秒裡是 true。
+           ★ 這段時間 Firebase 會先報一次「沒有人登入」，而 applyAuthState 對沒人登入的
+             訪客會自動匿名登入——兩個登入同時在跑，後到的贏，可能把剛登進來的 Google
+             帳號蓋成匿名（症狀：跳回來之後還是訪客，偶爾才成功）。所以這段時間不准匿名。
+           ★ 放在狀態區：applyAuthState 會碰到它（暫時性死區，CLAUDE.md 第一條）。 */
+        let googleHopInFlight = false;
         /* 升階、第一次登入、新手教學的狀態（2026-09-28，程式在 19.5／19.6）。
            ★ 宣告在狀態區：applyTab 與 applyAuthState 都會碰到它們，
            寫在函式旁邊就是暫時性死區（已踩六次，症狀是整頁全白）。
@@ -7050,6 +7061,8 @@
              所以不會自己跑掉；**升級 Firebase 時要回來看一眼**。找不到就什麼都不做——
              最壞是彈窗被擋、改走整頁跳轉，一樣登得進去。 */
         function warmGoogleLogin() {
+            /* 裝成 App 時不走 Firebase 的彈窗，暖機只是白白多載一支程式與一個 iframe。 */
+            if (googleHopReady()) return;
             try {
                 const r = googleResolverInst;
                 if (r && r._shouldInitProactively && typeof r._initialize === 'function')
@@ -7735,11 +7748,18 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-10-08',
+                title: '裝成 App 也能用 Google 登入了',
+                items: [
+                    ['加到主畫面之後也能用 Google 登入', '以前把小黑貓加到主畫面、從那裡打開時，按 Google 登入會卡住不動，或是跑去 Safari 登入、回到 App 還是訪客。現在按下去會先跳到 Google 的頁面選帳號，選好就自動回到 App，直接是登入的狀態。用瀏覽器打開的登入方式不變。'],
+                ]
+            },
+            {
                 date: '2026-10-07',
                 title: '筆記變成錯題本：答錯的題目排成筆記紙，可以帶到 GoodNotes',
                 items: [
-                    ['把答錯的題目排成錯題本', '做完測驗，結算頁多一顆「把答錯的 N 題排成錯題本」。選一本或開一本新的，答錯的題目就會一題一題排上橫線筆記紙，每題底下自動留好寫算式的空間。選擇題留得少一點、計算題留得多一點。'],
-                    ['可以拖、可以調大小', '在錯題本裡點一下題目就能選起來：拖著走可以搬到別的位置，連搬到別頁都可以；拉右下角的圓點放大縮小；拉底下那條調作答空間要幾行。整本的「留白」可以選少、中、多，也可以勾「附正解」把答案印在每題右下角。想恢復照題號整齊排好，按「重新自動排版」。'],
+                    ['把答錯的題目排成錯題本', '做完測驗，結算頁多一顆「把答錯的 N 題排成錯題本」。選一本或開一本新的，答錯的題目就會一題一題排上橫線筆記紙，每題底下自動留好寫算式的空間。選擇題留得少一點、計算題留得多一點。每一題的上下邊都剛好卡在兩條橫線之間，左邊從橫線的起點開始對齊，跟手寫筆記一樣整齊。'],
+                    ['可以拖、可以調大小', '在錯題本裡點一下題目就能選起來：拖著走可以搬到別的位置，連搬到別頁都可以，放開時會自動對齊橫線；拉右下角的圓點放大縮小；拉底下那條調作答空間要幾行。整本的「留白」可以選少、中、多，也可以勾「附正解」把答案印在每題右下角。想恢復照題號整齊排好，按「重新自動排版」。'],
                     ['匯出到 GoodNotes 之後題目還能搬', '按「匯出到 GoodNotes」會做出一本 GoodNotes 筆記本，紙就是小黑貓那張 No./Date 筆記紙。iPad 上直接用 GoodNotes 打開，每一題都是一張可以用套索拖、可以縮放的圖，底下的空白直接用筆寫。'],
                     ['原本的筆記功能拿掉了', '選單裡的「筆記小黑貓」換成「錯題本小黑貓」，以前寫的 Markdown 筆記在網站上看不到了（還存在雲端，沒有刪掉）。'],
                 ]
@@ -20814,6 +20834,8 @@
         const POPUP_FALLBACK = ['auth/popup-blocked','auth/operation-not-supported-in-this-environment'];
 
         async function startGoogleLogin(){
+            /* 裝成 App 時 Firebase 的兩條路都會卡住（理由見下面「第二條路」），直接走自己的。 */
+            if (googleHopReady()) return startGoogleHop();
             const provider = new GoogleAuthProvider();
             // 每次都讓使用者挑帳號，不要默默用上次那個（共用電腦會出事）
             provider.setCustomParameters({ prompt:'select_account' });
@@ -20827,6 +20849,9 @@
             } catch (e) {
                 const code = e && e.code;
                 if (POPUP_FALLBACK.includes(code)){
+                    /* ★ 有用戶端 ID 就改走自己的跳轉：Firebase 的 signInWithRedirect 在
+                       Safari 與新版 Chrome 上回來會領不到結果（同一個 iframe 的問題）。 */
+                    if (GOOGLE_WEB_CLIENT_ID) return startGoogleHop();
                     try { await signInWithRedirect(auth, provider, GoogleResolver); return; }
                     catch (e2) { showToast(authErrorMessage(e2 && e2.code)); return; }
                 }
@@ -20836,6 +20861,135 @@
                 const msg = authErrorMessage(code);
                 if (msg) showToast(msg);
             } finally { if (btn) btn.disabled = false; }
+        }
+
+        /* ==========================================================
+         * Google 登入的第二條路：自己跳去 Google、自己把結果帶回來（2026-10-08）
+         *
+         * 使用者回報：裝成 App（加到主畫面）之後 Google 登不進去，網頁版可以。
+         *
+         * Firebase 內建的兩種 Google 登入，都靠一個「看不見的小視窗」接 Google 的回覆——
+         * 一個嵌在我們頁面裡、網址卻是 firebaseapp.com 的 iframe（authDomain 那個網域）。
+         *   - 彈窗：iPhone 裝成 App 的模式下，Firebase 不開彈窗，而是把 Google 丟給 Safari 開
+         *     （SDK 裡 `_isIOSStandalone` 那個分支）。Safari 跟主畫面上的 App 是兩個互不相通的
+         *     盒子，登入在 Safari 那邊完成，App 這邊永遠等不到——按鈕卡在灰色、沒有任何訊息。
+         *   - 整頁跳轉（signInWithRedirect）：回來之後，那個 iframe 要去讀 firebaseapp.com 自己
+         *     存的「登入結果」。可是它是嵌在 github.io 頁面裡的別人家 iframe，Safari（ITP）與
+         *     新版 Chrome 都把這種 iframe 的儲存空間隔開了，讀到的是空的——回來還是訪客。
+         *     Firebase 官方把這列為已知問題，正規解法都要 authDomain 跟網站同一個網域，
+         *     也就是要自己的伺服器或 Firebase Hosting；GitHub Pages 做不到。
+         *
+         * 這條路：整頁帶去 Google（OpenID Connect 的 implicit flow），Google 把一張「身分證」
+         * （ID token，一段有 Google 簽章的文字）放在網址 # 後面送回我們的頁面，
+         * 再交給 Firebase 的 signInWithCredential 換成登入。全程同一個視窗、同一個網域，
+         * 沒有 iframe、沒有彈窗，上面兩個坑都不存在。
+         *
+         * ★ 兩道鎖：
+         *   - `state`：出發前存一個亂數，回來時對。對不上就丟掉——擋的是別人寄一條帶著
+         *     **他自己** token 的連結給你，讓你不知不覺登進他的帳號（login CSRF）。
+         *   - `nonce`：另一個亂數，Google 會把它簽進 token 裡，擋舊 token 重播。
+         *   token 的真偽（簽章、發給誰、過期沒）由 Firebase 伺服器驗，前端不驗。
+         * ★ 便條存 localStorage 不存 sessionStorage：iPhone 的 App 模式跳去別的網域時，
+         *   有可能換一個瀏覽環境開，sessionStorage 跟著那個分頁走，可能回來就不見了。
+         * ★ token 在 # 後面：# 之後的東西瀏覽器不會送給任何伺服器（包括 GitHub），
+         *   領完馬上用 history.replaceState 從網址列擦掉，不留在上一頁紀錄裡。
+         * ⚠️ 要先在 Google Cloud Console 把「回來的網址」加進那個 OAuth 用戶端的
+         *   「已授權的重新導向 URI」，一字不差。沒加的話 Google 會顯示 redirect_uri_mismatch
+         *   錯誤頁。要加哪幾條：googleHopRedirectUri 會產生的每一種（主站一條、彰師電子一條）。
+         * ========================================================== */
+        const GOOGLE_HOP_KEY = 'blackcat:googleHop';
+        const GOOGLE_HOP_TTL = 15 * 60 * 1000;   // 出發後 15 分鐘內回來才算數
+        /* 什麼時候走這條：有用戶端 ID，而且是裝成 App 開的。
+           網頁版維持 Firebase 的彈窗——那條路好好的，而且不用整頁跳走。 */
+        function googleHopReady(){ return !!GOOGLE_WEB_CLIENT_ID && isStandalone; }
+        /* 回來的網址：去掉 ? 與 #，index.html 收成資料夾。
+           ★ 收斂成少數幾種，因為每一種都要去 Google 那邊登記一次，而 Google 是一字不差比對的——
+             多一個 index.html 就是另一條，漏登記就是錯誤頁。? 後面的東西（例如 ?nosky=1）
+             記在便條的 back 裡，回來再補回網址列。 */
+        function googleHopRedirectUri(loc){
+            return loc.origin + loc.pathname.replace(/index\.html$/, '');
+        }
+        function hopRandom(){
+            const a = new Uint8Array(16);
+            crypto.getRandomValues(a);
+            return Array.from(a, b => b.toString(16).padStart(2, '0')).join('');
+        }
+        function startGoogleHop(){
+            const state = hopRandom(), nonce = hopRandom();
+            try {
+                localStorage.setItem(GOOGLE_HOP_KEY, JSON.stringify({
+                    state, nonce, at: Date.now(), back: location.pathname + location.search }));
+            } catch (e) { showToast('瀏覽器不讓網站存資料，Google 登入沒辦法完成'); return; }
+            const q = new URLSearchParams({
+                client_id: GOOGLE_WEB_CLIENT_ID,
+                redirect_uri: googleHopRedirectUri(location),
+                response_type: 'id_token',
+                scope: 'openid email profile',
+                prompt: 'select_account',      // 跟彈窗那條一樣：每次都讓人挑帳號（共用電腦）
+                state, nonce
+            });
+            location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + q.toString());
+        }
+        /* 讀回來的網址。純函式（不碰 location／localStorage），tests/auth.mjs 直接餵資料跑。
+           回傳 null＝不是我們的（# 後面是別的東西，不要動它）；
+           否則 { kind:'ok'|'cancel'|'error'|'stale', idToken?, code?, back }。
+           ★ back 只收「/ 開頭、不是 // 開頭」的路徑：便條是存在使用者瀏覽器裡的，
+             理論上改得動，不能讓它變成把人帶去別的網站的跳板。 */
+        function parseGoogleHop(hash, savedRaw, now){
+            if (!hash || hash.length < 2) return null;
+            const p = new URLSearchParams(hash.replace(/^#/, ''));
+            if (!p.has('state') || !(p.has('id_token') || p.has('error'))) return null;
+            let saved = null;
+            try { saved = JSON.parse(savedRaw || 'null'); } catch (e) { saved = null; }
+            const back = saved && typeof saved.back === 'string'
+                && saved.back.startsWith('/') && !saved.back.startsWith('//') ? saved.back : null;
+            if (!saved || !saved.state || saved.state !== p.get('state') || !(now - saved.at < GOOGLE_HOP_TTL))
+                return { kind:'stale', back };
+            if (p.has('error'))
+                return { kind: p.get('error') === 'access_denied' ? 'cancel' : 'error', code: p.get('error'), back };
+            const idToken = p.get('id_token');
+            let claims = null;
+            try {
+                const b64 = idToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+                const bin = atob(b64 + '==='.slice((b64.length + 3) % 4));
+                /* 用 TextDecoder 是為了中文名字不變亂碼。現在只讀 nonce（純英數），不解也對得上——
+                   測試故意拿掉它也不會紅；留著是給哪天要從 token 讀名字的人。 */
+                claims = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+            } catch (e) { claims = null; }
+            if (!claims || !saved.nonce || claims.nonce !== saved.nonce) return { kind:'stale', back };
+            return { kind:'ok', idToken, back };
+        }
+        /* 開站時看一眼網址是不是剛從 Google 回來。
+           ★ 一定要在 onAuthStateChanged 之前叫：googleHopInFlight 要在第一個 await 之前立起來。 */
+        async function consumeGoogleHop(){
+            let savedRaw = null;
+            try { savedRaw = localStorage.getItem(GOOGLE_HOP_KEY); } catch (e) {}
+            const r = parseGoogleHop(location.hash, savedRaw, Date.now());
+            if (!r) return;
+            // 不管成敗：便條撕掉（一張只能用一次），token 從網址列擦掉
+            try { localStorage.removeItem(GOOGLE_HOP_KEY); } catch (e) {}
+            try { history.replaceState(null, '', r.back || (location.pathname + location.search)); } catch (e) {}
+            if (r.kind === 'cancel') return;                       // 自己按取消的，不吵他
+            if (r.kind === 'stale') return showToast('這次的 Google 登入過期了，請再按一次');
+            if (r.kind === 'error') return showToast(`Google 登入失敗（${r.code}）`);
+            googleHopInFlight = true;
+            try {
+                await coverLogin(signInWithCredential(auth, GoogleAuthProvider.credential(r.idToken)));
+            } catch (e) {
+                const code = e && e.code;
+                if (code === 'auth/account-exists-with-different-credential'){
+                    openModal('adminModal');
+                    offerGoogleLink(e);
+                } else if (code === 'auth/invalid-credential' || code === 'auth/invalid-idp-response'){
+                    /* ★ 這裡不能用對照表那句「密碼不對喔」——Google 登入根本沒有密碼。
+                       會走到這裡多半是用戶端 ID 跟 Firebase 專案對不上（設定問題）。 */
+                    showToast(`Google 登入沒有通過驗證，請聯絡管理員（${code}）`);
+                } else {
+                    showToast(authErrorMessage(code) || 'Google 登入失敗，請再試一次');
+                }
+                /* 那段時間擋掉了訪客自動匿名登入，失敗了要補回來，不然畫面卡在「沒有人」。 */
+                if (!auth.currentUser) signInAnonymously(auth).catch(err => console.error(err));
+            } finally { googleHopInFlight = false; }
         }
 
         /* 同一個信箱已經有密碼帳號時的分岔。
@@ -21313,7 +21467,7 @@
                    （2026-09-24 就是這樣把人登出的）。寧可這次當訪客，也不要蓋。 */
                 let hasStored = false;
                 try { hasStored = !!localStorage.getItem(AUTH_LS_KEY); } catch (e) {}
-                if (!user && !hasStored) signInAnonymously(auth).catch(e => console.error(e));
+                if (!user && !hasStored && !googleHopInFlight) signInAnonymously(auth).catch(e => console.error(e));
             }
             // 理財：登入才訂閱個人資料，登出即停止並清空
             if (user && !user.isAnonymous) initFinanceSubs(); else stopFinanceSubs();
@@ -22837,6 +22991,9 @@
             updateClassReminderUI();
             askPersistentStorage();   // 裝成 App 的人才會真的問（見 3.6）
 
+            /* ★ 要在 onAuthStateChanged 之前：它同步地立起 googleHopInFlight，
+               擋住訪客自動匿名登入去搶（見狀態區那個變數的註解）。 */
+            consumeGoogleHop();
             onAuthStateChanged(auth, handleAuthState);
             /* 走整頁跳轉的 Google 登入，結果要在開站時領一次。
                ★ 不 catch 的話，跳轉回來遇到帳號衝突會變成沒人接的 rejection：
