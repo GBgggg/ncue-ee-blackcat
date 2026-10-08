@@ -3,6 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 裝成 App 時跟主站同一種狀態列（透明、內容延伸到最上面），所以下面的 header 要自己讓出那一塊（safe-area-inset-top）。 -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>錯題本小黑貓 - 答錯的題目排成筆記</title>
 <link rel="icon" href="logomain.jpg">
 <meta name="description" content="錯題本小黑貓：測驗答錯的題目自動排成筆記紙，可以拖、可以調留白，匯出到 GoodNotes 之後題目還能搬。只有你自己看得到。">
@@ -112,8 +115,12 @@ button:not(:disabled):active{transform:scale(.97)}
 
 /* ---- 全螢幕版面：整頁不捲動，捲的是裡面那兩塊 ---- */
 #app{height:100dvh;display:flex;flex-direction:column;min-height:0}
-header{flex:none;background:var(--paper-raised);padding:0;border-bottom:1px solid var(--rule)}
-.hbar{padding:5px 8px;display:flex;align-items:center;gap:6px;min-height:44px}
+/* ★ 讓出 iPad／iPhone 最上面那一列（時間、電量）：裝成 App 之後狀態列是透明的、疊在網頁上面
+   （black-translucent），不讓的話 logo 和整排按鈕都壓在時間底下，點不到（2026-10-08 使用者回報）。
+   左右也讓：iPhone 橫放時瀏海那一邊。 */
+header{flex:none;background:var(--paper-raised);padding:env(safe-area-inset-top, 0px) 0 0;border-bottom:1px solid var(--rule)}
+.hbar{padding:5px calc(8px + env(safe-area-inset-right, 0px)) 5px calc(8px + env(safe-area-inset-left, 0px));
+      display:flex;align-items:center;gap:6px;min-height:44px}
 .hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
 .tsep{width:1px;height:18px;background:var(--rule);margin:0 4px}
 
@@ -219,10 +226,12 @@ html.dark .seg button.on{box-shadow:0 1px 2px rgba(0,0,0,.5)}
 /* ---- 一疊紙 ----
    ★ 紙用 transform: scale 縮放，外面包一層撐出縮放後的大小（transform 不佔版面）。
      所以紙裡面的座標永遠是 610×816 的那一套，存檔與匯出都用這一套，跟螢幕多大無關。 */
-#sheets{flex:1;min-height:0;overflow:auto;padding:14px 12px 40px;
-        display:flex;flex-direction:column;align-items:center;gap:18px;
-        -webkit-user-select:none;user-select:none}
-.sheet-wrap{flex:none;position:relative}
+/* ★ align-items 不用 center：放大到比畫面寬的時候，置中的 flex 子元素會往左邊溢出、捲不回去
+   （左半張紙永遠看不到）。改成靠左＋紙自己 margin:auto，比畫面窄時一樣置中。 */
+#sheets{flex:1;min-height:0;overflow:auto;padding:14px 12px calc(40px + env(safe-area-inset-bottom, 0px));
+        display:flex;flex-direction:column;align-items:flex-start;gap:18px;
+        -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.sheet-wrap{flex:none;position:relative;margin:0 auto}
 .sheet-n{position:absolute;left:0;right:0;bottom:-15px;text-align:center;font-size:11px;
          color:var(--ink-3);line-height:1}
 .sheet{position:absolute;left:0;top:0;width:610px;height:816px;transform-origin:0 0;
@@ -315,13 +324,85 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
             font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.3);min-width:14rem;text-align:center}
 #busy small{display:block;font-weight:600;color:var(--ink-3);font-size:12.5px;margin-top:4px}
 
-#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:200;
+#toast{position:fixed;left:50%;bottom:calc(24px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);z-index:200;
        background:var(--ink);color:var(--paper);padding:10px 18px;border-radius:12px;
        font-weight:700;font-size:14.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);
        max-width:calc(100% - 32px)}
 /* ★ `!important` 不能省：版面用的是 id 選擇器（1,0,0），.hidden 是 class（0,1,0），
    只要哪個 id 規則裡有 display，那個元素就關不掉，而 CSS 不會報錯（以前的筆記頁踩過）。 */
 .hidden{display:none !important}
+
+/* ==========================================================
+   手寫（2026-10-08）
+
+   ★ 工具列跟上面那排一樣沒有框；選中的工具浮起來（跟分段控制同一套）。
+     工具下面那一小條是它現在的顏色——GoodNotes 的工具列也是這樣讓人一眼看出筆是什麼色。
+   ========================================================== */
+#inkBar{flex:none;display:flex;align-items:center;gap:2px;padding:6px 10px 0;flex-wrap:wrap}
+.tool{position:relative;width:36px;height:34px;border-radius:9px;border:0;background:transparent;padding:0;
+      display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-2);
+      font-size:18px;font-weight:700;transition:background var(--dur-fast) var(--ease)}
+.tool svg{width:20px;height:20px}
+.tool:hover{background:var(--accent-soft)}
+.tool.on{background:var(--paper-raised);color:var(--ink);box-shadow:0 1px 2px rgba(0,0,0,.16),inset 0 0 0 1.5px var(--accent-bright)}
+.tool:disabled{opacity:.35;cursor:default}
+.tool:disabled:hover{background:transparent}
+.tool .tdot{position:absolute;left:50%;bottom:3px;width:14px;height:3px;margin-left:-7px;border-radius:2px}
+#inkOpts{display:flex;align-items:center;gap:3px;flex-wrap:nowrap}
+.cdot{width:30px;height:30px;border-radius:50%;border:0;padding:0;cursor:pointer;background:transparent;
+      display:inline-flex;align-items:center;justify-content:center}
+.cdot i{display:block;width:20px;height:20px;border-radius:50%;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.cdot.on i{box-shadow:0 0 0 2px var(--paper-raised),0 0 0 4px var(--accent-bright)}
+.wdot{width:30px;height:30px;border-radius:8px;border:0;background:transparent;cursor:pointer;color:var(--ink-2);
+      display:inline-flex;align-items:center;justify-content:center;padding:0}
+.wdot i{display:block;border-radius:99px;background:var(--ink-2)}
+.wdot.on{background:var(--paper-raised);box-shadow:inset 0 0 0 1.5px var(--accent-bright)}
+.ink-tip{font-size:12.5px;font-weight:700;color:var(--ink-3);white-space:nowrap;padding:0 4px}
+#zoomLbl{font-size:12.5px;font-weight:800;min-width:3.4em;height:30px;text-align:center;color:var(--ink-2);
+         cursor:pointer;border:0;background:transparent;border-radius:8px;padding:0}
+#zoomLbl:hover{background:var(--accent-soft)}
+#inkState{font-size:12.5px;font-weight:700;color:var(--ink-3);white-space:nowrap;padding:0 4px}
+#lassoBar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 10px;margin:8px 10px 0;
+          border-radius:12px;background:var(--paper-raised);border:1px solid var(--rule)}
+#lassoBar .lbl{font-size:13px;font-weight:800;color:var(--ink-2);white-space:nowrap}
+#lassoCol{display:flex;gap:1px}
+#lassoCol .cdot{width:26px;height:26px}
+#lassoCol .cdot i{width:17px;height:17px}
+
+#inkPop{position:fixed;z-index:90;width:min(320px,calc(100vw - 16px));background:var(--paper-raised);color:var(--ink);
+        border:1px solid var(--rule);border-radius:14px;box-shadow:0 10px 28px rgba(0,0,0,.22);padding:12px}
+.pop-row{display:flex;align-items:center;gap:8px;margin-top:10px}
+.pop-row:first-child{margin-top:0}
+.pop-row > b{flex:none;font-size:12.5px;font-weight:800;color:var(--ink-3);min-width:4.4em}
+.pop-row .ink-tip{white-space:normal;line-height:1.5;padding:0}
+.pal{display:grid;grid-template-columns:repeat(6,1fr);gap:7px;flex:1}
+.pal button{aspect-ratio:1;border-radius:50%;border:0;cursor:pointer;box-shadow:inset 0 0 0 1px rgba(0,0,0,.2)}
+.pal button.on{box-shadow:0 0 0 2px var(--paper-raised),0 0 0 4px var(--accent-bright)}
+.pop-row input[type=range]{flex:1;min-width:0;accent-color:var(--accent-fill)}
+.pop-row input[type=color]{width:40px;height:30px;border:0;padding:0;background:transparent;cursor:pointer}
+.pop-btn{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:10px;border:0;background:transparent;cursor:pointer}
+.pop-btn:hover{background:var(--accent-soft)}
+.pop-btn b{display:block;font-size:14.5px}
+.pop-btn small{display:block;font-size:12.5px;color:var(--ink-3);font-weight:600;margin-top:2px;line-height:1.5}
+
+/* 紙上的手寫層。四層都跟紙一起被 transform 縮放，座標永遠是紙的 610×816。
+   ★★ 外層 .ink 不給 z-index（也就不自成疊放層）：螢光筆的 multiply 要跟底下的紙和題目混，
+     .ink 自成一層的話它只會跟透明的自己混，蓋到題目上變成一片不透明的黃。
+   ★ 疊放順序：題目（沒有 z-index；選中的 5）＜ 螢光筆 6 ＜ 文字框 7 ＜ 筆與膠帶 8 ＜ 進行中 9 ＜ 拖曳中的題目 20。 */
+.ink{position:absolute;left:0;top:0;width:610px;height:816px;pointer-events:none}
+.ink canvas{position:absolute;left:0;top:0;width:610px;height:816px}
+.ink .ink-hl{z-index:6;mix-blend-mode:multiply;opacity:.45}
+.ink .ink-tx{position:absolute;left:0;top:0;width:610px;height:816px;z-index:7}
+.ink .ink-pen{z-index:8}
+.ink .ink-live{z-index:9}
+.ink-t{position:absolute;white-space:pre-wrap;word-break:break-word;overflow-wrap:anywhere;line-height:1.35;
+       font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif}
+.ink-edit{position:absolute;z-index:12;pointer-events:auto;margin:0;padding:0;border:0;border-radius:2px;
+          outline:1.5px dashed #8a6605;outline-offset:3px;background:rgba(252,249,244,.75);resize:none;overflow:hidden;
+          line-height:1.35;font-family:system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif;
+          -webkit-user-select:text;user-select:text}
+/* 手指能寫的時候整片紙不讓瀏覽器捲（兩指捲動、捏合自己算）。 */
+#sheets.finger-draw,#sheets.finger-draw .it{touch-action:none}
 
 /* ==========================================================
    手機：主從切換（一次只看清單或紙），不是把兩欄壓成各半
@@ -334,9 +415,9 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
     #sheets{padding:10px 6px 40px}
     /* 兩排工具列在手機上各自只佔一行、可以左右滑：換行的話兩排加起來要吃掉螢幕四分之一，
        紙只剩一半。 */
-    #editHead,#selBar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
-    #editHead::-webkit-scrollbar,#selBar::-webkit-scrollbar{display:none}
-    #editHead > *,#selBar > *{flex:none}
+    #editHead,#selBar,#inkBar,#lassoBar{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    #editHead::-webkit-scrollbar,#selBar::-webkit-scrollbar,#inkBar::-webkit-scrollbar,#lassoBar::-webkit-scrollbar{display:none}
+    #editHead > *,#selBar > *,#inkBar > *,#lassoBar > *{flex:none}
     #bookTitle{flex:none;width:9rem;min-width:0}
     #selBar .lbl:not(#selNo){display:none}
 }
@@ -412,9 +493,13 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
       <label class="chk"><input type="checkbox" id="ansChk"> 附正解</label>
       <button id="btnFlow" class="btn tiny" title="照題號重新排一次，每題底下照「留白」自動留空間">重新自動排版</button>
       <button id="btnAddPage" class="btn tiny" title="最後面多一張空白紙">＋ 一頁</button>
+      <button id="btnDelPage" class="btn tiny hidden" title="最後一頁是空的：拿掉它">－ 一頁</button>
       <button id="btnExport" class="btn tiny primary">匯出到 GoodNotes</button>
       <button id="btnDelete" class="btn tiny danger">刪除這本</button>
     </div>
+
+    <!-- 手寫工具列（內容由 buildInkBar 填）。 -->
+    <div id="inkBar" class="hidden" role="toolbar" aria-label="手寫工具"></div>
 
     <!-- 選中的那一題的工具列。★ 固定在這裡、不浮在題目旁邊：手機上浮動的小工具列
          一定會蓋到旁邊那一題，而且手指一拖題目它就跟著跑。 -->
@@ -437,6 +522,19 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
       <button class="btn tiny" data-sel="close" style="margin-left:auto">完成</button>
     </div>
 
+    <!-- 套索選到的筆跡。 -->
+    <div id="lassoBar" class="hidden" role="group" aria-label="套索選到的筆跡">
+      <span class="lbl" id="lassoN">選了 0 個</span>
+      <span class="tsep"></span>
+      <div id="lassoCol"></div>
+      <span class="tsep"></span>
+      <button class="btn tiny" data-l="copy">複製</button>
+      <button class="btn tiny" data-l="cut">剪下</button>
+      <button class="btn tiny" data-l="dup">複製一份</button>
+      <button class="btn tiny danger" data-l="del">刪除</button>
+      <button class="btn tiny" data-l="done" style="margin-left:auto">完成</button>
+    </div>
+
     <div id="sheets" class="hidden" aria-label="錯題本的頁面"></div>
   </div>
 </div>
@@ -446,6 +544,7 @@ html.dark .sheet{box-shadow:0 1px 3px rgba(0,0,0,.5),0 8px 24px rgba(0,0,0,.4)}
 <div id="snap" aria-hidden="true"></div>
 <div id="busy" class="hidden" role="status"><div><span id="busyText">匯出中…</span><small id="busySub"></small></div></div>
 <div id="toast" class="hidden" role="status"></div>
+<div id="inkPop" class="hidden" role="dialog" aria-label="工具設定"></div>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
@@ -489,6 +588,41 @@ const removedKeys = new Set();
 const natH = new Map();
 const itemEls = new Map();    // k → 畫面上那一題的元素
 let ro = null;                // 量高度用的 ResizeObserver（題目圖、算式晚到時會變高）
+/* ---- 手寫（2026-10-08） ----
+   ★ 整包宣告在狀態區：placeSheets／pageCount／renderBook 每一次都會碰到 ink，
+     寫在手寫那一節旁邊就是暫時性死區——一載入就白畫面（CLAUDE.md 第一條）。
+   一筆：{ id, k:'pen'|'hl'|'tape', pen:'fountain'|'ball'|'brush', c:'#rrggbb', w, pg, a, ox, oy, op, pts:[[x,y,壓力],…] }
+     a     綁在哪一題（題目的 k）；'' = 沒綁、座標就是紙上的位置
+     pts   綁了題目的話是「相對那一題左上角」的座標，題目搬到哪、筆跡跟到哪（改留白、重新排版都不會分家）
+     pg/ox/oy  綁的那一題不見了（別台裝置拿掉了）時的退路：當初那一題在第幾頁、在哪裡
+     op    膠帶翻開了沒（只有膠帶用）
+   ★ 每一筆都當成不可變的：改一筆＝換一個新物件。所以復原只要記住陣列本身（slice），不必深拷貝幾萬個點。 */
+const ink = {
+    bookId: null, strokes: [], texts: [],
+    ready: new Set(),          // 筆跡讀到了的本子。★ 不在這裡面的本子，筆跡一筆都不准寫回雲端（同 readyIds 的理由）
+    loading: false, loadErr: false,
+    loadedAt: 0,               // 手上這一份是雲端哪個時間點的（inkAt）
+    chunks: [],                // 上一次寫上去的每一塊，沒變的那塊不重寫
+    dirty: false, saveTimer: 0, saving: false, saveAgain: false,
+    tool: 'hand', prevTool: 'pen',
+    hist: [], redo: [],
+    act: null,                 // 進行中的那一下（畫、擦、套索、拖選取框、打字…）
+    sel: null,                 // 套索選到的 { pg, ids:Set, tids:Set }
+    clip: null,                // 複製起來的 { pg, strokes, texts }（座標是紙上的位置）
+    hideIds: null,             // 搬動中，底下那層先不畫的筆跡（它們畫在最上面那層跟著手走）
+    dragK: null,               // 正在拖的題目：綁在它身上的筆跡跟著手走
+    penSeen: false, lastPen: 0,  // 筆最後一次碰螢幕的時間（防手掌被當成兩指點一下）
+    touches: new Map(),        // 手指（兩指點一下＝復原、三指＝重做、兩指捲動縮放）
+    gest: null, gz: null,
+    vis: new Set(),            // 畫面附近的紙（只有這幾張配畫布，iPad 的畫布記憶體有上限）
+    redrawQ: new Set(), redrawRaf: 0, rescaleTimer: 0,
+    laser: [], laserRaf: 0, laserPg: -1,
+    hover: null,
+    userZoom: 1, fitZoom: 1,
+    io: null,
+    cfg: null,
+    bbox: new WeakMap()        // 每一筆在自己座標裡的外框（快取；筆是不可變的，所以永遠不會過期）
+};
 
 /* ---- 紙的幾何（CSS px；匯出時 × 0.75 變成 pt） ----
    ★ 這幾個數字跟 notepaper.webp 綁死：頁首 3 格、線距 24、每頁 34 格。 */
@@ -812,8 +946,11 @@ function placeLoose(book) {
     }
 }
 function pageCount(book) {
-    let n = Math.max(1, Number(book.pages) || 1);
+    /* minPages：自己按「＋ 一頁」加出來的頁（自動排版也留著，空白頁是拿來寫字的）。
+       有筆跡的頁也算：寫在後面空白頁上的字，不能因為題目變少就跟著那一頁消失。 */
+    let n = Math.max(1, Number(book.pages) || 1, Number(book.minPages) || 0);
     for (const it of book.items) if (placed(it)) n = Math.max(n, it.page + 1);
+    if (book.id && book.id === ink.bookId) n = Math.max(n, inkMaxPage() + 1);
     return n;
 }
 function layout(book) {
@@ -832,7 +969,9 @@ function normBook(id, d) {
                       x: Number.isFinite(it.x) ? it.x : undefined,
                       y: Number.isFinite(it.y) ? it.y : undefined }));
     return { id, title: String(d.title || '錯題本'), flow: d.flow !== false, density: DENSITY[d.density] ? d.density : 'mid',
-             ans: !!d.ans, pages: Number(d.pages) || 1, items,
+             ans: !!d.ans, pages: Number(d.pages) || 1, minPages: Math.max(0, Number(d.minPages) | 0), items,
+             /* 筆跡分幾塊存（inkN）、最後一次存筆跡的時間（inkAt）。筆跡本身在 wbink_ 那幾份文件裡。 */
+             inkN: Math.max(0, Number(d.inkN) | 0), inkAt: Number(d.inkAt) || 0,
              createdAt: Number(d.createdAt) || Date.now(), updatedAt: Number(d.updatedAt) || 0 };
 }
 function startSubs() {
@@ -867,6 +1006,11 @@ function startSubs() {
         });
         /* 雲端已經沒有的（別的分頁刪掉了），本機也拿掉；本機剛開、還沒寫上去的留著。 */
         books = books.filter(b => seen.has(b.id) || b._local);
+        /* 別台裝置寫了新的筆跡（inkAt 比手上這份新），而這裡沒有還沒存的筆跡：重讀一次。
+           ★ 這裡有還沒存的筆跡就不讀——讀了會把剛寫的蓋掉；存的時候是後寫的贏。 */
+        const cb = curBook();
+        if (cb && cb.id === ink.bookId && ink.ready.has(cb.id) && !ink.dirty && !ink.saving && !ink.act
+            && (Number(cb.inkAt) || 0) > ink.loadedAt) inkLoad(cb);
         const first = !booksLoaded;
         booksLoaded = true;
         if (!openedFromUrl) {
@@ -886,6 +1030,8 @@ function startSubs() {
 }
 function stopSubs() {
     flushSave();
+    inkFlush();
+    inkReset();
     if (unsub) { unsub(); unsub = null; }
     books = []; booksLoaded = false; curId = null; selKey = null;
     /* ★ 登出要清掉：留著的話，下一個人登入的空窗裡任何一次存檔都會寫到**他的**路徑下，
@@ -897,8 +1043,12 @@ function payloadOf(b) {
          而還沒有位置的題目正是 undefined。 */
     const items = JSON.parse(JSON.stringify(b.items.map(it => ({ k: it.k, s: it.s, sc: scOf(it),
         gap: Number.isFinite(it.gap) ? it.gap : null, page: it.page, x: it.x, y: it.y }))));
+    /* ★★ inkN／inkAt 一定要帶：漏了的話，存一次題目就把「筆跡在幾塊裡」洗成 0，下次打開整本筆跡不見
+         （雲端的筆跡還在，只是沒人去拿）。 */
     return { kind: BOOK_KIND, title: b.title, flow: !!b.flow, density: b.density, ans: !!b.ans,
-             pages: pageCount(b), items, createdAt: b.createdAt, updatedAt: b.updatedAt };
+             pages: pageCount(b), minPages: Math.max(0, Number(b.minPages) | 0), items,
+             inkN: Math.max(0, Number(b.inkN) | 0), inkAt: Number(b.inkAt) || 0,
+             createdAt: b.createdAt, updatedAt: b.updatedAt };
 }
 function scheduleSave() {
     const b = curBook();
@@ -971,8 +1121,14 @@ async function deleteBook() {
     books = books.filter(x => x.id !== b.id);
     curId = null; selKey = null;
     renderAll();
+    if (ink.bookId === b.id) { const keep = ink.ready; inkReset(); ink.ready = keep; ink.ready.delete(b.id); }
     if (!path || (b._local && !readyIds.has(b.id))) return;
-    try { await deleteDoc(doc(db, path, b.id)); showToast(`刪掉「${b.title}」了`); }
+    try {
+        await deleteDoc(doc(db, path, b.id));
+        /* 筆跡那幾份也刪（本子先刪：中途斷掉的話，留下的是沒人指到的筆跡，不是指到一半的本子）。 */
+        await inkDeleteAll(b.id, Math.max(Number(b.inkN) | 0, 0));
+        showToast(`刪掉「${b.title}」了`);
+    }
     catch (e) { showToast('沒刪成功，等一下再試一次'); }
 }
 
@@ -985,7 +1141,9 @@ function renderAll() {
     $('loginHint').classList.toggle('hidden', inUse);
     $('emptyHint').classList.toggle('hidden', !inUse || !!b || !booksLoaded);
     $('editHead').classList.toggle('hidden', !b);
+    $('inkBar').classList.toggle('hidden', !b);
     $('sheets').classList.toggle('hidden', !b);
+    if (!b) { ink.sel = null; syncLassoBar(); closePop(); }
     $('btnNew').disabled = !inUse;
     renderList();
     if (b) renderBook(); else { $('sheets').innerHTML = ''; itemEls.clear(); $('selBar').classList.add('hidden'); }
@@ -1008,8 +1166,10 @@ $('bookList').addEventListener('click', (e) => {
     if (b) openBook(b.dataset.id);
 });
 function openBook(id) {
-    if (curId !== id) { flushSave(); dirty = false; selKey = null; removedKeys.clear(); }
+    if (curId !== id) { flushSave(); inkFlush(); dirty = false; selKey = null; removedKeys.clear(); }
     curId = id;
+    const nb = curBook();
+    if (nb && ink.bookId !== id) inkLoad(nb);
     document.body.classList.remove('phone-list');
     document.body.classList.add('phone-edit');
     $('saveState').textContent = '';
@@ -1026,8 +1186,7 @@ function renderBook() {
     $('ansChk').checked = !!b.ans;
     $('btnFlow').textContent = b.flow ? '自動排版中' : '重新自動排版';
     $('btnFlow').disabled = !!b.flow;
-    $('btnAddPage').classList.toggle('hidden', !!b.flow);
-    $('btnExport').disabled = !b.items.length;
+    $('btnExport').disabled = !b.items.length && !ink.strokes.length && !ink.texts.length;
 
     const box = $('sheets');
     /* ★ 重畫前記住捲到哪裡：清空的那一瞬間內容高度是 0，捲動位置會被夾回最上面，
@@ -1035,6 +1194,10 @@ function renderBook() {
     const keepScroll = box.scrollTop;
     if (drag) { drag.el.style.transform = ''; drag = null; }
     if (ro) ro.disconnect();
+    /* 紙整疊重做：舊的紙不用再看了。新的紙在 placeSheets 裡一張一張重新登記。 */
+    endTextEdit(true);
+    if (ink.io) ink.io.disconnect();
+    ink.vis.clear();
     itemEls.clear();
     box.innerHTML = '';
     if (!b.items.length) {
@@ -1073,10 +1236,18 @@ function renderBook() {
     box.scrollTop = keepScroll;
 }
 /* 頁的數量對了、每一題放到它那一頁、位置與大小套上去。 */
-function placeSheets(b) {
+function placeSheets(b, zoomOnly) {
     const box = $('sheets');
     const n = pageCount(b);
     let wraps = [...box.querySelectorAll('.sheet-wrap')];
+    /* 縮放中（捏合每一格都會叫到這裡）：頁數沒變就只改紙的大小，不重放每一題。 */
+    if (zoomOnly && wraps.length === n) {
+        wraps.forEach(w => {
+            w.style.width = PAGE_W * zoom + 'px'; w.style.height = PAGE_H * zoom + 'px';
+            w.querySelector('.sheet').style.transform = `scale(${zoom})`;
+        });
+        return;
+    }
     while (wraps.length < n) {
         const w = document.createElement('div');
         const idx = wraps.length;      // 第幾張紙（0 起算），是數字
@@ -1084,8 +1255,10 @@ function placeSheets(b) {
         w.innerHTML = `<div class="sheet" data-page="${idx}"></div><div class="sheet-n">${idx + 1} / ${n}</div>`;
         box.appendChild(w);
         wraps.push(w);
+        inkLayer(w.querySelector('.sheet'));
+        inkObserve(w);
     }
-    while (wraps.length > n) wraps.pop().remove();
+    while (wraps.length > n) { const w = wraps.pop(); if (ink.io) ink.io.unobserve(w); ink.vis.delete(wraps.length); w.remove(); }
     wraps.forEach((w, i) => {
         w.style.width = PAGE_W * zoom + 'px'; w.style.height = PAGE_H * zoom + 'px';
         w.querySelector('.sheet').style.transform = `scale(${zoom})`;
@@ -1100,6 +1273,21 @@ function placeSheets(b) {
         positionItem(b, it, el, i);
     });
     syncSelBar();
+    syncPageBtns(b);
+    /* 題目可能搬了位置：綁在題目上的筆跡跟著重畫。 */
+    inkRedrawAll();
+}
+/* 「－ 一頁」只在最後一頁整張空白（沒題目、沒筆跡）時出現。 */
+function lastPageEmpty(b) {
+    const n = pageCount(b), last = n - 1;
+    if (n <= 1) return false;
+    if (b.items.some(it => placed(it) && (it.page | 0) === last)) return false;
+    if (b.id === ink.bookId && inkMaxPage() >= last) return false;
+    return true;
+}
+function syncPageBtns(b) {
+    const del = $('btnDelPage');
+    if (del) del.classList.toggle('hidden', !lastPageEmpty(b));
 }
 function positionItem(b, it, el, i) {
     const s = effSc(it), h = boxH(it);
@@ -1132,13 +1320,15 @@ function queueLayout() {
     });
 }
 /* 紙的縮放跟著那一欄的寬度：手機上整張放得下，大螢幕最多放大到 1.25 倍。 */
+/* ★ 2026-10-08 起再乘上自己捏出來的倍率（ink.userZoom，50%–400%）：剛好一頁寬是 100%。 */
 function updateZoom() {
     const w = $('sheets').clientWidth - 28;
-    const z = clamp(w / PAGE_W, 0.3, 1.25);
+    ink.fitZoom = clamp(w / PAGE_W, 0.3, 1.25);
+    const z = clamp(ink.fitZoom * ink.userZoom, 0.15, 6);
     if (Math.abs(z - zoom) < 0.005) return;
     zoom = z;
     const b = curBook();
-    if (b) placeSheets(b);
+    if (b) { placeSheets(b, true); inkRescaleSoon(); }
 }
 new ResizeObserver(updateZoom).observe($('sheets'));
 
@@ -1168,6 +1358,7 @@ $('selBar').addEventListener('click', (e) => {
     if (i < 0) return;
     const it = b.items[i], act = btn.dataset.sel;
     if (act === 'close') return selectItem(null);
+    pushHist();
     if (act === 'gap-' || act === 'gap+') it.gap = clamp(gapOf(b, it) + (act === 'gap+' ? 1 : -1), 0, GAP_MAX);
     if (act === 'sc-' || act === 'sc+') it.sc = clamp(Math.round((effSc(it) + (act === 'sc+' ? 0.1 : -0.1)) * 10) / 10, SC_MIN, SC_MAX);
     if (act === 'up' || act === 'down') {
@@ -1184,7 +1375,8 @@ $('selBar').addEventListener('click', (e) => {
         if (el) el.remove();
         itemEls.delete(it.k);
         selKey = null;
-        showToast('拿掉了（只從這本拿掉，錯題庫裡還在）');
+        const hadInk = inkDropItem(it.k);
+        showToast(hadInk ? '拿掉了，寫在它底下的字也一起拿掉（按復原可以拿回來）' : '拿掉了（只從這本拿掉，錯題庫裡還在）');
     }
     afterChange(b, act === 'up' || act === 'down');
 });
@@ -1244,6 +1436,7 @@ function dragDelta(d, x, y) {
 function dragMoveTo(d, x, y) {
     const [dx, dy] = dragDelta(d, x, y);
     d.el.style.transform = `translate(${dx}px, ${dy}px)`;
+    inkDragFollow(d, dx, dy);
     document.querySelectorAll('.sheet.drop').forEach(s => s.classList.remove('drop'));
     const sh = sheetAt(x, y);
     if (sh && Number(sh.dataset.page) !== d.it.page) sh.classList.add('drop');
@@ -1261,6 +1454,7 @@ addEventListener('pointermove', (e) => {
     const b = curBook();
     const [dx, dy] = dragDelta(drag, e.clientX, e.clientY);
     if (!drag.moved && Math.hypot(dx, dy) < 3) return;
+    if (!drag.moved) pushHist();
     drag.moved = true;
     drag.cx = e.clientX; drag.cy = e.clientY;
     const { it, el } = drag;
@@ -1290,6 +1484,7 @@ function endDrag(e) {
     const d = drag;
     drag = null;
     const b = curBook();
+    if (ink.dragK) { ink.dragK = null; clearLive(d.page0 | 0); redrawPage(d.page0 | 0); }
     d.el.classList.remove('dragging');
     d.el.style.transform = '';
     document.querySelectorAll('.sheet-wrap.lift').forEach(w => w.classList.remove('lift'));
@@ -1331,7 +1526,27 @@ addEventListener('pointercancel', endDrag);
 function renderBookHead(b) {
     $('btnFlow').textContent = b.flow ? '自動排版中' : '重新自動排版';
     $('btnFlow').disabled = !!b.flow;
-    $('btnAddPage').classList.toggle('hidden', !!b.flow);
+    syncPageBtns(b);
+}
+/* 拖題目的時候，寫在它底下的字跟著手走（畫在「進行中」那層；放開之後照新位置重畫）。 */
+function inkDragFollow(d, dx, dy) {
+    if (d.mode !== 'move') return;
+    const k = d.it.k, pg = d.it.page | 0;
+    if (ink.dragK !== k) {
+        if (!ink.strokes.some(s => s.a === k) && !ink.texts.some(t => t.a === k)) return;
+        ink.dragK = k;
+        redrawPage(pg);
+    }
+    const c = liveCtx(pg);
+    if (!c) return;
+    const items = inkItemMap();
+    for (const s of ink.strokes) if (s.a === k) {
+        const o = offOf(s, items);
+        c.globalAlpha = s.k === 'hl' ? 0.45 : 1;
+        drawStroke(c, s, o.dx + dx, o.dy + dy);
+    }
+    c.globalAlpha = 1;
+    for (const t of ink.texts) if (t.a === k) { const o = offOf(t, items); drawTextGhost(c, t, t.x + o.dx + dx, t.y + o.dy + dy); }
 }
 
 /* ---------- 這一本的工具列 ---------- */
@@ -1346,6 +1561,7 @@ $('densitySeg').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-density]');
     const b = curBook();
     if (!btn || !b) return;
+    pushHist();
     b.density = btn.dataset.density;
     /* ★ 選了「留白」就是要整本照這個留：自己調過的那幾題也一起回到自動。
          不然「我按了多，怎麼有幾題沒變」——而使用者早就忘了自己調過哪幾題。 */
@@ -1363,6 +1579,7 @@ $('ansChk').addEventListener('change', () => {
 $('btnFlow').onclick = () => {
     const b = curBook();
     if (!b) return;
+    pushHist();
     b.flow = true;
     renderBookHead(b);
     afterChange(b, false);
@@ -1371,11 +1588,23 @@ $('btnFlow').onclick = () => {
 $('btnAddPage').onclick = () => {
     const b = curBook();
     if (!b) return;
-    b.pages = pageCount(b) + 1;
+    pushHist();
+    b.pages = b.minPages = pageCount(b) + 1;
     placeSheets(b);
     scheduleSave();
     const last = $('sheets').lastElementChild;
     if (last) last.scrollIntoView({ block: 'start', behavior: 'smooth' });
+};
+$('btnDelPage').onclick = () => {
+    const b = curBook();
+    if (!b || !lastPageEmpty(b)) return;
+    pushHist();
+    const n = pageCount(b) - 1;
+    b.minPages = n;
+    if (!b.flow) b.pages = n;
+    else b.pages = Math.min(b.pages, n);
+    placeSheets(b);
+    scheduleSave();
 };
 $('btnDelete').onclick = deleteBook;
 $('btnNew').onclick = newBook;
@@ -1393,6 +1622,1822 @@ $('btnSide').onclick = () => {
 };
 try { sideOpen = localStorage.getItem(SIDE_KEY) !== '0'; } catch(e){}
 document.body.classList.toggle('side-off', !sideOpen);
+
+/* ==========================================================
+   手寫（2026-10-08）：在錯題本的紙上直接寫，GoodNotes 6 在網頁做得到的都搬過來
+
+   工具：排題目（原本的拖題目）／筆（鋼筆・原子筆・毛筆）／螢光筆／橡皮擦（整筆・部分・只擦螢光筆）／
+         套索（搬、縮放、旋轉、改色、複製剪下貼上、刪除）／形狀／文字框／膠帶（點一下翻開）／雷射筆
+
+   ★ 畫在紙上的四層畫布（由下往上）：螢光筆（multiply）→ 文字框（DOM）→ 筆與膠帶 → 最上面那層「進行中」。
+     四層都在 .sheet 裡、跟紙一起被 transform 縮放，所以座標永遠是紙的 610×816，跟螢幕大小無關。
+     ⚠️ 外層 .ink 不能有 z-index：有的話自成一個疊放層，螢光筆的 multiply 只會跟透明的自己混，
+       蓋到題目上就是一片不透明的黃，字看不見。
+   ★ 只有畫面附近的紙配畫布（IntersectionObserver）：iPad 的畫布記憶體有上限，
+     三十頁每頁三張 Retina 畫布會直接超過，症狀是畫布整張變白、或分頁被系統殺掉重載。
+   ★ 筆與手指分開（跟測驗草稿紙同一套）：Apple Pencil 的 pointerType 是 'pen'。
+     出現過筆之後，手指只負責捲動與縮放（防手掌）；沒有筆的平板，手指照樣能寫。
+     筆在 iPad 上預設也會捲動頁面——所以筆的 touchstart／touchmove 一律 preventDefault（touchType 是 'stylus'），
+     手指的不擋，原生捲動（有慣性）保留。
+   ========================================================== */
+const INK_CFG_KEY = 'eeblackcat-wbink';
+const INK_PEN_KEY = 'eeblackcat-pen-seen';
+const INK_KIND = 'wbink';
+const INK_CHUNK = 180000;          // 一塊最多幾個字（firestore.rules 私人區的 data 欄位上限是 200000）
+const INK_CHUNKS_MAX = 40;
+const INK_TEXT_MAX = 2000;
+const INK_SCALE_CAP = 3;           // 畫布解析度最多是紙的幾倍（再高 iPad 的記憶體撐不住）
+const INK_HIST_MAX = 80;
+const ZOOM_MIN = 0.5, ZOOM_MAX = 4;
+const PAL_INK = ['#1e1708','#5b5b5b','#9aa0a6','#c0392b','#e67e22','#d4a017','#2e7d32','#0f766e','#1d4ed8','#6d28d9','#db2777','#8a5a06'];
+const PAL_HL = ['#ffe066','#ffd166','#ffb3c7','#ffadad','#9be89b','#a0e7e5','#8ecae6','#cdb4db','#d9d9d9','#ffc6a8','#c9f2c7','#fdffb6'];
+const PAL_TAPE = ['#f2b84b','#8ecae6','#cdb4db','#9be89b','#ffadad','#9aa0a6'];
+const INK_DEFAULTS = {
+    tool: 'hand',
+    pen:   { type: 'fountain', c: '#1e1708', w: 2, fav: ['#1e1708', '#1d4ed8', '#c0392b'], ws: [1.2, 2, 3.4] },
+    hl:    { c: '#ffe066', w: 14, fav: ['#ffe066', '#9be89b', '#ffb3c7'], ws: [8, 14, 22], straight: false },
+    eraser:{ mode: 'stroke', r: 10, rs: [5, 10, 22], hlOnly: false, back: false },
+    shape: { c: '#1e1708', w: 2, fav: ['#1e1708', '#1d4ed8', '#c0392b'], ws: [1.2, 2, 3.4] },
+    text:  { c: '#1e1708', fs: 16, fav: ['#1e1708', '#1d4ed8', '#c0392b'], fss: [12, 16, 22] },
+    tape:  { c: '#f2b84b', w: 20, fav: ['#f2b84b', '#8ecae6', '#cdb4db'], ws: [14, 20, 30] },
+    laser: { c: '#ff3b30' },
+    finger: 'auto',                // auto：出現過筆之後手指不寫／draw：手指一律能寫／scroll：手指一律不寫
+    smooth: 0.3,                   // 筆跡平滑（0–1）
+    holdShape: true                // 畫完停住半秒變形狀
+};
+const TOOL_NAMES = { hand: '排題目', pen: '筆', hl: '螢光筆', eraser: '橡皮擦', lasso: '套索', shape: '形狀', text: '文字', tape: '膠帶', laser: '雷射筆' };
+const INK_TOOLS = Object.keys(TOOL_NAMES);
+const isHex = (c) => /^#[0-9a-f]{6}$/i.test(String(c || ''));
+
+function inkLoadCfg() {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(INK_CFG_KEY) || 'null'); } catch (e) {}
+    const c = JSON.parse(JSON.stringify(INK_DEFAULTS));
+    if (saved && typeof saved === 'object') {
+        for (const k of Object.keys(c)) {
+            if (!(k in saved)) continue;
+            if (c[k] && typeof c[k] === 'object' && saved[k] && typeof saved[k] === 'object') Object.assign(c[k], saved[k]);
+            else if (typeof c[k] === typeof saved[k]) c[k] = saved[k];
+        }
+    }
+    /* 讀回來的東西一律再夾一次：localStorage 是使用者自己改得到的地方，壞值不能讓畫筆變成 NaN 粗。 */
+    for (const t of ['pen', 'hl', 'shape', 'tape']) {
+        const o = c[t], d = INK_DEFAULTS[t];
+        if (!isHex(o.c)) o.c = d.c;
+        o.w = clamp(Number(o.w) || d.w, 0.4, 40);
+        if (!Array.isArray(o.fav) || o.fav.length !== 3 || !o.fav.every(isHex)) o.fav = d.fav.slice();
+        if (!Array.isArray(o.ws) || o.ws.length !== 3 || !o.ws.every(Number.isFinite)) o.ws = d.ws.slice();
+    }
+    if (!['fountain', 'ball', 'brush'].includes(c.pen.type)) c.pen.type = 'fountain';
+    if (!isHex(c.text.c)) c.text.c = INK_DEFAULTS.text.c;
+    if (!Array.isArray(c.text.fav) || c.text.fav.length !== 3 || !c.text.fav.every(isHex)) c.text.fav = INK_DEFAULTS.text.fav.slice();
+    c.text.fs = clamp(Number(c.text.fs) || 16, 8, 60);
+    if (!isHex(c.laser.c)) c.laser.c = INK_DEFAULTS.laser.c;
+    c.eraser.r = clamp(Number(c.eraser.r) || 10, 2, 60);
+    if (!['stroke', 'part'].includes(c.eraser.mode)) c.eraser.mode = 'stroke';
+    if (!['auto', 'draw', 'scroll'].includes(c.finger)) c.finger = 'auto';
+    c.smooth = clamp(Number(c.smooth) || 0, 0, 1);
+    if (!INK_TOOLS.includes(c.tool)) c.tool = 'hand';
+    ink.cfg = c;
+    ink.tool = c.tool;
+    try { ink.penSeen = localStorage.getItem(INK_PEN_KEY) === '1'; } catch (e) {}
+}
+function inkSaveCfg() {
+    try { localStorage.setItem(INK_CFG_KEY, JSON.stringify({ ...ink.cfg, tool: ink.tool })); } catch (e) {}
+}
+
+/* ==========================================================
+   資料：點的壓縮、分塊、讀寫
+   ========================================================== */
+/* 點的寫法：x、y 取到 0.1px、壓力切成 0–63，存「跟上一點差多少」，
+   每個數字寫成 zigzag 之後每 5 位元一個字（第 6 位元＝後面還有）。手寫的相鄰兩點差 1–3px，
+   所以一個點大約 4 個字——一頁寫滿（一萬多個點）約 60 KB，一塊（18 萬字）裝得下三頁。 */
+const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_';
+function encNum(out, n) {
+    let z = n >= 0 ? n * 2 : -n * 2 - 1;
+    while (z >= 32) { out.push(B64[(z % 32) | 32]); z = Math.floor(z / 32); }
+    out.push(B64[z]);
+}
+function encodePts(pts) {
+    const out = [];
+    let px = 0, py = 0, pp = 0;
+    for (const p of pts) {
+        const x = Math.round(p[0] * 10), y = Math.round(p[1] * 10), q = Math.round(clamp(Number(p[2]) || 0, 0, 1) * 63);
+        encNum(out, x - px); encNum(out, y - py); encNum(out, q - pp);
+        px = x; py = y; pp = q;
+    }
+    return out.join('');
+}
+function decodePts(str) {
+    const s = String(str || ''), out = [];
+    let i = 0, vals = [], px = 0, py = 0, pp = 0;
+    while (i < s.length) {
+        let z = 0, mul = 1, d;
+        do {
+            d = B64.indexOf(s[i++]);
+            if (d < 0) return out;                     // 壞字：讀到這裡為止
+            z += (d & 31) * mul; mul *= 32;
+        } while (d & 32 && i < s.length);
+        vals.push(z % 2 ? -(z + 1) / 2 : z / 2);
+        if (vals.length === 3) {
+            px += vals[0]; py += vals[1]; pp += vals[2];
+            out.push([px / 10, py / 10, clamp(pp, 0, 63) / 63]);
+            vals = [];
+        }
+    }
+    return out;
+}
+const r2 = (n) => Math.round(n * 100) / 100;
+function inkSerialize(strokes, texts) {
+    const S = strokes.map(s => [s.id, s.k, s.pen || '', s.c, r2(s.w), s.pg | 0, s.a || '', r2(s.ox || 0), r2(s.oy || 0), s.op ? 1 : 0, encodePts(s.pts)]);
+    const T = texts.map(t => [t.id, t.pg | 0, t.a || '', r2(t.ox || 0), r2(t.oy || 0), r2(t.x), r2(t.y), r2(t.w), r2(t.fs), t.c, String(t.t).slice(0, INK_TEXT_MAX)]);
+    return { S, T };
+}
+/* 讀回來的每一欄都當成外來資料：型別不對就丟掉那一筆，不讓一筆壞資料把整本畫掛。 */
+function inkParse(data) {
+    const out = { s: [], t: [] };
+    let o = null;
+    try { o = JSON.parse(String(data || '')); } catch (e) { return out; }
+    if (!o || typeof o !== 'object') return out;
+    for (const r of Array.isArray(o.s) ? o.s : []) {
+        if (!Array.isArray(r) || r.length < 11) continue;
+        const k = ['pen', 'hl', 'tape'].includes(r[1]) ? r[1] : null;
+        if (!k || !isHex(r[3])) continue;
+        const pts = decodePts(r[10]);
+        if (!pts.length) continue;
+        out.s.push({ id: String(r[0]).slice(0, 24), k, pen: ['fountain', 'ball', 'brush'].includes(r[2]) ? r[2] : (k === 'pen' ? 'ball' : ''),
+                     c: r[3], w: clamp(Number(r[4]) || 1, 0.3, 60), pg: Math.max(0, Number(r[5]) | 0), a: String(r[6] || '').slice(0, 200),
+                     ox: Number(r[7]) || 0, oy: Number(r[8]) || 0, op: r[9] === 1, pts });
+    }
+    for (const r of Array.isArray(o.t) ? o.t : []) {
+        if (!Array.isArray(r) || r.length < 11 || !isHex(r[9])) continue;
+        out.t.push({ id: String(r[0]).slice(0, 24), pg: Math.max(0, Number(r[1]) | 0), a: String(r[2] || '').slice(0, 200),
+                     ox: Number(r[3]) || 0, oy: Number(r[4]) || 0, x: Number(r[5]) || 0, y: Number(r[6]) || 0,
+                     w: clamp(Number(r[7]) || 200, 30, PAGE_W), fs: clamp(Number(r[8]) || 16, 8, 60), c: r[9],
+                     t: String(r[10] ?? '').slice(0, INK_TEXT_MAX) });
+    }
+    return out;
+}
+/* 切成好幾塊：一塊一份文件，每塊的 data 字串不超過 INK_CHUNK 個字。 */
+function inkChunks(strokes, texts) {
+    const { S, T } = inkSerialize(strokes, texts);
+    const chunks = [];
+    let cur = { v: 1, s: [], t: [] }, len = 20;
+    const push = (kind, row) => {
+        const n = JSON.stringify(row).length + 1;
+        if (len + n > INK_CHUNK && (cur.s.length || cur.t.length)) { chunks.push(JSON.stringify(cur)); cur = { v: 1, s: [], t: [] }; len = 20; }
+        cur[kind].push(row); len += n;
+    };
+    for (const r of S) push('s', r);
+    for (const r of T) push('t', r);
+    if (cur.s.length || cur.t.length) chunks.push(JSON.stringify(cur));
+    return chunks;
+}
+/* 文件 id：wbink_<那一本 id 去掉 wbnote_>_<第幾塊>。★ 不能用 wbnote_ 開頭：主站的 wbnPick 只認 wbnote_，
+   錯題本清單也只讀 kind 是 wbnote 的——筆跡的文件要兩邊都看不見。 */
+const inkDocId = (bookId, i) => `${INK_KIND}_${String(bookId).slice(BOOK_PREFIX.length)}_${i}`;
+
+async function inkLoad(b) {
+    const id = b.id;
+    ink.bookId = id; ink.strokes = []; ink.texts = []; ink.chunks = [];
+    ink.hist = []; ink.redo = []; ink.sel = null; ink.act = null; ink.loadErr = false; ink.dirty = false;
+    clearTimeout(ink.saveTimer); ink.saveTimer = 0;
+    const n = Math.max(0, Number(b.inkN) | 0);
+    if (!n || b._local) {
+        ink.ready.add(id); ink.loadedAt = Number(b.inkAt) || 0; ink.loading = false;
+        syncInkBar(); inkRedrawAll();
+        return;
+    }
+    ink.loading = true;
+    syncInkBar();
+    const path = PU(BOOK_COL);
+    try {
+        if (!path) throw new Error('沒登入');
+        const parts = await Promise.all(Array.from({ length: n }, (_, i) => getDoc(doc(db, path, inkDocId(id, i)))));
+        if (ink.bookId !== id) return;
+        const strokes = [], texts = [], chunks = [];
+        for (const ds of parts) {
+            if (!ds.exists()) throw new Error('筆跡少了一塊');
+            const d = ds.data();
+            if (d.kind !== INK_KIND || d.book !== id) throw new Error('筆跡對不上');
+            chunks.push(String(d.data || ''));
+            const p = inkParse(d.data);
+            strokes.push(...p.s); texts.push(...p.t);
+        }
+        ink.strokes = strokes; ink.texts = texts; ink.chunks = chunks;
+        ink.loadedAt = Number(b.inkAt) || 0;
+        ink.ready.add(id);
+    } catch (e) {
+        if (ink.bookId === id) {
+            console.warn('筆跡讀不到:', e && (e.code || e.message || e));
+            ink.loadErr = true;
+            showToast('筆跡讀不到，先不要寫。等一下按「重讀筆跡」');
+        }
+    } finally {
+        if (ink.bookId === id) {
+            ink.loading = false;
+            syncInkBar();
+            const cb = curBook();
+            if (cb && cb.id === id) placeSheets(cb);
+            inkRedrawAll();
+        }
+    }
+}
+function inkScheduleSave() {
+    if (!ink.bookId) return;
+    ink.dirty = true;
+    $('saveState').textContent = '還沒存…';
+    clearTimeout(ink.saveTimer);
+    ink.saveTimer = setTimeout(() => inkSave(ink.bookId), 1500);
+}
+function inkFlush() {
+    if (ink.saveTimer) { clearTimeout(ink.saveTimer); ink.saveTimer = 0; if (ink.dirty && ink.bookId) inkSave(ink.bookId); }
+}
+async function inkSave(bookId) {
+    ink.saveTimer = 0;
+    const b = books.find(x => x.id === bookId);
+    const path = PU(BOOK_COL);
+    if (!b || !path || bookId !== ink.bookId) return;
+    /* ★★ 跟題目的存檔閘門同一個道理：雲端的筆跡還沒讀到就寫，等於拿空的蓋掉整本筆跡。 */
+    if (!ink.ready.has(bookId)) { $('saveState').textContent = '筆跡還沒讀到，先不存'; return; }
+    if (!readyIds.has(bookId) && !b._local) { $('saveState').textContent = '雲端還沒讀到，先不存'; return; }
+    if (ink.saving) { ink.saveAgain = true; return; }
+    const chunks = inkChunks(ink.strokes, ink.texts);
+    if (chunks.length > INK_CHUNKS_MAX) {
+        $('saveState').textContent = '筆跡太多了，存不進去';
+        showToast('這本的筆跡太多了，擦掉一些或分成兩本再存');
+        return;
+    }
+    ink.saving = true;
+    const oldN = Math.max(ink.chunks.length, Number(b.inkN) | 0);
+    const now = Date.now();
+    try {
+        for (let i = 0; i < chunks.length; i++) {
+            if (chunks[i] === ink.chunks[i]) continue;
+            await setDoc(doc(db, path, inkDocId(bookId, i)), { kind: INK_KIND, book: bookId, n: i, data: chunks[i], updatedAt: now });
+            ink.chunks[i] = chunks[i];
+        }
+        ink.chunks.length = chunks.length;
+        ink.dirty = false;
+        /* 塊數記在那一本身上（inkN）：另一台裝置打開時照這個數字去拿。
+           ★ 先寫塊、再寫本子、最後才刪多出來的塊——中途斷掉的話，本子指到的那幾塊一定都在。 */
+        b.inkN = chunks.length; b.inkAt = now; ink.loadedAt = now;
+        clearTimeout(saveTimer); saveTimer = null;
+        await saveBook(bookId);
+        for (let i = chunks.length; i < oldN; i++) deleteDoc(doc(db, path, inkDocId(bookId, i))).catch(() => {});
+    } catch (err) {
+        console.warn('筆跡存檔失敗:', err && (err.code || err));
+        ink.dirty = true;
+        if (bookId === curId) $('saveState').textContent = '筆跡沒存起來';
+        showToast('筆跡沒存起來，等一下再試一次');
+    } finally {
+        ink.saving = false;
+        if (ink.saveAgain) { ink.saveAgain = false; inkScheduleSave(); }
+    }
+}
+async function inkDeleteAll(bookId, n) {
+    const path = PU(BOOK_COL);
+    if (!path) return;
+    for (let i = 0; i < n; i++) await deleteDoc(doc(db, path, inkDocId(bookId, i))).catch(() => {});
+}
+function inkReset() {
+    ink.bookId = null; ink.strokes = []; ink.texts = []; ink.chunks = []; ink.hist = []; ink.redo = [];
+    ink.sel = null; ink.act = null; ink.dirty = false; ink.loading = false; ink.loadErr = false;
+    clearTimeout(ink.saveTimer); ink.saveTimer = 0;
+    ink.ready.clear();
+}
+
+/* ==========================================================
+   幾何：筆跡在哪一頁、哪裡；綁到哪一題
+   ========================================================== */
+const inkId = () => Date.now().toString(36).slice(-5) + Math.random().toString(36).slice(2, 7);
+function inkItemMap() {
+    const b = curBook(), m = new Map();
+    if (b) for (const it of b.items) if (placed(it)) m.set(it.k, it);
+    return m;
+}
+/* 這一筆（或文字框）實際在第幾頁、要加多少位移。 */
+function offOf(s, items) {
+    const it = s.a ? items.get(s.a) : null;
+    if (it) return { pg: it.page | 0, dx: it.x, dy: it.y };
+    return { pg: s.pg | 0, dx: s.ox || 0, dy: s.oy || 0 };
+}
+function inkMaxPage() {
+    if (!ink.bookId) return -1;
+    const items = inkItemMap();
+    let m = -1;
+    for (const s of ink.strokes) m = Math.max(m, offOf(s, items).pg);
+    for (const t of ink.texts) m = Math.max(m, offOf(t, items).pg);
+    return m;
+}
+/* 一題「管轄」的範圍：題目框加上底下的作答空間。寫在這裡面的字就綁在這一題。 */
+function itemRegion(b, it) {
+    return [it.x, it.y, it.x + BASE_W * effSc(it), lineBelow(it) + gapOf(b, it) * LINE];
+}
+function anchorAt(pg, cx, cy) {
+    const b = curBook();
+    if (!b) return null;
+    let best = null, area = Infinity;
+    for (const it of b.items) {
+        if (!placed(it) || (it.page | 0) !== pg) continue;
+        const r = itemRegion(b, it);
+        if (cx >= r[0] && cx <= r[2] && cy >= r[1] && cy <= r[3]) {
+            const a = (r[2] - r[0]) * (r[3] - r[1]);
+            if (a < area) { area = a; best = it; }
+        }
+    }
+    return best;
+}
+/* 紙上的絕對座標 → 存起來的樣子（綁題目的話變成相對座標）。回傳新物件，不改原本那一個。 */
+function anchorStroke(s, pg, pts) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of pts) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); }
+    const it = anchorAt(pg, (x0 + x1) / 2, (y0 + y1) / 2);
+    const dx = it ? it.x : 0, dy = it ? it.y : 0;
+    return { ...s, pg, a: it ? it.k : '', ox: dx, oy: dy, pts: pts.map(p => [p[0] - dx, p[1] - dy, p[2]]) };
+}
+function anchorText(t, pg, x, y) {
+    const it = anchorAt(pg, x + Math.min(t.w, 60) / 2, y + t.fs / 2);
+    const dx = it ? it.x : 0, dy = it ? it.y : 0;
+    return { ...t, pg, a: it ? it.k : '', ox: dx, oy: dy, x: x - dx, y: y - dy };
+}
+/* 絕對座標的點（給橡皮擦、套索、匯出用）。 */
+function absPts(s, items) { const o = offOf(s, items); return s.pts.map(p => [p[0] + o.dx, p[1] + o.dy, p[2]]); }
+function absText(t, items) { const o = offOf(t, items); return { x: t.x + o.dx, y: t.y + o.dy, pg: o.pg }; }
+
+/* 這一點畫出來多粗（紙的 px）。原子筆與螢光筆、膠帶是固定寬；鋼筆跟著壓力；毛筆壓力影響最大。 */
+function ptW(s, p) {
+    if (s.k !== 'pen' || s.pen === 'ball') return s.w;
+    const q = p > 0 ? p : 0.5;
+    if (s.pen === 'brush') return s.w * (0.2 + 1.7 * Math.pow(q, 1.35));
+    return s.w * (0.45 + 1.1 * q);
+}
+function strokeBox(s) {
+    let b = ink.bbox.get(s);
+    if (b) return b;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, wm = 0;
+    for (const p of s.pts) {
+        x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]);
+        wm = Math.max(wm, ptW(s, p[2]));
+    }
+    const h = wm / 2 + 1;
+    b = [x0 - h, y0 - h, x1 + h, y1 + h];
+    ink.bbox.set(s, b);
+    return b;
+}
+const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+/* 點到線段的距離。 */
+function segDist(p, a, b) {
+    const vx = b[0] - a[0], vy = b[1] - a[1], L = vx * vx + vy * vy;
+    let t = L ? ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / L : 0;
+    t = clamp(t, 0, 1);
+    return Math.hypot(p[0] - a[0] - t * vx, p[1] - a[1] - t * vy);
+}
+/* 點太稀的地方補點（每 3px 一個）：橡皮擦「部分」是一個點一個點擦的，形狀的邊只有頭尾兩點的話擦不斷。 */
+function densify(pts, step = 3) {
+    if (pts.length < 2) return pts.slice();
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length; i++) {
+        const a = pts[i - 1], b = pts[i], d = dist(a, b);
+        const n = Math.ceil(d / step);
+        for (let j = 1; j < n; j++) {
+            const t = j / n;
+            out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t]);
+        }
+        out.push(b);
+    }
+    return out;
+}
+function pointInPoly(x, y, poly) {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i][0], yi = poly[i][1], xj = poly[j][0], yj = poly[j][1];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside;
+    }
+    return inside;
+}
+
+/* ==========================================================
+   形狀辨識：畫一個大概的圓、方、三角、直線，變成工整的那一個
+   ★ 流程：先看是不是直線（頭尾距離 ≈ 路徑長）→ 不封閉的話試折線 → 封閉的話同時試多邊形與橢圓，誤差小的贏。
+   ★ 多邊形用 Ramer–Douglas–Peucker 簡化；從離中心最遠的那一點開始切，角才不會被切在半路。
+   ★ 橢圓用主成分：點均勻落在橢圓上時，長軸方向的變異數是 a²/2，所以 a = √(2λ₁)。
+   ========================================================== */
+function rdp(pts, eps) {
+    if (pts.length < 3) return pts.slice();
+    let idx = 0, dm = 0;
+    const a = pts[0], b = pts[pts.length - 1];
+    for (let i = 1; i < pts.length - 1; i++) { const d = segDist(pts[i], a, b); if (d > dm) { dm = d; idx = i; } }
+    if (dm <= eps) return [a, b];
+    const l = rdp(pts.slice(0, idx + 1), eps), r = rdp(pts.slice(idx), eps);
+    return l.slice(0, -1).concat(r);
+}
+function polyErr(pts, poly, closed) {
+    const n = poly.length;
+    let sum = 0;
+    for (const p of pts) {
+        let m = Infinity;
+        for (let i = 0; i < (closed ? n : n - 1); i++) m = Math.min(m, segDist(p, poly[i], poly[(i + 1) % n]));
+        sum += m;
+    }
+    return sum / pts.length;
+}
+function snapAngle(a, b) {
+    /* 差 5° 以內就扶正成水平／垂直。 */
+    const ang = Math.atan2(b[1] - a[1], b[0] - a[0]), d = dist(a, b);
+    const q = Math.round(ang / (Math.PI / 2)) * (Math.PI / 2);
+    if (Math.abs(ang - q) < 5 * Math.PI / 180) return [a[0] + Math.cos(q) * d, a[1] + Math.sin(q) * d, b[2]];
+    return b;
+}
+function recogShape(raw) {
+    const pts = raw.map(p => [p[0], p[1], 0.5]);
+    const n = pts.length;
+    if (n < 4) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, len = 0;
+    for (let i = 0; i < n; i++) {
+        const p = pts[i];
+        x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]);
+        if (i) len += dist(pts[i - 1], p);
+    }
+    const diag = Math.hypot(x1 - x0, y1 - y0);
+    if (diag < 10) return null;
+    const first = pts[0], last = pts[n - 1];
+    if (dist(first, last) / len > 0.93) return { kind: 'line', pts: densify([first, snapAngle(first, last)]) };
+    const closed = dist(first, last) < Math.max(14, 0.24 * diag);
+    if (!closed) {
+        const simp = rdp(pts, 0.07 * diag);
+        if (simp.length >= 3 && simp.length <= 4 && polyErr(pts, simp, false) < 0.03 * diag)
+            return { kind: 'polyline', pts: densify(simp) };
+        return null;
+    }
+    /* 封閉：橢圓 */
+    let mx = 0, my = 0;
+    for (const p of pts) { mx += p[0]; my += p[1]; }
+    mx /= n; my /= n;
+    let sxx = 0, syy = 0, sxy = 0;
+    for (const p of pts) { const dx = p[0] - mx, dy = p[1] - my; sxx += dx * dx; syy += dy * dy; sxy += dx * dy; }
+    sxx /= n; syy /= n; sxy /= n;
+    const tr = sxx + syy, det = sxx * syy - sxy * sxy, disc = Math.sqrt(Math.max(0, tr * tr / 4 - det));
+    const l1 = tr / 2 + disc, l2 = Math.max(1e-6, tr / 2 - disc);
+    const th = 0.5 * Math.atan2(2 * sxy, sxx - syy);
+    let ea = Math.sqrt(2 * l1), eb = Math.sqrt(2 * l2);
+    let errE = 0;
+    for (const p of pts) {
+        const dx = p[0] - mx, dy = p[1] - my;
+        const u = dx * Math.cos(th) + dy * Math.sin(th), v = -dx * Math.sin(th) + dy * Math.cos(th);
+        errE += Math.abs(Math.hypot(u / ea, v / eb) - 1);
+    }
+    errE /= n;
+    /* 封閉：多邊形（從離中心最遠的點開始切） */
+    let far = 0, fd = -1;
+    for (let i = 0; i < n; i++) { const d = Math.hypot(pts[i][0] - mx, pts[i][1] - my); if (d > fd) { fd = d; far = i; } }
+    const loop = pts.slice(far).concat(pts.slice(0, far + 1));
+    let poly = rdp(loop, 0.075 * diag).slice(0, -1);
+    /* 太近的角併掉、幾乎是直線的角拿掉 */
+    poly = poly.filter((p, i) => i === 0 || dist(p, poly[i - 1]) > 0.1 * diag);
+    for (let changed = true; changed && poly.length > 3;) {
+        changed = false;
+        for (let i = 0; i < poly.length; i++) {
+            const a = poly[(i + poly.length - 1) % poly.length], b = poly[i], c = poly[(i + 1) % poly.length];
+            const v1 = [a[0] - b[0], a[1] - b[1]], v2 = [c[0] - b[0], c[1] - b[1]];
+            const cos = (v1[0] * v2[0] + v1[1] * v2[1]) / (Math.hypot(...v1) * Math.hypot(...v2) || 1);
+            if (cos < -0.94) { poly.splice(i, 1); changed = true; break; }
+        }
+    }
+    const k = poly.length;
+    const errP = k >= 3 ? polyErr(pts, poly, true) / diag : Infinity;
+    const isPoly = (k === 3 || k === 4) ? errP < 0.045 : (k <= 6 && errP < 0.03 && errE > 0.07);
+    if (isPoly && !(errE < 0.06 && k > 4)) {
+        if (k === 4) {
+            /* 四個角都接近直角、邊也接近水平垂直 → 擺正的長方形 */
+            const ang = (i) => { const a = poly[i], b = poly[(i + 1) % 4]; return Math.atan2(b[1] - a[1], b[0] - a[0]); };
+            const axis = [0, 1, 2, 3].every(i => { const t = Math.abs(ang(i)) % (Math.PI / 2); return t < 0.2 || t > Math.PI / 2 - 0.2; });
+            if (axis) {
+                let a0 = Infinity, b0 = Infinity, a1 = -Infinity, b1 = -Infinity;
+                for (const p of poly) { a0 = Math.min(a0, p[0]); b0 = Math.min(b0, p[1]); a1 = Math.max(a1, p[0]); b1 = Math.max(b1, p[1]); }
+                poly = [[a0, b0, .5], [a1, b0, .5], [a1, b1, .5], [a0, b1, .5]];
+                return { kind: 'rect', pts: densify(poly.concat([poly[0]])) };
+            }
+        }
+        return { kind: k === 3 ? 'triangle' : k === 4 ? 'quad' : 'polygon', pts: densify(poly.concat([poly[0]])) };
+    }
+    if (errE < 0.13) {
+        if (eb / ea > 0.86) { ea = eb = (ea + eb) / 2; }
+        const out = [], N = Math.max(36, Math.round(Math.PI * (ea + eb) / 3));
+        for (let i = 0; i <= N; i++) {
+            const t = i / N * Math.PI * 2, u = ea * Math.cos(t), v = eb * Math.sin(t);
+            out.push([mx + u * Math.cos(th) - v * Math.sin(th), my + u * Math.sin(th) + v * Math.cos(th), 0.5]);
+        }
+        return { kind: ea === eb ? 'circle' : 'ellipse', pts: out };
+    }
+    return null;
+}
+
+/* ==========================================================
+   畫：每張紙的四層畫布
+   ========================================================== */
+function sheetEl(pg) { return $('sheets').querySelector(`.sheet[data-page="${pg}"]`); }
+function inkLayer(sheet) {
+    let L = sheet.querySelector(':scope > .ink');
+    if (!L) {
+        L = document.createElement('div');
+        L.className = 'ink';
+        L.innerHTML = '<canvas class="ink-hl" width="1" height="1"></canvas><div class="ink-tx"></div>'
+                    + '<canvas class="ink-pen" width="1" height="1"></canvas><canvas class="ink-live" width="1" height="1"></canvas>';
+        sheet.appendChild(L);
+    }
+    return L;
+}
+const inkScale = () => Math.min(INK_SCALE_CAP, Math.max(1, zoom * (window.devicePixelRatio || 1)));
+function fitCanvas(cv, s) {
+    const w = Math.round(PAGE_W * s), h = Math.round(PAGE_H * s);
+    if (cv.width !== w || cv.height !== h) { cv.width = w; cv.height = h; }
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    return ctx;
+}
+function freeCanvas(cv) { if (cv && (cv.width > 1 || cv.height > 1)) { cv.width = 1; cv.height = 1; } }
+function liveCtx(pg, clear = true) {
+    const sh = sheetEl(pg);
+    if (!sh) return null;
+    const cv = inkLayer(sh).querySelector('.ink-live');
+    const s = inkScale();
+    if (clear || cv.width !== Math.round(PAGE_W * s)) return fitCanvas(cv, s);
+    const ctx = cv.getContext('2d');
+    ctx.setTransform(s, 0, 0, s, 0, 0);
+    return ctx;
+}
+function clearLive(pg) {
+    const sh = sheetEl(pg);
+    const cv = sh && sh.querySelector(':scope > .ink > .ink-live');
+    if (cv) freeCanvas(cv);
+}
+/* 一筆畫上去。dx/dy＝位移（綁題目的筆跡）；T＝額外的變換（套索拖動中）。 */
+function drawStroke(ctx, s, dx, dy, T) {
+    const P = s.pts, n = P.length;
+    if (!n) return;
+    const X = T ? (p) => T.x(p[0] + dx, p[1] + dy) : (p) => p[0] + dx;
+    const Y = T ? (p) => T.y(p[0] + dx, p[1] + dy) : (p) => p[1] + dy;
+    const k = T ? T.k : 1;
+    ctx.strokeStyle = ctx.fillStyle = s.c;
+    if (s.k === 'tape') return drawTape(ctx, s, X, Y, k);
+    if (n === 1) {
+        ctx.beginPath(); ctx.arc(X(P[0]), Y(P[0]), ptW(s, P[0][2]) * k / 2, 0, Math.PI * 2); ctx.fill();
+        return;
+    }
+    const constant = s.k === 'hl' || s.pen === 'ball';
+    if (constant) {
+        ctx.lineWidth = s.w * k;
+        ctx.beginPath();
+        ctx.moveTo(X(P[0]), Y(P[0]));
+        for (let i = 1; i < n - 1; i++) ctx.quadraticCurveTo(X(P[i]), Y(P[i]), (X(P[i]) + X(P[i + 1])) / 2, (Y(P[i]) + Y(P[i + 1])) / 2);
+        ctx.lineTo(X(P[n - 1]), Y(P[n - 1]));
+        ctx.stroke();
+        return;
+    }
+    /* 粗細會變：一段一段畫（上一點的中點 → 這一點的中點，用這一點當轉折）。毛筆的頭尾收細。 */
+    const taper = s.pen === 'brush' ? (i) => 0.35 + 0.65 * Math.min(1, i / 5, (n - 1 - i) / 5) : () => 1;
+    for (let i = 1; i < n; i++) {
+        const a = P[Math.max(0, i - 2)], b = P[i - 1], c = P[i];
+        ctx.lineWidth = ptW(s, c[2]) * taper(i) * k;
+        ctx.beginPath();
+        ctx.moveTo((X(a) + X(b)) / 2, (Y(a) + Y(b)) / 2);
+        ctx.quadraticCurveTo(X(b), Y(b), (X(b) + X(c)) / 2, (Y(b) + Y(c)) / 2);
+        if (i === n - 1) ctx.lineTo(X(c), Y(c));
+        ctx.stroke();
+    }
+}
+/* 膠帶：蓋住的時候是一條不透明的色帶（斜紋看得出是膠帶）；翻開的時候只剩淡淡一層，底下的字看得到。 */
+function drawTape(ctx, s, X, Y, k) {
+    const a = s.pts[0], b = s.pts[s.pts.length - 1];
+    const ax = X(a), ay = Y(a), bx = X(b), by = Y(b), w = s.w * k;
+    const L = Math.hypot(bx - ax, by - ay) || 1, ang = Math.atan2(by - ay, bx - ax);
+    ctx.save();
+    ctx.translate(ax, ay); ctx.rotate(ang);
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(-w * 0.1, -w / 2, L + w * 0.2, w, 2); else ctx.rect(-w * 0.1, -w / 2, L + w * 0.2, w);
+    if (s.op) {
+        ctx.globalAlpha = 0.22; ctx.fill(); ctx.globalAlpha = 0.7;
+        ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]);
+    } else {
+        ctx.fill();
+        ctx.clip();
+        ctx.globalAlpha = 0.18; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3;
+        for (let x = -w; x < L + w; x += 9) { ctx.beginPath(); ctx.moveTo(x, w / 2); ctx.lineTo(x + w, -w / 2); ctx.stroke(); }
+    }
+    ctx.restore();
+}
+function textEl(t, x, y) {
+    const d = document.createElement('div');
+    d.className = 'ink-t';
+    d.dataset.id = t.id;
+    d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = t.w + 'px';
+    d.style.fontSize = t.fs + 'px'; d.style.color = t.c;
+    d.textContent = t.t;                       // ★ textContent，不是 innerHTML（第四條）
+    return d;
+}
+function redrawPage(pg) {
+    const sh = sheetEl(pg);
+    if (!sh) return;
+    const L = inkLayer(sh);
+    const cvH = L.querySelector('.ink-hl'), cvP = L.querySelector('.ink-pen'), tx = L.querySelector('.ink-tx');
+    if (!ink.vis.has(pg)) { freeCanvas(cvH); freeCanvas(cvP); freeCanvas(L.querySelector('.ink-live')); tx.textContent = ''; return; }
+    const items = inkItemMap(), s = inkScale();
+    const hide = ink.hideIds, dragK = ink.dragK;
+    const here = [];
+    for (const st of ink.strokes) {
+        if (hide && hide.has(st.id)) continue;
+        if (dragK && st.a === dragK) continue;
+        const o = offOf(st, items);
+        if (o.pg === pg) here.push([st, o]);
+    }
+    const hl = here.filter(([st]) => st.k === 'hl');
+    if (hl.length) { const c = fitCanvas(cvH, s); for (const [st, o] of hl) drawStroke(c, st, o.dx, o.dy); }
+    else freeCanvas(cvH);
+    const pens = here.filter(([st]) => st.k !== 'hl');
+    if (pens.length) {
+        const c = fitCanvas(cvP, s);
+        for (const [st, o] of pens) if (st.k === 'pen') drawStroke(c, st, o.dx, o.dy);
+        for (const [st, o] of pens) if (st.k === 'tape') drawStroke(c, st, o.dx, o.dy);
+    } else freeCanvas(cvP);
+    tx.textContent = '';
+    for (const t of ink.texts) {
+        if ((hide && hide.has(t.id)) || (dragK && t.a === dragK)) continue;
+        if (ink.act && ink.act.type === 'text' && ink.act.id === t.id) continue;   // 正在打的那一個由輸入框代替
+        const o = offOf(t, items);
+        if (o.pg === pg) tx.appendChild(textEl(t, t.x + o.dx, t.y + o.dy));
+    }
+}
+function inkRedraw(pages) {
+    for (const p of pages) ink.redrawQ.add(p);
+    if (ink.redrawRaf) return;
+    ink.redrawRaf = requestAnimationFrame(() => {
+        ink.redrawRaf = 0;
+        const q = [...ink.redrawQ]; ink.redrawQ.clear();
+        for (const p of q) redrawPage(p);
+        if (ink.sel) drawSelection();
+    });
+}
+function inkRedrawAll() {
+    const n = $('sheets').querySelectorAll('.sheet').length;
+    inkRedraw(Array.from({ length: n }, (_, i) => i));
+}
+/* 只有畫面附近的紙配畫布。 */
+function inkObserve(wrap) {
+    if (!ink.io) {
+        ink.io = new IntersectionObserver((ents) => {
+            for (const en of ents) {
+                const sh = en.target.querySelector('.sheet');
+                if (!sh) continue;
+                const pg = Number(sh.dataset.page);
+                if (en.isIntersecting) ink.vis.add(pg); else ink.vis.delete(pg);
+                inkRedraw([pg]);
+            }
+        }, { root: $('sheets'), rootMargin: '60% 0px' });
+    }
+    ink.io.observe(wrap);
+}
+/* 縮放停下來之後才換畫布解析度（縮放中先讓舊的那張跟著 transform 放大，糊一下下沒關係）。 */
+function inkRescaleSoon() {
+    clearTimeout(ink.rescaleTimer);
+    ink.rescaleTimer = setTimeout(inkRedrawAll, 160);
+}
+
+/* ==========================================================
+   改動、復原、重做
+   ★ 復原記的是「整個狀態」：筆跡陣列、文字框陣列、每一題的位置。
+     筆跡是不可變的，所以記陣列本身就好；題目要複製一份（拖曳、改留白是直接改那一題的欄位）。
+   ========================================================== */
+function inkSnap() {
+    const b = curBook();
+    return { strokes: ink.strokes, texts: ink.texts,
+             items: b ? b.items.map(it => ({ ...it })) : null,
+             flow: b ? b.flow : true, pages: b ? b.pages : 1, minPages: b ? b.minPages : 0 };
+}
+function pushHist() {
+    ink.hist.push(inkSnap());
+    if (ink.hist.length > INK_HIST_MAX) ink.hist.shift();
+    ink.redo = [];
+    syncUndo();
+}
+function inkRestore(st) {
+    const b = curBook();
+    endTextEdit(false);
+    ink.sel = null; ink.act = null; ink.hideIds = null;
+    syncLassoBar();
+    const prevStrokes = ink.strokes, prevTexts = ink.texts;
+    ink.strokes = st.strokes; ink.texts = st.texts;
+    if (prevStrokes !== st.strokes || prevTexts !== st.texts) inkScheduleSave();
+    if (b && st.items) {
+        const before = b.items.map(it => it.k).join('\u0001');
+        const now = new Set(st.items.map(it => it.k));
+        for (const it of b.items) if (!now.has(it.k)) removedKeys.add(it.k);
+        for (const k of now) removedKeys.delete(k);
+        b.items = st.items.map(it => ({ ...it }));
+        b.flow = st.flow; b.pages = st.pages; b.minPages = st.minPages;
+        if (selKey && !now.has(selKey)) selKey = null;
+        if (before !== b.items.map(it => it.k).join('\u0001')) renderBook();
+        else { layout(b); placeSheets(b); b.items.forEach((it, i) => { const el = itemEls.get(it.k); if (el) positionItem(b, it, el, i); }); }
+        renderBookHead(b);
+        renderList();
+        scheduleSave();
+    }
+    inkRedrawAll();
+    syncUndo();
+}
+function inkUndo() {
+    if (!ink.hist.length || ink.act) return;
+    ink.redo.push(inkSnap());
+    inkRestore(ink.hist.pop());
+}
+function inkRedo() {
+    if (!ink.redo.length || ink.act) return;
+    ink.hist.push(inkSnap());
+    const st = ink.redo.pop();
+    const keep = ink.redo;
+    inkRestore(st);
+    ink.redo = keep;            // inkRestore 不會清，這裡只是寫清楚：重做不會把後面的重做吃掉
+    syncUndo();
+}
+function syncUndo() {
+    const u = $('btnUndo'), r = $('btnRedo');
+    if (u) u.disabled = !ink.hist.length;
+    if (r) r.disabled = !ink.redo.length;
+}
+/* 筆跡改了：重畫那幾頁、排存檔。頁數可能變（寫到新加的那一頁）。 */
+function inkChanged(pages) {
+    /* ★ 同步重畫，不排到下一個畫格：放開筆的那一刻「進行中」那層已經清掉了，
+         等到下一格才畫上去的話，那一筆會閃一下消失。 */
+    for (const p of new Set(pages)) redrawPage(p);
+    if (ink.sel) drawSelection();
+    inkScheduleSave();
+    syncUndo();
+    const b = curBook();
+    if (b) { syncPageBtns(b); $('btnExport').disabled = !b.items.length && !ink.strokes.length && !ink.texts.length; }
+}
+/* 拿掉一題時，綁在它身上的筆跡與文字框一起拿掉（復原會一起回來）。 */
+function inkDropItem(k) {
+    const s = ink.strokes.filter(x => x.a !== k), t = ink.texts.filter(x => x.a !== k);
+    if (s.length === ink.strokes.length && t.length === ink.texts.length) return false;
+    ink.strokes = s; ink.texts = t;
+    inkScheduleSave();
+    return true;
+}
+
+/* ==========================================================
+   指標：誰在畫、畫在哪
+   ========================================================== */
+const fingerDraws = () => ink.cfg.finger === 'draw' || (ink.cfg.finger === 'auto' && !ink.penSeen);
+const inkBlocked = () => ink.loading || ink.loadErr || !ink.ready.has(curId);
+function syncTouchMode() {
+    const on = ink.tool !== 'hand' && fingerDraws();
+    $('sheets').classList.toggle('finger-draw', on);
+}
+function toSheet(e, sheet) {
+    const r = sheet.getBoundingClientRect();
+    return [(e.clientX - r.left) / zoom, (e.clientY - r.top) / zoom, e.pointerType === 'pen' ? clamp(e.pressure || 0, 0, 1) : 0];
+}
+function evList(e) {
+    const evs = (typeof e.getCoalescedEvents === 'function' && e.getCoalescedEvents()) || [];
+    return evs.length ? evs : [e];
+}
+/* 最靠近畫面中間的那一頁（貼上、加文字的預設頁）。 */
+function centerPage() {
+    const box = $('sheets').getBoundingClientRect(), cy = box.top + box.height / 2;
+    let best = 0, bd = Infinity;
+    $('sheets').querySelectorAll('.sheet').forEach(sh => {
+        const r = sh.getBoundingClientRect(), d = Math.abs((r.top + r.bottom) / 2 - cy);
+        if (d < bd) { bd = d; best = Number(sh.dataset.page); }
+    });
+    return best;
+}
+
+function inkPointerDown(e) {
+    const b = curBook();
+    if (!b) return;
+    if (e.pointerType === 'touch') {
+        const now = performance.now();
+        for (const [id, t] of ink.touches) if (now - t.t > 3000) ink.touches.delete(id);   // 沒收到放開的舊手指（被系統吃掉了）
+        ink.touches.set(e.pointerId, { x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, t: performance.now() });
+        if (ink.touches.size >= 2) {
+            /* 第二根手指下來：剛剛那一筆是誤觸（或是要縮放），丟掉不收。 */
+            if (ink.act && ink.act.pointerType === 'touch') cancelAct();
+            if (ink.touches.size === 2 && fingerDraws() && ink.tool !== 'hand') startGesture();
+            e.stopPropagation();
+            return;
+        }
+    }
+    if (e.pointerType === 'pen') ink.lastPen = performance.now();
+    if (e.pointerType === 'pen' && !ink.penSeen) {
+        ink.penSeen = true;
+        try { localStorage.setItem(INK_PEN_KEY, '1'); } catch (err) {}
+        syncTouchMode();
+    }
+    if (e.target.closest && e.target.closest('.ink-edit')) return;      // 在文字框裡點：移游標，照瀏覽器原本的
+    if (ink.act && ink.act.type === 'text') {
+        /* 打字中點到外面：這一下只是「打完了」，不順便開一個新的文字框（GoodNotes 也是這樣）。 */
+        endTextEdit(true); e.stopPropagation(); e.preventDefault(); return;
+    }
+    if (ink.tool === 'hand') { maybeTapTape(e); return; }
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    /* 手指只捲動：不攔（原生捲動有慣性），但也不交給「排題目」那一套——拿著筆的時候手指碰到題目不該把它選起來。 */
+    if (e.pointerType === 'touch' && !fingerDraws()) { e.stopPropagation(); return; }
+    if (ink.act) { e.stopPropagation(); e.preventDefault(); return; } // 一次只畫一筆
+    const sheet = sheetAt(e.clientX, e.clientY) || (e.target.closest && e.target.closest('.sheet'));
+    e.stopPropagation();                                               // 不讓「排題目」那一套接到
+    if (!sheet) { if (ink.sel && ink.tool === 'lasso') { ink.sel = null; syncLassoBar(); inkRedrawAll(); } return; }
+    if (inkBlocked()) { showToast(ink.loading ? '筆跡還在讀，等一下' : '筆跡讀不到，先按「重讀筆跡」'); return; }
+    e.preventDefault();
+    try { $('sheets').setPointerCapture(e.pointerId); } catch (err) {}
+    const pg = Number(sheet.dataset.page);
+    const pt = toSheet(e, sheet);
+    ink.vis.add(pg);
+    const base = { id: e.pointerId, pointerType: e.pointerType, pg, sheet, t0: performance.now(), x0: e.clientX, y0: e.clientY };
+    const tool = ink.tool, C = ink.cfg;
+    if (tool === 'pen' || tool === 'hl' || tool === 'shape') {
+        const o = C[tool];
+        const s = { id: inkId(), k: tool === 'hl' ? 'hl' : 'pen', pen: tool === 'pen' ? o.type : (tool === 'shape' ? 'ball' : ''),
+                    c: o.c, w: o.w, pts: [pt] };
+        ink.act = { ...base, type: 'draw', tool, s, sm: pt.slice(), lastMove: performance.now(), snapped: false, holdTimer: 0 };
+        armHold();
+        paintAct(true);
+    } else if (tool === 'eraser') {
+        pushHist();
+        ink.act = { ...base, type: 'erase', changed: false, last: pt };
+        eraseAt(pg, pt);
+        drawHover(pg, pt);
+    } else if (tool === 'lasso') {
+        const h = ink.sel && ink.sel.pg === pg ? selHit(pt) : null;
+        if (h) { pushHist(); ink.act = { ...base, type: 'sel-' + h, start: pt, cur: pt, box: selBox() }; ink.hideIds = new Set([...ink.sel.ids, ...ink.sel.tids]); redrawPage(pg); drawSelMoving(); }
+        else { if (ink.sel) { ink.sel = null; syncLassoBar(); inkRedrawAll(); } ink.act = { ...base, type: 'lasso', path: [pt] }; }
+    } else if (tool === 'text') {
+        const hitT = textAt(pg, pt);
+        ink.act = { ...base, type: 'text-down', start: pt, hit: hitT, moved: false };
+    } else if (tool === 'tape') {
+        ink.act = { ...base, type: 'tape', a: pt, b: pt };
+    } else if (tool === 'laser') {
+        ink.act = { ...base, type: 'laser' };
+        laserPush(pg, pt);
+    }
+}
+function inkPointerMove(e) {
+    if (e.pointerType === 'pen') ink.lastPen = performance.now();
+    if (e.pointerType === 'touch' && ink.touches.has(e.pointerId)) {
+        const t = ink.touches.get(e.pointerId); t.x = e.clientX; t.y = e.clientY;
+        if (ink.gest) { moveGesture(); return; }
+    }
+    const a = ink.act;
+    if (!a) {
+        /* Apple Pencil 懸停（iPad Pro M2 之後）：筆尖還沒碰到螢幕，先看到會畫在哪、多粗。 */
+        if ((e.pointerType === 'pen' || (e.pointerType === 'mouse' && ink.tool === 'eraser')) && e.buttons === 0 && ink.tool !== 'hand') {
+            const sh = sheetAt(e.clientX, e.clientY);
+            if (sh) drawHover(Number(sh.dataset.page), toSheet(e, sh)); else hideHover();
+        }
+        return;
+    }
+    if (a.id !== e.pointerId) return;
+    e.preventDefault();
+    const list = evList(e);
+    if (a.type === 'draw') {
+        if (a.snapped) {
+            /* 已經變成形狀了：直線可以繼續拉尾巴，其他形狀就定住。 */
+            if (a.shape === 'line' || a.tool === 'hl') {
+                const p = toSheet(e, a.sheet);
+                const first = a.s.pts[0];
+                a.s = { ...a.s, pts: densify([first, snapAngle(first, p)]) };
+                paintAct(false);
+            }
+            return;
+        }
+        const k = 1 - ink.cfg.smooth * 0.8;
+        let moved = false;
+        for (const ev of list) {
+            const p = toSheet(ev, a.sheet);
+            const last = a.s.pts[a.s.pts.length - 1];
+            if (Math.abs(p[0] - last[0]) + Math.abs(p[1] - last[1]) < 0.6) continue;
+            /* 筆跡平滑：每一點往新位置走 k 那麼多（k 越小越穩，但字會跟不上筆一點點）。 */
+            a.sm = a.tool === 'hl' ? p : [a.sm[0] + (p[0] - a.sm[0]) * k, a.sm[1] + (p[1] - a.sm[1]) * k, p[2]];
+            a.s.pts.push(a.sm.slice());
+            moved = true;
+        }
+        if (moved) {
+            if (Math.hypot(e.clientX - (a.hx ?? a.x0), e.clientY - (a.hy ?? a.y0)) > 4) { a.hx = e.clientX; a.hy = e.clientY; armHold(); }
+            if (a.tool === 'hl' && ink.cfg.hl.straight) {
+                const first = a.s.pts[0], lastP = a.s.pts[a.s.pts.length - 1];
+                a.s.pts = [first, snapAngle(first, lastP)];
+                paintAct(true);
+            } else paintAct(false, true);
+        }
+    } else if (a.type === 'erase') {
+        for (const ev of list) {
+            const p = toSheet(ev, a.sheet);
+            /* 擦得快的時候兩點之間會跳過一段：中間補幾個點一起擦。 */
+            const d = dist(p, a.last), n = Math.ceil(d / Math.max(2, ink.cfg.eraser.r * 0.6));
+            for (let i = 1; i <= n; i++) eraseAt(a.pg, [a.last[0] + (p[0] - a.last[0]) * i / n, a.last[1] + (p[1] - a.last[1]) * i / n]);
+            a.last = p;
+        }
+        drawHover(a.pg, a.last);
+    } else if (a.type === 'lasso') {
+        for (const ev of list) a.path.push(toSheet(ev, a.sheet));
+        const c = liveCtx(a.pg);
+        if (c) {
+            c.setLineDash([5, 4]); c.lineWidth = 1.4; c.strokeStyle = '#8a6605';
+            c.beginPath(); a.path.forEach((p, i) => i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])); c.stroke();
+        }
+    } else if (a.type.startsWith('sel-')) {
+        a.cur = toSheet(e, a.sheet);
+        a.over = sheetAt(e.clientX, e.clientY);
+        drawSelMoving();
+    } else if (a.type === 'text-down') {
+        const p = toSheet(e, a.sheet);
+        if (a.hit && (a.moved || dist(p, a.start) > 4)) {
+            a.moved = true; a.cur = p;
+            if (!a.pushed) { pushHist(); a.pushed = true; ink.hideIds = new Set([a.hit.id]); redrawPage(a.pg); }
+            const c = liveCtx(a.pg);
+            const o = absText(a.hit, inkItemMap());
+            if (c) drawTextGhost(c, a.hit, o.x + p[0] - a.start[0], o.y + p[1] - a.start[1]);
+        }
+    } else if (a.type === 'tape') {
+        a.b = snapAngle(a.a, toSheet(e, a.sheet));
+        const c = liveCtx(a.pg);
+        if (c) drawStroke(c, { k: 'tape', c: ink.cfg.tape.c, w: ink.cfg.tape.w, pts: [a.a, a.b] }, 0, 0);
+    } else if (a.type === 'laser') {
+        for (const ev of list) laserPush(a.pg, toSheet(ev, a.sheet));
+    }
+}
+function inkPointerUp(e) {
+    if (e.pointerType === 'touch' && ink.touches.has(e.pointerId)) {
+        const all = ink.touches;
+        const t = all.get(e.pointerId); t.up = performance.now();
+        if ([...all.values()].every(x => x.up)) {
+            /* 多指點一下：兩指＝復原、三指＝重做（GoodNotes 的手勢）。點一下＝很短、幾乎沒動。 */
+            const n = all.size, vals = [...all.values()];
+            /* ★ 寫字時手掌壓在螢幕上，常常被當成兩根手指點了一下——筆剛動過（0.8 秒內）或正在畫，就不算。 */
+            const quick = vals.every(x => x.up - x.t < 320 && Math.hypot(x.x - x.x0, x.y - x.y0) < 14)
+                       && !ink.act && performance.now() - ink.lastPen > 800;
+            all.clear();
+            if (ink.gest) endGesture();
+            if (quick && e.type === 'pointerup' && curBook()) {
+                if (n === 2) { inkUndo(); showToast('復原'); }
+                else if (n === 3) { inkRedo(); showToast('重做'); }
+            }
+        }
+        if (ink.gest) return;
+    }
+    const a = ink.act;
+    if (!a || a.id !== e.pointerId) return;
+    clearTimeout(a.holdTimer);
+    ink.act = null;
+    const cancel = e.type === 'pointercancel';
+    if (a.type === 'draw') {
+        clearLive(a.pg);
+        if (cancel) { redrawPage(a.pg); return; }
+        let s = a.s;
+        if (!a.snapped) {
+            /* 平滑會讓最後一點落後一點點：補上筆真正停的位置。 */
+            const p = toSheet(e, a.sheet);
+            if (s.pts.length > 1 && dist(p, s.pts[s.pts.length - 1]) > 0.6) s.pts.push(p);
+            if (a.tool === 'shape') { const r = recogShape(s.pts); if (r) s = { ...s, pts: r.pts }; }
+        }
+        /* 輕點一下而且點在膠帶上：是要翻膠帶，不是要點一個點。 */
+        if (s.pts.length <= 2 && performance.now() - a.t0 < 250 && toggleTapeAt(a.pg, s.pts[0])) { redrawPage(a.pg); return; }
+        pushHist();
+        ink.strokes = ink.strokes.concat([anchorStroke(s, a.pg, densify(s.pts))]);
+        inkChanged([a.pg]);
+        return;
+    }
+    if (a.type === 'erase') {
+        hideHover();
+        if (!a.changed) { ink.hist.pop(); syncUndo(); }
+        else inkChanged([a.pg]);
+        if (ink.cfg.eraser.back && a.changed) setTool(ink.prevTool);          // 擦完自動換回剛剛那支筆
+        return;
+    }
+    if (a.type === 'lasso') {
+        clearLive(a.pg);
+        if (cancel || a.path.length < 3) { syncLassoBar(); return; }
+        lassoSelect(a.pg, a.path);
+        return;
+    }
+    if (a.type.startsWith('sel-')) {
+        ink.hideIds = null;
+        clearLive(a.pg);
+        if (cancel) { ink.hist.pop(); syncUndo(); redrawPage(a.pg); drawSelection(); return; }
+        commitSelTransform(a, e);
+        return;
+    }
+    if (a.type === 'text-down') {
+        clearLive(a.pg);
+        if (cancel) { ink.hideIds = null; redrawPage(a.pg); return; }
+        if (a.hit && a.moved) {
+            ink.hideIds = null;
+            const o = absText(a.hit, inkItemMap());
+            const p = toSheet(e, a.sheet);
+            const nt = anchorText(a.hit, a.pg, o.x + p[0] - a.start[0], o.y + p[1] - a.start[1]);
+            ink.texts = ink.texts.map(t => t.id === nt.id ? nt : t);
+            inkChanged([a.pg, o.pg]);
+            return;
+        }
+        if (a.hit) startTextEdit(a.hit);
+        else startTextEdit(null, a.pg, a.start);
+        return;
+    }
+    if (a.type === 'tape') {
+        clearLive(a.pg);
+        if (cancel) return;
+        if (dist(a.a, a.b) < 8) { if (toggleTapeAt(a.pg, a.a)) redrawPage(a.pg); return; }
+        pushHist();
+        const st = anchorStroke({ id: inkId(), k: 'tape', pen: '', c: ink.cfg.tape.c, w: ink.cfg.tape.w, op: false }, a.pg, [[...a.a.slice(0, 2), 0.5], [...a.b.slice(0, 2), 0.5]]);
+        ink.strokes = ink.strokes.concat([st]);
+        inkChanged([a.pg]);
+        return;
+    }
+    if (a.type === 'laser') return;          // 雷射筆的尾巴自己會淡掉
+}
+function cancelAct() {
+    const a = ink.act;
+    if (!a) return;
+    clearTimeout(a.holdTimer);
+    ink.act = null;
+    ink.hideIds = null;
+    if (a.type === 'erase' && a.changed) { const st = ink.hist.pop(); if (st) { ink.strokes = st.strokes; ink.texts = st.texts; } }
+    else if (a.type === 'erase') ink.hist.pop();
+    if (a.type.startsWith('sel-')) ink.hist.pop();
+    clearLive(a.pg);
+    redrawPage(a.pg);
+    syncUndo();
+}
+/* 畫的時候：新增的那一小段直接畫到「進行中」那層（不整張重畫，整張重畫在筆畫多的時候跟不上筆）。
+   螢光筆畫在螢光筆那一層：它要跟底下的題目 multiply，畫在最上層的話顏色跟放開之後不一樣。 */
+function paintAct(full, incremental) {
+    const a = ink.act;
+    if (!a) return;
+    const s = a.s, P = s.pts;
+    if (a.tool === 'hl') {
+        /* 螢光筆畫在螢光筆那一層。那層是「不透明的顏色＋整張畫布半透明」，
+           所以同一條自己重疊的地方不會變深，可以只補新的一段；變直線、變形狀的時候才整層重畫。 */
+        const sh = sheetEl(a.pg);
+        if (!sh) return;
+        const cv = inkLayer(sh).querySelector('.ink-hl'), sc = inkScale();
+        if (full || !incremental || P.length < 3 || cv.width !== Math.round(PAGE_W * sc)) {
+            const items = inkItemMap(), ctx = fitCanvas(cv, sc);
+            for (const st of ink.strokes) if (st.k === 'hl') { const o = offOf(st, items); if (o.pg === a.pg) drawStroke(ctx, st, o.dx, o.dy); }
+            drawStroke(ctx, s, 0, 0);
+            return;
+        }
+        const ctx = cv.getContext('2d');
+        ctx.setTransform(sc, 0, 0, sc, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.strokeStyle = s.c; ctx.lineWidth = s.w;
+        const n = P.length, a2 = P[n - 3], b = P[n - 2], cc = P[n - 1];
+        ctx.beginPath();
+        ctx.moveTo((a2[0] + b[0]) / 2, (a2[1] + b[1]) / 2);
+        ctx.quadraticCurveTo(b[0], b[1], (b[0] + cc[0]) / 2, (b[1] + cc[1]) / 2);
+        ctx.stroke();
+        return;
+    }
+    if (full || !incremental || P.length < 3) {
+        const c = liveCtx(a.pg);
+        if (c) drawStroke(c, s, 0, 0);
+        return;
+    }
+    const c = liveCtx(a.pg, false);
+    if (!c) return;
+    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.strokeStyle = c.fillStyle = s.c;
+    const n = P.length;
+    /* 只補最後一段（跟 drawStroke 的變粗細畫法一樣）；原子筆也這樣補，接縫看不出來。 */
+    const a2 = P[Math.max(0, n - 3)], b = P[n - 2], cc = P[n - 1];
+    c.lineWidth = ptW(s, cc[2]) * (s.pen === 'brush' ? 0.35 + 0.65 * Math.min(1, (n - 1) / 5) : 1);
+    c.beginPath();
+    c.moveTo((a2[0] + b[0]) / 2, (a2[1] + b[1]) / 2);
+    c.quadraticCurveTo(b[0], b[1], (b[0] + cc[0]) / 2, (b[1] + cc[1]) / 2);
+    c.stroke();
+}
+/* 畫完停住半秒 → 變形狀（螢光筆：變直線）。 */
+function armHold() {
+    const a = ink.act;
+    if (!a || a.type !== 'draw') return;
+    clearTimeout(a.holdTimer);
+    if (!ink.cfg.holdShape && a.tool !== 'hl') return;
+    a.holdTimer = setTimeout(() => {
+        if (ink.act !== a || a.snapped) return;
+        const P = a.s.pts;
+        let len = 0;
+        for (let i = 1; i < P.length; i++) len += dist(P[i - 1], P[i]);
+        if (len < 18) return;
+        if (a.tool === 'hl') { a.s = { ...a.s, pts: [P[0], snapAngle(P[0], P[P.length - 1])] }; a.snapped = true; paintAct(true); return; }
+        const r = recogShape(P);
+        if (!r) return;
+        a.s = { ...a.s, pts: r.pts }; a.snapped = true; a.shape = r.kind;
+        paintAct(true);
+    }, 520);
+}
+
+/* ---------- 橡皮擦 ---------- */
+function eraseAt(pg, p) {
+    const a = ink.act;
+    const C = ink.cfg.eraser, R = C.r;
+    const items = inkItemMap();
+    let changed = false;
+    const out = [];
+    for (const s of ink.strokes) {
+        if (C.hlOnly && s.k !== 'hl') { out.push(s); continue; }
+        const o = offOf(s, items);
+        if (o.pg !== pg) { out.push(s); continue; }
+        const lx = p[0] - o.dx, ly = p[1] - o.dy, bb = strokeBox(s);
+        if (lx < bb[0] - R || lx > bb[2] + R || ly < bb[1] - R || ly > bb[3] + R) { out.push(s); continue; }
+        const lp = [lx, ly];
+        if (s.k === 'tape') {
+            const hit = segDist(lp, s.pts[0], s.pts[s.pts.length - 1]) <= R + s.w / 2;
+            if (hit) { changed = true; continue; }
+            out.push(s); continue;
+        }
+        const P = s.pts;
+        const hitAt = (i) => dist(lp, P[i]) <= R + ptW(s, P[i][2]) / 2
+            || (i > 0 && segDist(lp, P[i - 1], P[i]) <= R + ptW(s, P[i][2]) / 2);
+        if (C.mode === 'stroke') {
+            let hit = false;
+            for (let i = 0; i < P.length && !hit; i++) hit = hitAt(i);
+            if (hit) { changed = true; continue; }
+            out.push(s); continue;
+        }
+        /* 部分：把擦到的點拿掉，剩下的切成好幾筆。 */
+        let pieces = [], cur = [], cut = false;
+        for (let i = 0; i < P.length; i++) {
+            if (dist(lp, P[i]) <= R + ptW(s, P[i][2]) / 2) { cut = true; if (cur.length) pieces.push(cur); cur = []; }
+            else cur.push(P[i]);
+        }
+        if (cur.length) pieces.push(cur);
+        if (!cut) { out.push(s); continue; }
+        changed = true;
+        for (const pc of pieces) if (pc.length >= 2 || (P.length === 1 && pc.length)) out.push({ ...s, id: inkId(), pts: pc });
+    }
+    if (changed) {
+        ink.strokes = out;
+        if (a) a.changed = true;
+        redrawPage(pg);
+    }
+    return changed;
+}
+
+/* ---------- 膠帶：點一下翻開／蓋回去 ---------- */
+function tapeAt(pg, p) {
+    const items = inkItemMap();
+    for (let i = ink.strokes.length - 1; i >= 0; i--) {
+        const s = ink.strokes[i];
+        if (s.k !== 'tape') continue;
+        const o = offOf(s, items);
+        if (o.pg !== pg) continue;
+        if (segDist([p[0] - o.dx, p[1] - o.dy], s.pts[0], s.pts[s.pts.length - 1]) <= s.w / 2 + 3) return s;
+    }
+    return null;
+}
+/* ★ 翻膠帶不算一次「改動」：不進復原（背書的時候翻來翻去，復原會被洗掉），但會存（下次打開維持翻開的樣子）。 */
+function toggleTapeAt(pg, p) {
+    if (!p) return false;
+    const s = tapeAt(pg, p);
+    if (!s) return false;
+    const ns = { ...s, op: !s.op };
+    ink.strokes = ink.strokes.map(x => x === s ? ns : x);
+    for (const h of ink.hist) if (h.strokes.includes(s)) h.strokes = h.strokes.map(x => x === s ? ns : x);
+    inkScheduleSave();
+    return true;
+}
+function maybeTapTape(e) {
+    if (!ink.strokes.some(s => s.k === 'tape')) return;
+    const x0 = e.clientX, y0 = e.clientY, t0 = performance.now();
+    const up = (ev) => {
+        removeEventListener('pointerup', up, true);
+        if (ev.pointerId !== e.pointerId || performance.now() - t0 > 300 || Math.hypot(ev.clientX - x0, ev.clientY - y0) > 8) return;
+        const sh = sheetAt(ev.clientX, ev.clientY);
+        if (!sh) return;
+        const pg = Number(sh.dataset.page);
+        if (toggleTapeAt(pg, toSheet(ev, sh))) redrawPage(pg);
+    };
+    addEventListener('pointerup', up, true);
+}
+function setAllTapes(open) {
+    if (!ink.strokes.some(s => s.k === 'tape')) return showToast('這本還沒有膠帶');
+    ink.strokes = ink.strokes.map(s => s.k === 'tape' && !!s.op !== open ? { ...s, op: open } : s);
+    inkScheduleSave();
+    inkRedrawAll();
+}
+
+/* ---------- 雷射筆：留一條會淡掉的尾巴，不存 ---------- */
+function laserPush(pg, p) {
+    if (ink.laserPg !== pg) { if (ink.laserPg >= 0) clearLive(ink.laserPg); ink.laser = []; ink.laserPg = pg; }
+    ink.laser.push([p[0], p[1], performance.now()]);
+    if (!ink.laserRaf) ink.laserRaf = requestAnimationFrame(laserTick);
+}
+function laserTick() {
+    ink.laserRaf = 0;
+    const now = performance.now();
+    ink.laser = ink.laser.filter(p => now - p[2] < 700);
+    const c = liveCtx(ink.laserPg);
+    if (!c) return;
+    const L = ink.laser, col = ink.cfg.laser.c;
+    for (let i = 1; i < L.length; i++) {
+        const f = 1 - (now - L[i][2]) / 700;
+        c.globalAlpha = Math.max(0, f);
+        c.strokeStyle = col; c.lineWidth = 2 + 4 * f;
+        c.shadowColor = col; c.shadowBlur = 8;
+        c.beginPath(); c.moveTo(L[i - 1][0], L[i - 1][1]); c.lineTo(L[i][0], L[i][1]); c.stroke();
+    }
+    c.globalAlpha = 1; c.shadowBlur = 0;
+    if (L.length) ink.laserRaf = requestAnimationFrame(laserTick); else clearLive(ink.laserPg);
+}
+
+/* ---------- 懸停預覽 ---------- */
+function drawHover(pg, p) {
+    if (ink.hover !== null && ink.hover !== pg) clearLive(ink.hover);
+    if (ink.act && ink.act.type !== 'erase') return;
+    ink.hover = pg;
+    const c = liveCtx(pg);
+    if (!c) return;
+    const t = ink.tool, C = ink.cfg;
+    if (t === 'eraser') {
+        c.lineWidth = 1.2; c.strokeStyle = 'rgba(30,23,8,.55)'; c.fillStyle = 'rgba(255,255,255,.35)';
+        c.beginPath(); c.arc(p[0], p[1], C.eraser.r, 0, Math.PI * 2); c.fill(); c.stroke();
+    } else if (t === 'pen' || t === 'hl' || t === 'shape' || t === 'tape') {
+        const o = C[t];
+        c.globalAlpha = t === 'hl' ? 0.45 : 0.6;
+        c.fillStyle = o.c;
+        c.beginPath(); c.arc(p[0], p[1], Math.max(1.5, o.w / 2), 0, Math.PI * 2); c.fill();
+        c.globalAlpha = 1;
+    } else if (t === 'laser') {
+        c.fillStyle = C.laser.c; c.beginPath(); c.arc(p[0], p[1], 3, 0, Math.PI * 2); c.fill();
+    }
+}
+function hideHover() { if (ink.hover !== null) { clearLive(ink.hover); ink.hover = null; } }
+
+/* ==========================================================
+   套索
+   ========================================================== */
+function lassoSelect(pg, path) {
+    const items = inkItemMap();
+    const ids = new Set(), tids = new Set();
+    for (const s of ink.strokes) {
+        const o = offOf(s, items);
+        if (o.pg !== pg) continue;
+        const P = s.pts;
+        let inside = 0;
+        for (const p of P) if (pointInPoly(p[0] + o.dx, p[1] + o.dy, path)) inside++;
+        if (inside && inside >= P.length * 0.5) ids.add(s.id);
+    }
+    for (const t of ink.texts) {
+        const a = absText(t, items);
+        if (a.pg !== pg) continue;
+        if (pointInPoly(a.x + Math.min(t.w, 40) / 2, a.y + t.fs * 0.6, path)) tids.add(t.id);
+    }
+    ink.sel = (ids.size || tids.size) ? { pg, ids, tids } : null;
+    syncLassoBar();
+    if (ink.sel) drawSelection(); else clearLive(pg);
+}
+function selBox() {
+    const sel = ink.sel;
+    if (!sel) return null;
+    const items = inkItemMap();
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const s of ink.strokes) if (sel.ids.has(s.id)) {
+        const o = offOf(s, items), bb = strokeBox(s);
+        x0 = Math.min(x0, bb[0] + o.dx); y0 = Math.min(y0, bb[1] + o.dy); x1 = Math.max(x1, bb[2] + o.dx); y1 = Math.max(y1, bb[3] + o.dy);
+    }
+    for (const t of ink.texts) if (sel.tids.has(t.id)) {
+        const a = absText(t, items), h = textH(t);
+        x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y); x1 = Math.max(x1, a.x + t.w); y1 = Math.max(y1, a.y + h);
+    }
+    if (!isFinite(x0)) return null;
+    return [x0 - 6, y0 - 6, x1 + 6, y1 + 6];
+}
+/* 選取框上的把手：右下角＝縮放、上面中間＝旋轉、框裡面＝搬。手指與筆都要點得到，所以判定範圍給大一點。 */
+function selHit(p) {
+    const b = selBox();
+    if (!b) return null;
+    const hz = 14 / Math.max(zoom, 0.5);
+    if (Math.hypot(p[0] - b[2], p[1] - b[3]) <= hz) return 'scale';
+    if (Math.hypot(p[0] - (b[0] + b[2]) / 2, p[1] - (b[1] - 22)) <= hz) return 'rot';
+    if (p[0] >= b[0] && p[0] <= b[2] && p[1] >= b[1] && p[1] <= b[3]) return 'move';
+    return null;
+}
+function drawSelection() {
+    const sel = ink.sel;
+    if (!sel || (ink.act && ink.act.type.startsWith('sel-'))) return;
+    const b = selBox();
+    const c = liveCtx(sel.pg);
+    if (!b || !c) return;
+    drawSelFrame(c, b, 0);
+}
+function drawSelFrame(c, b, rot) {
+    const cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+    c.save();
+    c.translate(cx, cy); c.rotate(rot); c.translate(-cx, -cy);
+    c.setLineDash([5, 4]); c.lineWidth = 1.3; c.strokeStyle = '#8a6605';
+    c.strokeRect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+    c.setLineDash([]);
+    c.beginPath(); c.moveTo(cx, b[1]); c.lineTo(cx, b[1] - 16); c.stroke();
+    c.fillStyle = '#7a5905'; c.strokeStyle = '#fff'; c.lineWidth = 2;
+    for (const [x, y] of [[b[2], b[3]], [cx, b[1] - 22]]) { c.beginPath(); c.arc(x, y, 7, 0, Math.PI * 2); c.fill(); c.stroke(); }
+    c.restore();
+}
+/* 拖動中的變換：搬（tx,ty）、縮放（以左上角為準）、旋轉（以中心為準）。 */
+function selTransform(a) {
+    const b = a.box, cx = (b[0] + b[2]) / 2, cy = (b[1] + b[3]) / 2;
+    if (a.type === 'sel-move') {
+        const tx = a.cur[0] - a.start[0], ty = a.cur[1] - a.start[1];
+        return { k: 1, rot: 0, tx, ty, x: (x) => x + tx, y: (x, y) => y + ty };
+    }
+    if (a.type === 'sel-scale') {
+        const w0 = Math.max(10, b[2] - b[0]), h0 = Math.max(10, b[3] - b[1]);
+        const k = clamp(Math.max((a.cur[0] - b[0]) / w0, (a.cur[1] - b[1]) / h0), 0.2, 6);
+        return { k, rot: 0, x: (x) => b[0] + (x - b[0]) * k, y: (x, y) => b[1] + (y - b[1]) * k };
+    }
+    const a0 = Math.atan2(a.start[1] - cy, a.start[0] - cx), a1 = Math.atan2(a.cur[1] - cy, a.cur[0] - cx);
+    let rot = a1 - a0;
+    const q = Math.round(rot / (Math.PI / 4)) * (Math.PI / 4);
+    if (Math.abs(rot - q) < 0.05) rot = q;             // 45° 的倍數吸一下
+    const co = Math.cos(rot), si = Math.sin(rot);
+    return { k: 1, rot, x: (x, y) => cx + (x - cx) * co - (y - cy) * si, y: (x, y) => cy + (x - cx) * si + (y - cy) * co };
+}
+function drawSelMoving() {
+    const a = ink.act;
+    const c = liveCtx(a.pg);
+    if (!c) return;
+    const T = selTransform(a), items = inkItemMap();
+    for (const s of ink.strokes) if (ink.sel.ids.has(s.id)) {
+        const o = offOf(s, items);
+        if (s.k === 'hl') { c.globalAlpha = 0.45; drawStroke(c, s, o.dx, o.dy, T); c.globalAlpha = 1; }
+        else drawStroke(c, s, o.dx, o.dy, T);
+    }
+    for (const t of ink.texts) if (ink.sel.tids.has(t.id)) {
+        const p = absText(t, items);
+        drawTextGhost(c, { ...t, fs: t.fs * T.k, w: t.w * T.k }, T.x(p.x, p.y), T.y(p.x, p.y));
+    }
+    const b = a.box;
+    const nb = a.type === 'sel-move' ? [b[0] + T.tx, b[1] + T.ty, b[2] + T.tx, b[3] + T.ty]
+             : a.type === 'sel-scale' ? [b[0], b[1], b[0] + (b[2] - b[0]) * T.k, b[1] + (b[3] - b[1]) * T.k] : b;
+    drawSelFrame(c, nb, T.rot);
+    document.querySelectorAll('.sheet.drop').forEach(s => s.classList.remove('drop'));
+    if (a.type === 'sel-move' && a.over && a.over !== a.sheet) a.over.classList.add('drop');
+}
+function commitSelTransform(a, e) {
+    document.querySelectorAll('.sheet.drop').forEach(s => s.classList.remove('drop'));
+    if (e) a.cur = toSheet(e, a.sheet);
+    const T = selTransform(a);
+    if (a.type === 'sel-move' && Math.hypot(T.tx, T.ty) < 0.5) { ink.hist.pop(); syncUndo(); redrawPage(a.pg); drawSelection(); return; }
+    /* 搬到別張紙：放開的地方在哪一張就搬過去（座標換算照拖題目那一段）。 */
+    let pg = a.pg, ex = 0, ey = 0;
+    const over = e && a.type === 'sel-move' ? sheetAt(e.clientX, e.clientY) : null;
+    if (over && over !== a.sheet) {
+        const r0 = a.sheet.getBoundingClientRect(), r1 = over.getBoundingClientRect();
+        pg = Number(over.dataset.page);
+        ex = (r0.left - r1.left) / zoom; ey = (r0.top - r1.top) / zoom;
+    }
+    const items = inkItemMap(), sel = ink.sel;
+    ink.strokes = ink.strokes.map(s => {
+        if (!sel.ids.has(s.id)) return s;
+        const P = absPts(s, items).map(p => [T.x(p[0], p[1]) + ex, T.y(p[0], p[1]) + ey, p[2]]);
+        return anchorStroke({ ...s, w: clamp(s.w * T.k, 0.3, 60) }, pg, P);
+    });
+    ink.texts = ink.texts.map(t => {
+        if (!sel.tids.has(t.id)) return t;
+        const p = absText(t, items);
+        return anchorText({ ...t, fs: clamp(t.fs * T.k, 8, 60), w: clamp(t.w * T.k, 30, PAGE_W) }, pg, T.x(p.x, p.y) + ex, T.y(p.x, p.y) + ey);
+    });
+    const old = sel.pg;
+    sel.pg = pg;
+    inkChanged([old, pg]);
+}
+function selDelete() {
+    const sel = ink.sel;
+    if (!sel) return;
+    pushHist();
+    ink.strokes = ink.strokes.filter(s => !sel.ids.has(s.id));
+    ink.texts = ink.texts.filter(t => !sel.tids.has(t.id));
+    ink.sel = null;
+    clearLive(sel.pg);
+    syncLassoBar();
+    inkChanged([sel.pg]);
+}
+function selCopy() {
+    const sel = ink.sel;
+    if (!sel) return false;
+    const items = inkItemMap();
+    ink.clip = {
+        pg: sel.pg,
+        strokes: ink.strokes.filter(s => sel.ids.has(s.id)).map(s => ({ ...s, pts: absPts(s, items) })),
+        texts: ink.texts.filter(t => sel.tids.has(t.id)).map(t => { const p = absText(t, items); return { ...t, x: p.x, y: p.y }; })
+    };
+    syncLassoBar();
+    return true;
+}
+function selPaste(offset) {
+    const c = ink.clip;
+    if (!c || inkBlocked()) return;
+    const pg = offset ? (ink.sel ? ink.sel.pg : c.pg) : centerPage();
+    const d = pg === c.pg ? 16 : 0;
+    pushHist();
+    const ids = new Set(), tids = new Set();
+    const ns = c.strokes.map(s => { const id = inkId(); ids.add(id); return anchorStroke({ ...s, id }, pg, s.pts.map(p => [p[0] + d, p[1] + d, p[2]])); });
+    const nt = c.texts.map(t => { const id = inkId(); tids.add(id); return anchorText({ ...t, id }, pg, t.x + d, t.y + d); });
+    ink.strokes = ink.strokes.concat(ns);
+    ink.texts = ink.texts.concat(nt);
+    /* 貼上去的那一份馬上選起來：GoodNotes 也是這樣，貼完直接拖到要的位置。 */
+    if (ink.tool !== 'lasso') setTool('lasso');
+    ink.sel = { pg, ids, tids };
+    ink.clip = { ...c, strokes: c.strokes.map(s => ({ ...s, pts: s.pts.map(p => [p[0] + d, p[1] + d, p[2]]) })),
+                 texts: c.texts.map(t => ({ ...t, x: t.x + d, y: t.y + d })), pg };
+    syncLassoBar();
+    inkChanged([pg]);
+}
+function selRecolor(col) {
+    const sel = ink.sel;
+    if (!sel || !isHex(col)) return;
+    pushHist();
+    ink.strokes = ink.strokes.map(s => sel.ids.has(s.id) && s.k !== 'tape' ? { ...s, c: col } : s);
+    ink.texts = ink.texts.map(t => sel.tids.has(t.id) ? { ...t, c: col } : t);
+    inkChanged([sel.pg]);
+}
+
+/* ==========================================================
+   文字框
+   ========================================================== */
+function textH(t) {
+    const el = [...$('sheets').querySelectorAll('.ink-t')].find(x => x.dataset.id === t.id);
+    if (el && el.offsetHeight) return el.offsetHeight;
+    return Math.max(1, String(t.t).split('\n').length) * t.fs * 1.35;
+}
+function textAt(pg, p) {
+    const items = inkItemMap();
+    for (let i = ink.texts.length - 1; i >= 0; i--) {
+        const t = ink.texts[i], a = absText(t, items);
+        if (a.pg === pg && p[0] >= a.x - 4 && p[0] <= a.x + t.w + 4 && p[1] >= a.y - 4 && p[1] <= a.y + textH(t) + 4) return t;
+    }
+    return null;
+}
+function drawTextGhost(c, t, x, y) {
+    c.save();
+    c.fillStyle = t.c; c.globalAlpha = 0.85;
+    c.font = `${t.fs}px system-ui,-apple-system,"Noto Sans TC","PingFang TC",sans-serif`;
+    c.textBaseline = 'top';
+    wrapLines(c, t.t, t.w).forEach((ln, i) => c.fillText(ln, x, y + i * t.fs * 1.35 + t.fs * 0.15));
+    c.restore();
+}
+/* 照寬度換行（中文一個字一個字斷、英文盡量整個字斷）。畫在畫布上的文字（拖動中、匯出保險版）用這個。 */
+function wrapLines(c, text, w) {
+    const out = [];
+    for (const para of String(text).split('\n')) {
+        let line = '';
+        const tokens = para.match(/[A-Za-z0-9_.,;:!?'"()\-]+\s*|\s+|./gu) || [''];
+        for (const tk of tokens) {
+            if (c.measureText(line + tk).width <= w || !line) { line += tk; continue; }
+            out.push(line.trimEnd()); line = tk.trimStart();
+        }
+        out.push(line);
+    }
+    return out;
+}
+function startTextEdit(t, pg, at) {
+    endTextEdit(true);
+    const items = inkItemMap();
+    let x, y, w, fs, col, id, isNew = !t;
+    if (t) { const a = absText(t, items); pg = a.pg; x = a.x; y = a.y; w = t.w; fs = t.fs; col = t.c; id = t.id; }
+    else {
+        fs = ink.cfg.text.fs; col = ink.cfg.text.c; id = inkId();
+        x = clamp(at[0], 4, PAGE_W - 60); y = clamp(at[1] - fs * 0.7, 2, PAGE_H - fs * 2);
+        w = Math.min(320, PAGE_W - x - 10);
+    }
+    const sh = sheetEl(pg);
+    if (!sh) return;
+    const ta = document.createElement('textarea');
+    ta.className = 'ink-edit';
+    ta.value = t ? t.t : '';
+    ta.maxLength = INK_TEXT_MAX;
+    ta.setAttribute('aria-label', '文字框');
+    Object.assign(ta.style, { left: x + 'px', top: y + 'px', width: w + 'px', fontSize: fs + 'px', color: col });
+    inkLayer(sh).appendChild(ta);
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(fs * 1.4, ta.scrollHeight) + 'px'; };
+    ta.addEventListener('input', grow);
+    ta.addEventListener('keydown', (ev) => { if (ev.key === 'Escape') { ev.preventDefault(); endTextEdit(true); } ev.stopPropagation(); });
+    ta.addEventListener('blur', () => setTimeout(() => { if (ink.act && ink.act.ta === ta) endTextEdit(true); }, 0));
+    ink.act = { type: 'text', id, ta, pg, x, y, w, fs, c: col, isNew, orig: t };
+    redrawPage(pg);
+    grow();
+    ta.focus({ preventScroll: true });
+}
+function endTextEdit(commit) {
+    const a = ink.act;
+    if (!a || a.type !== 'text') return;
+    ink.act = null;
+    const val = a.ta.value.replace(/\s+$/, '');
+    a.ta.remove();
+    if (commit) {
+        if (a.isNew && val) {
+            pushHist();
+            ink.texts = ink.texts.concat([anchorText({ id: a.id, w: a.w, fs: a.fs, c: a.c, t: val }, a.pg, a.x, a.y)]);
+            inkChanged([a.pg]);
+        } else if (!a.isNew && val !== a.orig.t) {
+            pushHist();
+            ink.texts = val ? ink.texts.map(t => t.id === a.id ? { ...t, t: val } : t) : ink.texts.filter(t => t.id !== a.id);
+            inkChanged([a.pg]);
+        }
+    }
+    redrawPage(a.pg);
+}
+
+/* ==========================================================
+   縮放：雙指捏（iPad 的 gesture 事件、或「手指能寫」時自己算）、觸控板 ctrl＋滾輪、工具列按鈕
+   ========================================================== */
+function applyZoom(z, cx, cy) {
+    const box = $('sheets'), r = box.getBoundingClientRect();
+    const ax = (cx ?? r.left + r.width / 2) - r.left, ay = (cy ?? r.top + r.height / 2) - r.top;
+    const old = zoom;
+    ink.userZoom = clamp(z, ZOOM_MIN, ZOOM_MAX);
+    const nz = clamp(ink.fitZoom * ink.userZoom, 0.15, 6);
+    if (Math.abs(nz - old) < 1e-4) return;
+    const px = box.scrollLeft + ax, py = box.scrollTop + ay;
+    zoom = nz;
+    const b = curBook();
+    if (b) placeSheets(b, true);
+    const k = zoom / old;
+    box.scrollLeft = px * k - ax;
+    box.scrollTop = py * k - ay;
+    syncZoomLbl();
+    inkRescaleSoon();
+}
+function syncZoomLbl() { const z = $('zoomLbl'); if (z) z.textContent = Math.round(ink.userZoom * 100) + '%'; }
+function startGesture() {
+    const v = [...ink.touches.values()];
+    if (v.length < 2) return;
+    const box = $('sheets');
+    ink.gest = { d0: Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y) || 1, z0: ink.userZoom,
+                 mx: (v[0].x + v[1].x) / 2, my: (v[0].y + v[1].y) / 2, sl: box.scrollLeft, st: box.scrollTop };
+}
+function moveGesture() {
+    const g = ink.gest, v = [...ink.touches.values()].filter(t => !t.up);
+    if (!g || v.length < 2) return;
+    const d = Math.hypot(v[0].x - v[1].x, v[0].y - v[1].y), mx = (v[0].x + v[1].x) / 2, my = (v[0].y + v[1].y) / 2;
+    const box = $('sheets');
+    box.scrollLeft = g.sl - (mx - g.mx); box.scrollTop = g.st - (my - g.my);
+    if (Math.abs(d / g.d0 - 1) > 0.04) applyZoom(g.z0 * d / g.d0, mx, my);
+}
+function endGesture() { ink.gest = null; inkRescaleSoon(); }
+
+/* ==========================================================
+   工具列
+   ========================================================== */
+const ICON = {
+    hand: '<path d="M18 11V6a2 2 0 0 0-4 0v5M14 10V4a2 2 0 0 0-4 0v6M10 10.5V6a2 2 0 0 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.9-5.9-2.4L3.4 16a2 2 0 0 1 3-2.6L8 15"/>',
+    pen: '<path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 1 1 3 3L7 19l-4 1 1-4Z"/>',
+    hl: '<path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/>',
+    eraser: '<path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/>',
+    lasso: '<path d="M7 22a5 5 0 0 1-2-4"/><path d="M3.3 14A6.8 6.8 0 0 1 2 10c0-4.4 4.5-8 10-8s10 3.6 10 8-4.5 8-10 8a12 12 0 0 1-5-1"/><circle cx="5" cy="16" r="2"/>',
+    shape: '<path d="M8.3 10a.7.7 0 0 1-.6-1.1L11.4 3a.7.7 0 0 1 1.2 0l3.7 5.9a.7.7 0 0 1-.6 1.1Z"/><rect x="3" y="14" width="7" height="7" rx="1"/><circle cx="17.5" cy="17.5" r="3.5"/>',
+    text: '<path d="M4 7V4h16v3"/><path d="M9 20h6"/><path d="M12 4v16"/>',
+    tape: '<path d="M3.5 15.5 15.5 3.5l5 5-12 12z"/><path d="M7 12l5 5M11 8l5 5" opacity=".5"/>',
+    laser: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2"/>',
+    undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/>',
+    redo: '<path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/>',
+    gear: '<path d="M20 7h-9M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/>'
+};
+const svg = (k) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[k]}</svg>`;
+function buildInkBar() {
+    const bar = $('inkBar');
+    bar.innerHTML = INK_TOOLS.map(t => `<button class="tool" data-tool="${t}" title="${escapeHTML(TOOL_NAMES[t])}" aria-label="${escapeHTML(TOOL_NAMES[t])}" aria-pressed="false">${svg(t)}<span class="tdot"></span></button>`).join('')
+        + '<span class="tsep"></span><div id="inkOpts"></div><span class="tsep"></span>'
+        + `<button class="tool" id="btnUndo" title="復原（兩指點一下）" aria-label="復原">${svg('undo')}</button>`
+        + `<button class="tool" id="btnRedo" title="重做（三指點一下）" aria-label="重做">${svg('redo')}</button>`
+        + '<span class="tsep"></span>'
+        + '<button class="tool" id="btnZoomOut" title="縮小" aria-label="縮小">−</button>'
+        + '<button id="zoomLbl" title="回到剛好一頁寬">100%</button>'
+        + '<button class="tool" id="btnZoomIn" title="放大" aria-label="放大">＋</button>'
+        + `<button class="tool" id="btnInkSet" title="手寫設定" aria-label="手寫設定">${svg('gear')}</button>`
+        + '<button class="btn tiny hidden" id="btnInkRetry">重讀筆跡</button>'
+        + '<span id="inkState"></span>';
+}
+function setTool(t) {
+    if (!INK_TOOLS.includes(t)) return;
+    endTextEdit(true);
+    if (ink.act) cancelAct();
+    if (t !== ink.tool) {
+        if (ink.tool !== 'eraser' && ink.tool !== 'hand' && ink.tool !== 'lasso') ink.prevTool = ink.tool;
+        if (ink.tool === 'lasso' && ink.sel) { const pg = ink.sel.pg; ink.sel = null; clearLive(pg); }
+        ink.tool = t;
+    }
+    hideHover();
+    if (t !== 'hand' && selKey) selectItem(null);
+    inkSaveCfg();
+    syncInkBar();
+    syncTouchMode();
+    syncLassoBar();
+}
+function syncInkBar() {
+    const bar = $('inkBar');
+    if (!bar || !ink.cfg) return;
+    const C = ink.cfg, t = ink.tool;
+    bar.querySelectorAll('[data-tool]').forEach(b => {
+        const on = b.dataset.tool === t;
+        b.classList.toggle('on', on);
+        b.setAttribute('aria-pressed', String(on));
+        const dot = b.querySelector('.tdot'), o = C[b.dataset.tool];
+        dot.style.background = o && o.c ? o.c : 'transparent';
+    });
+    const opts = $('inkOpts');
+    let h = '';
+    const favs = (tool) => C[tool].fav.map((c, i) => `<button class="cdot${c === C[tool].c ? ' on' : ''}" data-fav="${i}" title="顏色（再點一次換顏色）" aria-label="顏色 ${i + 1}"><i style="background:${c}"></i></button>`).join('');
+    const ws = (tool, key = 'ws', cur = 'w') => C[tool][key].map((w, i) => `<button class="wdot${Math.abs(w - C[tool][cur]) < 0.01 ? ' on' : ''}" data-w="${i}" title="粗細（再點一次調整）" aria-label="粗細 ${i + 1}"><i style="width:${Math.min(18, 6 + w * (tool === 'hl' || tool === 'tape' ? 0.5 : 2.4))}px;height:${clamp(w * (tool === 'hl' || tool === 'tape' ? 0.35 : 1), 1.5, 9)}px"></i></button>`).join('');
+    if (t === 'pen' || t === 'shape' || t === 'hl' || t === 'tape') h = favs(t) + '<span class="tsep"></span>' + ws(t);
+    else if (t === 'text') h = favs(t) + '<span class="tsep"></span>' + C.text.fss.map((f, i) => `<button class="wdot${f === C.text.fs ? ' on' : ''}" data-fs="${i}" title="字的大小" style="font-size:${9 + i * 3}px;font-weight:800">A</button>`).join('');
+    else if (t === 'eraser') h = C.eraser.rs.map((r, i) => `<button class="wdot${r === C.eraser.r ? ' on' : ''}" data-er="${i}" title="橡皮擦大小" aria-label="橡皮擦大小 ${i + 1}"><i style="width:${6 + i * 5}px;height:${6 + i * 5}px;background:transparent;border:1.5px solid var(--ink-2)"></i></button>`).join('')
+        + `<span class="tsep"></span><div class="seg"><button data-em="stroke" class="${escapeHTML(C.eraser.mode === 'stroke' ? 'on' : '')}">整筆</button><button data-em="part" class="${escapeHTML(C.eraser.mode === 'part' ? 'on' : '')}">部分</button></div>`;
+    else if (t === 'lasso') h = `<span class="ink-tip">圈起來可以搬、縮放、轉、改顏色</span>${ink.clip ? '<button class="btn tiny" data-act="paste">貼上</button>' : ''}`;
+    else if (t === 'laser') h = ['#ff3b30', '#34c759', '#0a84ff'].map(c => `<button class="cdot${c === C.laser.c ? ' on' : ''}" data-laser="${c}" aria-label="雷射顏色"><i style="background:${c}"></i></button>`).join('');
+    else h = '<span class="ink-tip">拖題目、調作答空間；要寫字請選左邊的筆</span>';
+    if (t === 'tape') h += '<span class="tsep"></span><button class="btn tiny" data-act="tape-open">全部翻開</button><button class="btn tiny" data-act="tape-close">全部蓋上</button>';
+    opts.innerHTML = h;
+    syncUndo();
+    syncZoomLbl();
+    const st = $('inkState');
+    st.textContent = ink.loading ? '筆跡讀取中…' : ink.loadErr ? '筆跡讀不到' : '';
+    $('btnInkRetry').classList.toggle('hidden', !ink.loadErr);
+}
+function syncLassoBar() {
+    const lb = $('lassoBar');
+    if (!lb) return;
+    const on = !!ink.sel && ink.tool === 'lasso';
+    lb.classList.toggle('hidden', !on);
+    if (on) {
+        const n = ink.sel.ids.size + ink.sel.tids.size;
+        $('lassoN').textContent = `選了 ${n} 個`;
+        $('lassoCol').innerHTML = PAL_INK.slice(0, 8).map(c => `<button class="cdot" data-recolor="${c}" aria-label="換成這個顏色"><i style="background:${c}"></i></button>`).join('');
+    }
+    if (ink.tool === 'lasso') syncInkBar();
+}
+/* 工具的細項（點一下已經選中的工具、或再點一下顏色／粗細）。 */
+function openPop(anchor, kind, extra) {
+    const pop = $('inkPop'), C = ink.cfg, t = ink.tool;
+    let h = '';
+    const pal = (list, cur, attr) => `<div class="pal">${list.map(c => `<button data-${attr}="${c}" class="${c === cur ? 'on' : ''}" style="background:${c}" aria-label="${c}"></button>`).join('')}</div>`;
+    if (kind === 'color') {
+        const o = C[t];
+        h = `<div class="pop-row"><b>顏色</b>${pal(t === 'hl' ? PAL_HL : t === 'tape' ? PAL_TAPE : PAL_INK, o.c, 'pc')}</div>
+             <div class="pop-row"><b>自己調</b><input type="color" id="popColor" value="${escapeHTML(o.c)}"></div>`;
+        pop.dataset.slot = extra;
+    } else if (kind === 'tool' && (t === 'pen' || t === 'shape' || t === 'hl' || t === 'tape')) {
+        const o = C[t], max = t === 'hl' || t === 'tape' ? 40 : 10;
+        if (t === 'pen') h += `<div class="pop-row"><b>筆</b><div class="seg" style="flex:1">${[['fountain', '鋼筆'], ['ball', '原子筆'], ['brush', '毛筆']].map(([k, n]) => `<button data-pentype="${k}" class="${escapeHTML(o.type === k ? 'on' : '')}">${n}</button>`).join('')}</div></div>`;
+        h += `<div class="pop-row"><b>粗細</b><input type="range" id="popW" min="${t === 'hl' || t === 'tape' ? 4 : 0.4}" max="${max}" step="0.1" value="${escapeHTML(o.w)}"><span id="popWv" style="min-width:2.6em;font-size:12.5px;font-weight:800">${o.w.toFixed(1)}</span></div>`;
+        if (t === 'hl') h += `<div class="pop-row"><label class="chk"><input type="checkbox" id="popStraight"${o.straight ? ' checked' : ''}> 只畫直線</label></div>`;
+        if (t === 'shape') h += '<div class="pop-row"><span class="ink-tip">畫一個大概的圓、方、三角、直線，放開就變工整</span></div>';
+        if (t === 'tape') h += '<div class="pop-row"><span class="ink-tip">拉一條膠帶蓋住答案；點一下翻開、再點一下蓋回去。匯出到 GoodNotes 時膠帶不會帶過去</span></div>';
+        h += `<div class="pop-row"><b>顏色</b>${pal(t === 'hl' ? PAL_HL : t === 'tape' ? PAL_TAPE : PAL_INK, o.c, 'pc')}</div>`;
+        pop.dataset.slot = String(Math.max(0, o.fav.indexOf(o.c)));
+    } else if (kind === 'tool' && t === 'eraser') {
+        const o = C.eraser;
+        h = `<div class="pop-row"><b>擦法</b><div class="seg" style="flex:1"><button data-em="stroke" class="${escapeHTML(o.mode === 'stroke' ? 'on' : '')}">碰到就整筆</button><button data-em="part" class="${escapeHTML(o.mode === 'part' ? 'on' : '')}">只擦碰到的地方</button></div></div>
+             <div class="pop-row"><label class="chk"><input type="checkbox" id="popHlOnly"${o.hlOnly ? ' checked' : ''}> 只擦螢光筆</label></div>
+             <div class="pop-row"><label class="chk"><input type="checkbox" id="popBack"${o.back ? ' checked' : ''}> 擦完自動換回筆</label></div>`;
+    } else if (kind === 'tool' && t === 'text') {
+        h = `<div class="pop-row"><b>大小</b><input type="range" id="popFs" min="8" max="48" step="1" value="${escapeHTML(C.text.fs)}"><span id="popFsv" style="min-width:2.6em;font-size:12.5px;font-weight:800">${C.text.fs}</span></div>
+             <div class="pop-row"><b>顏色</b>${pal(PAL_INK, C.text.c, 'pc')}</div>
+             <div class="pop-row"><span class="ink-tip">點紙上空白的地方新增；點已經有的文字框改字、按住拖可以搬</span></div>`;
+        pop.dataset.slot = String(Math.max(0, C.text.fav.indexOf(C.text.c)));
+    } else if (kind === 'set') {
+        h = `<div class="pop-row"><b>手指</b><div class="seg" style="flex:1">${[['auto', '自動'], ['draw', '也能寫'], ['scroll', '只捲動']].map(([k, n]) => `<button data-finger="${k}" class="${escapeHTML(C.finger === k ? 'on' : '')}">${n}</button>`).join('')}</div></div>
+             <div class="pop-row"><span class="ink-tip">「自動」：用過 Apple Pencil 之後，手指只負責捲動與縮放（手掌壓在螢幕上不會畫出線）。${ink.penSeen ? '這台已經用過筆了。' : '這台還沒用過筆，手指現在可以寫。'}</span></div>
+             <div class="pop-row"><b>筆跡平滑</b><input type="range" id="popSmooth" min="0" max="1" step="0.05" value="${escapeHTML(C.smooth)}"></div>
+             <div class="pop-row"><label class="chk"><input type="checkbox" id="popHold"${C.holdShape ? ' checked' : ''}> 畫完停住半秒變成形狀</label></div>
+             <div class="pop-row"><span class="ink-tip">兩指點一下＝復原、三指點一下＝重做；兩指捏可以縮放</span></div>`;
+    } else return;
+    pop.innerHTML = h;
+    pop.dataset.kind = kind;
+    pop.classList.remove('hidden');
+    const r = anchor.getBoundingClientRect(), pw = pop.offsetWidth;
+    pop.style.left = clamp(r.left + r.width / 2 - pw / 2, 8, innerWidth - pw - 8) + 'px';
+    pop.style.top = (r.bottom + 6) + 'px';
+}
+function closePop() { $('inkPop').classList.add('hidden'); }
+function setColor(col, slot) {
+    const t = ink.tool, o = ink.cfg[t];
+    if (!o || !isHex(col)) return;
+    o.c = col;
+    if (o.fav && Number.isFinite(Number(slot))) o.fav[clamp(Number(slot) | 0, 0, 2)] = col;
+    inkSaveCfg(); syncInkBar();
+}
+function wireInkUI() {
+    const bar = $('inkBar');
+    bar.addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        const C = ink.cfg, t = ink.tool;
+        if (b.dataset.tool) {
+            if (b.dataset.tool === t && ['pen', 'hl', 'shape', 'tape', 'eraser', 'text'].includes(t)) {
+                if ($('inkPop').classList.contains('hidden')) openPop(b, 'tool'); else closePop();
+            } else { closePop(); setTool(b.dataset.tool); }
+            return;
+        }
+        if (b.dataset.fav !== undefined) {
+            const col = C[t].fav[Number(b.dataset.fav)];
+            if (col === C[t].c) openPop(b, 'color', b.dataset.fav); else { closePop(); C[t].c = col; inkSaveCfg(); syncInkBar(); }
+            return;
+        }
+        if (b.dataset.w !== undefined) {
+            const w = C[t].ws[Number(b.dataset.w)];
+            if (Math.abs(w - C[t].w) < 0.01) openPop(b, 'tool'); else { closePop(); C[t].w = w; inkSaveCfg(); syncInkBar(); }
+            return;
+        }
+        if (b.dataset.fs !== undefined) { C.text.fs = C.text.fss[Number(b.dataset.fs)]; inkSaveCfg(); syncInkBar(); return; }
+        if (b.dataset.er !== undefined) { C.eraser.r = C.eraser.rs[Number(b.dataset.er)]; inkSaveCfg(); syncInkBar(); return; }
+        if (b.dataset.em) { C.eraser.mode = b.dataset.em; inkSaveCfg(); syncInkBar(); return; }
+        if (b.dataset.laser) { C.laser.c = b.dataset.laser; inkSaveCfg(); syncInkBar(); return; }
+        if (b.dataset.act === 'paste') return selPaste(false);
+        if (b.dataset.act === 'tape-open') return setAllTapes(true);
+        if (b.dataset.act === 'tape-close') return setAllTapes(false);
+        if (b.id === 'btnUndo') return inkUndo();
+        if (b.id === 'btnRedo') return inkRedo();
+        if (b.id === 'btnZoomIn') return applyZoom(ink.userZoom * 1.25);
+        if (b.id === 'btnZoomOut') return applyZoom(ink.userZoom / 1.25);
+        if (b.id === 'zoomLbl') return applyZoom(1);
+        if (b.id === 'btnInkSet') { if ($('inkPop').classList.contains('hidden') || $('inkPop').dataset.kind !== 'set') openPop(b, 'set'); else closePop(); return; }
+        if (b.id === 'btnInkRetry') { const cb = curBook(); if (cb) { ink.ready.delete(cb.id); inkLoad(cb); } }
+    });
+    const pop = $('inkPop');
+    pop.addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        const C = ink.cfg;
+        if (b.dataset.pc) { setColor(b.dataset.pc, pop.dataset.slot); pop.querySelectorAll('[data-pc]').forEach(x => x.classList.toggle('on', x === b)); return; }
+        if (b.dataset.pentype) { C.pen.type = b.dataset.pentype; pop.querySelectorAll('[data-pentype]').forEach(x => x.classList.toggle('on', x === b)); inkSaveCfg(); return; }
+        if (b.dataset.em) { C.eraser.mode = b.dataset.em; pop.querySelectorAll('[data-em]').forEach(x => x.classList.toggle('on', x === b)); inkSaveCfg(); syncInkBar(); return; }
+        if (b.dataset.finger) { C.finger = b.dataset.finger; pop.querySelectorAll('[data-finger]').forEach(x => x.classList.toggle('on', x === b)); inkSaveCfg(); syncTouchMode(); return; }
+    });
+    pop.addEventListener('input', (e) => {
+        const C = ink.cfg, t = ink.tool, el = e.target;
+        if (el.id === 'popW') { C[t].w = Number(el.value); $('popWv').textContent = C[t].w.toFixed(1); inkSaveCfg(); syncInkBar(); }
+        else if (el.id === 'popFs') { C.text.fs = Number(el.value); $('popFsv').textContent = el.value; inkSaveCfg(); syncInkBar(); }
+        else if (el.id === 'popColor') setColor(el.value, pop.dataset.slot);
+        else if (el.id === 'popSmooth') { C.smooth = Number(el.value); inkSaveCfg(); }
+    });
+    pop.addEventListener('change', (e) => {
+        const C = ink.cfg, el = e.target;
+        if (el.id === 'popStraight') C.hl.straight = el.checked;
+        else if (el.id === 'popHlOnly') C.eraser.hlOnly = el.checked;
+        else if (el.id === 'popBack') C.eraser.back = el.checked;
+        else if (el.id === 'popHold') C.holdShape = el.checked;
+        inkSaveCfg();
+    });
+    addEventListener('pointerdown', (e) => {
+        if (!$('inkPop').classList.contains('hidden') && !e.target.closest('#inkPop') && !e.target.closest('#inkBar')) closePop();
+    }, true);
+    $('lassoBar').addEventListener('click', (e) => {
+        const b = e.target.closest('button');
+        if (!b) return;
+        if (b.dataset.recolor) return selRecolor(b.dataset.recolor);
+        const act = b.dataset.l;
+        if (act === 'copy') { if (selCopy()) showToast('複製起來了，按「貼上」放到想要的那一頁'); }
+        else if (act === 'cut') { if (selCopy()) selDelete(); }
+        else if (act === 'dup') { if (selCopy()) selPaste(true); }
+        else if (act === 'paste') selPaste(false);
+        else if (act === 'del') selDelete();
+        else if (act === 'done') { const pg = ink.sel && ink.sel.pg; ink.sel = null; if (pg != null) clearLive(pg); syncLassoBar(); }
+    });
+    const sh = $('sheets');
+    sh.addEventListener('pointerdown', inkPointerDown, true);
+    sh.addEventListener('pointermove', inkPointerMove);
+    sh.addEventListener('pointerup', inkPointerUp);
+    sh.addEventListener('pointercancel', inkPointerUp);
+    sh.addEventListener('pointerleave', (e) => { if (!ink.act && (e.pointerType === 'pen' || e.pointerType === 'mouse')) hideHover(); });
+    /* ★ Apple Pencil 在 iPad 上預設會捲動頁面：筆的觸控事件一律擋掉（手指的不擋，原生捲動有慣性）。
+         排題目的時候也擋——筆拖題目時不該順便捲頁。 */
+    const stylusBlock = (e) => { for (const t of e.changedTouches) if (t.touchType === 'stylus') { e.preventDefault(); return; } };
+    sh.addEventListener('touchstart', stylusBlock, { passive: false });
+    sh.addEventListener('touchmove', stylusBlock, { passive: false });
+    /* iPad 的捏合（Safari 自己的 gesture 事件）：不讓它把整頁放大，換成放大紙。 */
+    /* ★ 手指能寫的時候捏合是自己算的（startGesture），這裡不接，不然同一個捏合會放大兩次。 */
+    const fingerMode = () => sh.classList.contains('finger-draw');
+    sh.addEventListener('gesturestart', (e) => { e.preventDefault(); if (!fingerMode()) ink.gz = { z0: ink.userZoom, x: e.clientX, y: e.clientY }; });
+    sh.addEventListener('gesturechange', (e) => { e.preventDefault(); if (ink.gz && !ink.gest) applyZoom(ink.gz.z0 * e.scale, ink.gz.x, ink.gz.y); });
+    sh.addEventListener('gestureend', (e) => { e.preventDefault(); ink.gz = null; inkRescaleSoon(); });
+    sh.addEventListener('wheel', (e) => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        applyZoom(ink.userZoom * Math.exp(-e.deltaY * 0.01), e.clientX, e.clientY);
+    }, { passive: false });
+    addEventListener('keydown', (e) => {
+        if (!curBook() || e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+        const mod = e.metaKey || e.ctrlKey, k = e.key.toLowerCase();
+        if (mod && k === 'z') { e.preventDefault(); if (e.shiftKey) inkRedo(); else inkUndo(); }
+        else if (mod && k === 'y') { e.preventDefault(); inkRedo(); }
+        else if (ink.sel && mod && k === 'c') { e.preventDefault(); selCopy(); }
+        else if (ink.sel && mod && k === 'x') { e.preventDefault(); if (selCopy()) selDelete(); }
+        else if (ink.sel && mod && k === 'd') { e.preventDefault(); if (selCopy()) selPaste(true); }
+        else if (ink.clip && mod && k === 'v') { e.preventDefault(); selPaste(false); }
+        else if (ink.sel && (e.key === 'Delete' || e.key === 'Backspace')) { e.preventDefault(); selDelete(); }
+        else if (e.key === 'Escape' && ink.sel) { const pg = ink.sel.pg; ink.sel = null; clearLive(pg); syncLassoBar(); }
+    });
+}
 
 /* ==========================================================
    匯出到 GoodNotes
@@ -1526,11 +3571,63 @@ function busy(on, text, sub) {
     if (text) $('busyText').textContent = text;
     $('busySub').textContent = sub || '';
 }
+/* 筆跡 → 匯出用的樣子（單位 pt；顏色 0–1）。
+   ★ GoodNotes 的筆（flat）整條只有一個粗細：鋼筆、毛筆的筆壓取中位數（gnnote 也是這樣做）。
+   ★ 膠帶不帶：GoodNotes 的膠帶怎麼存還沒人拆過，寫錯一欄整本打不開，不賭。 */
+const hexRgb = (h) => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255);
+function inkExportPages(n) {
+    const items = inkItemMap();
+    const pages = Array.from({ length: n }, () => ({ strokes: [], texts: [] }));
+    let tapes = 0;
+    for (const s of ink.strokes) {
+        const o = offOf(s, items);
+        if (o.pg >= n) continue;
+        if (s.k === 'tape') { tapes++; continue; }
+        const ws = s.pts.map(p => ptW(s, p[2])).sort((a, b) => a - b);
+        pages[o.pg].strokes.push({
+            points: s.pts.map(p => [(p[0] + o.dx) * PT_PER_PX, (p[1] + o.dy) * PT_PER_PX]),
+            width: ws[ws.length >> 1] * PT_PER_PX, color: [...hexRgb(s.c), 1], highlighter: s.k === 'hl' });
+    }
+    for (const t of ink.texts) {
+        const a = absText(t, items);
+        if (a.pg >= n || !String(t.t).trim()) continue;
+        pages[a.pg].texts.push({ x: a.x * PT_PER_PX, y: a.y * PT_PER_PX, w: t.w * PT_PER_PX, h: textH(t) * PT_PER_PX,
+                                 text: t.t, size: t.fs * PT_PER_PX, color: [...hexRgb(t.c), 1] });
+    }
+    return { pages, tapes };
+}
+/* 保險版：一頁的筆跡畫成一張透明背景的 PNG（裁到有字的範圍），當成一張圖放進去。
+   GoodNotes 裡可以整塊搬、縮放，但不能擦、不能改顏色。 */
+async function inkPagePng(pg, R) {
+    const items = inkItemMap();
+    const here = ink.strokes.filter(s => s.k !== 'tape' && offOf(s, items).pg === pg);
+    const texts = ink.texts.filter(t => absText(t, items).pg === pg && String(t.t).trim());
+    if (!here.length && !texts.length) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const s of here) { const o = offOf(s, items), bb = strokeBox(s); x0 = Math.min(x0, bb[0] + o.dx); y0 = Math.min(y0, bb[1] + o.dy); x1 = Math.max(x1, bb[2] + o.dx); y1 = Math.max(y1, bb[3] + o.dy); }
+    for (const t of texts) { const a = absText(t, items); x0 = Math.min(x0, a.x); y0 = Math.min(y0, a.y); x1 = Math.max(x1, a.x + t.w); y1 = Math.max(y1, a.y + textH(t)); }
+    x0 = clamp(Math.floor(x0 - 2), 0, PAGE_W); y0 = clamp(Math.floor(y0 - 2), 0, PAGE_H);
+    x1 = clamp(Math.ceil(x1 + 2), x0 + 1, PAGE_W); y1 = clamp(Math.ceil(y1 + 2), y0 + 1, PAGE_H);
+    const w = x1 - x0, h = y1 - y0;
+    const mk = () => { const c = document.createElement('canvas'); c.width = Math.ceil(w * R); c.height = Math.ceil(h * R);
+                       const x = c.getContext('2d'); x.setTransform(R, 0, 0, R, -x0 * R, -y0 * R); x.lineCap = 'round'; x.lineJoin = 'round'; return [c, x]; };
+    const [cv, cx] = mk();
+    const hl = here.filter(s => s.k === 'hl');
+    if (hl.length) {
+        const [hc, hx] = mk();
+        for (const s of hl) { const o = offOf(s, items); drawStroke(hx, s, o.dx, o.dy); }
+        cx.save(); cx.setTransform(1, 0, 0, 1, 0, 0); cx.globalAlpha = 0.45; cx.drawImage(hc, 0, 0); cx.restore();
+    }
+    for (const s of here) if (s.k === 'pen') { const o = offOf(s, items); drawStroke(cx, s, o.dx, o.dy); }
+    for (const t of texts) { const a = absText(t, items); drawTextGhost(cx, { ...t }, a.x, a.y); }
+    return { x: x0 * PT_PER_PX, y: y0 * PT_PER_PX, w: w * PT_PER_PX, h: h * PT_PER_PX, data: await bytesOf(await canvasPng(cv)) };
+}
 function fileNameOf(b) { return (String(b.title || '錯題本').replace(/[\\/:*?"<>|\s]+/g, '_').slice(0, 40) || '錯題本') + '.goodnotes'; }
-async function exportGoodnotes() {
+async function exportGoodnotes(inkMode = 'ink') {
     const b = curBook();
     if (!b || exporting) return;
-    if (!b.items.length) return showToast('這本還沒有題目');
+    if (!b.items.length && !ink.strokes.length && !ink.texts.length) return showToast('這本還是空的');
+    endTextEdit(true);
     exporting = true;
     selectItem(null);
     busy(true, '匯出中…', '準備工具');
@@ -1561,11 +3658,25 @@ async function exportGoodnotes() {
                 w: BASE_W * s * PT_PER_PX, h: boxH(it) * PT_PER_PX, data: png
             });
         }
+        /* 筆跡：預設寫成 GoodNotes 自己的筆畫（到 iPad 上還能擦、能用套索搬）；保險版畫成圖。 */
+        let tapes = 0;
+        if (ink.strokes.length || ink.texts.length) {
+            busy(true, '匯出中…', '筆跡');
+            if (inkMode === 'img') {
+                for (let pg = 0; pg < n; pg++) { const im = await inkPagePng(pg, R); if (im) pages[pg].images.push(im); }
+                tapes = ink.strokes.filter(s => s.k === 'tape').length;
+            } else {
+                const ex = inkExportPages(n);
+                ex.pages.forEach((p, i) => { pages[i].strokes = p.strokes; pages[i].texts = p.texts; });
+                tapes = ex.tapes;
+            }
+        }
         busy(true, '匯出中…', '打包成 GoodNotes 筆記本');
         const paper = await paperPdf(G);
         const bytes = await G.write({ title: b.title, pageW: PAGE_W * PT_PER_PX, pageH: PAGE_H * PT_PER_PX, paperPdf: paper, pages });
         busy(false);
         await deliver(new File([bytes], fileNameOf(b), { type: 'application/octet-stream' }));
+        if (tapes) setTimeout(() => showToast(`膠帶（${tapes} 條）沒有帶過去：GoodNotes 的膠帶格式還沒辦法寫`), 3400);
     } catch (err) {
         console.warn('匯出失敗:', err);
         busy(false);
@@ -1592,14 +3703,31 @@ async function deliver(file) {
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
     showToast('下載好了：用 GoodNotes 打開這個檔案，題目可以直接拖');
 }
-$('btnExport').onclick = exportGoodnotes;
+/* 有筆跡的本子先問一下筆跡要怎麼帶過去（沒筆跡的直接匯出，跟以前一樣）。 */
+$('btnExport').onclick = () => {
+    if (!ink.strokes.length && !ink.texts.length) return exportGoodnotes('ink');
+    const pop = $('inkPop');
+    pop.innerHTML = `<button class="pop-btn" data-exp="ink"><b>筆跡到 GoodNotes 還能改</b><small>寫的字變成 GoodNotes 自己的筆畫，可以擦、可以用套索搬、改顏色</small></button>
+        <button class="pop-btn" data-exp="img"><b>筆跡變成圖片（保險版）</b><small>如果上面那個打不開就用這個：每一頁的字是一張圖，可以搬，但不能擦</small></button>`;
+    pop.dataset.kind = 'export';
+    pop.classList.remove('hidden');
+    const r = $('btnExport').getBoundingClientRect(), pw = pop.offsetWidth;
+    pop.style.left = clamp(r.right - pw, 8, innerWidth - pw - 8) + 'px';
+    pop.style.top = (r.bottom + 6) + 'px';
+};
+$('inkPop').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-exp]');
+    if (!b) return;
+    closePop();
+    exportGoodnotes(b.dataset.exp);
+});
 
 /* ★ 手機切到別的 App 走的是 visibilitychange，不是 beforeunload——
    只綁後者的話，手機使用者每次切走都會掉最後 0.8 秒的改動。 */
 document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'hidden') flushSave();
+    if (document.visibilityState === 'hidden') { flushSave(); inkFlush(); }
 });
-addEventListener('beforeunload', flushSave);
+addEventListener('beforeunload', () => { flushSave(); inkFlush(); });
 /* KaTeX 是 defer 載的：它比第一次畫晚到的話，載到之後把已經畫好的題目補排一次。 */
 addEventListener('load', () => { for (const el of itemEls.values()) renderMath(el); });
 
@@ -1613,24 +3741,39 @@ if (new URLSearchParams(location.search).get('wbtest') === '1') {
             books = [b]; booksLoaded = true; readyIds.add(b.id);
             curId = b.id;
             document.body.classList.remove('phone-list'); document.body.classList.add('phone-edit');
+            inkReset();
+            ink.bookId = b.id; ink.ready.add(b.id);
+            if (book.ink) { const p = inkParse(JSON.stringify(book.ink)); ink.strokes = p.s; ink.texts = p.t; }
             renderBook();
+            syncInkBar();
             ['loginHint', 'emptyHint'].forEach(id => $(id).classList.add('hidden'));
             $('editHead').classList.remove('hidden'); $('sheets').classList.remove('hidden');
             return b;
         },
         book: () => curBook(),
         state: () => ({ zoom, selKey, pages: curBook() ? pageCount(curBook()) : 0 }),
+        /* 手寫：直接看裡面的狀態（不必截圖）。 */
+        ink: () => ({ tool: ink.tool, strokes: ink.strokes, texts: ink.texts, sel: ink.sel && { pg: ink.sel.pg, ids: [...ink.sel.ids], tids: [...ink.sel.tids] },
+                      hist: ink.hist.length, redo: ink.redo.length, userZoom: ink.userZoom, act: ink.act && ink.act.type, vis: [...ink.vis], penSeen: ink.penSeen,
+                      chunks: inkChunks(ink.strokes, ink.texts), maxPage: inkMaxPage() }),
+        setTool, inkUndo, inkRedo, applyZoom, recogShape, selCopy, selPaste, setAllTapes,
+        cfg: () => ink.cfg,
         relayout() { const b = curBook(); layout(b); placeSheets(b); },
         /* 匯出但不下載：把檔案的位元組交回來（給檢查程式拿去用 gnnote 讀回）。 */
-        async exportBytes() {
+        async exportBytes(mode) {
             let got = null;
             deliverSink = (f) => { got = f; };
-            try { await exportGoodnotes(); } finally { deliverSink = null; }
+            try { await exportGoodnotes(mode); } finally { deliverSink = null; }
             return got ? Array.from(new Uint8Array(await got.arrayBuffer())) : null;
         }
     };
 }
 
+inkLoadCfg();
+buildInkBar();
+wireInkUI();
+syncInkBar();
+syncTouchMode();
 renderAll();
 
 /* Service Worker：跟其他頁共用同一支。

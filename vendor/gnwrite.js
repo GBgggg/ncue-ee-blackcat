@@ -1,8 +1,9 @@
 /*! gnwrite.js — 把「幾頁紙＋幾張圖」寫成一本 GoodNotes 筆記本（.goodnotes）。
  *
  * 移植自 gnnote（https://github.com/jakubfabrici/notability-goodnotes，MIT，© 2026 Jakub Fabrici）
- * 的 gnnote/goodnotes/writer.py，只取「圖片＋紙」那一半；筆畫、文字框、形狀填色都沒有搬。
- * 授權全文：vendor/LICENSE.gnnote.txt。
+ * 的 gnnote/goodnotes/writer.py。2026-10-07 先搬「圖片＋紙」；2026-10-08 錯題本有了手寫，
+ * 再搬筆畫（gnnote/tpl.py 的 encode_flat、gnnote/applelz4.py 的 compress）與文字框（gnnote/rtf.py 的 make_rtf）。
+ * 形狀填色、寬度會變的筆（ribbon）、鉛筆（tool 25）沒有搬。授權全文：vendor/LICENSE.gnnote.txt。
  *
  * ★ 為什麼寫成檔案格式本人，不是匯出 PDF：GoodNotes 匯入 PDF 時把整頁當成「紙」，
  *   裡面的題目圖用套索圈不起來（2026-10-07 在 iPad 上實測三種 PDF 寫法全部搬不動）。
@@ -16,8 +17,11 @@
  *   const bytes = await GnWrite.write({
  *     title: '錯題本', pageW: 446.886, pageH: 587.455,        // 單位：PDF 點（pt）
  *     paperPdf: Uint8Array,                                   // 一頁的紙（每一頁共用同一張）
- *     pages: [{ images: [{ x, y, w, h, data: Uint8Array }] }] // PNG 或 JPEG，座標從左上角量、單位 pt
+ *     pages: [{ images: [{ x, y, w, h, data: Uint8Array }],   // PNG 或 JPEG，座標從左上角量、單位 pt
+ *               strokes: [{ points: [[x, y], …], width, color: [r, g, b, a], highlighter }],   // 筆畫（pt，顏色 0–1）
+ *               texts: [{ x, y, w, h, text, size, color: [r, g, b, a] }] }]                    // 文字框（pt）
  *   });
+ *   頁面裡的順序照 gnnote：圖 → 筆畫 → 文字框（GoodNotes 自己寫的檔也是這樣排）。
  *   另附 GnWrite.paperPdfFromJpeg(jpegBytes, pxW, pxH, pageW, pageH)：一張 JPEG 鋪滿的一頁 PDF。
  */
 (function (root) {
@@ -35,6 +39,13 @@
     const PAGING_PREFIX = 'PagingViewServiceUpdater:';
     const EV = { DOC: 30, ATTACH: 6, TEMPLATE: 2, PAGE: 54, SEARCH: 105, CURRENT: 10, NOTES: 102 };
     const CONTENT_IMAGE = 1;
+    const CONTENT_STROKE = 7;
+    const CONTENT_TEXT = 8;
+    const WIDTH_PER_POINT = 2;            // 筆畫的 W＝畫出來的寬（pt）× 2
+    const HIGHLIGHTER_ALPHA = 0.5;
+    const DASH_LENGTH = 0.3;              // 只有一個點的筆畫寫成這麼長的一小段（canvas 單位）
+    const TEXT_PADDING = 10;
+    const LZ4_BLOCK = 32768;
     const IMAGE_KIND_PHOTO = 1;           // JPEG；PNG 不寫這一欄
     const ORDER_KEY_PREFIX = '43';
     const PAPER_NAME_SUFFIX = ' - White';
@@ -172,6 +183,184 @@
         return [metadataRecord(ctx, element, clock, att.uuid), fMsg(CONTENT_IMAGE, cat(body))];
     }
 
+    /* ---------------- 筆畫（writer.py 的 _stroke_records＋tpl.py 的 encode_flat＋applelz4.py） ----------------
+       一筆＝一張 TPL 圖（Troy Hanson 的 tpl 格式）再包一層 Apple 的 LZ4 框。
+       TPL 的長相（gnnote docs/goodnotes-stroke.md 第 8 節，GoodNotes 自己寫的 5619 筆都是這個格式）：
+         "tpl\0" u32總長 "vuA(v)A(S(uu))A(S(uuuu))vA(f)\0"
+         u16 版本 2、u32 寬 W（float32 的位元）、u32 旗標數＋每個 u16（0＝起點、1＝一段二次曲線）、
+         u32 起點數＋起點 (x,y)、u32 段數＋每段 (控制點 x,y, 終點 x,y)、u16 1、u32 0（空的虛線陣列）
+       ★ 每一個座標都是「float32 的位元當成 u32 寫」，所以直接 setFloat32 就是對的。 */
+    const TPL_FLAT = 'vuA(v)A(S(uu))A(S(uuuu))vA(f)';
+    function encodeFlat(W, start, quads) {
+        const fmt = enc.encode(TPL_FLAT + '\0');
+        const n = quads.length;
+        const body = 2 + 4 + 4 + 2 * (n + 1) + 4 + 8 + 4 + 16 * n + 2 + 4;
+        const total = 8 + fmt.length + body;
+        const out = new Uint8Array(total), dv = new DataView(out.buffer);
+        out.set([0x74, 0x70, 0x6c, 0x00], 0);
+        dv.setUint32(4, total, true);
+        out.set(fmt, 8);
+        let o = 8 + fmt.length;
+        dv.setUint16(o, 2, true); o += 2;
+        dv.setFloat32(o, W, true); o += 4;
+        dv.setUint32(o, n + 1, true); o += 4;
+        dv.setUint16(o, 0, true); o += 2;
+        for (let i = 0; i < n; i++) { dv.setUint16(o, 1, true); o += 2; }
+        dv.setUint32(o, 1, true); o += 4;
+        dv.setFloat32(o, start[0], true); dv.setFloat32(o + 4, start[1], true); o += 8;
+        dv.setUint32(o, n, true); o += 4;
+        for (const q of quads) { for (let j = 0; j < 4; j++) dv.setFloat32(o + 4 * j, q[j], true); o += 16; }
+        dv.setUint16(o, 1, true); o += 2;
+        dv.setUint32(o, 0, true); o += 4;
+        if (o !== total) throw new Error('筆畫的長度算錯了');
+        return out;
+    }
+    /* Apple 的 LZ4 框：每 32 KiB 一塊 'bv41' u32原長 u32壓縮後長 <LZ4 區塊>，最後 'bv4$'。
+       區塊用「全部都是原文」的那一種寫法（gnnote compress(level=0)，GoodNotes 讀得懂、外面的 ZIP 會再壓一次）。 */
+    function lz4Frame(data) {
+        const parts = [];
+        for (let st = 0; st < data.length; st += LZ4_BLOCK) {
+            const chunk = data.subarray(st, Math.min(data.length, st + LZ4_BLOCK));
+            const head = [Math.min(chunk.length, 15) << 4];
+            if (chunk.length >= 15) { let rest = chunk.length - 15; while (rest >= 255) { head.push(255); rest -= 255; } head.push(rest); }
+            const block = cat([Uint8Array.from(head), chunk]);
+            const hdr = new Uint8Array(12), hv = new DataView(hdr.buffer);
+            hdr.set([0x62, 0x76, 0x34, 0x31], 0);
+            hv.setUint32(4, chunk.length, true); hv.setUint32(8, block.length, true);
+            parts.push(hdr, block);
+        }
+        parts.push(Uint8Array.of(0x62, 0x76, 0x34, 0x24));
+        return cat(parts);
+    }
+    /* 一串點 → 起點＋二次曲線段。跟網站上畫的方法一樣：原本的點當控制點、相鄰兩點的中點當端點，
+       所以匯出去的線跟在網站上看到的一樣圓。（gnnote 的 from_polyline 是每段直線，點密的時候看不出差別。） */
+    function flatFromPoints(pts) {
+        const P = [];
+        for (const p of pts) {
+            const x = Number(p[0]), y = Number(p[1]);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) throw new Error('筆畫有壞掉的座標');
+            if (!P.length || x !== P[P.length - 1][0] || y !== P[P.length - 1][1]) P.push([x, y]);
+        }
+        if (!P.length) throw new Error('空的筆畫');
+        if (P.length === 1) P.push([P[0][0] + DASH_LENGTH, P[0][1]]);
+        const quads = [];
+        if (P.length === 2) quads.push([(P[0][0] + P[1][0]) / 2, (P[0][1] + P[1][1]) / 2, P[1][0], P[1][1]]);
+        else {
+            let prev = P[0];
+            for (let i = 1; i < P.length - 1; i++) {
+                const m = [(P[i][0] + P[i + 1][0]) / 2, (P[i][1] + P[i + 1][1]) / 2];
+                quads.push([P[i][0], P[i][1], m[0], m[1]]);
+                prev = m;
+            }
+            const last = P[P.length - 1];
+            quads.push([(prev[0] + last[0]) / 2, (prev[1] + last[1]) / 2, last[0], last[1]]);
+        }
+        return { start: P[0], quads };
+    }
+    /* 顏色：{#1 R, #2 G, #3 B, #4 A} fixed32，0 的那一欄不寫（照 gnnote 的 _colour）。 */
+    function colour(c) {
+        const parts = [];
+        for (let i = 0; i < 4; i++) {
+            const v = Math.min(1, Math.max(0, Number(c[i] ?? 1)));
+            if (v !== 0) parts.push(fFixed32(i + 1, v));
+        }
+        return cat(parts);
+    }
+    function strokeRecords(ctx, st, s, drawIndex) {
+        const width = Math.max(0.05, Number(st.width) || 1);
+        const flat = flatFromPoints((st.points || []).map(p => [p[0] * s, p[1] * s]));
+        const frame = lz4Frame(encodeFlat(width * WIDTH_PER_POINT, flat.start, flat.quads));
+        const c = Array.isArray(st.color) ? st.color.slice(0, 4) : [0, 0, 0, 1];
+        while (c.length < 4) c.push(1);
+        const hl = !!st.highlighter;
+        if (hl) c[3] = HIGHLIGHTER_ALPHA;
+        const element = ctx.ids.uuid();
+        const clock = ctx.ids.clock(ELEMENT_CLOCK_VERSION);
+        const body = [fBytes(1, element), fBytes(2, frame), fMsg(4, colour(c))];
+        if (hl) body.push(fVarint(5, 1));
+        body.push(fBytes(6, new Uint8Array(0)),
+                  fMsg(7, fMsg(1, cat([fVarint(1, drawIndex), fVarint(2, rand32())]))),
+                  fBytes(9, new Uint8Array(0)),
+                  fMsg(15, clock),
+                  fBytes(20, new Uint8Array(0)),
+                  fVarint(21, SCHEMA_VERSION));
+        return [metadataRecord(ctx, element, clock), fMsg(CONTENT_STROKE, cat(body))];
+    }
+
+    /* ---------------- 文字框（writer.py 的 _text_records＋rtf.py 的 make_rtf） ----------------
+       內容是 Cocoa 的 RTF（GoodNotes 是 Mac／iPad App，文字框直接存 NSAttributedString 的 RTF）。
+       ★ 中文一律寫成 \uN（大於 0x7FFF 的寫成負數，RTF 的規矩），前面一次 \uc0 表示「後面沒有替代字」。 */
+    const LINE_HEIGHT_FACTOR = 559 / 20 / 24;
+    const pyRound = (x) => { const f = Math.floor(x), d = x - f; return d > 0.5 ? f + 1 : d < 0.5 ? f : (f % 2 === 0 ? f : f + 1); };
+    const lineSpacing = (half) => pyRound(half / 2 * LINE_HEIGHT_FACTOR * 20);
+    const lineHeight = (half) => lineSpacing(half) / 20;
+    function rtfEscape(text, uc) {
+        let out = '';
+        for (const ch of text.replace(/\r\n?/g, '\n')) {
+            let o = ch.codePointAt(0);
+            if (ch === '\\') out += '\\\\';
+            else if (ch === '{') out += '\\{';
+            else if (ch === '}') out += '\\}';
+            else if (ch === '\n') out += '\\par\n';
+            else if (ch === '\t') out += '\\tab ';
+            else if (o >= 0x20 && o < 0x7f) out += ch;
+            else if (o < 0x20) continue;
+            else {
+                if (!uc.done) { out += '\\uc0'; uc.done = true; }
+                if (o > 0xffff) {
+                    o -= 0x10000;
+                    for (const half of [0xd800 + (o >> 10), 0xdc00 + (o & 0x3ff)]) out += `\\u${half - 65536} `;
+                } else out += `\\u${o >= 0x8000 ? o - 65536 : o} `;
+            }
+        }
+        return out;
+    }
+    function makeRtf(text, half, color) {
+        const rgb = color.slice(0, 3).map(v => pyRound(Math.min(1, Math.max(0, v)) * 255));
+        const css = color.slice(0, 3).map(v => pyRound(Math.min(1, Math.max(0, v)) * 100000));
+        let tabs = '';
+        for (let i = 1; i <= 12; i++) tabs += `\\tx${560 * i}`;
+        const header = '{\\rtf1\\ansi\\ansicpg1252\\cocoartf2709\n'
+            + '\\cocoatextscaling1\\cocoaplatform1{\\fonttbl\\f0\\fnil\\fcharset0 HelveticaNeue;}\n'
+            + `{\\colortbl;\\red255\\green255\\blue255;\\red${rgb[0]}\\green${rgb[1]}\\blue${rgb[2]};}\n`
+            + `{\\*\\expandedcolortbl;;\\cssrgb\\c${css[0]}\\c${css[1]}\\c${css[2]};}\n`
+            + `\\pard${tabs}\\sl-${lineSpacing(half)}\\pardirnatural\\partightenfactor0\n\n`;
+        return enc.encode(header + `\\f0\\fs${half} \\cf2 ` + rtfEscape(text, { done: false }) + '}');
+    }
+    function textRecords(ctx, tb, s) {
+        const text = String(tb.text || '');
+        if (!text.trim()) return [];
+        const sizeCanvas = (Number(tb.size) > 0 ? Number(tb.size) : 12) * s;
+        const half = Math.max(1, pyRound(2 * sizeCanvas));
+        const c = Array.isArray(tb.color) ? tb.color : [0, 0, 0, 1];
+        const lines = text.split('\n').length;
+        const fx = tb.x * s, fy = tb.y * s;
+        let fw = Number(tb.w) > 0 ? tb.w * s : 0;
+        let fh = Number(tb.h) > 0 ? tb.h * s : 0;
+        fh = Math.max(fh, lines * lineHeight(half));
+        if (fw <= 0) fw = Math.max(1, Math.max(...text.split('\n').map(l => l.length)) * sizeCanvas * 0.6);
+        const pad = TEXT_PADDING;
+        const element = ctx.ids.uuid();
+        const clock = fVarint(2, rand32());           // 文字框的時鐘沒有版本（versionless_clock）
+        const body = cat([
+            fBytes(1, element),
+            fMsg(2, rect(fx - pad, fy - pad, fw + 2 * pad, fh + 2 * pad)),
+            fMsg(3, rect(fx, fy, fw, fh)),
+            fMsg(4, cat([fFixed32(1, 1), fFixed32(4, 1)])),
+            fMsg(5, fMsg(1, ctx.ids.clock(1))),
+            fBytes(6, makeRtf(text, half, c)),
+            fMsg(7, cat([point(1, 1), fFixed32(3, 1)])),
+            fMsg(9, cat([point(1, 1), fFixed32(3, 1)])),
+            fFixed32(10, pad),
+            fMsg(15, clock),
+            fMsg(18, fFixed32(2, 5)),
+            fMsg(19, fFixed32(4, 0.2)),
+            fBytes(20, '.tb-0'),
+            fBytes(21, new Uint8Array(0)),
+            fVarint(27, SCHEMA_VERSION)]);
+        return [metadataRecord(ctx, element, clock), fMsg(CONTENT_TEXT, body)];
+    }
+
     /* ---------------- 事件紀錄（writer.py 的 _events） ---------------- */
     function events(ctx, docUuid, title, outs) {
         const { ids } = ctx;
@@ -260,6 +449,9 @@
         for (const o of outs) {
             const recs = [];
             for (const im of (o.page.images || [])) recs.push(...imageRecords(ctx, im, s, s));
+            let drawIndex = 0;
+            for (const st of (o.page.strokes || [])) recs.push(...strokeRecords(ctx, st, s, ++drawIndex));
+            for (const tb of (o.page.texts || [])) recs.push(...textRecords(ctx, tb, s));
             o.content = records(recs);
         }
         const docUuid = ids.uuid();
@@ -363,7 +555,7 @@
         return cat(parts);
     }
 
-    const api = { write, buildMembers, zip, paperPdfFromJpeg, CANVAS_PER_POINT };
+    const api = { write, buildMembers, zip, paperPdfFromJpeg, CANVAS_PER_POINT, encodeFlat, lz4Frame, flatFromPoints, makeRtf };
     if (typeof module === 'object' && module.exports) module.exports = api;
     else root.GnWrite = api;
 })(typeof window !== 'undefined' ? window : globalThis);
