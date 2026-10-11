@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v162';
+const CACHE = 'blackcat-v167';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -197,10 +197,14 @@ self.addEventListener('fetch', (e) => {
     // 網路優先，且用 cache:'reload' 繞過瀏覽器自己的 HTTP 快取。
     // 少了這個還是會拿到舊版：GitHub Pages 對 HTML 送 max-age=600，
     // 光是 fetch(req) 會被瀏覽器用 10 分鐘內的舊副本擋下來。
+    /* ★ 2026-10-09 資安（隱私）：存快取時**拿掉網址後面的 ?…#…**，一個頁面只留一份。
+       原本是用完整網址當鑰匙：開過的每一個 blackcatspice.html?c=<整個電路>、blackcatmd.html?nb=<本子 id>
+       都各留一份，換下一個人用同一台電腦就看得到你開過哪些電路、哪幾本。頁面內容本來就跟網址參數無關。 */
+    const htmlKey = url.origin + url.pathname;
     e.respondWith(
       fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin' }))
-        .then((res) => putInCache(req, res))
-        .catch(() => caches.match(req).then((c) => c || caches.match('./index.html')))
+        .then((res) => putInCache(htmlKey, res))
+        .catch(() => caches.match(htmlKey).then((c) => c || caches.match('./index.html')))
     );
     return;
   }

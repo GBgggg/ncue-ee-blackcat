@@ -14,7 +14,8 @@
      算式交給 KaTeX 而且 trust:false），沒有任何地方把資料當 HTML 原樣塞進去。
      整頁是單檔內嵌 script，所以 'unsafe-inline' 非開不可，這條擋不住
      被注入的 inline script 本身；它擋的是下一步——載不到外部 script，
-     也送不出去任何東西（connect-src 只留 Firebase）。
+     也比較難送東西出去（connect-src 只留本站用到的那三個 googleapis 主機，2026-10-09 起不再用萬用字元——
+     *.googleapis.com／*.firebaseio.com 裡有任何人都能寫的伺服器）。⚠️ 擋不住整頁跳走，所以是拖慢不是防住。
      ★ img-src 只有 'self'：題目圖只收站上 data/quiz/ 底下的檔案（理由見 qImgSrc）。
        外部網址的圖就算寫進資料也畫不出來，而且匯出時轉圖片會被跨來源擋住。
      改了外部來源要跟著改這裡，也要改 firebase.json。 -->
@@ -24,7 +25,7 @@
     style-src 'self' 'unsafe-inline';
     font-src 'self' data:;
     img-src 'self' data: blob:;
-    connect-src 'self' data: https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com;
+    connect-src 'self' data: https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com;
     frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
     worker-src 'self';
     base-uri 'self';
@@ -815,7 +816,7 @@ function renderMath(root) {
     if (!K) return;
     jobs.forEach(el => {
         try {
-            K.render(el.dataset.tex, el, { displayMode: el.dataset.disp === '1', throwOnError: true, trust: false, strict: 'ignore' });
+            K.render(el.dataset.tex, el, { displayMode: el.dataset.disp === '1', throwOnError: true, trust: false, strict: 'ignore', maxExpand: 500, maxSize: 50 });   /* 上限理由見 publicnew.html renderMath */
             el.dataset.done = '1';
         } catch (e) { el.classList.add('q-tex-raw'); el.dataset.done = '1'; }
     });
@@ -2157,6 +2158,8 @@ function fitCanvas(cv, s) {
     ctx.clearRect(0, 0, w, h);
     ctx.setTransform(s, 0, 0, s, 0, 0);
     ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    /* 畫布大小沒變的話 context 的狀態會留著：套索那條虛線不能漏到下一筆。 */
+    ctx.setLineDash([]); ctx.globalAlpha = 1; ctx.shadowBlur = 0;
     return ctx;
 }
 function freeCanvas(cv) { if (cv && (cv.width > 1 || cv.height > 1)) { cv.width = 1; cv.height = 1; } }
@@ -2686,35 +2689,43 @@ function paintAct(full, incremental) {
             const items = inkItemMap(), ctx = fitCanvas(cv, sc);
             for (const st of ink.strokes) if (st.k === 'hl') { const o = offOf(st, items); if (o.pg === a.pg) drawStroke(ctx, st, o.dx, o.dy); }
             drawStroke(ctx, s, 0, 0);
+            a.painted = P.length - 1;
             return;
         }
         const ctx = cv.getContext('2d');
-        ctx.setTransform(sc, 0, 0, sc, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        ctx.setTransform(sc, 0, 0, sc, 0, 0); ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.setLineDash([]);
         ctx.strokeStyle = s.c; ctx.lineWidth = s.w;
-        const n = P.length, a2 = P[n - 3], b = P[n - 2], cc = P[n - 1];
-        ctx.beginPath();
-        ctx.moveTo((a2[0] + b[0]) / 2, (a2[1] + b[1]) / 2);
-        ctx.quadraticCurveTo(b[0], b[1], (b[0] + cc[0]) / 2, (b[1] + cc[1]) / 2);
-        ctx.stroke();
+        paintNew(ctx, a, () => s.w);
         return;
     }
     if (full || !incremental || P.length < 3) {
         const c = liveCtx(a.pg);
         if (c) drawStroke(c, s, 0, 0);
+        a.painted = P.length - 1;
         return;
     }
     const c = liveCtx(a.pg, false);
     if (!c) return;
-    c.lineCap = 'round'; c.lineJoin = 'round';
+    c.lineCap = 'round'; c.lineJoin = 'round'; c.setLineDash([]);
     c.strokeStyle = c.fillStyle = s.c;
-    const n = P.length;
-    /* 只補最後一段（跟 drawStroke 的變粗細畫法一樣）；原子筆也這樣補，接縫看不出來。 */
-    const a2 = P[Math.max(0, n - 3)], b = P[n - 2], cc = P[n - 1];
-    c.lineWidth = ptW(s, cc[2]) * (s.pen === 'brush' ? 0.35 + 0.65 * Math.min(1, (n - 1) / 5) : 1);
-    c.beginPath();
-    c.moveTo((a2[0] + b[0]) / 2, (a2[1] + b[1]) / 2);
-    c.quadraticCurveTo(b[0], b[1], (b[0] + cc[0]) / 2, (b[1] + cc[1]) / 2);
-    c.stroke();
+    paintNew(c, a, (i) => ptW(s, P[i][2]) * (s.pen === 'brush' ? 0.35 + 0.65 * Math.min(1, i / 5) : 1));
+}
+/* ★★ 把「上次畫到哪一點之後」新加的每一段都補上，不是只補最後一段（2026-10-08 使用者回報「先虛線再出現實筆」）。
+   Apple Pencil 一秒回報兩百多個點，瀏覽器一個畫格只送一次 pointermove，中間的點收在 getCoalescedEvents 裡——
+   一次事件會加好幾個點。只畫最後一段的話，中間那幾段是空的：寫的時候看起來是虛線，放開整條重畫才變實線。
+   無頭瀏覽器的合成事件一次只有一個點，所以第一版的測試沒抓到；tests 裡現在用帶 coalescedEvents 的事件重現。
+   每一段跟 drawStroke 的畫法一樣：上上一點與上一點的中點 → 上一點與這一點的中點，用上一點當轉折。 */
+function paintNew(c, a, widthAt) {
+    const P = a.s.pts, n = P.length;
+    for (let i = Math.max(2, (a.painted || 0) + 1); i < n; i++) {
+        const p0 = P[i - 2], p1 = P[i - 1], p2 = P[i];
+        c.lineWidth = widthAt(i);
+        c.beginPath();
+        c.moveTo((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2);
+        c.quadraticCurveTo(p1[0], p1[1], (p1[0] + p2[0]) / 2, (p1[1] + p2[1]) / 2);
+        c.stroke();
+    }
+    a.painted = n - 1;
 }
 /* 畫完停住半秒 → 變形狀（螢光筆：變直線）。 */
 function armHold() {

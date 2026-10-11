@@ -39,7 +39,14 @@
            cdn.tailwindcss.com  樣式（唯一還在外面的 script，見 架構.md）
            www.gstatic.com      Firebase SDK 的 ES module
            apis.google.com      Google 登入
-           *.googleapis.com     Firestore／Auth／Token
+           firestore／identitytoolkit／securetoken.googleapis.com  Firestore 與登入（2026-10-09 起逐一列出）
+           content-firebaseappcheck.googleapis.com  App Check（還沒開，先放著，開的那天不用再改這裡）
+             ★ 不再寫 *.googleapis.com 與 *.firebaseio.com：萬用字元裡有**任何人都能寫的伺服器**
+               （別人自己的 Firestore 專案、Realtime Database、Storage bucket），
+               真被注入程式時，偷到的登入憑證可以直接 POST 到攻擊者自己的資料庫——
+               CSP 等於沒擋。2026-10-09 在正式站量過，三頁實際只連這三個 googleapis。
+               ⚠️ 仍然擋不住「整頁跳走」（location = 壞網址?偷到的東西），CSP 本來就不管導覽；
+               所以它是拖慢，不是防住。第一道防線還是跳脫。
            firebaseapp.com      signInWithRedirect 用的隱藏 iframe
            fonts.*              Noto Sans/Serif TC（CSS 裡的 @import）
            dictionaryapi.dev    查字典的英英解釋（單字庫那一頁）
@@ -68,8 +75,8 @@
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' data: https://fonts.gstatic.com;
         img-src 'self' data: blob:;
-        connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev http://localhost:11434 http://127.0.0.1:11434;
-        frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
+        connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev http://localhost:11434 http://127.0.0.1:11434;
+        frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.youtube-nocookie.com;
         worker-src 'self';
         manifest-src 'self';
         base-uri 'self';
@@ -3810,12 +3817,23 @@
                         <div class="flex-1">
                             <h2 id="ssDetailsTitle" class="text-2xl md:text-3xl font-black mb-2"></h2>
                             <p class="text-emerald-400 font-bold text-sm flex items-center gap-2"><i data-lucide="link" class="w-4 h-4"></i> <span id="ssDetailsLinkedCourse"></span></p>
+                            <!-- 這門課自己的進度（2026-10-09，登入才有）。由 ssRefreshProgUI 填。 -->
+                            <div id="ssDetailsProg" class="hidden mt-3 max-w-xs">
+                                <div class="text-xs font-black text-emerald-300 mb-1" id="ssDetailsProgText"></div>
+                                <div class="h-2 rounded-full bg-white/15 overflow-hidden"><div id="ssDetailsProgBar" class="h-full bg-emerald-400 rounded-full" style="width:0%"></div></div>
+                            </div>
                         </div>
+                        <!-- 同學推薦單元（2026-10-09）：送進回報信箱，管理員在下面那一格審。 -->
+                        <button id="ssSuggestBtn" data-action="ss-suggest-open" class="hidden px-5 py-3 font-bold bg-white/10 text-white rounded-2xl hover:bg-white/20 transition-colors flex items-center gap-2">
+                            <i data-lucide="lightbulb" class="w-5 h-5 pointer-events-none"></i> 推薦一個單元
+                        </button>
                         <button id="addSelfStudyUnitBtn" class="hidden px-6 py-3 font-bold bg-emerald-500 text-white rounded-2xl hover:bg-emerald-400 transition-colors shadow-lg flex items-center gap-2">
                             <i data-lucide="plus-circle" class="w-5 h-5"></i> 新增單元
                         </button>
                     </div>
                 </div>
+                <!-- 同學推薦（只有小黑貓管理員看得到；資料是回報信箱裡帶 ss 的那幾則） -->
+                <div id="ssSuggestAdmin" class="hidden mb-6 bg-amber-50 border-2 border-amber-200 rounded-3xl p-5"></div>
                 <div id="ssUnitList" class="space-y-6">
                     <div class="oil-empty text-center py-20 text-slate-400 font-medium bg-white rounded-3xl border border-slate-100">這個課程還沒有任何單元，等星族來補充</div>
                 </div>
@@ -3841,6 +3859,8 @@
                 </div>
 
                 <div class="bg-white rounded-3xl border border-slate-100 p-5 mb-5 shadow-sm">
+                    <!-- 從自學單元按「這題不會」帶過來的單元（renderSolve 填，名字跳脫過）。 -->
+                    <div id="solveCtx" class="hidden mb-4 px-4 py-2.5 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-between gap-3"></div>
                     <!-- 圖片：點、拖、貼上三種都要能用。手機是 capture 直接開相機。 -->
                     <div id="solveDrop" class="border-2 border-dashed border-slate-200 rounded-2xl p-6 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50/40 transition-colors">
                         <input type="file" id="solveFile" accept="image/*" class="hidden">
@@ -4840,6 +4860,25 @@
     </div>
 
     <!-- 自學單元 -->
+    <!-- 推薦一個單元（2026-10-09）。送出去的是回報信箱裡的一則「更新建議」，帶著結構化的 ss 欄位。 -->
+    <div id="ssSuggestModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
+        <div class="bg-white rounded-[2.5rem] w-full max-w-lg p-6 md:p-8 shadow-2xl border-t-8 border-amber-400 my-8">
+            <h3 class="text-2xl font-bold mb-1 text-slate-900">推薦一個單元</h3>
+            <p class="text-sm text-slate-500 font-medium mb-5">覺得哪部影片或哪份筆記講得好，貼上來。管理員看過之後會放進 <b id="ssSuggestCourse"></b>。</p>
+            <div class="space-y-3">
+                <label class="block text-sm font-bold text-slate-500 ml-2" for="ssSuggestTitle">單元名稱</label>
+                <input type="text" id="ssSuggestTitle" maxlength="80" placeholder="例如：拉普拉斯轉換的直覺" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-400 font-bold">
+                <label class="block text-sm font-bold text-slate-500 ml-2" for="ssSuggestUrl">連結（YouTube、雲端筆記…）</label>
+                <input type="url" id="ssSuggestUrl" maxlength="500" placeholder="https://" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-400 font-medium">
+                <label class="block text-sm font-bold text-slate-500 ml-2" for="ssSuggestNote">為什麼推薦（選填）</label>
+                <textarea id="ssSuggestNote" maxlength="300" rows="3" placeholder="例如：第 8 分鐘那個例題講得比課本清楚" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-amber-400 font-medium resize-none"></textarea>
+                <div class="flex gap-4 pt-2">
+                    <button data-close="ssSuggestModal" class="flex-1 py-4 font-bold text-slate-400 hover:bg-slate-100 rounded-2xl transition-colors">取消</button>
+                    <button id="ssSuggestSend" data-action="ss-suggest-send" class="flex-1 py-4 bg-amber-400 text-white rounded-2xl font-bold shadow-lg shadow-amber-200">送出推薦</button>
+                </div>
+            </div>
+        </div>
+    </div>
     <div id="ssUnitModal" class="fixed inset-0 bg-slate-900/90 backdrop-blur-sm flex items-center justify-center z-50 p-4 hidden overflow-y-auto">
         <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-2xl p-6 md:p-8 shadow-2xl border-t-8 border-emerald-500 my-8">
             <h3 id="ssUnitModalTitle" class="text-2xl font-bold mb-6 text-slate-900">新增自學單元</h3>
@@ -4865,6 +4904,13 @@
                         <input type="url" id="ssUnitAnsUrl" placeholder="https://drive.google.com/..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
                     </div>
                 </div>
+                <!-- 練習題（2026-10-09）：看完影片之後「練 5 題」從哪裡出。選項由 ssQuizOptionsHTML() 填。 -->
+                <label class="block text-sm font-bold text-slate-500 ml-2 pt-2" for="ssUnitQuiz">看完之後練哪裡的題目（選填）</label>
+                <select id="ssUnitQuiz" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium"></select>
+                <p class="text-xs font-medium text-slate-400 ml-2 -mt-2">選了的話，這個單元會多一顆「練 5 題」，從站上內建題庫的那一章隨機出題。</p>
+                <label class="block text-sm font-bold text-slate-500 ml-2 pt-2" for="ssUnitStops">影片看到哪裡停下來考一題（選填）</label>
+                <input id="ssUnitStops" maxlength="120" placeholder="例如 3:20, 7:45" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium">
+                <p class="text-xs font-medium text-slate-400 ml-2 -mt-2">要先選上面的練習題。每個時間點從那一章抽一題，最多 10 個；答完由同學自己按「繼續看影片」。</p>
                 <label class="block text-sm font-bold text-slate-500 ml-2 pt-2" for="ssUnitDescription">單元介紹</label>
                 <textarea id="ssUnitDescription" maxlength="1000" placeholder="簡短介紹這個單元會學到什麼..." class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-medium min-h-[120px] resize-none"></textarea>
                 <div class="flex gap-4 pt-4">
@@ -5459,7 +5505,7 @@
 
     <script type="module">
         import { initializeApp } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, linkWithCredential } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getAuth, initializeAuth, browserLocalPersistence, browserPopupRedirectResolver, signInAnonymously, signInWithEmailAndPassword, createUserWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signInWithCredential, linkWithCredential, sendEmailVerification } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, initializeFirestore, persistentLocalCache, persistentMultipleTabManager, memoryLocalCache, collection, onSnapshot, doc, setDoc, getDoc, updateDoc, deleteDoc, deleteField, writeBatch, query, where, getDocs } from"https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         /* ==========================================================
@@ -6044,6 +6090,10 @@
         let solveImage = '';      // 縮圖後的 data: URL，''＝還沒選圖
         let solveBusy = false;    // 正在算，用來擋連按（連按＝重複扣配額）
         let solveLastEngine = ''; // 上一次真的是誰算的，顯示給使用者看
+        /* 從自學單元按「這題不會」帶過來的脈絡（2026-10-09）：{ courseId, unitId, course, unit, bank }，null＝沒有。
+           ★ 也在狀態區：renderSolve() 會讀它，而 renderSolve 在啟動時就被 switchStudySub 跑到。
+           離開解題分頁就清掉（switchStudySub），不然下一次問別科的題目，AI 還以為你在學那一章。 */
+        let solveCtx = null;
 
         let eeCourseSearch = PRODUCT ==='ncue';
         function applyEeCourseOpt(v) {
@@ -6358,6 +6408,15 @@
         let lastCourseFilterKey = null;
         let currentActiveNewsTab ='共同';
         let currentViewSSCourseId = null, currentViewVocabBookId = null;
+        /* 自學進度（2026-10-09）。★ 宣告在狀態區：renderSelfStudyCourses／Units 一收到訂閱就會讀到它（第一條）。
+           ssProg：這個人自己的進度，存 users/{uid}/settings/ssprogress（一份文件，只有本人讀得到）。
+             units[單元id] = { v:看完了, p:練過了, t:看到第幾秒, d:影片多長, n:[{t:秒, x:筆記}] , at }
+             dirty＝本機改了還沒寫上去的單元；ready＝雲端那一份讀到了沒（沒讀到不准寫，理由同錯題本的 readyIds）。
+           ssPlayer：正在播的那一部（一次只開一部）。
+           ssAdoptFbId：管理員按「上架」的那一則推薦——單元存起來之後把它標成已處理。 */
+        let ssProg = { uid: null, units: {}, ready: false, unsub: null, timer: 0, dirty: new Set() };
+        let ssPlayer = null;
+        let ssAdoptFbId = null;
         /* 單字庫多了一層資料夾：null＝正在看資料夾清單，有值＝正在看某個資料夾裡的冊子。
            宣告在狀態區的理由同上——renderVocabBooks() 會碰到它，而它是被
            window.onload 之後的流程叫的，寫在函式旁邊就是暫時性死區（畫面全白）。 */
@@ -6749,7 +6808,12 @@
                         displayMode: el.dataset.disp === "1",
                         throwOnError: true,   /* 排不出來就留著原文，不要印紅字 */
                         trust: false,         /* \href、\includegraphics 一律不給 */
-                        strict: "ignore"      /* 題庫裡有中文全形逗號，排得出來，不必每次警告 */
+                        strict: "ignore",     /* 題庫裡有中文全形逗號，排得出來，不必每次警告 */
+                        /* 2026-10-09 資安：算式來源包含任何會員都能送的「詳解草稿」，管理員打開那份測驗就會排版。
+                           KaTeX 0.16.9 有兩個「巨集展開不受限」的洞（CVE-2024-28243／28246），600 字就能讓分頁卡死；
+                           升到 0.16.47 之後再把上限壓低一層，萬一還有沒公開的同類問題也卡不住整頁。 */
+                        maxExpand: 500,
+                        maxSize: 50
                     });
                     el.dataset.done = "1";
                     n++;
@@ -7747,6 +7811,56 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-09',
+                title: '做了一次全站的資安體檢',
+                items: [
+                    ['別人沒辦法再借你的身分做事', '找到並補上一個洞：某些管理頁面上的按鈕，可以被人偷偷塞進一段程式，等管理員打開頁面時用管理員的身分執行。現在塞不進去了。'],
+                    ['回報和升階申請不能再冒名', '送回報時的信箱一定是你登入的那一個，不能填成別人的。申請升階時，星族會看到你的信箱有沒有驗證過；用帳號密碼註冊的人可以在升階頁按一下「寄驗證信」。'],
+                    ['算式排版換新版', '修掉一個「故意寫很複雜的算式就能讓頁面卡死」的問題。畫出來的算式跟以前一樣。'],
+                    ['同一台電腦換人用比較安心', '離線用的暫存不再記下你開過哪些電路、哪幾本錯題本。'],
+                    ['提醒不會再莫名少一則', '同一時間要發的通知很多時（例如全班八點十分都有課），以前超過一個數量就會有人收不到，現在會分批在下一輪補發。'],
+                ]
+            },
+            {
+                date: '2026-10-09',
+                title: '自學課程：影片會考你、練過的會叫你回來複習',
+                items: [
+                    ['邊看邊確認有沒有懂', '有些單元的影片會在講完一個重點時自動暫停，跳出一題跟這段內容有關的題目。答完之後告訴你對或錯，按「繼續看影片」再往下看。'],
+                    ['不會一直打斷你', '同一個地方只問一次，倒回去重看不會再問；自己把進度條拉過去跳過的那一段也不會問。'],
+                    ['要登入才會問', '題目來自站上的題庫，沒登入的話影片照常播完、不會停。'],
+                    ['排進今天的計劃', '每個單元多一顆「排進計劃」，按下去會打開新增計劃，標題和科目都先幫你填好，選個時間按儲存就好。'],
+                    ['看影片順便計時', '影片底下有一顆「開始計時」，科目自動用這門課的名字，讀書統計會算進同一科。不會自己開始，按了才算。'],
+                    ['練過的單元會照遺忘曲線叫你回來', '做完「練 5 題」，單元上會寫下次哪天該複習（隔 1、3、7、14、30 天，練得好就拉長、練不好就縮短）。到了那天，單元和課程卡上會出現「該複習了」。'],
+                    ['卡住了直接問 AI，它知道你在學哪一章', '單元上多一顆「這題不會」，按下去會帶你到解題，AI 會知道你正在學哪一課、哪一章，用這一章教的方法解給你看，不會一開口就用到還沒學的東西。'],
+                ]
+            },
+            {
+                date: '2026-10-09',
+                title: '自學課程會記得你學到哪了',
+                items: [
+                    ['進度看得見', '每個單元可以勾「看完了」，影片看到快結束也會自己勾；「練 5 題」答對 3 題以上會勾「練過了」。課程卡上直接看到「完成 3／12 單元」。'],
+                    ['影片在站上播，下次從停的地方繼續', '單元的影片不用再跳去 YouTube，直接在單元底下播。關掉再回來，按鈕會變成「從 12:30 繼續看」。'],
+                    ['邊看邊記筆記', '看影片時打一句話按「記在 3:25」，筆記會記下那個時間；之後點那個時間就跳回影片的那一段。筆記只有你自己看得到。'],
+                    ['推薦好影片給大家', '在課程頁按「推薦一個單元」，貼上你覺得講得好的影片或筆記，管理員看過之後會放上來。'],
+                ]
+            },
+            {
+                date: '2026-10-09',
+                title: '自學課程看完可以直接練題了',
+                items: [
+                    ['看完影片，按「練 5 題」', '自學課程的單元多了一顆「練 5 題」，從站上題庫的同一章隨機出 5 題，每次按都不一樣。答錯的題目一樣可以加進錯題庫、排成錯題本。'],
+                    ['管理員：編單元時選要練哪一章', '新增或編輯自學單元時，多一個「看完之後練哪裡的題目」，從各科題庫的章節裡挑一個。'],
+                ]
+            },
+            {
+                date: '2026-10-09',
+                title: '上面那排分頁的框不會再歪掉',
+                items: [
+                    ['一登入，「主頁」的框就對齊', '登入之後，最上面那排分頁標示「現在在哪一頁」的框會往右偏一點、壓到旁邊的「計劃」。現在登入、換名字、右上角變寬變窄，框都會跟著對準。'],
+                    ['錯題本寫字真的跟手了', '上一次說好的「寫的當下就是實線」，其實沒有跟著更新上去，這次才真的換上。用 Apple Pencil 寫字，筆走到哪、線就畫到哪。'],
+                ]
+            },
             {
                 date: '2026-10-08',
                 title: '錯題本寫字更跟手',
@@ -8761,6 +8875,20 @@
         }, 0));
         if (typeof document !== 'undefined' && document.fonts && document.fonts.ready)
             document.fonts.ready.then(refreshNavInk).catch(() => {});
+        /* ★ 分頁列**自己的寬度**變了也要重量（2026-10-09 使用者回報「一登入，主頁那個方框跑掉」）。
+           分頁列夾在 logo 與右上角帳號區中間（flex-1），按鈕在裡面置中。登入之後右上角從「登入」
+           換成階級徽章＋學號，分頁列被擠窄或撐寬，整排按鈕跟著挪了 25px——但視窗大小沒變，
+           resize 不會來，膠囊就停在舊位置。量過：手動補一次 resize，膠囊立刻對回去。
+           所以直接看分頁列本身的大小，誰改到它都一樣（登入、名字變長、管理員徽章、側欄收合）。
+           ★ 排到下一格才量：同一格裡大小可能連變好幾次，量一次就夠。
+           ★ 手勢滑動中只寫 transform、不會改到分頁列的大小，所以不會打斷左右滑。 */
+        if (typeof ResizeObserver !== 'undefined' && $('mainNav')) {
+            let navInkRaf = 0;
+            new ResizeObserver(() => {
+                if (navInkRaf) return;
+                navInkRaf = requestAnimationFrame(() => { navInkRaf = 0; refreshNavInk(); });
+            }).observe($('mainNav'));
+        }
 
         /* 依 PRODUCT 產生 logo 選單＝產品切換器。三個檔案共用同一段程式碼，
            所以三頁的選單一定長得一樣——這正是不手寫兩份的理由。 */
@@ -9005,11 +9133,14 @@
          * 8. 首頁：最新消息 / 常用連結
          * ========================================================== */
         function renderListItem({ icon, iconColor, title, url, hoverColor, deleteType, id }) {
-            const link = url
-                ? `<a href="${escapeHTML(url)}" target="_blank" class="font-bold text-slate-800 hover:${hoverColor} hover:underline">${escapeHTML(title)}</a>`
+            /* ★ 2026-10-09 資安：網址再驗一次 http／https（規則擋過，但規則哪天沒推上去就是 javascript: 連結），
+                 刪除鈕的 id 一定跳脫——快速連結與公告的文件 id 是巫醫自己取的（規則不限字元），
+                 而這顆鈕畫給所有 4 級以上的人看：沒跳脫的話，一個巫醫可以在星族的畫面上執行任何事。 */
+            const link = url && isValidUrl(url)
+                ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class=""font-bold text-slate-800 hover:${hoverColor} hover:underline">${escapeHTML(title)}</a>`
                 : `<span class="font-bold text-slate-800">${escapeHTML(title)}</span>`;
             const delBtn = currentUserLevel >= 4
-                ? `<button data-action="delete" data-type="${deleteType}" data-id="${id}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>`
+                ? `<button data-action="delete" data-type="${escapeHTML(deleteType)}" data-id="${escapeHTML(id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>`
                 :'';
             return `
                 <div class="flex items-center justify-between p-4 bg-slate-50 rounded-2xl hover:bg-slate-100 transition border border-slate-100">
@@ -11830,6 +11961,8 @@
 
         function renderStudy(){
             renderSubjectBank();
+            /* 自學影片底下那顆「開始計時」跟著計時器的狀態換字（2026-10-09）。★ 要在下面那個 return 之前。 */
+            ssTimerRefresh();
             const list = $('studyBody');
             if (!list) return;
             const now = Date.now();
@@ -12279,7 +12412,7 @@
                     </div>
                     <div class="flex items-center gap-2">
                         ${opener}
-                        ${isAdmin ? `<button data-action="delete" data-type="${tierKey}" data-id="${escapeHTML(m.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                        ${isAdmin ? `<button data-action="delete" data-type="${escapeHTML(tierKey)}" data-id="${escapeHTML(m.id)}" class="p-2 text-slate-300 hover:text-red-500 rounded-xl"><i data-lucide="x-circle" class="w-4 h-4 pointer-events-none"></i></button>` :''}
                     </div>
                 </div>`;
         }
@@ -12828,6 +12961,7 @@
          * ========================================================== */
         function renderSelfStudyCourses() {
             const grid = $('ssCourseGrid');
+            ssProgEnsure();
             if (state.ssCourses.length === 0) {
                 grid.innerHTML = emptyState({
                     text:'目前還沒有自學課程。',
@@ -12842,6 +12976,7 @@
                     </div>
                     <h3 class="text-xl font-black text-slate-900 mb-2 truncate">${escapeHTML(c.title)}</h3>
                     <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold flex items-center gap-1 truncate"><i data-lucide="link" class="w-3 h-3"></i> ${escapeHTML(c.linkedCourseName)}</p>
+                    ${ssCourseProgHTML(c.id)}
                     ${isAdmin ? `
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button data-action="edit-ss-course" data-id="${escapeHTML(c.id)}" class="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
@@ -12855,6 +12990,8 @@
         function renderSelfStudyUnits() {
             if (!currentViewSSCourseId) return;
             const units = state.ssUnits.filter(u => u.courseId === currentViewSSCourseId);
+            /* 有綁練習題的單元要知道題庫的名字（索引很小，用到才抓；抓到之後 loadBuiltinQuizIndex 會回來重畫）。 */
+            if (units.some(u => u.quizId)) loadBuiltinQuizIndex();
             if (units.length === 0) {
                 $('ssUnitList').innerHTML = emptyState({
                     text:'這個課程還沒有任何單元。',
@@ -12862,27 +12999,654 @@
                     clickId:'addSelfStudyUnitBtn', label:'新增第一個單元' });
                 return;
             }
-            const linkBtn = (url, icon, label, color) => url
-                ? `<a href="${escapeHTML(url)}" target="_blank" class="flex items-center gap-2 px-4 py-2 bg-${color}-50 text-${color}-600 font-bold rounded-xl hover:bg-${color}-100 transition border border-${color}-100 text-sm"><i data-lucide="${icon}" class="w-4 h-4"></i> ${label}</a>`
+            /* 2026-10-09 資安：網址再驗一次 http／https，連結加 rel（同 renderListItem）。 */
+            const linkBtn = (url, icon, label, color) => url && isValidUrl(url)
+                ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class=""flex items-center gap-2 px-4 py-2 bg-${color}-50 text-${color}-600 font-bold rounded-xl hover:bg-${color}-100 transition border border-${color}-100 text-sm"><i data-lucide="${icon}" class="w-4 h-4"></i> ${label}</a>`
                 :'';
+            /* ★ 正在播的那一部：整張清單重畫會把 iframe 抽掉（影片從頭重載）。先記住看到哪，畫完再從那裡接著播。 */
+            /* ★ 影片中途考一題的狀態也要接回去（問過哪幾個停點、題目開著沒、「繼續看」那一條在不在）：
+                 題庫索引第一次抓好、別人改了單元，都會整張重畫——漏掉的話同一個停點會再問一次，
+                 或答完之後那一條「繼續看影片」不見了，影片停在那裡不知道要按哪裡。 */
+            const playing = ssPlayer && units.some(u => u.id === ssPlayer.unitId)
+                ? { id: ssPlayer.unitId, t: ssPlayer.t, asked: ssPlayer.asked, quizzing: ssPlayer.quizzing, bar: ssPlayer.bar } : null;
+            if (ssPlayer && !playing) ssClosePlayer();
             $('ssUnitList').innerHTML = units.map(u => `
-                <div class="bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all relative">
+                <div data-ss-unit="${escapeHTML(u.id)}" class="ss-unit bg-white rounded-3xl p-6 shadow-sm border border-slate-100 hover:shadow-md transition-all relative">
                     ${isAdmin ? `
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button data-action="edit-ss-unit" data-id="${escapeHTML(u.id)}" class="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
                         <button data-action="delete" data-type="ssUnit" data-id="${escapeHTML(u.id)}" class="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                     </div>` :''}
                     <h4 class="text-xl font-black text-slate-900 mb-3 pr-20">${escapeHTML(u.title)}</h4>
+                    <div class="ss-prog flex flex-wrap items-center gap-2 mb-3">${ssUnitProgHTML(u)}</div>
                     ${u.description ? `<p class="text-slate-600 text-sm font-medium mb-5 bg-slate-50 p-4 rounded-2xl whitespace-pre-line leading-relaxed">${escapeHTML(u.description)}</p>` :''}
                     <div class="flex flex-wrap gap-3">
-                        ${linkBtn(u.ytUrl,'youtube','觀看影片','red')}
+                        ${ssPracticeBtnHTML(u)}
+                        ${ytIdOf(u.ytUrl) ? ssPlayBtnHTML(u) : linkBtn(u.ytUrl,'youtube','觀看影片','red')}
                         ${linkBtn(u.driveUrl,'hard-drive','雲端筆記','blue')}
                         ${linkBtn(u.hwUrl,'file-text','課程作業','amber')}
                         ${linkBtn(u.ansUrl,'check-circle','作業解答','indigo')}
+                        <button data-action="ss-ask" data-id="${escapeHTML(u.id)}" class="flex items-center gap-2 px-4 py-2 bg-violet-50 text-violet-700 font-bold rounded-xl hover:bg-violet-100 transition border border-violet-100 text-sm"><i data-lucide="scan-search" class="w-4 h-4 pointer-events-none"></i> 這題不會</button>
+                        ${isSignedInMember() ? `<button data-action="ss-plan" data-id="${escapeHTML(u.id)}" class="flex items-center gap-2 px-4 py-2 bg-amber-50 text-amber-700 font-bold rounded-xl hover:bg-amber-100 transition border border-amber-100 text-sm"><i data-lucide="calendar-plus" class="w-4 h-4 pointer-events-none"></i> 排進計劃</button>` :''}
                     </div>
+                    <div class="ss-player-slot"></div>
                 </div>
             `).join('');
             icons();
+            if (playing) {
+                ssPlayer = null;
+                ssPlay(playing.id, playing.t);
+                if (ssPlayer) {
+                    ssPlayer.asked = playing.asked; ssPlayer.quizzing = playing.quizzing;
+                    if (playing.bar !== undefined) ssStopDone(playing.bar);
+                }
+            }
+        }
+
+        /* ---- 自學單元的練習題（2026-10-09）----
+           看 → 練 → 對：影片看完直接從內建題庫的同一章抽 5 題，答錯的走原本那條路
+           （結算頁可以加進錯題庫、排成錯題本）。
+           ★ 為什麼是 5 題、而且一定亂序：哈佛 2013 那個實驗（Szpunar 等，見 docs/自學課程競品調查.md）
+             插在課中間的小測驗本來就很短；亂序是為了第二次按不會是同樣那 5 題。
+           ★ 單元上只存「題庫 id＋單元代號」，題庫的名字每次從索引查——題庫改名不用回頭改每一個單元。 */
+        const ssQuizKey = (u) => u && u.quizId ? `${u.quizId}|${u.quizUnit ||''}` :'';
+        const ssBankName = (rec) => String(rec.courseName || rec.title ||'').replace(/（內建題庫）$/,'');
+        /* 「微積分・函數與極限、連續」。題庫或單元找不到回空字串（索引還沒到、或題庫被拿掉了）。 */
+        function ssQuizLabel(u) {
+            if (!u || !u.quizId || builtinQuizState !=='ready') return '';
+            const rec = (state.builtinQuizzes ||[]).find(q => q.id === u.quizId);
+            if (!rec) return '';
+            if (!u.quizUnit) return ssBankName(rec);
+            const un = (rec.units ||[]).find(x => x.u === u.quizUnit);
+            return un ? `${ssBankName(rec)}・${un.n}` :'';
+        }
+        function ssPracticeBtnHTML(u) {
+            if (!u.quizId) return '';
+            const lbl = ssQuizLabel(u);
+            return `<button data-action="ss-practice" data-id="${escapeHTML(u.id)}" class="flex items-center gap-2 px-4 py-2 bg-emerald-500 text-white font-black rounded-xl hover:bg-emerald-400 transition shadow-sm text-sm" title="${escapeHTML(lbl ? '從「' + lbl + '」隨機出 5 題' :'隨機出 5 題')}"><i data-lucide="pencil-line" class="w-4 h-4 pointer-events-none"></i> 練 5 題</button>`;
+        }
+        /* 題庫索引正在抓的時候，loadBuiltinQuizIndex 會直接 return（不等）。這支等它真的好了（最多 6 秒）。 */
+        async function waitBuiltinQuizIndex() {
+            loadBuiltinQuizIndex();
+            for (let i = 0; i < 60 && builtinQuizState ==='loading'; i++) await new Promise(r => setTimeout(r, 100));
+            return builtinQuizState ==='ready';
+        }
+        /* 視窗裡那個下拉選單：只列有分章節的課程題庫（一章一個選項），外加「整份」。 */
+        function fillSSQuizSelect(want) {
+            const sel = $('ssUnitQuiz');
+            if (!sel) return;
+            sel.dataset.want = want ||'';
+            if (builtinQuizState !=='ready') {
+                sel.innerHTML = `<option value="${escapeHTML(want ||'')}">${want ?'（題庫載入中…）' :'不附練習'}</option>`;
+                return;
+            }
+            sel.innerHTML = ssQuizOptionsHTML();
+            sel.value = want ||'';
+            /* 存過的選項現在找不到了（題庫改了章節）：留一個「找不到」的選項，不要安靜地變成「不附練習」。 */
+            if (want && sel.value !== want) {
+                sel.insertAdjacentHTML('afterbegin', `<option value="${escapeHTML(want)}">（原本綁的題目找不到了）</option>`);
+                sel.value = want;
+            }
+        }
+        function ssQuizOptionsHTML() {
+            const banks = (state.builtinQuizzes ||[]).filter(q => !q.hidden && (q.units ||[]).length);
+            return '<option value="">不附練習</option>' + banks.map(rec => `
+                <optgroup label="${escapeHTML(ssBankName(rec))}">
+                    <option value="${escapeHTML(rec.id)}|">整份（${Number(rec.count) || 0} 題）</option>
+                    ${(rec.units ||[]).map(un => `<option value="${escapeHTML(rec.id)}|${escapeHTML(un.u)}">${escapeHTML(un.n)}（${Number(un.k) || 0} 題）</option>`).join('')}
+                </optgroup>`).join('');
+        }
+        async function ssPractice(unitId) {
+            const u = state.ssUnits.find(x => x.id === unitId);
+            if (!u || !u.quizId) return;
+            if (!isSignedInMember()) return showToast("登入之後就能練習");
+            if (!(await waitBuiltinQuizIndex())) return showToast("題庫載不到，等一下再試一次");
+            if (!ssQuizLabel(u)) return showToast("這個單元綁的題目找不到了，請管理員重選一次");
+            await startKahoot(u.quizId, u.quizUnit || undefined, { scope:'builtin', count: 5, shuffle: true, ssUnit: u.id });
+        }
+
+        /* ==========================================================
+         * 13.2 自學進度、站內播影片、時間點筆記、同學推薦（2026-10-09）
+         *
+         * 為什麼做這幾項：查了競品（docs/自學課程競品調查.md）——免費線上課約 4% 的人上完；
+         * Khan 被稱讚的是「有進度」；Hahow 被稱讚的是「標時間點的筆記」。
+         * 站上的自學課程原本只是一排連結，看完就結束。
+         * ========================================================== */
+
+        /* ---- 進度 ---- */
+        const SS_PROG_ID = 'ssprogress';
+        const SS_NOTE_MAX = 100, SS_NOTE_LEN = 300;
+        /* 讀回來的每一欄都當成外來資料（另一台裝置、舊版本、被改過的）：型別不對就丟掉。 */
+        function ssCleanUnit(v) {
+            if (!v || typeof v !== 'object') return null;
+            const num = (x) => (Number.isFinite(Number(x)) && Number(x) >= 0 ? Math.min(Number(x), 86400) : 0);
+            const notes = (Array.isArray(v.n) ? v.n : []).filter(o => o && typeof o.x === 'string')
+                .slice(0, SS_NOTE_MAX).map(o => ({ t: num(o.t), x: o.x.slice(0, SS_NOTE_LEN) }));
+            /* b／due：練習的複習排程（2026-10-09）。b＝0 代表還沒進排程；due 是日期鍵（YYYY-MM-DD），壞掉的一律當沒有。 */
+            const b = Number.isInteger(Number(v.b)) && Number(v.b) >= 1 && Number(v.b) <= SRS_STEPS.length ? Number(v.b) : 0;
+            const due = b && typeof v.due === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v.due) ? v.due :'';
+            return { v: v.v === true, p: v.p === true, t: num(v.t), d: num(v.d), n: notes, at: Number(v.at) || 0, b: due ? b : 0, due };
+        }
+        function ssProgReset() {
+            if (ssProg.unsub) { try { ssProg.unsub(); } catch (e) {} }
+            clearTimeout(ssProg.timer);
+            ssProg = { uid: null, units: {}, ready: false, unsub: null, timer: 0, dirty: new Set() };
+        }
+        /* 登入了、而且還沒在聽這個人的那一份 → 開始聽（只聽一份文件，不是整個 settings 集合：
+           那裡還有課表、錯題本，一起讀是白花流量）。 */
+        function ssProgEnsure() {
+            const u = auth.currentUser;
+            if (!u || u.isAnonymous || !PU('settings')) return;
+            if (ssProg.uid === u.uid && ssProg.unsub) return;
+            ssProgReset();
+            ssProg.uid = u.uid;
+            ssProg.unsub = onSnapshot(doc(db, PU('settings'), SS_PROG_ID), (snap) => {
+                const data = snap.exists() ? snap.data() : {};
+                const units = {};
+                const src = data && data.units && typeof data.units === 'object' ? data.units : {};
+                for (const k of Object.keys(src)) { const c = ssCleanUnit(src[k]); if (c) units[k] = c; }
+                /* ★ 本機改了還沒寫上去的那幾個單元蓋在上面：不然自己剛勾的「看完了」，
+                     被一份還沒包含它的快照抽掉，畫面上會閃一下又回來。 */
+                for (const k of ssProg.dirty) if (ssProg.units[k]) units[k] = ssProg.units[k];
+                ssProg.units = units;
+                ssProg.ready = true;
+                ssRefreshProgUI();
+            }, (err) => {
+                console.warn('自學進度讀不到:', err && (err.code || err));
+                ssProg.ready = false;
+            });
+        }
+        const ssUnitProg = (id) => ssProg.units[id] || { v: false, p: false, t: 0, d: 0, n: [] };
+        /* 一個單元算「完成」：看完了，而且（有附練習的話）練過了。 */
+        const ssUnitDone = (u) => { const p = ssUnitProg(u.id); return p.v && (!u.quizId || p.p); };
+        function ssCourseProg(courseId) {
+            const units = (state.ssUnits ||[]).filter(u => u.courseId === courseId);
+            const now = Date.now();
+            return { done: units.filter(ssUnitDone).length, total: units.length, due: units.filter(u => ssUnitDue(u, now)).length };
+        }
+        function ssProgSet(id, patch, now) {
+            /* ★★ 雲端那一份還沒讀到就不准寫：寫進去的會是只有這一個單元的進度，
+                 merge 不會蓋掉別的單元，但「看到哪」「筆記」會被這份不完整的覆蓋。 */
+            if (!ssProg.ready) { showToast('進度還在讀，等一下再試'); return false; }
+            ssProg.units[id] = { ...ssUnitProg(id), ...patch, at: Date.now() };
+            ssProg.dirty.add(id);
+            clearTimeout(ssProg.timer);
+            ssProg.timer = setTimeout(ssProgFlush, now ? 0 : 1500);
+            return true;
+        }
+        /* 只寫改過的那幾個單元（merge：別的單元不動）。
+           ⚠️ 不能把整個 units 一起寫：另一台裝置剛記的筆記會被這台的舊版本蓋掉。 */
+        async function ssProgFlush() {
+            ssProg.timer = 0;
+            const path = PU('settings');
+            if (!path || !ssProg.dirty.size) return;
+            const ids = [...ssProg.dirty];
+            const units = {};
+            for (const id of ids) units[id] = ssProg.units[id];
+            ssProg.dirty.clear();
+            try {
+                await setDoc(doc(db, path, SS_PROG_ID), { kind: SS_PROG_ID, units, updatedAt: Date.now() }, { merge: true });
+            } catch (e) {
+                console.warn('自學進度存不起來:', e && (e.code || e));
+                for (const id of ids) ssProg.dirty.add(id);
+                showToast('進度沒存起來，等一下再試一次');
+            }
+        }
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'hidden') { ssPlayerSaveTime(true); if (ssProg.dirty.size) ssProgFlush(); }
+        });
+
+        function ssToggleSeen(id) {
+            if (!isSignedInMember()) return showToast('登入之後就能記進度');
+            const p = ssUnitProg(id);
+            if (ssProgSet(id, { v: !p.v })) ssRefreshProgUI();
+        }
+        /* ---- 單元的練習照遺忘曲線再出（2026-10-09）----
+           ★ 不另寫一套：間隔就是每日測驗那串 SRS_STEPS（1、3、7、14、30 天），升降規則也一樣——
+             這次練 5 題答對六成＝升一階，沒到＝降一階（不掉回第一階，理由見 srsNext）。
+           ★ 排的是「單元」不是「題目」：單元的練習每次都從那一章隨機抽，同一題不一定會再出現；
+             要追的是「這一章還會不會」。題目層級的複習已經有錯題本。
+           ★ 跟每日測驗同一條規矩：還沒到期就先練、而且練得好——**不升**（剛看完影片馬上再練，量到的是短期記憶）；
+             練不好一律算數。第一次練（還沒進排程）不管對錯都排到明天的第一階。 */
+        function ssSchedNext(p, pass, now) {
+            const today = dayKeyOf(now);
+            if (!p.b) return { b: 1, due: srsDayKeyAfter(SRS_STEPS[0], now) };
+            if (pass && p.due && p.due > today) return null;
+            const b = pass ? Math.min(SRS_STEPS.length, p.b + 1) : Math.max(1, p.b - 1);
+            return { b, due: srsDayKeyAfter(SRS_STEPS[b - 1], now) };
+        }
+        /* 這個單元今天該複習了沒（有綁練習、進了排程、到期日 ≤ 今天）。 */
+        function ssUnitDue(u, now) {
+            if (!u || !u.quizId) return false;
+            const p = ssUnitProg(u.id);
+            return !!(p.b && p.due && p.due <= dayKeyOf(now));
+        }
+        /* 2026-10-12 → 10/12 */
+        const ssDueLabel = (k) => String(k ||'').slice(5).split('-').map(Number).join('/');
+        function ssPracticeDone(id, answers) {
+            const all = (answers ||[]).length, ok = (answers ||[]).filter(a => a && a.correct).length;
+            if (!all || !isSignedInMember()) return;
+            const pass = ok / all >= 0.6;
+            const p = ssUnitProg(id);
+            const sched = ssSchedNext(p, pass, Date.now());
+            const patch = { ...(pass && !p.p ? { p: true } : {}), ...(sched || {}) };
+            if (Object.keys(patch).length && !ssProgSet(id, patch)) return;
+            ssRefreshProgUI();
+            const next = sched ? `下次複習：${ssDueLabel(sched.due)}` :'';
+            if (pass) showToast(!p.p ? `這個單元練過了 ✓ ${next}` : (next || '還沒到複習的日子，這次先不算'));
+            else if (p.p) showToast(`這次答對 ${ok} 題，${sched ? ssDueLabel(sched.due) + ' 再練一次' :'過幾天再練一次'}`);
+            else showToast(`答對 ${ok} 題。答對 ${Math.ceil(all * 0.6)} 題以上就算練過。${next}`);
+        }
+        function ssUnitProgHTML(u) {
+            if (!isSignedInMember()) return '';
+            const p = ssUnitProg(u.id);
+            const pill = (on, txt, off) => `<span class="px-3 py-1 rounded-full text-xs font-black ${on ?'bg-emerald-100 text-emerald-700' :'bg-slate-100 text-slate-400'}">${on ?'✓ ' + txt : off}</span>`;
+            const seen = `<button data-action="ss-seen" data-id="${escapeHTML(u.id)}" class="px-3 py-1 rounded-full text-xs font-black transition ${p.v ?'bg-emerald-100 text-emerald-700 hover:bg-emerald-200' :'bg-slate-100 text-slate-500 hover:bg-slate-200'}" title="${escapeHTML(p.v ?'點一下改回還沒看完' :'看完了就點一下（影片看到九成也會自己勾）')}">${p.v ?'✓ 看完了' :'○ 標成看完了'}</button>`;
+            const prac = u.quizId ? pill(p.p, '練過了', '還沒練過') : '';
+            const review = !u.quizId || !p.b ? ''
+                : ssUnitDue(u, Date.now()) ? '<span class="px-3 py-1 rounded-full text-xs font-black bg-amber-100 text-amber-700" title="照遺忘曲線排的：按「練 5 題」複習">🔁 該複習了</span>'
+                : `<span class="text-xs font-bold text-slate-400" title="照遺忘曲線排的複習日">下次複習 ${ssDueLabel(p.due)}</span>`;
+            const where = p.t >= 5 && !p.v ? `<span class="text-xs font-bold text-slate-400">上次看到 ${ssFmt(p.t)}</span>` :'';
+            const notes = p.n.length ? `<span class="text-xs font-bold text-amber-600">📝 ${p.n.length} 則筆記</span>` :'';
+            return seen + prac + review + where + notes;
+        }
+        function ssCourseProgHTML(courseId) {
+            if (!isSignedInMember() || !ssProg.ready) return '';
+            const { done, total, due } = ssCourseProg(courseId);
+            if (!total) return '';
+            const pct = Math.round(done / total * 100);
+            return `<div class="mt-auto">${due ? `<p class="text-xs font-black text-amber-600 mb-1">🔁 ${due} 個單元該複習</p>` :''}<div class="flex justify-between text-xs font-black text-slate-500 mb-1"><span>${done}／${total} 單元</span><span>${pct}%</span></div>
+                <div class="h-2 rounded-full bg-slate-100 overflow-hidden"><div class="h-full bg-emerald-400 rounded-full" style="width:${pct}%"></div></div></div>`;
+        }
+        /* 進度變了只改那幾小塊，不重畫整張清單——重畫會把正在播的影片抽掉重載。 */
+        function ssRefreshProgUI() {
+            document.querySelectorAll('#ssUnitList .ss-unit').forEach(el => {
+                const u = (state.ssUnits ||[]).find(x => x.id === el.dataset.ssUnit);
+                const box = el.querySelector('.ss-prog');
+                if (u && box) box.innerHTML = ssUnitProgHTML(u);
+                el.classList.toggle('border-emerald-300', !!(u && isSignedInMember() && ssUnitDone(u)));
+            });
+            const bar = $('ssDetailsProg');
+            if (bar) {
+                const show = !!(currentViewSSCourseId && isSignedInMember() && ssProg.ready);
+                bar.classList.toggle('hidden', !show);
+                if (show) {
+                    const { done, total, due } = ssCourseProg(currentViewSSCourseId);
+                    $('ssDetailsProgText').textContent = total ? `完成 ${done}／${total} 單元${due ? `・今天 ${due} 個單元該複習` :''}` :'';
+                    $('ssDetailsProgBar').style.width = (total ? Math.round(done / total * 100) : 0) + '%';
+                }
+            }
+            if (!currentViewSSCourseId && $('ssCourseGrid') && state.ssCourses.length) renderSelfStudyCourses();
+            if (ssPlayer) ssRenderNotes();
+        }
+
+        /* ---- 站內播 YouTube ----
+           ★★ 不載 YouTube 的外部 script（www.youtube.com/iframe_api）：站上的原則是第三方程式自己 host，
+             沒有 SRI 的外部 script 等於「上游哪天換掉，我們照跑」。
+             改成直接跟 iframe 用 postMessage 講話——那正是 iframe_api 自己在做的事：
+               送 {event:'listening'} → 播放器開始回 {event:'infoDelivery', info:{currentTime, duration, playerState}}
+               送 {event:'command', func:'seekTo', args:[秒, true]} → 跳過去
+             這套格式沒有寫在 YouTube 的文件裡，哪天變了：影片照樣播，只是「看到哪」「筆記的時間」記不到。
+           ★ 用 youtube-nocookie.com：不播的時候不寫追蹤 cookie。CSP 的 frame-src 只多放它一個。
+           ⚠️ 只認 SS_YT_ORIGIN 送來、而且 source 是我們那個 iframe 的訊息：別的視窗也能 postMessage 給我們。 */
+        const SS_YT_ORIGIN = 'https://www.youtube-nocookie.com';
+        function ytIdOf(url) {
+            let u;
+            try { u = new URL(String(url ||'')); } catch (e) { return null; }
+            if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+            const h = u.hostname.replace(/^(www|m|music)\./, '');
+            let id = '';
+            if (h === 'youtu.be') id = u.pathname.slice(1).split('/')[0];
+            else if (h === 'youtube.com' || h === 'youtube-nocookie.com') {
+                if (u.pathname === '/watch') id = u.searchParams.get('v') ||'';
+                else { const m = u.pathname.match(/^\/(embed|shorts|live|v)\/([^/?#]+)/); if (m) id = m[2]; }
+            }
+            return /^[\w-]{11}$/.test(id) ? id : null;
+        }
+        /* 網址上自己帶的起始時間（?t=90、?t=1m30s、&start=90）。 */
+        function ytStartOf(url) {
+            let u;
+            try { u = new URL(String(url ||'')); } catch (e) { return 0; }
+            const raw = u.searchParams.get('t') || u.searchParams.get('start') ||'';
+            const m = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/.exec(raw);
+            return m ? (Number(m[1] || 0) * 3600 + Number(m[2] || 0) * 60 + Number(m[3] || 0)) : 0;
+        }
+        function ssFmt(sec) {
+            const s = Math.max(0, Math.floor(Number(sec) || 0)), h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = s % 60;
+            return h ? `${h}:${String(m).padStart(2,'0')}:${String(x).padStart(2,'0')}` : `${m}:${String(x).padStart(2,'0')}`;
+        }
+        /* ---- 影片看到一半停下來考一題（2026-10-09）----
+           管理員在單元上填時間點（stops:[秒…]），影片「播過」那一秒就：
+             送 pauseVideo → 用單元綁的練習題（quizId/quizUnit）開一題 → 答完回到影片底下，留一顆「繼續看影片」。
+           ★ 答完**不自己接著播**：全站的規矩是「按了才出聲」（tests/quizplus.mjs 有一條釘它）。
+           ★ 「播過」＝上一次回報的時間在停點前、這一次在停點後、而且沒超過 4 秒——
+             拖進度條一口氣跳過去的不算（那是使用者自己要跳過），往回拖再播過去也不會再問第二次（asked）。
+           ★ 只對登入的人：內建題庫本來就要登入才能做（startKahoot 會擋），停下來卻開不了題只會更煩。
+           ⚠️ stops 來自 Firestore，用之前一律過 ssStopsOf()（型別、範圍、去重、排序、最多 10 個）。 */
+        function ssStopsOf(u) {
+            const a = u && Array.isArray(u.stops) ? u.stops : [];
+            return [...new Set(a.map(Number).filter(n => Number.isFinite(n) && n >= 1 && n <= 36000).map(Math.floor))]
+                .sort((x, y) => x - y).slice(0, 10);
+        }
+        /* 管理員打的字 → 秒數陣列。收「3:20」「1:02:03」「200」，逗號、頓號、空白分隔。
+           任何一個看不懂就整個回 null（不要默默丟掉一個，管理員會以為存進去了）。空字串＝沒有停點。 */
+        function parseSSStops(str) {
+            const toks = String(str ||'').split(/[\s,，、;；]+/).filter(Boolean);
+            const out = [];
+            for (const k of toks) {
+                const m = /^(?:(\d{1,2}):)?(\d{1,3}):(\d{2})$/.exec(k);
+                let sec;
+                if (m) {
+                    if (Number(m[3]) > 59 || (m[1] !== undefined && Number(m[2]) > 59)) return null;
+                    sec = Number(m[1] || 0) * 3600 + Number(m[2]) * 60 + Number(m[3]);
+                } else if (/^\d{1,5}$/.test(k)) sec = Number(k);
+                else return null;
+                if (sec < 1 || sec > 36000) return null;
+                out.push(sec);
+            }
+            const uniq = [...new Set(out)].sort((a, b) => a - b);
+            return uniq.length > 10 ? null : uniq;
+        }
+        /* 這一次回報有沒有「播過」哪個還沒問過的停點。沒有回 null。 */
+        function ssStopDue(stops, prev, t, asked) {
+            if (!Number.isFinite(prev) || !Number.isFinite(t) || t <= prev) return null;
+            for (const sec of stops) if (prev < sec && sec <= t && t - sec < 4 && !asked.has(sec)) return sec;
+            return null;
+        }
+        function ssMaybeStop(prevT) {
+            if (!ssPlayer || ssPlayer.quizzing || ssPlayer.state !== 1 || !isSignedInMember()) return;
+            const u = (state.ssUnits ||[]).find(x => x.id === ssPlayer.unitId);
+            if (!u || !u.quizId) return;
+            const sec = ssStopDue(ssStopsOf(u), prevT, ssPlayer.t, ssPlayer.asked);
+            if (sec === null) return;
+            ssPlayer.asked.add(sec);
+            ssStopAsk(u);
+        }
+        async function ssStopAsk(u) {
+            const pl = ssPlayer;
+            pl.quizzing = true;
+            ssPost({ event: 'command', func: 'pauseVideo', args: [], id: 'ss', channel: 'widget' });
+            ssPlayerSaveTime(true);
+            /* ★ 不帶 ssUnit：一題答對不能算「這個單元練過了」（那是練 5 題答對六成的事）。 */
+            await startKahoot(u.quizId, u.quizUnit || undefined, { scope: 'builtin', count: 1, shuffle: true, ssStop: true });
+            if (ssPlayer !== pl) return;
+            const open = activeKahoot && activeKahoot._ssStop && !$('playKahootModal').classList.contains('hidden');
+            if (!open) ssStopDone(null);        // 題目沒開成（載入失敗之類）：一樣留一顆「繼續看」
+        }
+        /* 那一題結束（答完、或按叉叉離開）。correct：true／false；null＝沒答。 */
+        function ssStopDone(correct) {
+            if (!ssPlayer) return;
+            ssPlayer.quizzing = false;
+            ssPlayer.bar = correct;            // 重畫時接回去用（見 renderSelfStudyUnits）
+            const bar = ssPlayer.frame.closest('.ss-player') && ssPlayer.frame.closest('.ss-player').querySelector('.ss-stop-bar');
+            if (!bar) return;
+            const msg = correct === true ?'答對了 ✓' : correct === false ?'這題答錯了，剛剛的詳解可以再想一下' :'影片停在這裡';
+            bar.innerHTML = `<span class="text-sm font-bold ${correct === true ?'text-emerald-700' : correct === false ?'text-rose-600' :'text-slate-500'}">${msg}</span>
+                <button data-action="ss-resume" class="shrink-0 px-4 py-2 rounded-xl text-sm font-black bg-red-500 text-white hover:bg-red-600 transition">繼續看影片</button>`;
+            bar.classList.remove('hidden');
+            bar.classList.add('flex');
+        }
+        function ssResume() {
+            const bar = document.querySelector('.ss-player .ss-stop-bar');
+            if (bar) { bar.classList.add('hidden'); bar.classList.remove('flex'); bar.innerHTML = ''; }
+            if (ssPlayer) ssPlayer.bar = undefined;
+            ssPost({ event: 'command', func: 'playVideo', args: [], id: 'ss', channel: 'widget' });
+        }
+        /* ---- 跟計劃、讀書計時連起來（2026-10-09）----
+           科目＝這門自學課程連到的學校課程名（linkedCourseName），沒連就用課程名。
+           ★ 用課名不用單元名：讀書統計是照科目彙總的，用單元名的話「極限(1)」「極限(2)」會變兩個科目，
+             「微積分今天讀了多久」就算不出來了（startStudyFromPlan 那邊同一個理由）。
+           ★ 計時**不自己開始**，是在播放器底下給一顆「開始計時」：整站只有一個計時器，
+             而 startStudy 的規矩是「不偷偷換科目」——點開影片看一眼就自動記時間，記到的會是假的讀書時間。 */
+        function ssSubjectOf(c) { return String((c && (c.linkedCourseName || c.title)) ||'').trim().slice(0, 40); }
+        function ssAddToPlan(unitId) {
+            if (!isSignedInMember()) return showToast('登入之後才能排進計劃');
+            const u = (state.ssUnits ||[]).find(x => x.id === unitId);
+            const c = (state.ssCourses ||[]).find(x => x.id === currentViewSSCourseId);
+            if (!u || !c) return;
+            /* 走原本的「新增計劃」視窗（時間預設今天），只先填好標題和科目——存不存、排幾點由使用者決定。 */
+            openPlanModal(null, 'today');
+            setVals({ planTitle: `看「${u.title}」`.slice(0, 60), planSubject: ssSubjectOf(c) });
+        }
+        function ssTimerHTML() {
+            if (!isSignedInMember()) return '';
+            const sub = ssSubjectOf((state.ssCourses ||[]).find(x => x.id === currentViewSSCourseId));
+            if (!sub) return '';
+            if (!studyRun) return `<button data-action="ss-timer" class="px-3 py-1 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 font-black">開始計時：${escapeHTML(sub)}</button>`;
+            if (studyRun.sub === sub) return `<span class="text-indigo-500">計時中：${escapeHTML(sub)}</span>`;
+            return `<span class="text-slate-400">計時器正在記「${escapeHTML(studyRun.sub ||'沒填科目')}」</span>`;
+        }
+        function ssTimerRefresh() {
+            const el = document.querySelector('.ss-player .ss-timer');
+            if (el) el.innerHTML = ssTimerHTML();
+        }
+        function ssStartTimer() {
+            const sub = ssSubjectOf((state.ssCourses ||[]).find(x => x.id === currentViewSSCourseId));
+            if (!sub || !isSignedInMember()) return;
+            startStudy({ sub });        // 已經有一段在跑的話 startStudy 自己會擋並說一聲
+            ssTimerRefresh();
+        }
+        function ssPlayBtnHTML(u) {
+            const p = ssUnitProg(u.id);
+            const resume = isSignedInMember() && p.t >= 5 && !p.v;
+            return `<button data-action="ss-play" data-id="${escapeHTML(u.id)}" class="flex items-center gap-2 px-4 py-2 bg-red-50 text-red-600 font-bold rounded-xl hover:bg-red-100 transition border border-red-100 text-sm"><i data-lucide="play" class="w-4 h-4 pointer-events-none"></i> ${resume ? `從 ${ssFmt(p.t)} 繼續看` :'播放影片'}</button>`;
+        }
+        function ssPlay(unitId, at) {
+            const u = (state.ssUnits ||[]).find(x => x.id === unitId);
+            const vid = u && ytIdOf(u.ytUrl);
+            if (!vid) return;
+            if (ssPlayer && ssPlayer.unitId === unitId && at === undefined) return;   // 已經開著
+            ssClosePlayer();
+            const card = [...document.querySelectorAll('#ssUnitList .ss-unit')].find(el => el.dataset.ssUnit === unitId);
+            const slot = card && card.querySelector('.ss-player-slot');
+            if (!slot) return;
+            const p = ssUnitProg(unitId);
+            /* 從哪裡開始：明講的 at（重畫時接回去）＞ 上次看到哪（還沒看完的話）＞ 網址自己帶的時間。
+               ★ 重畫接回去時也不自己開始播：全站的規矩是「按了才出聲」（tests/quizplus.mjs 有一條釘它）。 */
+            const start = Math.floor(at !== undefined ? at : (isSignedInMember() && p.t >= 5 && !p.v ? p.t : ytStartOf(u.ytUrl)));
+            const q = new URLSearchParams({ enablejsapi: '1', rel: '0', playsinline: '1', origin: location.origin });
+            if (start > 0) q.set('start', String(start));
+            const stops = u.quizId ? ssStopsOf(u) : [];
+            slot.innerHTML = `
+                <div class="ss-player mt-4">
+                    <div class="relative w-full rounded-2xl overflow-hidden bg-black" style="aspect-ratio:16/9">
+                        <iframe class="absolute inset-0 w-full h-full" src="${SS_YT_ORIGIN}/embed/${vid}?${q}" title="${escapeHTML(u.title)}"
+                            allow="encrypted-media; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe>
+                    </div>
+                    <div class="ss-stop-bar hidden items-center justify-between gap-2 mt-3 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-100"></div>
+                    ${stops.length ? `<p class="text-xs text-slate-400 mt-2 font-bold">${isSignedInMember() ? `看到 ${stops.map(ssFmt).join('、')} 會停下來考你一題` :'登入之後，影片中途會停下來考你一題'}</p>` :''}
+                    ${isSignedInMember() ? `
+                    <div class="flex gap-2 mt-3">
+                        <input id="ssNoteInput" maxlength="${SS_NOTE_LEN}" placeholder="想到什麼記一筆，會記下影片現在的時間" aria-label="時間點筆記"
+                            class="flex-1 min-w-0 px-4 py-2.5 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-amber-400 text-sm font-medium">
+                        <button data-action="ss-note-add" class="shrink-0 px-4 py-2.5 rounded-xl text-sm font-black bg-amber-400 text-white hover:bg-amber-500 transition">記在 <span class="ss-now">${ssFmt(start)}</span></button>
+                    </div>
+                    <div class="ss-notes mt-2 space-y-1"></div>` :'<p class="text-xs text-slate-400 mt-2 font-bold">登入之後會記得你看到哪，也可以邊看邊記筆記。</p>'}
+                    <div class="flex justify-between items-center gap-2 mt-2 text-xs font-bold">
+                        <span class="ss-timer">${ssTimerHTML()}</span>
+                        <a href="${escapeHTML(u.ytUrl)}" target="_blank" rel="noopener" class="text-slate-400 hover:text-red-500">在 YouTube 打開</a>
+                        <button data-action="ss-close-player" class="text-slate-400 hover:text-slate-700">收起影片</button>
+                    </div>
+                </div>`;
+            const frame = slot.querySelector('iframe');
+            ssPlayer = { unitId, frame, t: start, d: p.d || 0, state: -1, savedT: p.t || 0, heard: false, poke: 0, asked: new Set(), quizzing: false };
+            /* iframe 載好之前送的 'listening' 會掉：每 300ms 送一次，直到播放器回話（最多 10 秒）。 */
+            let tries = 0;
+            ssPlayer.poke = setInterval(() => {
+                if (!ssPlayer || ssPlayer.frame !== frame || ssPlayer.heard || ++tries > 33) { clearInterval(frame._ssPoke); return; }
+                ssPost({ event: 'listening', id: 'ss', channel: 'widget' });
+            }, 300);
+            frame._ssPoke = ssPlayer.poke;
+            frame.addEventListener('load', () => ssPost({ event: 'listening', id: 'ss', channel: 'widget' }));
+            ssRenderNotes();
+            if (card.scrollIntoView) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+        function ssPost(msg) {
+            if (!ssPlayer || !ssPlayer.frame.contentWindow) return;
+            try { ssPlayer.frame.contentWindow.postMessage(JSON.stringify(msg), SS_YT_ORIGIN); } catch (e) {}
+        }
+        function ssSeek(t) {
+            if (!ssPlayer || !Number.isFinite(t)) return;
+            ssPost({ event: 'command', func: 'seekTo', args: [t, true], id: 'ss', channel: 'widget' });
+            ssPost({ event: 'command', func: 'playVideo', args: [], id: 'ss', channel: 'widget' });
+            ssPlayer.t = t;
+            ssShowNow();
+        }
+        addEventListener('message', (e) => {
+            if (e.origin !== SS_YT_ORIGIN || !ssPlayer || e.source !== ssPlayer.frame.contentWindow) return;
+            let m;
+            try { m = typeof e.data === 'string' ? JSON.parse(e.data) : e.data; } catch (err) { return; }
+            if (!m || typeof m !== 'object') return;
+            ssPlayer.heard = true;
+            const info = m.info && typeof m.info === 'object' ? m.info : null;
+            if (!info) return;
+            const prevT = ssPlayer.t;
+            if (Number.isFinite(info.currentTime)) ssPlayer.t = info.currentTime;
+            if (Number.isFinite(info.duration) && info.duration > 0) ssPlayer.d = info.duration;
+            if (Number.isFinite(info.playerState)) ssPlayer.state = info.playerState;
+            ssShowNow();
+            ssMaybeStop(prevT);
+            /* 看到九成、或播完（playerState 0）：自動勾「看完了」。 */
+            const id = ssPlayer.unitId;
+            if (isSignedInMember() && ssProg.ready && !ssUnitProg(id).v
+                && (ssPlayer.state === 0 || (ssPlayer.d > 0 && ssPlayer.t / ssPlayer.d >= 0.9))) {
+                if (ssProgSet(id, { v: true, t: ssPlayer.t, d: ssPlayer.d })) { ssRefreshProgUI(); showToast('這個單元看完了 ✓'); }
+            }
+            /* 看到哪：多看了一分鐘、或按了暫停才存（一直存的話一小時就是幾百次寫入）。 */
+            ssPlayerSaveTime(ssPlayer.state === 2);
+        });
+        function ssPlayerSaveTime(force) {
+            if (!ssPlayer || !isSignedInMember() || !ssProg.ready) return;
+            const t = Math.floor(ssPlayer.t);
+            if (Math.abs(t - ssPlayer.savedT) < (force ? 3 : 60)) return;
+            ssPlayer.savedT = t;
+            ssProgSet(ssPlayer.unitId, { t, d: Math.floor(ssPlayer.d) });
+        }
+        function ssShowNow() {
+            const el = document.querySelector('.ss-player .ss-now');
+            if (el && ssPlayer) el.textContent = ssFmt(ssPlayer.t);
+        }
+        function ssClosePlayer() {
+            if (!ssPlayer) return;
+            ssPlayerSaveTime(true);
+            clearInterval(ssPlayer.poke);
+            const slot = ssPlayer.frame.closest('.ss-player-slot');
+            ssPlayer = null;
+            if (slot) slot.innerHTML = '';
+            ssRefreshProgUI();
+        }
+        /* ---- 時間點筆記：只有自己看得到，跟著進度那一份文件存 ---- */
+        function ssAddNote() {
+            if (!ssPlayer || !isSignedInMember()) return;
+            const box = $('ssNoteInput');
+            const x = String(box && box.value ||'').trim().slice(0, SS_NOTE_LEN);
+            if (!x) return showToast('先打一點字再記');
+            const p = ssUnitProg(ssPlayer.unitId);
+            if (p.n.length >= SS_NOTE_MAX) return showToast(`一個單元最多 ${SS_NOTE_MAX} 則筆記`);
+            const n = [...p.n, { t: Math.floor(ssPlayer.t), x }].sort((a, b) => a.t - b.t);
+            if (ssProgSet(ssPlayer.unitId, { n })) { box.value = ''; ssRefreshProgUI(); }
+        }
+        function ssDelNote(i) {
+            if (!ssPlayer) return;
+            const p = ssUnitProg(ssPlayer.unitId);
+            if (!(i >= 0 && i < p.n.length)) return;
+            if (ssProgSet(ssPlayer.unitId, { n: p.n.filter((_, j) => j !== i) })) ssRefreshProgUI();
+        }
+        function ssRenderNotes() {
+            const box = document.querySelector('.ss-player .ss-notes');
+            if (!box || !ssPlayer) return;
+            const n = ssUnitProg(ssPlayer.unitId).n;
+            box.innerHTML = n.map((o, i) => `
+                <div class="flex items-start gap-2 text-sm">
+                    <button data-action="ss-seek" data-t="${escapeHTML(String(Number(o.t) || 0))}" class="shrink-0 px-2 py-0.5 rounded-lg bg-amber-100 text-amber-700 font-black text-xs hover:bg-amber-200" title="跳到這裡">${ssFmt(o.t)}</button>
+                    <span class="flex-1 min-w-0 text-slate-700 font-medium whitespace-pre-wrap break-words">${escapeHTML(o.x)}</span>
+                    <button data-action="ss-note-del" data-i="${i}" class="shrink-0 text-slate-300 hover:text-rose-500 font-black px-1" aria-label="刪掉這則筆記">×</button>
+                </div>`).join('');
+        }
+
+        /* ---- 同學推薦單元 ----
+           ★ 走回報信箱（feedback 集合），不開新集合：那裡「任何登入者寫得進去、只有管理員讀得到」，
+             正好就是推薦要的形狀，而且**不用改規則、不用推主控台**。
+             多帶一個 ss 欄位（{c 課程, t 名稱, u 連結, n 理由}）讓管理員一鍵上架；欄位數 10，規則給 12。
+           ⚠️ ss 是使用者打的字：顯示一律跳脫，連結要過 isValidUrl 才變成 <a>，上架時再過一次單元的檢查。 */
+        function ssSuggestionOf(f) {
+            const s = f && f.ss;
+            if (!s || typeof s !== 'object' || typeof s.c !== 'string' || typeof s.t !== 'string' || typeof s.u !== 'string') return null;
+            return { c: s.c.slice(0, 200), t: s.t.slice(0, 80), u: s.u.slice(0, 500), n: typeof s.n === 'string' ? s.n.slice(0, 300) :'' };
+        }
+        function openSSSuggest() {
+            if (!isSignedInMember()) return showToast('登入之後才能推薦');
+            const c = state.ssCourses.find(x => x.id === currentViewSSCourseId);
+            if (!c) return;
+            $('ssSuggestCourse').textContent = c.title;
+            ['ssSuggestTitle', 'ssSuggestUrl', 'ssSuggestNote'].forEach(id => { $(id).value = ''; });
+            openModal('ssSuggestModal');
+        }
+        async function sendSSSuggest() {
+            const user = auth.currentUser;
+            if (!user || user.isAnonymous) return showToast('登入之後才能推薦');
+            const c = state.ssCourses.find(x => x.id === currentViewSSCourseId);
+            if (!c) return;
+            const t = $('ssSuggestTitle').value.trim(), u = $('ssSuggestUrl').value.trim(), n = $('ssSuggestNote').value.trim();
+            if (!isValidText(t, 80)) return showToast('單元名稱請在 1 到 80 字');
+            if (!u || !isValidUrl(u)) return showToast('連結要是 http 或 https 開頭的網址');
+            if (n.length > 300) return showToast('理由請在 300 字以內');
+            const btn = $('ssSuggestSend');
+            btn.disabled = true;
+            try {
+                await setDoc(doc(collection(db, PATHS.feedback)), {
+                    kind: 'idea',
+                    text: `【推薦自學單元】${c.title}\n${t}\n${u}${n ? '\n' + n :''}`.slice(0, 2000),
+                    product: PRODUCT, uid: user.uid, email: user.email ||'', name: userDisplayName ||'',
+                    ua: (navigator.userAgent ||'').slice(0, 200), done: false, createdAt: Date.now(),
+                    ss: { c: c.id, t, u, n }
+                });
+                closeModal('ssSuggestModal');
+                showToast('收到了！管理員看過之後會放上來');
+            } catch (e) {
+                console.warn('推薦送出失敗:', e && (e.code || e));
+                showToast('送不出去…請檢查網路後再試一次');
+            } finally { btn.disabled = false; }
+        }
+        /* 管理員：這門課收到的推薦（還沒處理的）。 */
+        function renderSSSuggestions() {
+            const box = $('ssSuggestAdmin');
+            if (!box) return;
+            /* ★ isCatAdmin（小黑貓的管理員階梯），不是 isAdmin（那是彰師電子的星族）：
+                 回報信箱的規則讀的是 isCatAdmin，兩條階梯互不換算（CLAUDE.md 第二條）。 */
+            const list = isCatAdmin() && currentViewSSCourseId
+                ? (state.feedback ||[]).filter(f => !f.done && ssSuggestionOf(f) && ssSuggestionOf(f).c === currentViewSSCourseId) : [];
+            box.classList.toggle('hidden', !list.length);
+            if (!list.length) { box.innerHTML = ''; return; }
+            box.innerHTML = `<h3 class="font-black text-amber-700 mb-3 flex items-center gap-2"><i data-lucide="lightbulb" class="w-5 h-5"></i> 同學推薦（${list.length}）</h3>`
+                + list.map(f => {
+                    const s = ssSuggestionOf(f);
+                    const link = isValidUrl(s.u) ? `<a href="${escapeHTML(s.u)}" target="_blank" rel="noopener" class="text-blue-600 font-bold break-all hover:underline">${escapeHTML(s.u)}</a>` : `<span class="break-all">${escapeHTML(s.u)}</span>`;
+                    return `<div class="bg-white rounded-2xl p-4 mb-2 border border-amber-100">
+                        <div class="font-black text-slate-900">${escapeHTML(s.t)}</div>
+                        <div class="text-sm my-1">${link}</div>
+                        ${s.n ? `<div class="text-sm text-slate-600 whitespace-pre-wrap break-words">${escapeHTML(s.n)}</div>` :''}
+                        <div class="text-xs text-slate-400 mt-1">${escapeHTML(f.name ||'無名小貓')}・${escapeHTML(f.createdAt ? new Date(f.createdAt).toLocaleDateString() :'')}</div>
+                        <div class="flex gap-2 mt-3">
+                            <button data-action="ss-adopt" data-id="${escapeHTML(f.id)}" class="px-3 py-1.5 rounded-xl text-xs font-black bg-emerald-500 text-white hover:bg-emerald-400">上架</button>
+                            <button data-action="ss-reject" data-id="${escapeHTML(f.id)}" class="px-3 py-1.5 rounded-xl text-xs font-black bg-slate-100 text-slate-500 hover:bg-slate-200">不採用</button>
+                        </div></div>`;
+                }).join('');
+            icons();
+        }
+        /* 上架＝打開「新增單元」視窗、把推薦的內容先填好；按儲存才真的上架（管理員還能改名字、補介紹）。 */
+        function ssAdopt(id) {
+            const f = (state.feedback ||[]).find(x => x.id === id), s = ssSuggestionOf(f);
+            if (!s) return;
+            openSSUnitModal();
+            ssAdoptFbId = id;
+            $('ssUnitTitle').value = s.t;
+            $(ytIdOf(s.u) ? 'ssUnitYtUrl' : 'ssUnitDriveUrl').value = isValidUrl(s.u) ? s.u :'';
+            $('ssUnitDescription').value = s.n;
+        }
+        async function ssReject(id) {
+            try { await updateDoc(doc(db, PATHS.feedback, id), { done: true }); showToast('收起來了（回報清單裡還找得到）'); }
+            catch (e) { showToast('改不動…重新整理再試一次'); }
         }
 
         function openSelfStudyDetails(ssCourseId) {
@@ -12893,7 +13657,11 @@
             $('page-self-study-details').classList.remove('hidden');
             $('ssDetailsTitle').textContent = c.title;
             $('ssDetailsLinkedCourse').textContent = c.linkedCourseName ||"未連結學校課程";
+            $('ssSuggestBtn').classList.toggle('hidden', !isSignedInMember());
+            ssProgEnsure();
             renderSelfStudyUnits();
+            ssRefreshProgUI();
+            renderSSSuggestions();
             icons();
             scrollTopSmooth();
         }
@@ -12924,13 +13692,20 @@
         }
 
         function openSSUnitModal(id = null) {
+            ssAdoptFbId = null;           // 一般的新增／編輯；從推薦上架的那一條會在打開之後再設回來
             const u = id ? state.ssUnits.find(x => x.id === id) : null;
             $('ssUnitModalTitle').textContent = u ?'編輯自學單元' :'新增自學單元';
             setVals({
                 editSSUnitId: u ? u.id :'', ssUnitTitle: u ? u.title :'',
                 ssUnitYtUrl: u ? (u.ytUrl ||'') :'', ssUnitDriveUrl: u ? (u.driveUrl ||'') :'',
                 ssUnitHwUrl: u ? (u.hwUrl ||'') :'', ssUnitAnsUrl: u ? (u.ansUrl ||'') :'',
-                ssUnitDescription: u ? (u.description ||'') :''
+                ssUnitDescription: u ? (u.description ||'') :'',
+                ssUnitStops: u ? ssStopsOf(u).map(ssFmt).join(', ') :''
+            });
+            fillSSQuizSelect(u ? ssQuizKey(u) :'');
+            /* 題庫索引還沒抓過的話，抓完再把選項補上（先顯示「載入中」）。 */
+            if (builtinQuizState !=='ready') waitBuiltinQuizIndex().then(() => {
+                if (!$('ssUnitModal').classList.contains('hidden')) fillSSQuizSelect($('ssUnitQuiz').dataset.want ||'');
             });
             openModal('ssUnitModal');
         }
@@ -12949,12 +13724,22 @@
             if (Object.values(urls).some(u => !isValidUrl(u))) return showToast("連結格式錯誤！(必需包含 http/https)");
             if (description && !isValidText(description, 1000)) return showToast("單元介紹請在 1000 字以內！");
 
-            const payload = { courseId: currentViewSSCourseId, title, ...urls, description };
+            /* 練習題：「題庫id|單元」。⚠️ 存之前驗一次形狀——它之後會變成 startKahoot 的參數，
+               而題庫的 id 只會是英數與 -。空字串＝不附練習（存空字串，不存 undefined：Firestore 不收）。 */
+            const [quizId ='', quizUnit =''] = String($('ssUnitQuiz').value ||'').split('|');
+            if (quizId && (!/^[\w-]{1,60}$/.test(quizId) || !/^[\w-]{0,10}$/.test(quizUnit))) return showToast("練習題的選項怪怪的，重選一次");
+            /* 停下來考一題的時間點：看不懂就整個不存（不要默默丟掉一個）；沒選練習題就沒有題目可以考。 */
+            const stops = parseSSStops(getVal('ssUnitStops'));
+            if (stops === null) return showToast("停下來的時間寫成 3:20, 7:45 這樣（最多 10 個）");
+            if (stops.length && !quizId) return showToast("要先選練習題，影片中途才有題目可以考");
+            const payload = { courseId: currentViewSSCourseId, title, ...urls, description, quizId, quizUnit, stops };
             try {
                 if (id) await updateDoc(doc(db, PATHS.ssUnits, id), payload);
                 else await setDoc(doc(collection(db, PATHS.ssUnits)), { ...payload, createdAt: Date.now() });
                 showToast(id ?"單元更新成功" :"單元建立成功");
                 closeModal('ssUnitModal');
+                /* 從「同學推薦」上架的：那一則標成已處理（失敗也不影響單元本身）。 */
+                if (ssAdoptFbId && !id) { const fb = ssAdoptFbId; ssAdoptFbId = null; updateDoc(doc(db, PATHS.feedback, fb), { done: true }).catch(() => {}); }
             } catch { showToast("儲存失敗…"); }
         }
 
@@ -13104,6 +13889,7 @@
 
         function switchStudySub(sub) {
             studySub = ALL_STUDY_SUBS.includes(sub) ? sub :'course';
+            if (studySub !=='solve') solveCtx = null;     // 單元的脈絡只跟著這一次解題（見狀態區）
             quizSub = (studySub ==='vocab') ?'vocab' :'kahoot';
 
             /* ★ 原本這裡是一串寫死的 toggle：先判斷「在不在測驗那一頁」，
@@ -13237,7 +14023,50 @@
                     :'用雲端模型（登入就能用）';
             }
             $('solveRunBtn').disabled = solveBusy;
+            const cx = $('solveCtx');
+            if (cx) {
+                cx.classList.toggle('hidden', !solveCtx);
+                cx.innerHTML = solveCtx ? `
+                    <span class="text-xs font-black text-emerald-700 min-w-0 truncate">正在學：${escapeHTML(solveCtx.course)}・${escapeHTML(solveCtx.unit)}</span>
+                    <span class="flex gap-2 shrink-0">
+                        <button data-action="solve-ctx-back" class="text-xs font-bold text-emerald-700 hover:underline">回到單元</button>
+                        <button data-action="solve-ctx-clear" class="text-xs font-bold text-slate-400 hover:text-slate-700" aria-label="不要帶這個單元">×</button>
+                    </span>` :'';
+            }
             icons();
+        }
+        /* ---- 解題時帶入單元的脈絡（2026-10-09）----
+           從單元按「這題不會」→ 跳到解題分頁，送出時在學生的話前面加一段「我正在學哪一章」。
+           ★ 不動提示詞（SOLVE_PROMPT 跟 worker.js 要逐字一樣，tests/askprompt.mjs 會比），只加在學生的話裡：
+             雲端和自己的模型兩條路都吃得到，Worker 也不用重新部署。
+           ★ Worker 會把 text 截到 1000 字：脈絡放前面、學生的話接後面、總長先在這裡算好——
+             反過來的話，學生打得長一點，被截掉的就是他卡在哪裡那一句。 */
+        function solveCtxText(ctx) {
+            if (!ctx) return '';
+            return `【我正在學的單元】${ctx.course}・${ctx.unit}${ctx.bank ? `（對應的章節：${ctx.bank}）` :''}\n`
+                 + '請用這一章會教的方法解；要用到後面才會學的工具時先說一聲。\n\n';
+        }
+        function solveCompose(ctx, text) {
+            const head = solveCtxText(ctx);
+            return (head + String(text ||'').slice(0, 1000 - head.length)).slice(0, 1000);
+        }
+        function ssAskAI(unitId) {
+            const u = (state.ssUnits ||[]).find(x => x.id === unitId);
+            const c = (state.ssCourses ||[]).find(x => x.id === currentViewSSCourseId);
+            if (!u || !c) return;
+            solveCtx = { courseId: c.id, unitId: u.id, course: String(c.title ||'').slice(0, 40),
+                         unit: String(u.title ||'').slice(0, 60), bank: u.quizId ? String(ssQuizLabel(u) ||'').slice(0, 60) :'' };
+            if (ssPlayer) ssClosePlayer();   // 影片收起來（看到哪會先存）——解題頁蓋過去之後它還在背景播是很怪的事
+            const ctx = solveCtx;
+            switchStudySub('solve');
+            solveCtx = ctx;                    // ★ switchStudySub 只在離開解題分頁時清，這行是保險
+            renderSolve();
+            scrollTopSmooth();
+        }
+        function solveCtxBack() {
+            const ctx = solveCtx;
+            switchStudySub('course');          // 會清掉 solveCtx
+            if (ctx && (state.ssCourses ||[]).some(x => x.id === ctx.courseId)) openSelfStudyDetails(ctx.courseId);
         }
 
         /* 把圖縮小再轉成 data: 字串。
@@ -13332,8 +14161,10 @@
 
         async function runSolve() {
             if (solveBusy) return;                       // 連按會重複扣配額
-            const text = ($('solveText').value ||'').trim().slice(0, 1000);
-            if (!solveImage && !text) return showToast("先拍一張題目，或打一句話問問題");
+            const said = ($('solveText').value ||'').trim().slice(0, 1000);
+            if (!solveImage && !said) return showToast("先拍一張題目，或打一句話問問題");
+            /* 從自學單元過來的：前面加上「我正在學哪一章」（見 solveCompose）。 */
+            const text = solveCompose(solveCtx, said);
 
             solveBusy = true;
             $('solveRunBtn').disabled = true;
@@ -14188,7 +15019,7 @@
                而它裡面其實有二十五個資料夾、三千多個字。 */
             const kids = f.folderCount != null ? f.folderCount
                        : vocabFoldersOf(vocabScope).filter(x => folderParent(x) === f.id).length;
-            const meta = [kids ? `${kids} 個資料夾` :'', n ? `${n} 冊` :'', f.count ? `${f.count} 字` :'']
+            const meta = [kids ? `${kids} 個資料夾` :'', n ? `${n} 冊` :'', Number(f.count) > 0 ? `${Math.floor(Number(f.count))} 字` :'']
                 .filter(Boolean).join(' · ') ||'還是空的';
             return `
                 <div data-action="open-vocab-folder" data-id="${escapeHTML(f.id)}" class="cursor-pointer bg-white rounded-3xl p-6 shadow-sm border-2 border-slate-100 hover:border-slate-400 transition-colors flex flex-col group relative">
@@ -14215,7 +15046,7 @@
                     </div>
                     <h3 class="text-xl font-black text-slate-900 mb-2 truncate pr-16">${escapeHTML(b.title)}</h3>
                     <p class="text-slate-500 text-sm mb-4 leading-relaxed font-bold truncate">${escapeHTML(b.description ||'無描述')}</p>
-                    <span class="text-[10px] font-black tracking-widest uppercase ${vocabScope ==='mine' ?'text-blue-500' :'text-slate-400'}">${badge}${b.count ? ` · ${b.count} 字` :''}</span>
+                    <span class="text-[10px] font-black tracking-widest uppercase ${vocabScope ==='mine' ?'text-blue-500' :'text-slate-400'}">${badge}${Number(b.count) > 0 ? ` · ${Math.floor(Number(b.count))} 字` :''}</span>
                     ${editable ? `
                     <div class="absolute top-4 right-4 flex gap-2">
                         <button data-action="edit-vocab-book" data-id="${escapeHTML(b.id)}" class="p-2 text-slate-300 hover:text-emerald-500 hover:bg-emerald-50 rounded-lg transition"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
@@ -16687,6 +17518,8 @@
                 builtinQuizState ='ready';
             } catch { builtinQuizState ='error'; }
             if (kahootScope ==='builtin') renderKahoots();
+            /* 自學單元的「練 5 題」要題庫的名字（2026-10-09）。 */
+            if (currentViewSSCourseId) renderSelfStudyUnits();
         }
 
         /* ---- 內建題庫：抓某一份的題目 ----
@@ -17913,16 +18746,23 @@
             updateKahootSubmit();
         }
 
-        async function startKahoot(kahootId, unit) {
+        /* opts（2026-10-09，自學單元的「練 5 題」用）：
+             scope   從哪一邊找這份測驗。不給就是測驗分頁現在停在哪一邊（kahootScope）。
+                     ★ 自學單元一定是內建題庫，不能看 kahootScope——使用者上次在測驗分頁
+                       停在「我的測驗」的話，按「練 5 題」會說找不到測驗，而題庫好好的。
+             count   這一次考幾題（不給就照使用者在測驗分頁選的題數）。
+             shuffle 這一次一定亂序（不給就照使用者的設定）。不亂序的話「練 5 題」永遠是同樣那 5 題。 */
+        async function startKahoot(kahootId, unit, opts = {}) {
+            const scope = opts.scope || kahootScope;
             /* ⚠️ 內建題庫的題目是按下去才抓的，索引裡只有題數。少了這一步，
                卡片上明明寫著 168 題，按下去卻說「找不到測驗內容」——而且
                看起來會像是題庫壞了，不是還沒載完。
                ★ 順序不能換：抓完才取 kahootsOf()，那一份是每次重包的複本。 */
-            if (kahootScope ==='builtin' && !isSignedInMember())
+            if (scope ==='builtin' && !isSignedInMember())
                 return showToast("登入之後就能做內建題庫");
-            if (kahootScope ==='builtin' && !(await loadBuiltinQuizQuestions(kahootId)))
+            if (scope ==='builtin' && !(await loadBuiltinQuizQuestions(kahootId)))
                 return showToast("題目載入失敗，等一下再試一次");
-            const kahoot = kahootsOf(kahootScope).find(k => k.id === kahootId);
+            const kahoot = kahootsOf(scope).find(k => k.id === kahootId);
             if (!kahoot || !kahoot.questions || kahoot.questions.length === 0) return showToast("找不到測驗內容");
             /* 只練一個單元：用子集合另做一份，不動原本那份（詳解頁還在用它）。 */
             const unitQs = unit ? kahoot.questions.filter(q => (q.unit ||[]).includes(unit)) : null;
@@ -17933,6 +18773,10 @@
                  那是清單裡那一份，標上去之後會一直留著。 */
             activeKahoot = unit ? { ...kahoot, questions: unitQs, title: `${kahoot.title}・${unitName}`, _general: true }
                                 : { ...kahoot, _general: true };
+            /* 從自學單元按進來的（2026-10-09）：結算時要記「這個單元練過了」。 */
+            if (opts.ssUnit) activeKahoot._ssUnit = opts.ssUnit;
+            /* 影片中途那一題：結算時不開結果頁，回到影片（見 ssStopDone）。 */
+            if (opts.ssStop) activeKahoot._ssStop = true;
             /* 重考錯題庫：題目來自好幾份內建題庫，各自的雲端詳解要先讀（答錯當下就要展開）。
                讀不到就用收進來時抄的那一份。 */
             if (isWbDoc(kahoot))
@@ -17941,10 +18785,10 @@
             /* ⚠️ 2026-09-28 起亂序要整組搬（shuffleKeepGroups）。用回單題亂序的話，
                題組的四題會被拆散到整份考卷各處，每一題上面都掛著同一篇文章，
                而文意選填的格子順序也會跳來跳去。 */
-            playQuestions = shuffleQuestionsOn ? shuffleKeepGroups(activeKahoot.questions, Math.random) : [...activeKahoot.questions];
+            playQuestions = (opts.shuffle || shuffleQuestionsOn) ? shuffleKeepGroups(activeKahoot.questions, Math.random) : [...activeKahoot.questions];
             /* 題數（2026-10-06）：亂序之後才切，這樣每次拿到的是不同的 n 題。
                ⚠️ 不亂序時永遠是前 n 題——那是照順序一段一段練的用法，不是 bug。 */
-            playQuestions = takeQuizCount(playQuestions, quizCount);
+            playQuestions = takeQuizCount(playQuestions, opts.count || quizCount);
             playAnswers = [];
             currentQIndex = 0;
             currentScore = 0;
@@ -18366,8 +19210,8 @@
                         <div class="flex justify-between items-start mb-2 gap-2">
                             <h4 class="text-xl font-black text-slate-900 flex items-center gap-2 break-words min-w-0"><i data-lucide="bookmark" class="w-5 h-5 text-rose-500 shrink-0"></i> ${escapeHTML(wbName(b))}</h4>
                             <div class="flex gap-2 shrink-0">
-                                <button data-action="wb-rename" data-id="${id}" class="text-slate-300 hover:text-blue-500" aria-label="改這本錯題冊的名字"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                                <button data-action="delete" data-type="kahoot" data-id="${id}" class="text-slate-300 hover:text-red-500" aria-label="刪掉這本錯題冊"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="wb-rename" data-id="${escapeHTML(id)}" class="text-slate-300 hover:text-blue-500" aria-label="改這本錯題冊的名字"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="delete" data-type="kahoot" data-id="${escapeHTML(id)}" class="text-slate-300 hover:text-red-500" aria-label="刪掉這本錯題冊"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                             </div>
                         </div>
                         <p class="text-sm text-slate-500 font-bold mb-2">${n
@@ -18377,7 +19221,7 @@
                             <span class="text-xs font-black px-2 py-0.5 rounded-lg bg-slate-100 text-slate-500">${n} 題</span>
                         </div>
                     </div>
-                    <button data-action="start-kahoot" data-id="${id}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
+                    <button data-action="start-kahoot" data-id="${escapeHTML(id)}" ${n === 0 ?'disabled' :''} class="w-full py-3 rounded-xl font-bold shadow-md transition-colors flex justify-center items-center gap-2 ${n === 0 ?'bg-slate-200 text-slate-400 cursor-not-allowed' :'bg-emerald-500 text-white hover:bg-emerald-400'}">
                         <i data-lucide="rotate-ccw" class="w-4 h-4 pointer-events-none"></i> ${n === 0 ?'還沒有題目' : quizCount > 0 && n > quizCount ? `重考・${quizCount} 題` :'重考錯題'}
                     </button>
                 </div>`;
@@ -19444,7 +20288,7 @@
                 wrap.classList.toggle('hidden', !ex);
                 renderMath(wrap);
                 // 答錯不自動跳：每個人看懂正解需要的時間不一樣，交給使用者決定
-                $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ?'看結果' :'下一題';
+                $('kahootNextLabel').textContent = currentQIndex >= playQuestions.length ? (activeKahoot && activeKahoot._ssStop ?'回到影片' :'看結果') :'下一題';
                 wbSyncBtn();
                 $('kahootNextWrap').classList.remove('hidden');
                 icons();
@@ -19558,6 +20402,8 @@
             listenStop();
             $('playKahootModal').classList.add('hidden');
             $('playKahootModal').classList.remove('flex');
+            /* 影片中途那一題（2026-10-09）：一題就開一整頁結果太吵，回到影片底下說一句、留一顆「繼續看」。 */
+            if (activeKahoot && activeKahoot._ssStop) return ssStopDone(playAnswers.length > 0 && currentScore >= playQuestions.length);
             /* 克漏字把錯的字留下來（下一項「艾賓浩斯」要吃這筆資料）。
                ★ 只有克漏字的題目帶 `cloze` 旗標，一般測驗走同一支不受影響。
 
@@ -19577,6 +20423,8 @@
                ★ 同樣不 await：排程是背景的事，結果畫面不必等它。
                ★ 一般克漏字走上面那條 `srsSyncFromWrong()`——它只是把新的錯字
                  搬進排程，不動任何人的階數（那一場不是照排程考的，不算複習）。 */
+            /* 自學單元的「練 5 題」：答對六成以上就勾「練過了」（2026-10-09）。不 await，理由同上。 */
+            if (activeKahoot && activeKahoot._ssUnit) ssPracticeDone(activeKahoot._ssUnit, playAnswers);
             if (activeKahoot && activeKahoot.srs)
                 recordSrsResult(playAnswers)
                     .catch(() => showToast("複習排程沒存起來，下次登入再試"));
@@ -19620,6 +20468,8 @@
             $('playKahootModal').classList.remove('flex');
             $('kahootNextWrap').classList.add('hidden');
             isKahootTransitioning = false;
+            /* 影片中途那一題按叉叉離開：影片一樣停著，留一顆「繼續看」。 */
+            if (activeKahoot && activeKahoot._ssStop) ssStopDone(playAnswers.length ? currentScore >= playQuestions.length : null);
         }
 
         /* ==========================================================
@@ -20040,6 +20890,7 @@
                         <span class="text-xs text-slate-400">${escapeHTML(when)}</span>
                         ${f.product ? `<span class="text-xs text-slate-300">${escapeHTML(f.product)}</span>` :''}
                     </div>
+                    ${ssSuggestionOf(f) ? '<div class="text-xs font-black text-amber-600 mb-1">自學單元推薦・到那門課的頁面上架或不採用</div>' :''}
                     <div class="text-sm font-medium text-slate-700 whitespace-pre-wrap break-words">${escapeHTML(f.text ||'')}</div>
                     ${f.ua ? `<div class="text-[11px] text-slate-300 mt-2 break-all">${escapeHTML(f.ua)}</div>` :''}
                     <div class="flex gap-2 mt-3">
@@ -21585,7 +22436,10 @@
                     <p class="text-sm text-slate-500 font-medium mb-3">想升到<span class="font-bold text-slate-700">${escapeHTML(next)}</span>？寫一句你是誰、為什麼需要（例如：電子系大二，想看考古題準備期中）。星族會用你註冊的信箱認人。</p>
                     <textarea id="promoteNote" maxlength="${PROMOTE_NOTE_MAX}" rows="3" aria-label="申請說明"
                               class="w-full px-4 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-400 text-sm font-medium mb-3">${rejected ? escapeHTML(req.note ||'') :''}</textarea>
-                    <button data-action="promote-submit" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">申請升到${escapeHTML(next)}</button>`;
+                    <button data-action="promote-submit" class="px-4 py-2 rounded-xl text-sm font-black bg-emerald-500 text-white hover:bg-emerald-600 transition">申請升到${escapeHTML(next)}</button>
+                    ${auth.currentUser && !auth.currentUser.emailVerified ? `
+                    <p class="text-xs text-amber-600 font-bold mt-3">你的信箱還沒驗證過，星族那邊會看到「沒驗證」。先驗證比較快被核准：</p>
+                    <button data-action="promote-verify" class="mt-2 px-3 py-1.5 rounded-xl text-xs font-black bg-amber-100 text-amber-700 hover:bg-amber-200 transition">寄驗證信到我的信箱</button>` :''}`;
             }
             mine.innerHTML = head(cur) + body;
             icons();
@@ -21600,6 +22454,18 @@
             renderPromote();
         }
 
+        /* 寄驗證信（2026-10-09）。驗證完要重新登入（或重新整理）登入憑證裡的 email_verified 才會變。 */
+        async function sendPromoteVerify(){
+            const u = auth.currentUser;
+            if (!u || u.isAnonymous || u.emailVerified) return;
+            try {
+                await sendEmailVerification(u);
+                showToast('寄出去了。點信裡的連結之後重新整理這一頁，再送一次申請');
+            } catch (e) {
+                showToast(e && e.code === 'auth/too-many-requests' ? '寄太多次了，等一下再試' : '寄不出去，等一下再試');
+            }
+        }
+
         async function submitPromote(){
             if (!signedIn()) return openModal('adminModal');
             const next = promoteNext(currentUserRole);
@@ -21607,9 +22473,20 @@
             const note = String(($('promoteNote') || {}).value ||'').trim();
             if (!note) return showToast('寫一句你是誰、為什麼需要，星族比較好判斷');
             if (note.length > PROMOTE_NOTE_MAX) return showToast(`說明請在 ${PROMOTE_NOTE_MAX} 字以內`);
+            /* ★ 剛點完驗證信的人：本機的帳號資料與登入憑證都還是「沒驗證」，要先重抓一次，
+                 不然 ev 跟憑證對不上（或一直是 false）——規則會擋，畫面上只是「送不出去」。 */
+            try {
+                const wasOk = auth.currentUser.emailVerified;
+                await auth.currentUser.reload();
+                if (auth.currentUser.emailVerified && !wasOk) await auth.currentUser.getIdToken(true);
+            } catch (e) {}
+            /* ev：信箱驗證過沒（2026-10-09 資安）。用帳號密碼註冊**不用收信就能用任何信箱**——
+               有人可以拿某位同學的學校信箱註冊，再來申請升階，星族看到熟悉的信箱就核准了。
+               規則會比對 ev 跟登入憑證裡的 email_verified，自己填 true 會被擋。 */
             const data = { uid: auth.currentUser.uid, email: auth.currentUser.email ||'',
                            name: String(userDisplayName ||'').slice(0, 40),
-                           from: currentUserRole, to: next, note, status:'pending', createdAt: Date.now() };
+                           from: currentUserRole, to: next, note, status:'pending', createdAt: Date.now(),
+                           ev: !!auth.currentUser.emailVerified };
             try {
                 await setDoc(doc(db, PATHS.promote, data.uid), data);
                 myPromoteReq = data;
@@ -21660,6 +22537,8 @@
                     <div class="flex items-center gap-2 flex-wrap mb-1">
                         <span class="font-bold text-slate-800 text-sm">${escapeHTML(r.name ||'無名小貓')}</span>
                         <span class="text-xs text-slate-400 break-all">${escapeHTML(r.email ||'')}</span>
+                        ${r.ev === true ? '<span class="text-[11px] font-black text-emerald-600">✓ 信箱驗證過</span>'
+                                        : '<span class="text-[11px] font-black text-amber-600" title="用帳號密碼註冊不用收信就能填任何信箱：先私下確認是本人再核准">⚠️ 信箱沒驗證過，不一定是本人</span>'}
                     </div>
                     <div class="text-xs font-black text-slate-500 mb-1">${escapeHTML(r.from ||'')} → <span class="text-fuchsia-600">${escapeHTML(r.to ||'')}</span>・${r.createdAt ? new Date(r.createdAt).toLocaleDateString() :''}</div>
                     <p class="text-sm text-slate-600 whitespace-pre-line mb-2">${escapeHTML(r.note ||'')}</p>
@@ -21978,6 +22857,23 @@
 'open-ss-course':  (t) => openSelfStudyDetails(t.dataset.id),
 'edit-ss-course':  (t) => openSSCourseModal(t.dataset.id),
 'edit-ss-unit':    (t) => openSSUnitModal(t.dataset.id),
+'ss-practice':     (t) => ssPractice(t.dataset.id),
+'ss-seen':         (t) => ssToggleSeen(t.dataset.id),
+'ss-play':         (t) => ssPlay(t.dataset.id),
+'ss-close-player': () => ssClosePlayer(),
+'ss-resume':       () => ssResume(),
+'ss-plan':         (t) => ssAddToPlan(t.dataset.id),
+'ss-timer':        () => ssStartTimer(),
+'ss-ask':          (t) => ssAskAI(t.dataset.id),
+'solve-ctx-clear': () => { solveCtx = null; renderSolve(); },
+'solve-ctx-back':  () => solveCtxBack(),
+'ss-seek':         (t) => ssSeek(Number(t.dataset.t)),
+'ss-note-add':     () => ssAddNote(),
+'ss-note-del':     (t) => ssDelNote(Number(t.dataset.i)),
+'ss-suggest-open': () => openSSSuggest(),
+'ss-suggest-send': () => sendSSSuggest(),
+'ss-adopt':        (t) => ssAdopt(t.dataset.id),
+'ss-reject':       (t) => ssReject(t.dataset.id),
 'open-vocab-book': (t) => openVocabBookDetails(t.dataset.id),
 'edit-vocab-book': (t) => openVocabBookModal(t.dataset.id),
 'edit-vocab-word': (t) => openVocabWordModal(t.dataset.id),
@@ -22226,6 +23122,7 @@
 'settings-password': () => { const b = $('forgotPasswordBtn'); openModal('adminModal'); if (b) b.click(); },
 'promote-submit':  () => submitPromote(),
 'promote-cancel':  () => cancelPromote(),
+'promote-verify':  () => sendPromoteVerify(),
 'promote-decide':  (t) => decidePromote(t.dataset.uid, t.dataset.ok ==='1'),
 'welcome-agree':   () => welcomeAgree(),
 'welcome-logout':  async () => { closeModal('welcomeModal'); welcomeNeeded = false; await signOut(auth); showToast('已登出。之後想用的時候再登入就好'); },
@@ -22645,7 +23542,7 @@
             bind('uploadPdfBtn', saveMaterial);
             bind('importEECoursesBtn', importEECourses);
 
-            bind('backToSSCoursesBtn', () => { currentViewSSCourseId = null; closeModalView('page-self-study-details','page-self-study-main'); });
+            bind('backToSSCoursesBtn', () => { ssClosePlayer(); currentViewSSCourseId = null; closeModalView('page-self-study-details','page-self-study-main'); renderSelfStudyCourses(); });
             bind('addSelfStudyCourseBtn', () => openSSCourseModal());
             bind('confirmSaveSSCourse', saveSSCourse);
             bind('addSelfStudyUnitBtn', () => openSSUnitModal());
@@ -22757,7 +23654,7 @@
                沒有這個門檻的話，每個打開設定頁的人都會發一個註定被規則拒絕的
                listener——不會有畫面上的症狀，只是白白多一次失敗的請求，
                而且 console 會一直印 permission-denied，把真的有問題的訊息淹掉。 */
-            { key:'feedback',   path: PATHS.feedback,   sort: byNewest, minTier: 3, render: () => renderFeedbackAdmin() },
+            { key:'feedback',   path: PATHS.feedback,   sort: byNewest, minTier: 3, render: () => { renderFeedbackAdmin(); renderSSSuggestions(); } },
             /* 任務定義：公開唯讀，訪客也看得到（看得到但領不了，那是刻意的——
                把任務藏起來的話，沒登入的人不知道登入之後有什麼）。 */
             { key:'missions',   path: PATHS.missions,
@@ -22882,7 +23779,7 @@
                而空清單跟「你還沒建過測驗」長得一模一樣，不會有錯誤訊息。
                這份資料在這一輪已經搬過一次家（self-study → quiz → self-study），
                每次搬都要記得把訂閱一起帶走。 */
-'self-study': ['ssCourses','ssUnits','courses','myKahoots'],
+'self-study': ['ssCourses','ssUnits','courses','myKahoots','feedback'],
             /* 英文分頁：克漏字與單字庫。★ 這一組是從 self-study 拆出來的——
                拆的時候要真的把資料集跟著搬，不然畫面切過去了、清單卻是空的，
                而且不會報錯（沒訂閱就是沒資料，跟「真的沒有內容」長得一樣）。
@@ -22979,6 +23876,11 @@
             renderKahoots();
             renderVocabBooks();
             renderFeedbackAdmin();
+            /* 換了人（或登出）：自學進度是另一個人的，舊的那一份丟掉、停掉監聽。 */
+            ssProgReset();
+            renderSSSuggestions();
+            if (currentViewSSCourseId) { ssProgEnsure(); renderSelfStudyUnits(); ssRefreshProgUI(); }
+            if ($('ssSuggestBtn')) $('ssSuggestBtn').classList.toggle('hidden', !isSignedInMember());
         }
 
         /* ★ 這一行存在的理由是 `tests/mainsmoke.mjs`：模組裡的函式不會自動掛到

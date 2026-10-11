@@ -23,7 +23,7 @@
     style-src 'self' 'unsafe-inline';
     font-src 'self' data:;
     img-src 'self' data: blob:;
-    connect-src 'self' https://*.googleapis.com https://*.firebaseio.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.jsdelivr.net https://unpkg.com https://blackcat-quote.cctsai03.workers.dev;
+    connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.jsdelivr.net https://unpkg.com https://blackcat-quote.cctsai03.workers.dev;
     frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com;
     worker-src 'self' blob:;
     base-uri 'self';
@@ -5848,7 +5848,7 @@ async function renderMine(){
             b.onclick = () => { try { unpack(d.data().data); show('ok','已載入「'+b.textContent+'」',[]); }
                                 catch(e){ show('err','這筆存檔讀不開',[e.message||String(e)]); } };
             box.appendChild(b); });
-    } catch(e){ box.innerHTML = '<span class="sub">讀取失敗：'+(e.message||e)+'</span>'; }
+    } catch(e){ box.innerHTML = '<span class="sub">讀取失敗：'+esc(String(e.message||e))+'</span>'; }
 }
 /* ---------- 匯出／匯入檔案 ----------
    雲端存檔要登入、又有大小上限；分享連結會被聊天軟體截斷。
