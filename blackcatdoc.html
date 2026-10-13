@@ -173,7 +173,9 @@ header{flex:none;background:var(--paper-raised);padding:env(safe-area-inset-top,
     <div class="hbar-right">
       <!-- 講清楚檔案去哪裡：這一頁沒有雲端，關掉分頁前沒下載的就沒了（編輯器自己也會擋一次）。 -->
       <span class="hnote">檔案不會上傳；存檔＝下載到你的電腦</span>
-      <a class="btn tiny" href="doc/index.html" target="_blank" rel="noopener" title="編輯器單獨開一個分頁，畫面更大">全螢幕開</a>
+      <!-- 全螢幕：編輯器佔滿整個螢幕，瀏覽器的分頁列、網址列和上面這條頁首都收起來，像電腦上的 Word。
+           編輯器裡（檢視選單、工具列最右邊）也有同一顆，走的是下面同一支 setFullscreen。 -->
+      <button id="fsBtn" class="btn tiny" title="編輯器佔滿整個螢幕；按住 Esc 離開">全螢幕</button>
       <button id="themeBtn" class="btn tiny icon" title="切換深色／淺色">&#9681;</button>
     </div>
   </div>
@@ -213,6 +215,35 @@ function applyGate(){
 }
 applyGate();
 if (!TOUCH_ONLY) addEventListener('resize', applyGate);
+
+/* ---------- 全螢幕（2026-10-13） ----------
+   ★ 全螢幕的是 iframe（編輯器），不是整頁：上面這條頁首也一起收掉，畫面只剩編輯器。
+   ★ Esc 鎖住（Keyboard Lock，Chrome／Edge）：不鎖的話，在編輯器裡按 Esc 關一個對話框，
+     瀏覽器會順便把全螢幕關掉。鎖住之後要「按住」Esc 才會離開，瀏覽器自己會跳提示。
+     這個 API 只有最上層的頁面能叫，所以編輯器裡的全螢幕按鈕也是回頭呼叫這裡
+     （WordCraft 的 web.rs 讀 window.parent.blackcatDocFullscreen）。不支援的瀏覽器照樣全螢幕，只是按 Esc 就離開。
+   ★ 呼叫一定要在使用者點擊之後幾秒內，不然瀏覽器拒絕；失敗不報錯給使用者，維持原狀就好。 */
+async function setFullscreen(on){
+    const f = $('editor');
+    try {
+        if (on && !document.fullscreenElement){
+            await f.requestFullscreen({ navigationUI: 'hide' });
+            try { await navigator.keyboard?.lock?.(['Escape']); } catch (e) {}
+        } else if (!on && document.fullscreenElement){
+            try { navigator.keyboard?.unlock?.(); } catch (e) {}
+            await document.exitFullscreen();
+        }
+    } catch (e) {}
+    try { f.focus(); } catch (e) {}
+}
+window.blackcatDocFullscreen = on => { setFullscreen(!!on); return true; };
+window.blackcatDocIsFullscreen = () => !!document.fullscreenElement;
+$('fsBtn').onclick = () => setFullscreen(true);
+/* 不管是按住 Esc 還是從編輯器裡離開，Keyboard Lock 都要放掉，焦點回到編輯器 */
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement){ try { navigator.keyboard?.unlock?.(); } catch (e) {} }
+    try { $('editor').focus(); } catch (e) {}
+});
 
 /* ---------- 主題：與主站共用同一個鍵（只管外殼；編輯器自己跟著系統） ---------- */
 const THEME_KEY = 'eeblackcat-theme';
