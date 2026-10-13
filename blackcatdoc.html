@@ -7,19 +7,20 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>文書小黑貓 - 在瀏覽器裡寫報告、開 Word 檔</title>
 <link rel="icon" href="logomain.jpg">
-<meta name="description" content="文書小黑貓：免安裝的文書編輯器，在瀏覽器裡開 Word 檔、寫報告、打公式、匯出 PDF。檔案不會上傳，存檔就是下載到自己的電腦。">
+<meta name="description" content="文書小黑貓：免安裝的文書編輯器，在瀏覽器裡開 Word 檔、寫報告、打公式、匯出 PDF。存檔就是下載到自己的電腦；登入的話，草稿會自動存在你的小黑貓帳號。">
 
-<!-- ★ CSP：這一頁本身只有外殼（logo 選單、主題、擋門），編輯器在下面的 iframe 裡（doc/index.html）。
-     外殼不登入、不連 Firebase，所以 connect-src 只留 'self'；frame-src 只准自己站上的 doc/。
-     編輯器那一頁是 WordCraft 用 trunk 產生的，WebAssembly 編譯要 'wasm-unsafe-eval'，
-     那條寫在 doc/index.html 自己的 CSP 裡，不放寬這一頁。 -->
+<!-- ★ CSP：這一頁本身只有外殼（logo 選單、主題、擋門、草稿），編輯器在下面的 iframe 裡（doc/index.html）。
+     2026-10-13 起草稿跟著帳號走：外殼**沿用**主站的登入（不在這一頁登入），拿 ID Token 去 Worker 存草稿。
+     所以 connect-src 只多兩類：Firebase 換 token 的兩個主機、跟小黑貓的 Worker。
+     刻意**沒有** firestore.googleapis.com：這一頁不讀寫 Firestore，少一個主機就少一條路。
+     frame-src 只准自己站上的 doc/。編輯器那一頁的 'wasm-unsafe-eval' 寫在 doc/index.html 自己的 CSP 裡。 -->
 <meta http-equiv="Content-Security-Policy" content="
     default-src 'self';
-    script-src 'self' 'unsafe-inline';
+    script-src 'self' 'unsafe-inline' https://www.gstatic.com;
     style-src 'self' 'unsafe-inline';
     img-src 'self' data:;
     frame-src 'self';
-    connect-src 'self';
+    connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://blackcat-quote.cctsai03.workers.dev;
     worker-src 'self';
     base-uri 'self';
     object-src 'none';
@@ -132,6 +133,27 @@ header{flex:none;background:var(--paper-raised);padding:env(safe-area-inset-top,
 .gate-card p{color:var(--ink-2);line-height:1.7;margin:0 0 10px}
 .gate-card .btn{margin-top:8px;line-height:40px;min-height:40px}
 
+/* ---- 草稿：問一次的提示條、接著寫的提示條、草稿清單（2026-10-13） ---- */
+.dbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+      padding:7px calc(12px + env(safe-area-inset-right, 0px)) 8px calc(12px + env(safe-area-inset-left, 0px));
+      border-top:1px solid var(--rule);background:var(--paper-sunk);font-size:14px;line-height:1.5}
+.dbar[hidden]{display:none}
+.dbar-text{flex:1 1 360px;color:var(--ink-2)}
+.dbar-btns{display:flex;gap:6px;flex-wrap:wrap}
+.dpanel{position:absolute;right:calc(8px + env(safe-area-inset-right, 0px));top:calc(100% + 6px);z-index:85;
+        width:min(420px, calc(100vw - 24px));max-height:min(70vh, 560px);overflow:auto;
+        padding:12px 14px;border-radius:14px;background:var(--paper-raised);
+        border:1px solid var(--rule);box-shadow:0 10px 28px rgba(26,24,21,.22);font-size:14px}
+.dpanel[hidden]{display:none}
+.dpanel h2{font-size:16px;margin:0 0 4px}
+.dpanel .sub{color:var(--ink-3);margin:0 0 10px;font-size:13px;line-height:1.6}
+.draft-item{border-top:1px solid var(--rule);padding:8px 0}
+.draft-item b{display:block;word-break:break-all}
+.draft-item .meta{color:var(--ink-3);font-size:12.5px}
+.draft-item .row{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+.dpanel .foot{border-top:1px solid var(--rule);padding-top:10px;margin-top:4px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+header{position:relative}
+
 @media (max-width: 980px){ .hnote{display:none} }
 </style>
 </head>
@@ -171,14 +193,21 @@ header{flex:none;background:var(--paper-raised);padding:env(safe-area-inset-top,
       </div>
     </div>
     <div class="hbar-right">
-      <!-- 講清楚檔案去哪裡：這一頁沒有雲端，關掉分頁前沒下載的就沒了（編輯器自己也會擋一次）。 -->
-      <span class="hnote">檔案不會上傳；存檔＝下載到你的電腦</span>
+      <!-- 講清楚檔案去哪裡：存檔是下載；登入的話草稿另外存在帳號（下面草稿那一段）。 -->
+      <span class="hnote">存檔＝下載到你的電腦</span>
       <!-- 全螢幕：編輯器佔滿整個螢幕，瀏覽器的分頁列、網址列和上面這條頁首都收起來，像電腦上的 Word。
            編輯器裡（檢視選單、工具列最右邊）也有同一顆，走的是下面同一支 setFullscreen。 -->
+      <!-- 草稿：自動存在這台電腦的瀏覽器（只在使用者說「這是我的電腦」之後），下面那段程式 -->
+      <span id="draftNote" class="hnote" aria-live="polite"></span>
+      <button id="draftBtn" class="btn tiny" title="自動存在這台電腦的草稿" aria-expanded="false" aria-controls="draftPanel">草稿</button>
       <button id="fsBtn" class="btn tiny" title="編輯器佔滿整個螢幕；按住 Esc 離開">全螢幕</button>
       <button id="themeBtn" class="btn tiny icon" title="切換深色／淺色">&#9681;</button>
     </div>
   </div>
+  <div id="draftBar" class="dbar" hidden role="status">
+    <span id="draftBarText" class="dbar-text"></span><span id="draftBarBtns" class="dbar-btns"></span>
+  </div>
+  <div id="draftPanel" class="dpanel" hidden role="dialog" aria-label="草稿"></div>
 </header>
 
 <main id="work">
@@ -245,6 +274,199 @@ document.addEventListener('fullscreenchange', () => {
     try { $('editor').focus(); } catch (e) {}
 });
 
+/* ---------- 草稿：自動存在你的小黑貓帳號（2026-10-13） ----------
+   編輯器（WordCraft 的 web.rs save_draft）停手兩秒，就把整份文件（Word 檔）交給這裡的
+   blackcatDocDraftSave(meta, bytes)；meta 是 {key, name, saved}，key 認得是哪一份文件。
+   ★★ 草稿跟著**帳號**走，不跟著電腦：存在 Worker 的 /drafts/*（D1），每一次都帶這個帳號的 ID Token，
+      Worker 只給 token 上那個人自己的草稿。換一台電腦登入同一個帳號就拿得到；
+      **這台電腦上不留任何一份**（不用 IndexedDB、不用 localStorage），所以公用電腦上登出之後下一個人看不到。
+      沒登入就不存，頁首講清楚。登入狀態沿用主站的（下面那一段 module），這一頁不做登入。
+   ★ 最多 DRAFT_EVERY_MS 傳一次：編輯器停手兩秒就交一份，照單全收的話一小時就是上千次，
+     而 Worker 那邊一個人一天上限 1500 次（D1 寫入額度的保險絲）。中間交來的只留最新的一份。
+     例外：剛下載完（saved）、切到別的分頁或要關掉（visibilitychange／pagehide）時馬上傳。
+   ★ 打開這一頁時，有「還沒下載過」的草稿就問要不要接著寫；接著寫＝呼叫編輯器的
+     blackcatDocOpenDraft(key, name, bytes)（web.rs listen_for_drafts），之後的草稿接著存在同一個 key。
+   ★ 檔名是編輯器給的，畫到畫面上一律 textContent，不經過 innerHTML。 */
+const WORKER = 'https://blackcat-quote.cctsai03.workers.dev';
+const DRAFT_EVERY_MS = 60e3;
+const two = n => String(n).padStart(2, '0');
+const when = ms => { const d = new Date(ms); return `${d.getMonth() + 1}/${d.getDate()} ${two(d.getHours())}:${two(d.getMinutes())}`; };
+const mk = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const btn = (text, onclick, primary) => { const b = mk('button', 'btn tiny' + (primary ? ' primary' : ''), text); b.type = 'button'; b.onclick = onclick; return b; };
+const note = t => { $('draftNote').textContent = t; };
+
+function showBar(text, buttons){
+    $('draftBarText').textContent = text;
+    $('draftBarBtns').replaceChildren(...buttons);
+    $('draftBar').hidden = false;
+}
+const hideBar = () => { $('draftBar').hidden = true; };
+
+/* 登入狀態（下面的 module 填 window.blackcatDocAuth）。還沒準備好或沒登入都算「沒登入」。 */
+const signedIn = () => !!(window.blackcatDocAuth && window.blackcatDocAuth.user);
+async function api(path, opts = {}){
+    const tok = signedIn() ? await window.blackcatDocAuth.token() : null;
+    if (!tok){ const e = new Error('login'); e.status = 401; throw e; }
+    const r = await fetch(WORKER + path, { ...opts, headers: { ...(opts.headers || {}), Authorization: 'Bearer ' + tok } });
+    if (!r.ok){ const e = new Error('http ' + r.status); e.status = r.status; throw e; }
+    return r;
+}
+const failNote = e => note(e && e.status === 401 ? '登入過期了，回小黑貓首頁重新登入才會存草稿'
+                       : e && e.status === 413 ? '草稿太大，沒存成（帳號的草稿空間 100MB、一份 20MB）'
+                       : e && e.status === 429 ? '今天存草稿的次數用完了，明天再自動存'
+                       : '草稿沒存成，等一下會再試');
+
+/* 每一份文件（key）：最新還沒傳的那一份、上次傳的時間、等著傳的計時器 */
+const drafts = new Map();
+const slot = key => { if (!drafts.has(key)) drafts.set(key, { pending: null, last: 0, timer: null, busy: Promise.resolve() }); return drafts.get(key); };
+function sendDraft(key){
+    const d = slot(key);
+    if (d.timer){ clearTimeout(d.timer); d.timer = null; }
+    const job = d.pending;
+    if (!job) return d.busy;
+    d.pending = null;
+    d.last = Date.now();
+    d.busy = d.busy.then(async () => {
+        const [meta, bytes] = job;
+        const q = `?key=${encodeURIComponent(key)}&name=${encodeURIComponent(meta.name || '')}&saved=${meta.saved ? 1 : 0}`;
+        try {
+            await api('/drafts/put' + q, { method: 'POST', body: bytes, keepalive: bytes.length < 60000 });
+            note('草稿已存到帳號 ' + when(Date.now()).split(' ')[1]);
+            if (!$('draftPanel').hidden) renderDraftPanel();
+        } catch (e) {
+            failNote(e);
+            // 沒傳成：還沒有更新的就放回去，一分鐘後再試（登入過期與次數用完不重試）
+            if (!d.pending && e.status !== 401 && e.status !== 429 && e.status !== 413){ d.pending = job; schedule(key); }
+        }
+    });
+    return d.busy;
+}
+function schedule(key){
+    const d = slot(key);
+    if (d.timer) return;
+    d.timer = setTimeout(() => { d.timer = null; sendDraft(key); }, Math.max(0, d.last + DRAFT_EVERY_MS - Date.now()));
+}
+window.blackcatDocDraftSave = (metaJson, bytes) => {
+    let meta = null;
+    try { meta = JSON.parse(metaJson); } catch (e) {}
+    if (!meta || typeof meta.key !== 'string' || !/^[A-Za-z0-9_-]{1,64}$/.test(meta.key)) return false;
+    if (!signedIn()){ note('沒登入：草稿不會存。登入小黑貓之後，草稿會自動存在你的帳號'); return false; }
+    const d = slot(meta.key);
+    d.pending = [meta, new Uint8Array(bytes)];   // 編輯器那邊（另一個 iframe）的陣列，複製一份到這一頁
+    if (meta.saved || Date.now() - d.last >= DRAFT_EVERY_MS) sendDraft(meta.key);
+    else schedule(meta.key);
+    return true;
+};
+/* 切走或要關掉：還沒傳的馬上傳 */
+const flushDrafts = () => { for (const [k, d] of drafts) if (d.pending) sendDraft(k); };
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushDrafts(); });
+addEventListener('pagehide', flushDrafts);
+
+/* 把一份草稿交給編輯器打開。編輯器第一次開要下載程式本體，函式還沒出現就等一下（最多一分鐘）。 */
+function openDraft(key, name, bytes){
+    let tries = 0;
+    const go = () => {
+        const w = $('editor').contentWindow;
+        const f = w && w.blackcatDocOpenDraft;
+        if (typeof f === 'function'){
+            f(key, name, new (w.Uint8Array || Uint8Array)(bytes));
+            try { $('editor').focus(); } catch (e) {}
+        } else if (++tries < 240) setTimeout(go, 250);
+    };
+    go();
+}
+async function fetchDraft(key, ver){
+    try {
+        const r = await api(`/drafts/get?key=${encodeURIComponent(key)}` + (ver ? `&ver=${ver}` : ''));
+        return new Uint8Array(await r.arrayBuffer());
+    } catch (e) { failNote(e); return null; }
+}
+async function listDrafts(){
+    const r = await api('/drafts/list');
+    const j = await r.json();
+    return Array.isArray(j.drafts) ? j.drafts : [];
+}
+
+/* 打開這一頁（登入狀態確定之後一次）：有還沒下載過的草稿就問要不要接著寫 */
+let offered = false;
+async function offerDrafts(){
+    if (offered || !signedIn()) return;
+    offered = true;
+    let list = [];
+    try { list = await listDrafts(); } catch (e) { return; }
+    const open = list.filter(r => !r.saved);
+    if (!open.length) return;
+    const r = open[0];
+    const more = open.length > 1 ? `另外還有 ${open.length - 1} 份在右上角的「草稿」裡。` : '';
+    showBar(`上次有一份還沒下載的「${r.name}」（${when(r.at)}），要接著寫嗎？${more}`, [
+        btn('接著寫', async () => { hideBar(); const b = await fetchDraft(r.key); if (b) openDraft(r.key, r.name, b); }, true),
+        btn('先不要', hideBar),
+    ]);
+}
+function authChanged(){
+    if (signedIn()){ if (!$('draftNote').textContent.startsWith('草稿已存')) note(''); offerDrafts(); }
+    else note('沒登入：草稿不會存');
+    if (!$('draftPanel').hidden) renderDraftPanel();
+}
+addEventListener('blackcat-doc-auth', authChanged);
+if (window.blackcatDocAuth && window.blackcatDocAuth.ready) authChanged();
+
+/* 右上角「草稿」：列出每一份、每一版，可以打開或刪掉 */
+async function renderDraftPanel(){
+    const p = $('draftPanel');
+    const kids = [mk('h2', '', '草稿')];
+    if (!signedIn()){
+        kids.push(mk('p', 'sub', '登入小黑貓之後，打字停下來就會把草稿存在你的帳號：換電腦登入也拿得到，這台電腦上不留。'));
+        const a = mk('a', 'btn tiny primary', '到小黑貓首頁登入'); a.href = './';
+        kids.push(a);
+        p.replaceChildren(...kids);
+        return;
+    }
+    kids.push(mk('p', 'sub', '存在你的小黑貓帳號，只有你登入時拿得到，14 天沒動會自動刪掉。這不是存檔：要留下來，請在編輯器裡按「儲存」下載。'));
+    let list = null;
+    try { list = await listDrafts(); } catch (e) { failNote(e); }
+    if (list === null) kids.push(mk('p', 'sub', '現在讀不到草稿，等一下再打開看看。'));
+    else if (!list.length) kids.push(mk('p', 'sub', '還沒有草稿。開始打字之後，停下來就會存一份。'));
+    for (const r of list || []){
+        const item = mk('div', 'draft-item');
+        item.append(mk('b', '', r.name), mk('span', 'meta', `${r.saved ? '已下載過' : '還沒下載'}・${when(r.at)}`));
+        const row = mk('div', 'row');
+        (r.versions || []).forEach((v, i) => row.append(btn(i ? `打開 ${when(v.at)} 那版` : '打開', async () => {
+            setDraftPanel(false);
+            const b = await fetchDraft(r.key, v.ver);
+            if (b) openDraft(r.key, r.name, b);
+        }, i === 0)));
+        row.append(btn('刪除', async () => {
+            try { await api(`/drafts/del?key=${encodeURIComponent(r.key)}`, { method: 'POST' }); } catch (e) { failNote(e); }
+            renderDraftPanel();
+        }));
+        item.append(row);
+        kids.push(item);
+    }
+    const foot = mk('div', 'foot');
+    let armed = false;
+    const b = btn('清掉我所有的草稿', async () => {
+        if (!armed){ armed = true; b.textContent = '再按一次確定清掉'; return; }
+        try { await api('/drafts/clear', { method: 'POST' }); } catch (e) { failNote(e); }
+        renderDraftPanel();
+    });
+    foot.append(b);
+    kids.push(foot);
+    p.replaceChildren(...kids);
+}
+function setDraftPanel(open){
+    $('draftPanel').hidden = !open;
+    $('draftBtn').setAttribute('aria-expanded', String(open));
+    if (open) renderDraftPanel();
+}
+$('draftBtn').onclick = () => setDraftPanel($('draftPanel').hidden);
+/* 點外面就收起來。★ 按了會重畫清單的按鈕，事件傳到這裡時已經不在畫面上（isConnected 為假），那不算點外面。 */
+addEventListener('click', e => {
+    const t = e.target;
+    if (t && t.isConnected && t.closest && !t.closest('#draftPanel, #draftBtn')) setDraftPanel(false);
+});
+addEventListener('keydown', e => { if (e.key === 'Escape') setDraftPanel(false); });
+
 /* ---------- 主題：與主站共用同一個鍵（只管外殼；編輯器自己跟著系統） ---------- */
 const THEME_KEY = 'eeblackcat-theme';
 const applyTheme = t => {
@@ -274,6 +496,64 @@ logoBtn.addEventListener('keydown', e => {
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 addEventListener('blur', () => setLogoMenu(false));
 addEventListener('keydown', e => { if (e.key === 'Escape') setLogoMenu(false); });
+</script>
+<!-- ★ 登入：跟主站同一個 Firebase 專案、同一個網域，登入狀態直接沿用（這一頁只讀，不做登入）。
+     給上面草稿那一段一個 window.blackcatDocAuth：{ ready, user, token() }，狀態變了就發 blackcat-doc-auth 事件。
+     ⚠️ adoptIdbLogin 那一段跟主站、ncue 產生檔、錯題本、模擬器要一致（理由見錯題本同一段）；這是第五頁。 -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, initializeAuth, browserLocalPersistence, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+const firebaseConfig = {
+    apiKey:"AIzaSyD9uIEAe3InKxHs86QhWHjuMSuimxrhdkQ",
+    authDomain:"eeblackcat-c605d.firebaseapp.com",
+    projectId:"eeblackcat-c605d",
+    storageBucket:"eeblackcat-c605d.firebasestorage.app",
+    messagingSenderId:"1012329411307",
+    appId:"1:1012329411307:web:63b87debbbc3e4778044ae"
+};
+const AUTH_LS_KEY = `firebase:authUser:${firebaseConfig.apiKey}:[DEFAULT]`;
+const AUTH_MIGRATED = 'eeblackcat-auth-ls';
+async function adoptIdbLogin() {
+    try {
+        if (localStorage.getItem(AUTH_MIGRATED) === '1') return;
+        if (localStorage.getItem(AUTH_LS_KEY)) { localStorage.setItem(AUTH_MIGRATED, '1'); return; }
+        const read = new Promise((res) => {
+            const o = indexedDB.open('firebaseLocalStorageDb');
+            o.onerror = () => res(undefined);
+            o.onblocked = () => res(undefined);
+            o.onupgradeneeded = () => { try { o.transaction.abort(); } catch (e) {} res(null); };
+            o.onsuccess = () => {
+                try {
+                    const r = o.result.transaction('firebaseLocalStorage', 'readonly')
+                                .objectStore('firebaseLocalStorage').get(AUTH_LS_KEY);
+                    r.onsuccess = () => { res(r.result ? r.result.value : null); o.result.close(); };
+                    r.onerror = () => { res(undefined); o.result.close(); };
+                } catch (e) { res(null); try { o.result.close(); } catch (e2) {} }
+            };
+        });
+        /* 1.5 秒拿不到就算了：這次先當訪客，下次開站再試。 */
+        const v = await Promise.race([read, new Promise(r => setTimeout(() => r(undefined), 1500))]);
+        if (v === undefined) return;                 // 逾時或出錯：不記旗子，下次再搬
+        if (v) localStorage.setItem(AUTH_LS_KEY, JSON.stringify(v));
+        localStorage.setItem(AUTH_MIGRATED, '1');
+    } catch (e) { /* localStorage 被關掉之類的：當作沒有舊登入 */ }
+}
+await adoptIdbLogin();
+const app = initializeApp(firebaseConfig);
+let auth;
+try { auth = initializeAuth(app, { persistence: [browserLocalPersistence] }); }
+catch (e) { auth = getAuth(app); }
+const state = window.blackcatDocAuth = {
+    ready: false,
+    user: null,
+    /* 匿名登入不算（Worker 也不收，見 verifyIdToken） */
+    token: async () => { const u = auth.currentUser; return u && !u.isAnonymous ? u.getIdToken() : null; },
+};
+onAuthStateChanged(auth, (user) => {
+    state.user = (user && !user.isAnonymous) ? { uid: user.uid } : null;
+    state.ready = true;
+    dispatchEvent(new Event('blackcat-doc-auth'));
+});
 </script>
 </body>
 </html>
