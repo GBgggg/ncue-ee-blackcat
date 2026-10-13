@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>文書小黑貓 - 在瀏覽器裡寫報告、開 Word 檔</title>
+<link rel="icon" href="logomain.jpg">
+<meta name="description" content="文書小黑貓：免安裝的文書編輯器，在瀏覽器裡開 Word 檔、寫報告、打公式、匯出 PDF。檔案不會上傳，存檔就是下載到自己的電腦。">
+
+<!-- ★ CSP：這一頁本身只有外殼（logo 選單、主題、擋門），編輯器在下面的 iframe 裡（doc/index.html）。
+     外殼不登入、不連 Firebase，所以 connect-src 只留 'self'；frame-src 只准自己站上的 doc/。
+     編輯器那一頁是 WordCraft 用 trunk 產生的，WebAssembly 編譯要 'wasm-unsafe-eval'，
+     那條寫在 doc/index.html 自己的 CSP 裡，不放寬這一頁。 -->
+<meta http-equiv="Content-Security-Policy" content="
+    default-src 'self';
+    script-src 'self' 'unsafe-inline';
+    style-src 'self' 'unsafe-inline';
+    img-src 'self' data:;
+    frame-src 'self';
+    connect-src 'self';
+    worker-src 'self';
+    base-uri 'self';
+    object-src 'none';
+    form-action 'self'">
+<!-- ★ 防點擊劫持。理由與完整說明在 publicnew.html 同一段（GitHub Pages 設不了 HTTP 標頭）。 -->
+<script>
+    if (top !== self) {
+        document.documentElement.style.display = 'none';
+        try { top.location = self.location; } catch (e) {}
+    }
+</script>
+<style>
+/* ==========================================================
+   外殼 token：跟錯題本同一組中性灰（不是站上的暖奶黃）。
+   這一頁也是滿版不捲動的工作區，主角是編輯器裡那張白紙，
+   理由跟錯題本那段一樣：中性灰上紙才浮得起來。
+   ========================================================== */
+:root{
+    --paper:#eaeaee; --paper-raised:#f7f7f9; --paper-sunk:#dcdce0;
+    --ink:#1c1c1e; --ink-2:#48484a; --ink-3:#63636a;
+    --rule:#d3d3d8; --accent:#7a5905; --accent-fill:#7a5905;
+    --accent-bright:#8a6605;
+    --accent-soft:rgba(0,0,0,.055);
+    --ease:cubic-bezier(0.22, 1, 0.36, 1);
+    --dur-fast:.09s; --dur-base:.18s;
+}
+html.dark{
+    --paper:#131316; --paper-raised:#232326; --paper-sunk:#0d0d0f;
+    --ink:#f2f2f7; --ink-2:#c7c7cc; --ink-3:#98989d;
+    --rule:#3a3a3e; --accent:#e8c46a; --accent-fill:#8a6a12;
+    --accent-bright:#e8c46a; --accent-soft:rgba(255,255,255,.08);
+}
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;height:100%}
+body{background:var(--paper);color:var(--ink);overflow:hidden;
+     font:16px/1.6 system-ui,-apple-system,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+     -webkit-text-size-adjust:100%}
+a{color:var(--accent)}
+button{font:inherit;color:var(--ink)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+button:not(:disabled):active{transform:scale(.97)}
+@media (prefers-reduced-motion: reduce){
+    *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+    button:not(:disabled):active{transform:none}
+}
+
+#app{height:100dvh;display:flex;flex-direction:column;min-height:0}
+header{flex:none;background:var(--paper-raised);padding:env(safe-area-inset-top, 0px) 0 0;border-bottom:1px solid var(--rule)}
+.hbar{padding:5px calc(8px + env(safe-area-inset-right, 0px)) 5px calc(8px + env(safe-area-inset-left, 0px));
+      display:flex;align-items:center;gap:6px;min-height:44px}
+.hbar-right{display:flex;align-items:center;gap:6px;margin-left:auto}
+.hnote{font-size:13px;color:var(--ink-3);white-space:nowrap}
+
+.btn{font-weight:700;border-radius:9px;min-height:32px;padding:0 11px;font-size:14px;
+     background:transparent;border:1px solid transparent;cursor:pointer;white-space:nowrap;
+     text-decoration:none;color:var(--ink);display:inline-flex;align-items:center;
+     transition:background var(--dur-fast) var(--ease)}
+.btn:hover{background:var(--accent-soft)}
+.btn.primary{background:var(--accent-fill);color:#fff}
+.btn.primary:hover{background:var(--accent-fill);filter:brightness(1.08)}
+.btn.tiny{min-height:28px;padding:0 9px;font-size:13.5px;border-radius:8px}
+.btn.icon{min-width:32px;padding:0;font-size:15px;line-height:1;justify-content:center}
+
+/* ---- logo 下拉選單（行為與主站一致；五個檔案要一致，tests/logomenu.mjs 會比對） ---- */
+#logoWrap{position:relative;flex:none}
+#logoBtn{display:flex;align-items:center;gap:8px;cursor:pointer;padding:2px 6px 2px 2px;
+         border-radius:10px}
+#logoBtn:hover{background:var(--accent-soft)}
+#logoBtn img{width:30px;height:30px;border-radius:50%;object-fit:cover;flex:none}
+.htitle{font-weight:900;font-size:16px;line-height:1.15;white-space:nowrap}
+.htitle small{display:block;font-weight:600;font-size:11.5px;color:var(--ink-3);letter-spacing:.16em}
+#logoChev{font-size:12.5px;line-height:1;opacity:.6;color:var(--ink-3);
+          transition:transform var(--dur-base) var(--ease)}
+#logoBtn[aria-expanded="true"] #logoChev{transform:rotate(180deg);opacity:1}
+#logoMenu{position:absolute;left:0;top:100%;margin-top:8px;z-index:80;
+          min-width:232px;border-radius:14px;overflow:hidden;background:var(--paper-raised);
+          border:1px solid var(--rule);box-shadow:0 10px 28px rgba(26,24,21,.22)}
+#logoMenu.hidden{display:none}
+.logo-menu-item{position:relative;
+                display:flex;flex-direction:column;align-items:flex-start;justify-content:center;
+                width:100%;min-height:50px;padding:9px 15px;font-size:16px;font-weight:700;
+                text-align:left;text-decoration:none;color:var(--ink);background:transparent;
+                border:none;cursor:pointer}
+.logo-menu-item small{font-size:13px;font-weight:600;color:var(--ink-3);margin-top:1px}
+.logo-menu-item:hover{background:var(--accent-soft)}
+.logo-menu-item + .logo-menu-item{border-top:1px solid var(--rule)}
+.logo-menu-item.is-here{cursor:default;outline:2px solid var(--accent-bright);
+                        outline-offset:-2px;border-radius:10px}
+.logo-menu-item.is-here:hover{background:transparent}
+.logo-menu-item.has-beta{padding-right:74px}
+.beta-tag{position:absolute;right:15px;top:50%;transform:translateY(-50%);
+          padding:2px 7px;border-radius:999px;
+          font-size:11.5px;font-weight:900;letter-spacing:.08em;line-height:1.4;
+          text-transform:uppercase;
+          color:var(--accent);background:var(--accent-soft);border:1px solid var(--rule)}
+
+/* ---- 編輯器：iframe 吃掉頁首以下的全部空間 ----
+   ★ 背景跟 WordCraft 載入畫面同一個灰（#e6e6e6），iframe 還沒畫出第一格之前不會閃白。 */
+#work{flex:1;min-height:0;position:relative;background:#e6e6e6}
+#editor{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+
+/* ---- 手機擋門（跟電路小黑貓同一個條件） ---- */
+#gate{position:fixed;inset:0;z-index:100;display:grid;place-items:center;
+      padding:24px;background:var(--paper)}
+#gate[hidden]{display:none}
+.gate-card{max-width:420px;text-align:center}
+.gate-card img{width:76px;height:76px;border-radius:50%;object-fit:cover;margin-bottom:14px}
+.gate-card h1{font-size:23px;margin:0 0 10px}
+.gate-card p{color:var(--ink-2);line-height:1.7;margin:0 0 10px}
+.gate-card .btn{margin-top:8px;line-height:40px;min-height:40px}
+
+@media (max-width: 980px){ .hnote{display:none} }
+</style>
+</head>
+<body>
+
+<!-- 手機擋在門外：文書編輯器的工具列、選字、拖曳都是給滑鼠設計的，
+     觸控裝置上打中文和點小按鈕都撐不住，與其做一個難用的版本不如講清楚。 -->
+<div id="gate" hidden>
+  <div class="gate-card">
+    <img src="logomain.jpg" alt="">
+    <h1>文書小黑貓需要電腦</h1>
+    <p>它是一套完整的文書編輯器，工具列、選字、拖曳圖片都是給滑鼠和鍵盤設計的。
+       手機上點不準，也放不下整排工具。</p>
+    <p class="sub" id="gateWhy"></p>
+    <a class="btn primary" href="index.html">回小黑貓首頁</a>
+  </div>
+</div>
+
+<div id="app">
+
+<header>
+  <div class="hbar">
+    <div id="logoWrap">
+      <div id="logoBtn" role="button" tabindex="0"
+           aria-haspopup="true" aria-expanded="false" aria-controls="logoMenu">
+        <img src="logomain.jpg" alt="">
+        <div class="htitle">文書小黑貓<small>BLACKCAT DOCS</small></div>
+        <span id="logoChev" aria-hidden="true">&#9662;</span>
+      </div>
+      <div id="logoMenu" class="hidden" role="menu" aria-labelledby="logoBtn">
+        <a class="logo-menu-item" href="./" role="menuitem">小黑貓<small>主頁、學習、理財</small></a>
+        <a class="logo-menu-item" href="ncue.html" role="menuitem">彰師電子小黑貓<small>課程評價、教材、消息</small></a>
+        <a class="logo-menu-item has-beta" href="blackcatmd.html" role="menuitem">錯題本小黑貓<span class="beta-tag">beta</span><small>答錯的題目排成筆記</small></a>
+        <a class="logo-menu-item has-beta" href="blackcatspice.html" role="menuitem">電路小黑貓<span class="beta-tag">beta</span><small>免安裝，用電腦開</small></a>
+        <span class="logo-menu-item is-here has-beta" role="menuitem" aria-current="page">
+          文書小黑貓<span class="beta-tag">beta</span><small>開 Word 檔、寫報告，用電腦開</small></span>
+      </div>
+    </div>
+    <div class="hbar-right">
+      <!-- 講清楚檔案去哪裡：這一頁沒有雲端，關掉分頁前沒下載的就沒了（編輯器自己也會擋一次）。 -->
+      <span class="hnote">檔案不會上傳；存檔＝下載到你的電腦</span>
+      <a class="btn tiny" href="doc/index.html" target="_blank" rel="noopener" title="編輯器單獨開一個分頁，畫面更大">全螢幕開</a>
+      <button id="themeBtn" class="btn tiny icon" title="切換深色／淺色">&#9681;</button>
+    </div>
+  </div>
+</header>
+
+<main id="work">
+  <!-- ★ src 不寫在這裡：手機被擋門攔下時不該白抓那約 20MB（程式本體＋中文字型）。
+       通過擋門才由下面的程式填上。 -->
+  <iframe id="editor" title="文書小黑貓編輯器"
+          allow="clipboard-read; clipboard-write; fullscreen"></iframe>
+</main>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+/* ---------- 擋門：跟電路小黑貓同一個條件（tests/brand.mjs 比對那一句） ----------
+   觸控裝置硬擋（連編輯器都不載）；視窗太窄軟擋，拉寬就回來。 */
+const TOUCH_ONLY = matchMedia('(pointer: coarse) and (hover: none)').matches;
+const MIN_W = 820;
+const gateOn = () => TOUCH_ONLY || innerWidth < MIN_W;
+let loaded = false;
+function applyGate(){
+    const on = gateOn();
+    $('gate').hidden = !on;
+    $('app').style.display = on ? 'none' : '';
+    $('gateWhy').textContent = TOUCH_ONLY
+        ? '請用桌機或筆電開這一頁。小黑貓的其他功能在手機上都正常。'
+        : `目前 ${innerWidth}px 寬，拉寬到 ${MIN_W}px 以上就會自動回來。`;
+    if (!on && !loaded){
+        loaded = true;
+        const f = $('editor');
+        f.addEventListener('load', () => { try { f.focus(); } catch (e) {} }, { once: true });
+        f.src = 'doc/index.html';
+    }
+}
+applyGate();
+if (!TOUCH_ONLY) addEventListener('resize', applyGate);
+
+/* ---------- 主題：與主站共用同一個鍵（只管外殼；編輯器自己跟著系統） ---------- */
+const THEME_KEY = 'eeblackcat-theme';
+const applyTheme = t => {
+    document.documentElement.classList.toggle('dark', t === 'dark');
+    try { localStorage.setItem(THEME_KEY, t); } catch(e){}
+};
+try { applyTheme(localStorage.getItem(THEME_KEY) ||
+      (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')); } catch(e){}
+$('themeBtn').onclick = () => applyTheme(
+    document.documentElement.classList.contains('dark') ? 'light' : 'dark');
+
+/* ---------- logo 選單 ----------
+   判斷「點外面」時要用 #logoWrap 而不是 #logoBtn，
+   否則點選單本身也會被當成點外面而立刻關掉。
+   ★ 點進 iframe 不會觸發這一頁的 click，所以另外聽 blur：焦點跑進編輯器就收起來。 */
+const logoMenu = $('logoMenu'), logoBtn = $('logoBtn');
+const setLogoMenu = open => {
+    logoMenu.classList.toggle('hidden', !open);
+    logoBtn.setAttribute('aria-expanded', String(open));
+};
+logoBtn.onclick = () => setLogoMenu(logoMenu.classList.contains('hidden'));
+logoBtn.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' '){
+        e.preventDefault(); setLogoMenu(logoMenu.classList.contains('hidden'));
+    }
+});
+addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
+addEventListener('blur', () => setLogoMenu(false));
+addEventListener('keydown', e => { if (e.key === 'Escape') setLogoMenu(false); });
+</script>
+</body>
+</html>

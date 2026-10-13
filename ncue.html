@@ -7812,6 +7812,16 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-10-13',
+                title: '新產品：文書小黑貓（beta）',
+                items: [
+                    ['在網頁上寫報告、開 Word 檔', '左上角的小黑貓選單多了「文書小黑貓」。不用安裝 Word，就能打開 Word 檔、改內容、加表格和圖片，排好之後存成 Word 檔或匯出 PDF。'],
+                    ['中文顯示正常', '畫面和文件裡的中文都用繁體中文字型，不會變成方框。'],
+                    ['檔案留在你自己的電腦', '檔案不會上傳到網站。按「儲存」就是下載到你的電腦，關掉分頁前記得先存。'],
+                    ['要用電腦開', '跟電路小黑貓一樣，手機和平板看不到這個入口。第一次打開要等一下，之後就快了。'],
+                ]
+            },
+            {
                 date: '2026-10-09',
                 title: '做了一次全站的資安體檢',
                 items: [
@@ -8904,7 +8914,10 @@
                 ['cat',  '小黑貓',         './',                 '主頁、學習、理財'],
                 ['ncue', '彰師電子小黑貓', 'ncue.html',          '課程評價、教材、消息'],
                 ['md',   '錯題本小黑貓',   'blackcatmd.html',    '答錯的題目排成筆記'],
-                ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開', true]
+                ['spice','電路小黑貓',     'blackcatspice.html', '免安裝，用電腦開', true],
+                /* ★ 2026-10-13 第五個：文書小黑貓（WordCraft 網頁版，編輯器本體在 doc/）。
+                   跟電路同一個判斷：工具列、選字、拖曳都是給滑鼠的，觸控裝置硬擋，所以也標桌機限定。 */
+                ['doc',  '文書小黑貓',     'blackcatdoc.html',   '開 Word 檔、寫報告，用電腦開', true]
             ];
             /* ★ beta 寫成獨立的一份名單，不是接在上面那張表的第六欄。
                第五欄 `deskOnly` 只有電路有值，再多一欄的話「筆記」那一列
@@ -8912,11 +8925,11 @@
                而 `tests/logomenu.mjs` 是用 `items.map(([k, name, href, sub]) => …)`
                解構那張表的，欄位一多就容易對錯位置，錯了也不會報錯。
                ★ 這份名單是唯一來源，但**只對這支程式生成的兩頁有效**：
-               `blackcatmd.html` 與 `blackcatspice.html` 的選單是寫死的 HTML
-               （它們沒有載入這支程式），四個檔案要一起改。
+               `blackcatmd.html`、`blackcatspice.html`、`blackcatdoc.html` 的選單是寫死的 HTML
+               （它們沒有載入這支程式），五個檔案要一起改。
                `tests/logomenu.mjs` 會比對四邊是否一致——漏改的症狀是
                「從電路頁看筆記沒有 beta、從主站看有」，而畫面上不會有任何異常。 */
-            const BETA = new Set(['md', 'spice']);
+            const BETA = new Set(['md', 'spice', 'doc']);
             const betaTag = k => BETA.has(k) ?'<span class="beta-tag">beta</span>' :'';
             const el = $('logoMenu');
             if (!el) return;

@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v167';
+const CACHE = 'blackcat-v168';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -28,6 +28,7 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './ncue.html',            // 彰師電子（獨立頁）
               './blackcatspice.html',   // 電路模擬器（獨立頁）
               './blackcatmd.html',      // 錯題本（獨立頁；2026-10-07 以前是筆記編輯器）
+              './blackcatdoc.html',     // 文書小黑貓（外殼）。編輯器本體 doc/ 約 20MB，不進 CORE，用到才抓
               /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
                  搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`
                  那種浮動版本等於「上游下一次發布的程式碼會自動在使用者的

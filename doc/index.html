@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>文書小黑貓</title>
+  <!-- 文書小黑貓 fork. CSP: WebAssembly needs 'wasm-unsafe-eval'; trunk's loader is an inline
+       module script; printing loads the PDF into a blob: iframe; downloads are blob: links. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <!-- Clickjacking guard: only 小黑貓's own blackcatdoc.html (same origin) may frame this page.
+       Reading top.location.origin throws for a cross-origin parent, which also hides the page. -->
+  <script>
+    (function () {
+      if (top === self) return;
+      var ok = false;
+      try { ok = top.location.origin === location.origin; } catch (e) {}
+      if (!ok) {
+        document.documentElement.style.display = 'none';
+        try { top.location = self.location; } catch (e) {}
+      }
+    })();
+  </script>
+  
+<script type="module">
+import init, * as bindings from './wordcraft-web-54c282f64882806e.js';
+const wasm = await init({ module_or_path: './wordcraft-web-54c282f64882806e_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
+
+</script>
+  <!-- 文書小黑貓 fork: the Traditional Chinese face the app fetches at start (web.rs CJK_FONT_URL). -->
+  
+  
+  <style>
+    html, body { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #e6e6e6; }
+    #wordcraft_canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+    #wordcraft_loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      color: #555; font: 14px system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif; pointer-events: none; text-align: center; }
+  </style>
+<link rel="modulepreload" href="./wordcraft-web-54c282f64882806e.js" crossorigin="anonymous" integrity="sha384-kmIhCiuW7LE44q39XNmWFGBWRfRMBQA+lnXkt/8EC6ZFphUv8dcoyHSrk3CqmgzN"><link rel="preload" href="./wordcraft-web-54c282f64882806e_bg.wasm" crossorigin="anonymous" integrity="sha384-/GmtpDvcCAshpagP0sK4H54D385XBMS0hewVX1BiWvNS0QoDjeRQkIuboSitoySo" as="fetch" type="application/wasm"></head>
+<body>
+  <canvas id="wordcraft_canvas"></canvas>
+  <div id="wordcraft_loading"><p>文書小黑貓載入中&hellip;</p><p>第一次開要下載約 35 MB，之後會快很多。</p></div>
+</body>
+</html>
