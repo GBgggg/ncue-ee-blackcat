@@ -26,8 +26,8 @@
   <!-- 文書小黑貓 fork: the `web` cargo profile (Cargo.toml) is smaller than `release`. -->
   
 <script type="module">
-import init, * as bindings from './wordcraft-web-e215bcfaf283d6a1.js';
-const wasm = await init({ module_or_path: './wordcraft-web-e215bcfaf283d6a1_bg.wasm' });
+import init, * as bindings from './wordcraft-web-24f58290977bc7c7.js';
+const wasm = await init({ module_or_path: './wordcraft-web-24f58290977bc7c7_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -47,7 +47,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     #wordcraft_loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
       color: #555; font: 14px system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif; pointer-events: none; text-align: center; }
   </style>
-<link rel="modulepreload" href="./wordcraft-web-e215bcfaf283d6a1.js" crossorigin="anonymous" integrity="sha384-y5H5vZb1l8KEIiGCNqvxMshj4fVBAv+Jsx46MDD/UFXPlK3vOkpPX4ohx9yh5kCL"><link rel="preload" href="./wordcraft-web-e215bcfaf283d6a1_bg.wasm" crossorigin="anonymous" integrity="sha384-C+dP2csjhhQQ4fw91KO1irgD/p0fGWfb/Iuf5qgyBZhxsJ592bgkDb/67t5wl6nW" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="./wordcraft-web-24f58290977bc7c7.js" crossorigin="anonymous" integrity="sha384-y5H5vZb1l8KEIiGCNqvxMshj4fVBAv+Jsx46MDD/UFXPlK3vOkpPX4ohx9yh5kCL"><link rel="preload" href="./wordcraft-web-24f58290977bc7c7_bg.wasm" crossorigin="anonymous" integrity="sha384-SQnpuTqRFtGPjUIBHB9m7Ojf/XQYpCOXJoG9JmtHURb9ZrlgM3yTqR9lr1NCiVhk" as="fetch" type="application/wasm"></head>
 <body>
   <canvas id="wordcraft_canvas"></canvas>
   <div id="wordcraft_loading"><p>文書小黑貓載入中&hellip;</p><p>第一次開要下載約 35 MB，之後會快很多。</p></div>
