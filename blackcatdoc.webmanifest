@@ -1,0 +1,26 @@
+{
+  "id": "./blackcatdoc.html",
+  "name": "文書小黑貓",
+  "short_name": "文書小黑貓",
+  "description": "免安裝的文書編輯器：開 Word 檔、寫報告、打公式、匯出 PDF。",
+  "start_url": "./blackcatdoc.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#eaeaee",
+  "theme_color": "#f7f7f9",
+  "lang": "zh-Hant",
+  "icons": [
+    {
+      "src": "logomain.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    },
+    {
+      "src": "logomain.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "maskable"
+    }
+  ]
+}

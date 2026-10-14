@@ -5,8 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
   <title>文書小黑貓</title>
   <!-- 文書小黑貓 fork. CSP: WebAssembly needs 'wasm-unsafe-eval'; trunk's loader is an inline
-       module script; printing loads the PDF into a blob: iframe; downloads are blob: links. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob:; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
+       module script; printing loads the PDF into a blob: iframe; downloads are blob: links.
+       connect-src: the only outside hosts are the two reference look-ups (Report › Cite by DOI or
+       ISBN): api.crossref.org for DOIs, www.googleapis.com (Books) for ISBNs. Nothing is sent but
+       the number being looked up. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' data: blob: https://api.crossref.org https://www.googleapis.com; frame-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'">
   <!-- Clickjacking guard: only 小黑貓's own blackcatdoc.html (same origin) may frame this page.
        Reading top.location.origin throws for a cross-origin parent, which also hides the page. -->
   <script>
@@ -23,8 +26,8 @@
   <!-- 文書小黑貓 fork: the `web` cargo profile (Cargo.toml) is smaller than `release`. -->
   
 <script type="module">
-import init, * as bindings from './wordcraft-web-4d0fddbf1f577281.js';
-const wasm = await init({ module_or_path: './wordcraft-web-4d0fddbf1f577281_bg.wasm' });
+import init, * as bindings from './wordcraft-web-e215bcfaf283d6a1.js';
+const wasm = await init({ module_or_path: './wordcraft-web-e215bcfaf283d6a1_bg.wasm' });
 
 
 window.wasmBindings = bindings;
@@ -44,7 +47,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
     #wordcraft_loading { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
       color: #555; font: 14px system-ui, "Microsoft JhengHei", "PingFang TC", sans-serif; pointer-events: none; text-align: center; }
   </style>
-<link rel="modulepreload" href="./wordcraft-web-4d0fddbf1f577281.js" crossorigin="anonymous" integrity="sha384-gJqxVxh9ui8drQBzkZIp3GhvKdZwreT4Gw4WoxN7LK5AyQKUVLWBw1ulfMiZDFs/"><link rel="preload" href="./wordcraft-web-4d0fddbf1f577281_bg.wasm" crossorigin="anonymous" integrity="sha384-QYTWn0O0qCyeRVZ8gBpZc1TT6wM3aIWOhu/bNYgYWvjoqj848Wo9ir34+VDMU9+n" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="./wordcraft-web-e215bcfaf283d6a1.js" crossorigin="anonymous" integrity="sha384-y5H5vZb1l8KEIiGCNqvxMshj4fVBAv+Jsx46MDD/UFXPlK3vOkpPX4ohx9yh5kCL"><link rel="preload" href="./wordcraft-web-e215bcfaf283d6a1_bg.wasm" crossorigin="anonymous" integrity="sha384-C+dP2csjhhQQ4fw91KO1irgD/p0fGWfb/Iuf5qgyBZhxsJ592bgkDb/67t5wl6nW" as="fetch" type="application/wasm"></head>
 <body>
   <canvas id="wordcraft_canvas"></canvas>
   <div id="wordcraft_loading"><p>文書小黑貓載入中&hellip;</p><p>第一次開要下載約 35 MB，之後會快很多。</p></div>

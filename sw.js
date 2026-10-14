@@ -29,6 +29,7 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './blackcatspice.html',   // 電路模擬器（獨立頁）
               './blackcatmd.html',      // 錯題本（獨立頁；2026-10-07 以前是筆記編輯器）
               './blackcatdoc.html',     // 文書小黑貓（外殼）。編輯器本體 doc/ 約 20MB，不進 CORE，用到才抓
+              './blackcatdoc.webmanifest', // 文書小黑貓裝成 App 用的 manifest（2026-10-14）
               /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
                  搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`
                  那種浮動版本等於「上游下一次發布的程式碼會自動在使用者的

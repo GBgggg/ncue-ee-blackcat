@@ -7,6 +7,10 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>文書小黑貓 - 在瀏覽器裡寫報告、開 Word 檔</title>
 <link rel="icon" href="logomain.jpg">
+<!-- 裝成 App（2026-10-14）：自己的 manifest，跟主站的 manifest.json 分開（不同的 id、start_url），
+     裝起來是獨立的「文書小黑貓」視窗，打開就沒有瀏覽器的分頁列和網址列。 -->
+<link rel="manifest" href="blackcatdoc.webmanifest">
+<meta name="theme-color" content="#f7f7f9">
 <meta name="description" content="文書小黑貓：免安裝的文書編輯器，在瀏覽器裡開 Word 檔、寫報告、打公式、匯出 PDF。存檔就是下載到自己的電腦；登入的話，草稿會自動存在你的小黑貓帳號。">
 
 <!-- ★ CSP：這一頁本身只有外殼（logo 選單、主題、擋門、草稿），編輯器在下面的 iframe 裡（doc/index.html）。
@@ -22,6 +26,7 @@
     frame-src 'self';
     connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://blackcat-quote.cctsai03.workers.dev;
     worker-src 'self';
+    manifest-src 'self';
     base-uri 'self';
     object-src 'none';
     form-action 'self'">
@@ -197,9 +202,11 @@ header{position:relative}
       <span class="hnote">存檔＝下載到你的電腦</span>
       <!-- 全螢幕：編輯器佔滿整個螢幕，瀏覽器的分頁列、網址列和上面這條頁首都收起來，像電腦上的 Word。
            編輯器裡（檢視選單、工具列最右邊）也有同一顆，走的是下面同一支 setFullscreen。 -->
-      <!-- 草稿：自動存在這台電腦的瀏覽器（只在使用者說「這是我的電腦」之後），下面那段程式 -->
+      <!-- 裝成 App：瀏覽器說可以裝（beforeinstallprompt）才出現；已經是 App 視窗就不出現。 -->
+      <button id="installBtn" class="btn tiny" hidden title="裝成電腦上的 App：有自己的視窗和工作列圖示，打開就沒有瀏覽器的分頁列和網址列">安裝成 App</button>
+      <!-- 草稿：登入的話自動存在你的小黑貓帳號（換電腦也接得上），下面那段程式 -->
       <span id="draftNote" class="hnote" aria-live="polite"></span>
-      <button id="draftBtn" class="btn tiny" title="自動存在這台電腦的草稿" aria-expanded="false" aria-controls="draftPanel">草稿</button>
+      <button id="draftBtn" class="btn tiny" title="自動存在你帳號裡的草稿" aria-expanded="false" aria-controls="draftPanel">草稿</button>
       <button id="fsBtn" class="btn tiny" title="編輯器佔滿整個螢幕；按住 Esc 離開">全螢幕</button>
       <button id="themeBtn" class="btn tiny icon" title="切換深色／淺色">&#9681;</button>
     </div>
@@ -496,6 +503,30 @@ logoBtn.addEventListener('keydown', e => {
 addEventListener('click', e => { if (!e.target.closest('#logoWrap')) setLogoMenu(false); });
 addEventListener('blur', () => setLogoMenu(false));
 addEventListener('keydown', e => { if (e.key === 'Escape') setLogoMenu(false); });
+
+/* ---------- 裝成 App（2026-10-14） ----------
+   Chrome／Edge 判斷可以裝的時候會丟 beforeinstallprompt：先攔下來，等使用者按「安裝成 App」才跳出確認。
+   已經在 App 視窗裡（display-mode: standalone）就不顯示。Safari、Firefox 不丟這個事件，按鈕就一直藏著。
+   ★ 要被當成可安裝，這一頁要有自己的 manifest（blackcatdoc.webmanifest）並由 sw.js 控制，
+     所以這裡也跟主站一樣註冊 sw.js（同一支、同一個範圍，不會多一份快取）。 */
+let installEvt = null;
+const isApp = () => matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches;
+addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    installEvt = e;
+    $('installBtn').hidden = isApp();
+});
+addEventListener('appinstalled', () => { installEvt = null; $('installBtn').hidden = true; });
+$('installBtn').onclick = async () => {
+    const e = installEvt;
+    if (!e) return;
+    installEvt = null;
+    $('installBtn').hidden = true;
+    try { await e.prompt(); } catch (err) {}
+};
+if ('serviceWorker' in navigator && !TOUCH_ONLY){
+    addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 </script>
 <!-- ★ 登入：跟主站同一個 Firebase 專案、同一個網域，登入狀態直接沿用（這一頁只讀，不做登入）。
      給上面草稿那一段一個 window.blackcatDocAuth：{ ready, user, token() }，狀態變了就發 blackcat-doc-auth 事件。
