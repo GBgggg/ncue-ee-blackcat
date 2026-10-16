@@ -151,7 +151,7 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
    z-index 30：在內容上面、在掃描線（35）、頁首、彈窗底下。 */
 #bcCat {
     position: fixed; left: max(10px, env(safe-area-inset-left)); bottom: var(--bc-bottom, 12px); z-index: 30;
-    width: var(--size, 68px); height: var(--size, 68px);
+    width: var(--size, 128px); height: var(--size, 128px);
     padding: 0; border: 0; background-color: transparent; cursor: pointer;
     background-repeat: no-repeat;
     background-size: calc(var(--frames, 1) * 100%) 100%;
@@ -161,7 +161,7 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 #bcCat.once { animation-iteration-count: 1; animation-fill-mode: forwards; }
 #bcCat:focus-visible { outline: 2px dashed #00f0ff; outline-offset: 2px; }
 #bcCat .bc-bubble {
-    position: absolute; left: 70%; bottom: 82%; padding: 3px 8px;
+    position: absolute; left: 58%; bottom: 44%; padding: 3px 8px;
     font: 12px/1.2 "Share Tech Mono", ui-monospace, monospace; white-space: nowrap;
     color: #07060c; background: #fcee0a; box-shadow: 3px 3px 0 #ff2a6d;
     opacity: 0; translate: 0 6px; pointer-events: none;

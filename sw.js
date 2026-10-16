@@ -32,7 +32,7 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './blackcatdoc.webmanifest', // 文書小黑貓裝成 App 用的 manifest（2026-10-14）
               /* ★ 大廳（2026-10-16）：五頁的 <head> 都載這兩支（交棒接手、角落的黑貓）。
                  不進 CORE 的話離線時每一頁都少一支 script——不會壞，但貓不見了，也沒有人知道為什麼。
-                 ★ 夜街、招牌、貓的圖（lobby/*.webp，合計約 330KB）**刻意不進**：
+                 ★ 夜街、招牌、貓的圖（lobby/*.webp，合計約 560KB）**刻意不進**：
                    大廳只在「從外面打開首頁」時出現，而 lobby.js 抓不到背景圖會自己放棄、直接進站。
                    第一次看過之後它們走下面「同源靜態資源快取優先」那條路留著，跟單字庫同一個判斷。 */
               './lobby/lobby.js', './lobby/lobby.css',
