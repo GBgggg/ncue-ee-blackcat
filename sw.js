@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v173';
+const CACHE = 'blackcat-v174';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -202,6 +202,9 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // 只處理同源資源。跨源（Firebase／報價 Worker／字典 API）一律走網路。
   if (url.origin !== location.origin) return;
+  /* ★ 影片（大廳走進店裡的轉場，lobby/fly/*.mp4）不經過這裡，讓瀏覽器自己抓（2026-10-17）：
+     影片是分段（Range）要的，回 206；Safari 對 Service Worker 轉手的分段回應很挑，播不起來就會退回備用畫面。 */
+  if (url.pathname.endsWith('.mp4')) return;
 
   if (isHTML(req)) {
     // 網路優先，且用 cache:'reload' 繞過瀏覽器自己的 HTTP 快取。

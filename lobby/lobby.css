@@ -156,10 +156,13 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 #lobby.flying .lb-half { opacity: 0; transition: opacity 0.27s var(--lb-ease) 0.09s; }
 /* 走進店裡：底色先拿掉，後面那一頁才看得到。 */
 #lobby.opening { background: transparent; }
-/* 退路（影片放不出來）：往店門放大時，門口的光蓋滿畫面。 */
+/* 退路（影片放不出來）：往店門放大時，畫面往門口暗下去，門口只留一點店的顏色。
+   ⚠️ 第一版是「白→店的顏色→到 95% 才黑」，放大 3.4 倍時整個畫面變成一片亮黃（正式站上看到的，2026-10-16）。 */
 .lb-glow {
     position: absolute; inset: 0; pointer-events: none; opacity: 0;
-    background: radial-gradient(circle at var(--gx, 50%) var(--gy, 60%), #fff 0, var(--c, #fcee0a) 22%, #07060c 95%);
+    background: radial-gradient(circle at var(--gx, 50%) var(--gy, 60%),
+        color-mix(in srgb, var(--c, #fcee0a) 55%, #07060c) 0,
+        color-mix(in srgb, var(--c, #fcee0a) 16%, #07060c) 24%, #07060c 62%);
 }
 
 /* ---- 留在畫面上的黑貓（小黑貓、彰師電子）----
