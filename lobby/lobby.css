@@ -165,10 +165,12 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
         color-mix(in srgb, var(--c, #fcee0a) 16%, #07060c) 24%, #07060c 62%);
 }
 
-/* ---- 留在畫面上的黑貓（小黑貓、彰師電子）----
-   z-index 30：在內容上面、在掃描線（35）、頁首、彈窗底下。 */
+/* ---- 留在畫面上的黑貓（只有小黑貓的主頁）----
+   z-index 30：在內容上面、在掃描線（35）、頁首、彈窗底下。
+   位置全部由 lobby.js 用 transform 算（站在主頁方框的頂邊或畫面底部，見 Companion），所以這裡釘在左上角；
+   還沒算第一格之前先放在畫面外，不會在左上角閃一下。 */
 #bcCat {
-    position: fixed; left: max(10px, env(safe-area-inset-left)); bottom: var(--bc-bottom, 12px); z-index: 30;
+    position: fixed; left: 0; top: 0; z-index: 30; transform: translate(-200px, -200px);
     width: var(--size, 128px); height: var(--size, 128px);
     padding: 0; border: 0; background-color: transparent; cursor: pointer;
     background-repeat: no-repeat;
@@ -179,7 +181,7 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 #bcCat.once { animation-iteration-count: 1; animation-fill-mode: forwards; }
 /* 倒著播（站 → 坐、躺 → 起來）。也給大廳的 .lb-cat 用。 */
 #bcCat.rev, .lb-cat.rev { animation-direction: reverse; }
-/* 散步時 lobby.js 會改 transform（往右走、掉頭時 scaleX(-1)），翻面要以格子中間為軸。 */
+/* lobby.js 每一格寫 transform（translate 到腳下的位置，往左走時再 scaleX(-1)），翻面要以格子中間為軸。 */
 #bcCat { transform-origin: 50% 100%; }
 #bcCat:focus-visible { outline: 2px dashed #00f0ff; outline-offset: 2px; }
 #bcCat .bc-bubble {

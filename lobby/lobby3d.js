@@ -33,7 +33,7 @@ const RIM = { value: 1 };   // 邊光強度（所有毛層共用一個）
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
 const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jump: 90, hang: 0,
-               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25 };
+               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85 };
 const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
 function furMaterial(skinned, h) {
@@ -255,7 +255,7 @@ class Cat3D {
             /* 省電：角落那隻安靜坐著（沒在走、沒在跳、游標也沒在動）時改成每秒 30 格。
                大廳裡、或牠在動的時候維持 60 格——遊戲感就是靠這個。 */
             this.odd = !this.odd;
-            const calm = this.el.id === 'bcCat' && !/walk|stand|jump|land|liedown|loafdown|stretch|scratch/.test(s.name) && performance.now() - this.look.t > 3000;
+            const calm = this.el.id === 'bcCat' && !/walk|run|stand|jump|land|liedown|loafdown|stretch|scratch/.test(s.name) && performance.now() - this.look.t > 3000;
             if (calm && this.odd) return;
             this.draw(s, Math.min(this.clock.getDelta(), 0.08));
         };
