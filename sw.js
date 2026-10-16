@@ -32,9 +32,11 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './blackcatdoc.webmanifest', // 文書小黑貓裝成 App 用的 manifest（2026-10-14）
               /* ★ 大廳（2026-10-16）：五頁的 <head> 都載這兩支（交棒接手、角落的黑貓）。
                  不進 CORE 的話離線時每一頁都少一支 script——不會壞，但貓不見了，也沒有人知道為什麼。
-                 ★ 夜街、招牌、貓的圖（lobby/*.webp，合計約 560KB）**刻意不進**：
+                 ★ 夜街、招牌、貓的圖（lobby/*.webp，合計約 1.5MB；大廳只先抓其中約 400KB）**刻意不進**：
                    大廳只在「從外面打開首頁」時出現，而 lobby.js 抓不到背景圖會自己放棄、直接進站。
-                   第一次看過之後它們走下面「同源靜態資源快取優先」那條路留著，跟單字庫同一個判斷。 */
+                   第一次看過之後它們走下面「同源靜態資源快取優先」那條路留著，跟單字庫同一個判斷。
+                 ★ 即時 3D 的貓（lobby/lobby3d.js、lobby/cat.glb、vendor/three/，合計約 1.4MB）也不進：
+                   3D 是加分，離線抓不到時 lobby.js 就留在序列圖貓，不會壞。 */
               './lobby/lobby.js', './lobby/lobby.css',
               /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
                  搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`

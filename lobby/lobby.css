@@ -159,6 +159,10 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
     -webkit-tap-highlight-color: transparent;
 }
 #bcCat.once { animation-iteration-count: 1; animation-fill-mode: forwards; }
+/* 倒著播（站 → 坐、躺 → 起來）。也給大廳的 .lb-cat 用。 */
+#bcCat.rev, .lb-cat.rev { animation-direction: reverse; }
+/* 散步時 lobby.js 會改 transform（往右走、掉頭時 scaleX(-1)），翻面要以格子中間為軸。 */
+#bcCat { transform-origin: 50% 100%; }
 #bcCat:focus-visible { outline: 2px dashed #00f0ff; outline-offset: 2px; }
 #bcCat .bc-bubble {
     position: absolute; left: 58%; bottom: 44%; padding: 3px 8px;
@@ -168,7 +172,14 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
     transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1), translate 0.18s cubic-bezier(0.22, 1, 0.36, 1);
 }
 #bcCat.talk .bc-bubble { opacity: 1; translate: 0 0; }
-@media print { #bcCat, #lobby { display: none !important; } }
+/* 往左走時整隻貓 scaleX(-1)，泡泡裡的字要翻回來。 */
+#bcCat .bc-bubble { scale: var(--bc-flip, 1) 1; }
+/* ---- 即時 3D 的貓（lobby3d.js）----
+   3D 貓上場後，序列圖那個格子還在（走位、點擊、泡泡都靠它），只是不畫圖。
+   畫布是一張蓋在最上面、跟著格子走的透明 canvas，點擊穿透。 */
+.lb-cat.is3d, #bcCat.is3d { background-image: none !important; }
+.lb-cat3d { position: fixed; left: 0; top: 0; pointer-events: none; will-change: transform; }
+@media print { #bcCat, #lobby, .lb-cat3d { display: none !important; } }
 
 /* ---- 交棒換頁：兩頁的大廳畫面是同一張，所以不要再疊主站的換頁雜訊 ----
    :root 多一層特異性，壓過主站的 `::view-transition-new(root)` 與 `html.fx-lite::…`。 */

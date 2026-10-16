@@ -6,9 +6,11 @@
  * 晃到那個產品載好；載好之後招牌掉下去，順勢把整條街撕成兩半，後面就是那個產品。
  *
  * 為什麼這樣做（細節在 架構.md「大廳：夜街、招牌與黑貓」）：
- *   - **預先算圖分層，不在網頁裡跑 3D。** 背景、招牌、貓的每一格都是 Blender 算好的圖，
- *     網頁只負責疊起來動。跑 three.js 要多下載好幾 MB，大廳自己就要先等它——
- *     而大廳存在的理由正是「等的時候有東西看」。跟寵物不用 Godot 是同一個判斷。
+ *   - **背景與招牌是預先算好的圖，不在網頁裡跑 3D。** 網頁只負責疊起來動。
+ *     大廳存在的理由是「等的時候有東西看」，不能反過來讓大廳自己先等一個 3D 引擎。
+ *   - **貓是兩層：序列圖（一定有）＋即時 3D（載得到才換上）。** 走位全部在這支，
+ *     3D 那支（lobby3d.js）只是「讀格子在哪、在播什麼，畫一隻 3D 貓蓋上去」。
+ *     3D 沒載好之前、或這台跑不動，看到的就是序列圖，不會有空窗。見下面 want3d()。
  *   - **這支是普通 script，五頁共用，放在 <head>。** 不能放進主站的 module：
  *     module 要等 Firebase 那幾個 await 才跑，大廳早就該出現了；而錯題本、電路、
  *     文書三頁根本沒有那個 module。也因此碰不到主站的任何狀態，不會踩暫時性死區。
@@ -72,13 +74,32 @@
     var CAT_PER_SIGN = 0.54;
 
     /* 貓的序列圖：cat-<動作>.webp，一張橫條，每格正方形。[格數, 一輪幾秒] */
+    /* ★ 2026-10-16 晚：坐著、東張西望、理毛、走路、側躺這五個是**從真貓影片做的動態捕捉**
+         （維基共享資源上 CC0／公有領域的影片，用 SuperAnimal 姿勢辨識抓出每一格的關節，
+          再把骨頭角度套到 Blender 的骨架上；流程見 素材/大廳/README.md）。
+         影片是每秒 12 格，坐著、東張西望、側躺這種慢的動作隔一格取一格（每秒 6 格）。 */
     var CAT = {
-        idle:  [12, 1.80],   // 坐著，尾巴甩、眨眼
-        jump:  [8,  0.54],   // 蹲 → 撲 → 伸手
-        hang:  [8,  0.81],   // 前腳抓著，後腳踢
-        land:  [6,  0.36],   // 落地（也是摸牠的時候那一下跳）
-        sleep: [8,  2.88]    // 捲起來睡
+        idle:    [24, 4.00],   // 坐著：呼吸、轉頭、尾巴甩、眨眼（動態捕捉）
+        look:    [20, 3.33],   // 坐著東張西望、抬頭（動態捕捉）
+        groom:   [31, 2.58],   // 舔前掌、洗臉（動態捕捉）
+        walk:    [11, 0.92],   // 走路的一步循環（動態捕捉）
+        stand:   [8,  0.67],   // 坐 → 站（倒著播就是站 → 坐）
+        lie:     [15, 2.50],   // 側躺、轉頭、尾巴拍地（動態捕捉）
+        liedown: [8,  0.67],   // 坐 → 趴（倒著播就是起來）
+        sleep:   [8,  2.88],   // 趴著睡
+        jump:    [8,  0.54],   // 蹲 → 撲 → 伸手
+        hang:    [8,  0.81],   // 前腳抓著，後腳踢
+        land:    [6,  0.36]    // 跳一下（摸牠的時候）
     };
+    /* 大廳一開就要用到的三個先抓，其他等角落那隻貓要用時才抓（全部約 1.3MB，不該讓每個進站的人都扛）。 */
+    var preloaded = {};
+    function preload(names) {
+        if (C3) return;   // 3D 貓上場之後序列圖就用不到了
+        names.forEach(function (n) {
+            if (preloaded[n]) return;
+            preloaded[n] = new Image(); preloaded[n].src = DIR + 'cat-' + n + '.webp';
+        });
+    }
 
     var reduce = !!(W.matchMedia && W.matchMedia('(prefers-reduced-motion: reduce)').matches);
     var touch  = !!(W.matchMedia && W.matchMedia('(pointer: coarse) and (hover: none)').matches);
@@ -87,6 +108,37 @@
     function within(p, ms) { return Promise.race([p, wait(ms)]); }
     function catStays() { try { return localStorage.getItem(CAT_KEY) !== 'away'; } catch (e) { return true; } }
     function signOf(k) { for (var i = 0; i < SIGNS.length; i++) if (SIGNS[i][0] === k) return SIGNS[i]; return null; }
+
+    /* ---- 即時 3D 的貓（2026-10-16 晚）----
+       lobby3d.js 是 module，用插 <script type="module"> 的方式載（不寫 import()：
+       那是語法，不認得它的舊瀏覽器會連這整支都解析失敗，序列圖貓也跟著沒了）。
+       載好之後牠會「跟著」一個序列圖格子：大廳的 .lb-cat，或角落的 #bcCat。
+       ★ 只在小黑貓、彰師電子這兩頁載（HOMES）：錯題本、電路、文書三頁的貓只是掛一下就跳走，
+         為了那兩秒多抓 1.2MB、還跟那一頁自己的載入搶頻寬，不划算——那裡就用序列圖。
+       ★ 減少動態、省電模式、沒有 module 支援：不載，序列圖照舊。 */
+    var C3 = null, c3want = null, c3started = false;
+    function want3d(e, z) {
+        c3want = e ? { e: e, z: z } : null;
+        if (!C3) return;
+        if (e) C3.follow(e, z); else C3.detach();
+    }
+    function load3d() {
+        if (c3started || !HOMES[PAGE] || reduce || H.classList.contains('fx-lite')) return;
+        c3started = true;
+        try {
+            var sc = D.createElement('script');
+            if (!('noModule' in sc)) return;   // 不認得 module 的瀏覽器
+            W.addEventListener('blackcat:3d', function () {
+                W.__blackcat3d.init().then(function (c) {
+                    C3 = c;
+                    if (c3want && c3want.e.isConnected && !H.classList.contains('fx-lite')) C3.follow(c3want.e, c3want.z);
+                }, function () { /* 沒有 WebGL2、檔案抓不到：留在序列圖 */ });
+            }, { once: true });
+            sc.type = 'module';
+            sc.src = DIR + 'lobby3d.js';
+            D.head.appendChild(sc);
+        } catch (e) { /* 3D 是加分，出任何事都不能拖垮大廳 */ }
+    }
 
     /* ---- 這一頁「載好了」是什麼時候 ----
        主站與彰師電子：載入畫面收掉的那一刻（hideSplash 會發 blackcat:ready）。
@@ -167,13 +219,21 @@
         return e;
     }
 
-    function setSprite(e, name, once) {
+    var spriteSeq = 0;
+    function setSprite(e, name, once, reverse) {
         var a = CAT[name];
         e.style.backgroundImage = 'url(' + DIR + 'cat-' + name + '.webp)';
         e.style.setProperty('--frames', a[0]);
         e.style.setProperty('--dur', a[1] + 's');
         e.classList.toggle('once', !!once);
+        e.classList.toggle('rev', !!reverse);
         e.classList.toggle('hang', name === 'hang');
+        /* 給 3D 貓看的：現在播哪個、播一次還是循環、倒著播嗎；t 每次都不同，
+           同一個動作重播（例如連摸兩下）3D 那邊也認得出「要從頭來」。 */
+        e.dataset.sprite = name;
+        e.dataset.once = once ? '1' : '';
+        e.dataset.rev = reverse ? '1' : '';
+        e.dataset.t = String(++spriteSeq);
         /* 換了序列圖要從第一格重來：把動畫拿掉、讓瀏覽器量一次版面、再放回去。 */
         e.style.animationName = 'none';
         void e.offsetWidth;
@@ -185,6 +245,7 @@
         if (done) return;
         done = true;
         if (root && root.parentNode) root.parentNode.removeChild(root);
+        if (c3want && c3want.e === catEl) want3d(null);
         H.classList.remove('lobby-on', 'lobby-built');
         H.style.removeProperty('--lb-bg');
         W.removeEventListener('resize', layout);
@@ -201,6 +262,7 @@
     function arm() { setTimeout(function () { if (!done) abort(); }, 30000); }
 
     function start() {
+        load3d();
         lay = pickLayout();
         H.style.setProperty('--lb-bg', 'url(' + DIR + SCENE[lay].src + ')');
         H.classList.add('lobby-on');
@@ -248,7 +310,10 @@
         });
 
         catEl = el('div', 'lb-cat', scene);
+        preload(['idle', 'jump', 'hang']);
         setSprite(catEl, 'idle');
+        want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層：撕開時兩半與招牌都在貓底下
+        if (mode === 'lobby' && !reduce) streetLife();
 
         hud = el('div', 'lb-hud', root);
         hud.textContent = mode === 'arrive' ? '連線中' : '選一家店走進去';
@@ -262,6 +327,20 @@
         /* ★ 不主動把焦點放到招牌上：開站時的程式聚焦在 Chrome 會被當成鍵盤焦點，
              第一塊招牌一進來就套著一圈虛線框。招牌是 <button>，按 Tab 就到得了。 */
         if (mode === 'arrive') arrive(PAGE);
+    }
+
+    /* 使用者還在挑招牌時，街上的貓不要一直同一個動作：坐一下、東張西望、舔舔爪子。 */
+    function streetLife() {
+        setTimeout(function () { preload(['look', 'groom']); }, 2500);
+        var seq = ['look', 'idle', 'groom', 'idle'], k = 0;
+        (function next() {
+            setTimeout(function () {
+                if (picked || done || !catEl || catEl.parentNode !== scene) return;
+                var n = seq[k++ % seq.length];
+                setSprite(catEl, n);
+                next();
+            }, k % 2 ? CAT.look[1] * 2000 : 6500);
+        })();
     }
 
     /* 背景是 cover：短邊貼齊、長邊裁掉兩端。把圖上的比例座標換成螢幕座標。 */
@@ -529,29 +608,85 @@
             btn.style.setProperty('--bc-bottom', 'calc(' + bottom() + 'px + env(safe-area-inset-bottom, 0px))');
             btn.style.display = H.classList.contains('kb-open') ? 'none' : '';
         }
+        /* ---- 牠自己決定接下來做什麼 ----
+           坐著是「家」：從坐姿出發去東張西望、理毛、散步、趴下，做完一定回到坐姿。
+           散步要先站起來（stand）、走完倒著播 stand 坐回去；趴下也一樣（liedown 正著播趴、倒著播起來）。
+           所以序列圖之間永遠是同一個姿勢接同一個姿勢，不會「啪」一下換掉。 */
+        var state = 'sit', x = 0, flip = 1;
+        function play(name, once, reverse) { setSprite(btn, name, once, reverse); }
+        function later(fn, ms) { clearTimeout(timer); timer = setTimeout(function () { if (btn) fn(); }, ms); }
+        function still() { return reduce || H.classList.contains('fx-lite'); }
+        function sit(ms) {
+            state = 'sit'; play('idle');
+            later(choose, ms || 7000 + Math.random() * 9000);
+        }
+        function choose() {
+            if (still()) return;
+            preload(['look', 'groom', 'walk', 'stand', 'lie', 'liedown', 'sleep']);
+            var r = Math.random();
+            if (r < 0.28) { state = 'look'; play('look'); later(function () { sit(); }, CAT.look[1] * 1000 * (1 + Math.floor(Math.random() * 2))); }
+            else if (r < 0.52) { state = 'groom'; play('groom'); later(function () { sit(); }, CAT.groom[1] * 1000 * (2 + Math.floor(Math.random() * 2))); }
+            else if (r < 0.74) stroll();
+            else liedown();
+        }
+        function stroll() {
+            state = 'stand'; play('stand', true);
+            later(function () {
+                /* 往右走到最多 40% 寬（不超過 420px）再走回來；碰到邊就掉頭。 */
+                var maxX = Math.min(W.innerWidth * 0.4, 420);
+                var to = x < maxX / 2 ? maxX * (0.5 + Math.random() * 0.5) : maxX * Math.random() * 0.3;
+                var dist = to - x, secs = Math.abs(dist) / 46;
+                flip = dist >= 0 ? 1 : -1;
+                state = 'walk'; play('walk');
+                btn.style.transition = 'transform ' + secs.toFixed(2) + 's linear';
+                x = to; move();
+                later(function () {
+                    btn.style.transition = '';
+                    state = 'stand'; play('stand', true, true);
+                    later(function () { sit(); }, CAT.stand[1] * 1000);
+                }, secs * 1000);
+            }, CAT.stand[1] * 1000);
+        }
+        function liedown() {
+            state = 'liedown'; play('liedown', true);
+            later(function () {
+                state = 'lie'; play('lie');
+                later(function () {
+                    if (Math.random() < 0.5) {
+                        state = 'sleep'; play('sleep');
+                        later(getUp, 12000 + Math.random() * 14000);
+                    } else getUp();
+                }, CAT.lie[1] * 1000 * (2 + Math.floor(Math.random() * 3)));
+            }, CAT.liedown[1] * 1000);
+        }
+        function getUp() {
+            state = 'liedown'; play('liedown', true, true);
+            later(function () { sit(); }, CAT.liedown[1] * 1000);
+        }
+        function move() { btn.style.transform = 'translateX(' + x.toFixed(1) + 'px) scaleX(' + flip + ')'; btn.style.setProperty('--bc-flip', flip); }
         function idleLoop() {
             clearTimeout(timer);
-            if (!btn || reduce || H.classList.contains('fx-lite')) return;
-            setSprite(btn, 'idle');
-            /* 偶爾睡一下：18～40 秒之後捲起來睡 12 秒。 */
-            timer = setTimeout(function () {
-                if (!btn) return;
-                setSprite(btn, 'sleep');
-                timer = setTimeout(idleLoop, 12000);
-            }, 18000 + Math.random() * 22000);
+            if (!btn) return;
+            if (still()) { play('idle'); return; }
+            sit();
         }
         function poke() {
             if (!btn) return;
-            clearTimeout(timer);
-            if (!reduce && !H.classList.contains('fx-lite')) {
-                setSprite(btn, 'land', true);
-                timer = setTimeout(idleLoop, CAT.land[1] * 1000 + 60);
-            }
             var b = btn.querySelector('.bc-bubble');
             b.textContent = LINES[Math.floor(Math.random() * LINES.length)];
             btn.classList.add('talk');
             clearTimeout(bubbleT);
             bubbleT = setTimeout(function () { if (btn) btn.classList.remove('talk'); }, 1600);
+            if (still()) return;
+            /* 摸牠：坐著就跳一下；躺著、睡著就起來；走到一半就停下來坐好。 */
+            if (state === 'sit' || state === 'look' || state === 'groom') {
+                state = 'land'; play('land', true); later(function () { sit(); }, CAT.land[1] * 1000 + 60);
+            } else if (state === 'lie' || state === 'sleep') getUp();
+            else if (state === 'walk') {
+                var cur = btn.getBoundingClientRect().left - (parseFloat(getComputedStyle(btn).left) || 0);
+                x = Math.max(0, cur); btn.style.transition = ''; move();
+                state = 'stand'; play('stand', true, true); later(function () { sit(); }, CAT.stand[1] * 1000);
+            }
         }
         function spawn(fromLobby) {
             if (btn || !HOMES[PAGE] || !catStays() || !D.body) return;
@@ -568,8 +703,10 @@
             btn.addEventListener('click', poke);
             D.body.appendChild(btn);
             place();
-            if (fromLobby && !reduce) { setSprite(btn, 'land', true); timer = setTimeout(idleLoop, CAT.land[1] * 1000 + 60); }
-            else { setSprite(btn, 'idle'); idleLoop(); }
+            load3d();
+            want3d(btn, 29);   // 比貓的按鈕（30）低一層：泡泡要在貓上面，點擊本來就穿透畫布
+            if (fromLobby && !reduce) { state = 'land'; play('land', true); later(function () { sit(); }, CAT.land[1] * 1000 + 60); }
+            else idleLoop();
             if (reduce || H.classList.contains('fx-lite')) btn.style.backgroundPosition = '0 0';
             W.addEventListener('resize', place);
             /* <html> 的 class 會因為很多事變（鍵盤彈出、分頁列搬家、深淺色）。
@@ -579,11 +716,17 @@
             new MutationObserver(function () {
                 place();
                 var now = H.classList.contains('fx-lite');
-                if (now !== lite) { lite = now; idleLoop(); if (now && btn) btn.style.backgroundPosition = '0 0'; }
+                if (now !== lite) {
+                    lite = now; idleLoop();
+                    if (now && btn) btn.style.backgroundPosition = '0 0';
+                    /* 省電模式：3D 貓收掉，換回序列圖的第一格；關掉省電再請 3D 回來。 */
+                    if (btn) { if (now) want3d(null); else { load3d(); want3d(btn, 29); } }
+                }
             }).observe(H, { attributes: true, attributeFilter: ['class'] });
         }
         function remove() {
             clearTimeout(timer);
+            if (c3want && c3want.e === btn) want3d(null);
             if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
             btn = null;
         }
