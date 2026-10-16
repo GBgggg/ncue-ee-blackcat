@@ -23,7 +23,7 @@ import { GLTFLoader } from '../vendor/three/GLTFLoader.js';
 
 /* 毛的層數：手機少一點（每一層都是整隻貓再畫一次）。 */
 const SHELLS = matchMedia('(pointer: coarse)').matches ? 10 : 16;
-const FUR_LEN = 0.019;            // 公尺；跟 Blender 的毛一樣長
+const FUR_LEN = 0.0115;           // 公尺；跟 Blender 的毛一樣長（2026-10-16 從 19mm 剪短：短毛黑貓貼身，19mm 的輪廓像一團毛球）
 const FRAME_M = 0.8;              // 序列圖一格代表 0.8m 見方
 const GROUND = 0.025;             // 序列圖裡地面在格子底往上 2.5% 的地方（Blender 的 CatCam 量的）
 const TILT = THREE.MathUtils.degToRad(8);   // CatCam 往下看 8°
@@ -32,8 +32,9 @@ const RIM = { value: 1 };   // 邊光強度（所有毛層共用一個）
 
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
-const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jump: 90, hang: 0 };
-const LOOKS = { idle: 1, look: 1, lie: 1, land: 1 };   // 這幾個動作頭可以轉去看游標
+const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jump: 90, hang: 0,
+               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25 };
+const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
 function furMaterial(skinned, h) {
     /* 鏡面反射壓低（specularIntensity）：毛層從側面看全是「掠射角」，標準材質在那裡反光接近 100%，
@@ -111,10 +112,11 @@ class Cat3D {
         this.camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -5000, 5000);
         this.camera.position.z = 1000;
         // 燈：柔和的主光＋後方兩盞霓虹（粉、青）＋很暗的環境光（夜街的顏色）
-        this.scene.add(new THREE.HemisphereLight(0x8a7fb0, 0x1a1020, 0.5));
+        this.hemi = new THREE.HemisphereLight(0x8a7fb0, 0x1a1020, 0.5); this.scene.add(this.hemi);
         const key = new THREE.DirectionalLight(0xfff1e6, 1.6); key.position.set(0.6, 1.0, 1.2); this.scene.add(key);
         const p1 = new THREE.DirectionalLight(PINK, 0.5); p1.position.set(-1.0, 0.12, -0.5); this.scene.add(p1);
         const p2 = new THREE.DirectionalLight(CYAN, 0.45); p2.position.set(1.0, 0.08, -0.5); this.scene.add(p2);
+        this.neon = [p1, p2]; this.night = 1;
 
         this.tilt = new THREE.Group(); this.tilt.rotation.x = TILT;
         this.turn = new THREE.Group(); this.tilt.add(this.turn);
@@ -124,10 +126,13 @@ class Cat3D {
         this.clips = {};
         for (const c of gltf.animations) this.clips[c.name.replace(/^cat_/, '')] = c;
         this.actions = {};
-        this.head = null; this.neck = null; this.eyes = [];
+        this.head = null; this.neck = null; this.eyes = []; this.ears = []; this.tailTip = [];
         root.traverse((o) => {
             if (o.isBone && o.name === 'head') this.head = o;
             if (o.isBone && o.name === 'neck') this.neck = o;
+            // GLTFLoader 會把名字裡的「.」拿掉：Blender 的 ear.L 在這裡叫 earL
+            if (o.isBone && /^ear\.?[LR]$/.test(o.name)) this.ears.push(o);
+            if (o.isBone && /^tail[345]$/.test(o.name)) this.tailTip.push(o);
             if (/^Cat3D(Iris|Cornea|Eye)_/.test(o.name)) this.eyes.push(o);
             if (o.isMesh) o.frustumCulled = false;
         });
@@ -183,6 +188,7 @@ class Cat3D {
     /* 讓 3D 貓跟著一個序列圖格子（lobby.js 的 .lb-cat 或 #bcCat）走。 */
     follow(el, zIndex) {
         this.el = el;
+        if (this.night == null || el.id === 'bcCat') this.night = el.id === 'bcCat' ? 0 : 1;   // 一開始就在角落的話不要先閃一下粉紅
         el.classList.add('is3d');
         if (!this.canvas.parentNode) document.body.appendChild(this.canvas);
         this.canvas.style.zIndex = String(zIndex);
@@ -196,7 +202,7 @@ class Cat3D {
         if (this.canvas.parentNode) this.canvas.parentNode.removeChild(this.canvas);
     }
 
-    play(name, once, reverse) {
+    play(name, once, reverse, spd) {
         const clip = this.clips[name];
         if (!clip) return;
         const a = this.actions[name] || (this.actions[name] = this.mixer.clipAction(clip));
@@ -204,7 +210,7 @@ class Cat3D {
         a.reset();
         a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
         a.clampWhenFinished = true;
-        a.timeScale = reverse ? -1 : 1;
+        a.timeScale = (reverse ? -1 : 1) / (spd || 1);
         if (reverse) a.time = clip.duration;
         a.play();
         if (prev && prev !== a) prev.crossFadeTo(a, name === 'jump' || name === 'hang' ? 0.1 : 0.25, false);
@@ -216,7 +222,7 @@ class Cat3D {
         const el = this.el; if (!el || !el.isConnected) return null;
         const d = el.dataset, name = d.sprite || 'idle';
         const key = name + '|' + (d.t || '');
-        if (key !== this.curKey) { this.curKey = key; this.play(name, d.once === '1', d.rev === '1'); }
+        if (key !== this.curKey) { this.curKey = key; this.play(name, d.once === '1', d.rev === '1', parseFloat(d.spd) || 1); }
         const cs = getComputedStyle(el);
         const m = cs.transform && cs.transform !== 'none' ? new DOMMatrix(cs.transform) : new DOMMatrix();
         const size = el.offsetWidth * Math.hypot(m.a, m.b);
@@ -249,7 +255,7 @@ class Cat3D {
             /* 省電：角落那隻安靜坐著（沒在走、沒在跳、游標也沒在動）時改成每秒 30 格。
                大廳裡、或牠在動的時候維持 60 格——遊戲感就是靠這個。 */
             this.odd = !this.odd;
-            const calm = this.el.id === 'bcCat' && !/walk|stand|jump|land|liedown/.test(s.name) && performance.now() - this.look.t > 3000;
+            const calm = this.el.id === 'bcCat' && !/walk|stand|jump|land|liedown|loafdown|stretch|scratch/.test(s.name) && performance.now() - this.look.t > 3000;
             if (calm && this.odd) return;
             this.draw(s, Math.min(this.clock.getDelta(), 0.08));
         };
@@ -276,8 +282,17 @@ class Cat3D {
         this.shadow.visible = s.ground && s.name !== 'jump';
         // 上一格加在頭上的轉動先還原，再讓動作覆寫（某些動作沒有頭的軌道時才不會越轉越多）
         if (this.base) { this.neck.quaternion.copy(this.base[0]); this.head.quaternion.copy(this.base[1]); }
+        /* 霓虹燈只在夜街上：角落那隻貓待在一般頁面（多半是白天的淺色底），粉紅與青色的燈還開著的話，
+           身上會有一大片粉紅，像沾到顏料（2026-10-16 在正式站放大看到的）。換成一般的室內光，邊光留一點點。 */
+        const night = this.el && this.el.id === 'bcCat' ? 0 : 1;
+        this.night += (night - this.night) * Math.min(1, dt * 3);
+        this.neon[0].intensity = 0.5 * this.night; this.neon[1].intensity = 0.45 * this.night;
+        this.hemi.color.setRGB(0.54 + 0.4 * (1 - this.night), 0.5 + 0.42 * (1 - this.night), 0.69 + 0.2 * (1 - this.night));
+        this.hemi.intensity = 0.5 + 0.5 * (1 - this.night);
+        RIM.value = 0.15 + 0.85 * this.night;
         this.mixer.update(dt);
         this.lookAt(s, dt);
+        this.fidget(s);
         this.blink(s.name);
         this.renderer.render(this.scene, cam);
     }
@@ -286,12 +301,22 @@ class Cat3D {
     lookAt(s, dt) {
         if (!this.head || !this.neck) return;
         this.base = [this.neck.quaternion.clone(), this.head.quaternion.clone()];
-        const ok = LOOKS[s.name] && performance.now() - this.look.t < 3000;
+        const now = performance.now();
+        const ok = LOOKS[s.name] && now - this.look.t < 3000;
         let tx = 0, ty = 0;
         if (ok) {
             const hx = s.ax, hy = s.ay - s.size * 0.32;
             tx = THREE.MathUtils.clamp((this.look.x - hx) / (s.size * 1.6), -1, 1);
             ty = THREE.MathUtils.clamp((this.look.y - hy) / (s.size * 1.6), -1, 1);
+        } else if (LOOKS[s.name]) {
+            /* 沒人理牠的時候自己東張西望：每 3～11 秒隨便看一個方向 1～3.5 秒。
+               真的貓坐著不會像雕像，聽到聲音就轉頭看一下再轉回來。 */
+            const g = this.glance || (this.glance = { at: now + 2000 + Math.random() * 5000, until: 0, x: 0, y: 0 });
+            if (now > g.at) {
+                g.x = (Math.random() * 2 - 1) * 0.9; g.y = (Math.random() * 2 - 1) * 0.45 - 0.1;
+                g.until = now + 1000 + Math.random() * 2500; g.at = g.until + 3000 + Math.random() * 8000;
+            }
+            if (now < g.until) { tx = g.x; ty = g.y; }
         }
         const k = Math.min(1, dt * 4);
         this.lookAmt.x += (tx - this.lookAmt.x) * k;
@@ -313,11 +338,63 @@ class Cat3D {
         }
     }
 
+    /* 眨眼三種：一般（0.14 秒）、連眨兩下、慢慢眨（貓對你放心時的「慢眨眼」，閉上停一下再睜開）。 */
     blink(name) {
         const now = performance.now();
-        const closed = name === 'sleep' || (now > this.blinkT && now < this.blinkT + 140);
-        this.eyes.forEach((o, i) => { o.scale.copy(this.eyeScale[i]); if (closed) o.scale.multiplyScalar(0.08); });
-        if (now > this.blinkT + 140) this.blinkT = now + 2500 + Math.random() * 4500;
+        const b = this.blinkKind || (this.blinkKind = { len: 140, two: false });
+        let k = 1;
+        if (name === 'sleep') k = 0.08;
+        else if (now > this.blinkT) {
+            const u = now - this.blinkT;
+            if (b.slow) k = u < b.len ? Math.max(0.08, 1 - 0.92 * Math.sin(Math.PI * u / b.len)) : 1;
+            else if (u < b.len || (b.two && u > b.len + 120 && u < 2 * b.len + 120)) k = 0.08;
+        }
+        this.eyes.forEach((o, i) => { o.scale.copy(this.eyeScale[i]); if (k < 1) o.scale.multiplyScalar(k); });
+        const end = this.blinkT + (b.two ? 2 * b.len + 120 : b.len);
+        if (now > end) {
+            const r = Math.random();
+            b.slow = r < 0.15; b.two = !b.slow && r < 0.4; b.len = b.slow ? 700 + Math.random() * 500 : 140;
+            this.blinkT = now + 1800 + Math.random() * 6000;
+        }
+    }
+
+    /* 隨機的小動作，疊在動作檔上面（每一格動作檔都會重寫骨頭，所以加上去不會越加越多）：
+       - 耳朵抖：每 2～9 秒一邊（偶爾兩邊）往後一彈，有時連彈兩下。
+       - 尾巴尖甩：坐著、趴著時每 2～7 秒尾巴尾端往旁邊甩一下再慢慢停。
+       同一個動作檔每次看起來都不太一樣，就是靠這些不定時的小東西。 */
+    fidget(s) {
+        const now = performance.now();
+        const f = this.fx || (this.fx = { earAt: now + 1500 + Math.random() * 4000, ear: null, tailAt: now + 1200 + Math.random() * 3000, tail: null });
+        if (this.ears.length && now > f.earAt) {
+            const both = Math.random() < 0.25;
+            f.ear = { t0: now, side: both ? -1 : (Math.random() < 0.5 ? 0 : 1), dur: 160 + Math.random() * 120, n: Math.random() < 0.35 ? 2 : 1, amp: 0.35 + Math.random() * 0.35 };
+            f.earAt = now + 2000 + Math.random() * 7000;
+        }
+        if (f.ear) {
+            const e = f.ear, u = (now - e.t0) / e.dur;
+            if (u > e.n) f.ear = null;
+            else {
+                const a = e.amp * Math.sin(Math.PI * (u % 1));
+                this.ears.forEach((b, i) => {
+                    if (e.side >= 0 && i !== e.side) return;
+                    b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -a))
+                        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), (i ? 1 : -1) * a * 0.5));
+                });
+            }
+        }
+        const calm = /idle|look|groom|lie|sleep|loaf|tilt|wash|scratch/.test(s.name);
+        if (this.tailTip.length && calm && now > f.tailAt) {
+            f.tail = { t0: now, amp: (s.name === 'sleep' ? 0.12 : 0.25) + Math.random() * 0.35, dir: Math.random() < 0.5 ? -1 : 1, hz: 1.2 + Math.random() * 1.3 };
+            f.tailAt = now + 2000 + Math.random() * 5000;
+        }
+        if (f.tail) {
+            const t = (now - f.tail.t0) / 1000;
+            if (t > 2.5) f.tail = null;
+            else {
+                const a = f.tail.dir * f.tail.amp * Math.sin(2 * Math.PI * f.tail.hz * t) * Math.exp(-t * 1.6);
+                this.tailTip.forEach((b, i) => b.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), a * (0.5 + 0.35 * i))));
+            }
+        }
     }
 }
 

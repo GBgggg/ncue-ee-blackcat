@@ -3722,6 +3722,8 @@
                         <button data-action="set-lobbycat" data-cat="stay" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="cat" class="w-3.5 h-3.5 pointer-events-none"></i> 留下來</button>
                         <button data-action="set-lobbycat" data-cat="away" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="house" class="w-3.5 h-3.5 pointer-events-none"></i> 送牠回家</button>
                     </div>
+                    <!-- CC BY 4.0 要標示作者（2026-10-16 黑貓換成 Fripouille 的模型）。素材/大廳/fripouille/credits.json 有同一份資料。 -->
+                    <p class="text-[11px] text-slate-400 font-medium mt-2 leading-relaxed">黑貓的 3D 模型改自 guillaume bolis 的〈<a href="https://sketchfab.com/3d-models/3d-modelling-my-cat-fripouille-0ab14bf98e754f8d90fe1bf1c84ca66c" target="_blank" rel="noopener" class="underline">3d modelling my cat: Fripouille</a>〉，以 <a href="https://creativecommons.org/licenses/by/4.0/deed.zh-hant" target="_blank" rel="noopener" class="underline">CC BY 4.0</a> 授權；這裡改成黑色、重新綁骨架，加上毛和動作。</p>
                 </section>
 
                 <!-- 通知 -->
@@ -7831,11 +7833,14 @@
         const CHANGELOG = [
             {
                 date: '2026-10-16',
-                title: '黑貓坐姿和走路更像真的貓',
+                title: '黑貓換了新模型，動作更像真的貓、也會做更多事',
                 items: [
-                    ['坐著不再像用後腳站', '以前黑貓坐著時胸口抬太高、前腳碰不到地，看起來像用後腳站起來。現在牠是四隻腳穩穩坐著：前腳直直撐在地上、後腿收在身體兩側，跟路邊看到的貓一樣。'],
-                    ['走路不再拱背', '走路時背是平的、頭比肩膀低一點、尾巴往上翹帶一個小勾，四隻腳照真的貓的順序一步一步踩。牠現在是側著身子往前走，腳也不會在地上滑。這些角度是照 1887 年攝影師 Muybridge 拍的貓走路連續照片量出來的。'],
-                    ['起身、趴下、理毛更自然', '起身時屁股先離地、再往前走；趴下時前腳先往前伸、最後才把身體放平。理毛改成抬起一隻前掌、低頭舔。'],
+                    ['換了一隻更像真貓的黑貓', '頭和身體的比例、尾巴的長度都照真的貓做（以前尾巴只有身體的一半長）。毛剪短了，變成貼身、有一點光澤的短毛，不再像一團毛球。模型改自 guillaume bolis 公開分享的作品，作者名字寫在「設定 → 外觀 → 黑貓」底下。'],
+                    ['白天的頁面上不再有一片粉紅', '以前角落那隻貓在一般頁面上，身上也照著夜街的霓虹燈，看起來像沾到顏色。現在只有在夜街上才有霓虹燈的光。'],
+                    ['坐著不再像用後腳站', '以前黑貓坐著時胸口抬太高、前腳碰不到地，看起來像用後腳站起來。現在牠是四隻腳穩穩坐著：前腳直直撐在地上、後腿收在身體兩側。'],
+                    ['走路不再拱背', '走路時背是平的、頭比肩膀低一點、尾巴往上翹，四隻腳照真的貓的順序一步一步踩，腳不會在地上滑。腳彎的角度是照近幾年獸醫和運動研究量到的數字調的。'],
+                    ['多了五個動作', '歪頭、舔爪子洗臉、用後腳抓耳朵、伸懶腰、趴成一顆麵包。起身、趴下、理毛也改得更自然。'],
+                    ['每次看都不太一樣', '牠接下來做什麼是隨機抽的，剛做過的事不會馬上又做；動作的快慢、坐著發呆多久也每次不同。耳朵會不定時抖一下、尾巴尖會甩，沒人理牠的時候會自己東張西望，偶爾會對你慢慢眨眼。'],
                 ]
             },
             {

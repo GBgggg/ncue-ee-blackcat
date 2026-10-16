@@ -89,7 +89,14 @@
         sleep:   [8,  2.88],   // 趴著睡
         jump:    [8,  0.54],   // 蹲 → 撲 → 伸手
         hang:    [8,  0.81],   // 前腳抓著，後腳踢
-        land:    [6,  0.36]    // 跳一下（摸牠的時候）
+        land:    [6,  0.36],   // 跳一下（摸牠的時候）
+        /* 2026-10-16 第二輪加的待機動作（都從坐姿開始、回到坐姿）。 */
+        tilt:    [16, 1.33],   // 歪頭（好奇）
+        wash:    [24, 2.00],   // 舔掌、用前掌從耳後抹到臉上
+        scratch: [18, 1.50],   // 後腳抓耳朵
+        stretch: [30, 2.50],   // 伸懶腰：前腳往前伸、胸口壓低、屁股翹高
+        loafdown:[8,  0.67],   // 坐 → 趴成麵包（倒著播就是起來）
+        loaf:    [24, 4.00]    // 麵包：前腳收在胸口下，慢慢呼吸
     };
     /* 大廳一開就要用到的三個先抓，其他等角落那隻貓要用時才抓（全部約 1.3MB，不該讓每個進站的人都扛）。 */
     var preloaded = {};
@@ -220,11 +227,13 @@
     }
 
     var spriteSeq = 0;
-    function setSprite(e, name, once, reverse) {
+    function setSprite(e, name, once, reverse, spd) {
         var a = CAT[name];
+        spd = spd || 1;     // 播放時間的倍數（>1 是慢一點）；3D 貓也照這個速度播
         e.style.backgroundImage = 'url(' + DIR + 'cat-' + name + '.webp)';
         e.style.setProperty('--frames', a[0]);
-        e.style.setProperty('--dur', a[1] + 's');
+        e.style.setProperty('--dur', (a[1] * spd).toFixed(3) + 's');
+        e.dataset.spd = spd === 1 ? '' : spd.toFixed(3);
         e.classList.toggle('once', !!once);
         e.classList.toggle('rev', !!reverse);
         e.classList.toggle('hang', name === 'hang');
@@ -588,9 +597,9 @@
     var Companion = (function () {
         var btn = null, timer = 0, bubbleT = 0;
         var SIZE = 128;  // 一格 0.8m 見方，寫實版的貓坐著只佔三分之一：128px 的格子裡貓大約 45px 高（格子其他地方是透明的）
-        /* 走路速度要跟腳步對上，不然腳會在地上滑：Blender 裡一步（一個循環）往前 0.19m（cat2_natural.py 的 WALK.stride），
+        /* 走路速度要跟腳步對上，不然腳會在地上滑：Blender 裡一步（一個循環）往前 0.14m（cat2_natural.py 的 WALK.stride），
            一格 0.8m＝SIZE px，一個循環 CAT.walk[1] 秒。 */
-        var WALK_PX = SIZE / 0.8 * 0.19 / CAT.walk[1];
+        var WALK_PX = SIZE / 0.8 * 0.14 / CAT.walk[1];
         var LINES = ['喵', '喵～', '呼嚕呼嚕', '(=^･ω･^=)', '今天也要加油喵', '摸夠了沒'];
 
         function bottom() {
@@ -616,21 +625,57 @@
            散步要先站起來（stand）、走完倒著播 stand 坐回去；趴下也一樣（liedown 正著播趴、倒著播起來）。
            所以序列圖之間永遠是同一個姿勢接同一個姿勢，不會「啪」一下換掉。 */
         var state = 'sit', x = 0, flip = 1;
-        function play(name, once, reverse) { setSprite(btn, name, once, reverse); }
+        function play(name, once, reverse, spd) { setSprite(btn, name, once, reverse, spd); }
         function later(fn, ms) { clearTimeout(timer); timer = setTimeout(function () { if (btn) fn(); }, ms); }
         function still() { return reduce || H.classList.contains('fx-lite'); }
         function sit(ms) {
-            state = 'sit'; play('idle');
-            later(choose, ms || 7000 + Math.random() * 9000);
+            state = 'sit'; play('idle', false, false, speed());
+            /* 大多數時候坐 4～12 秒，偶爾發呆久一點（15～30 秒） */
+            later(choose, ms || (Math.random() < 0.2 ? 15000 + Math.random() * 15000 : 4000 + Math.random() * 8000));
+        }
+        /* 坐著的時候接下來做什麼：照權重抽，剛做過的兩件事權重降到四分之一（不會一直重複同一招），
+           循環的動作播 1～3 輪、播放速度每次差一點（0.85～1.2 倍），坐著休息的時間也不固定。
+           還沒算圖的動作（CAT 裡沒有）自動跳過。 */
+        var recent = [];
+        var ACTS = [
+            ['look', 24, function () { loopAct('look', 1, 3); }],
+            ['groom', 14, function () { loopAct('groom', 1, 3); }],
+            ['wash', 12, function () { loopAct('wash', 1, 2); }],
+            ['scratch', 8, function () { loopAct('scratch', 1, 2); }],
+            ['tilt', 10, function () { onceAct('tilt'); }],
+            ['stretch', 9, function () { onceAct('stretch'); }],
+            ['walk', 18, function () { stroll(); }],
+            ['lie', 11, function () { liedown(); }],
+            ['loaf', 11, function () { loaf(); }]
+        ];
+        function speed() { return 0.85 + Math.random() * 0.35; }
+        function loopAct(name, lo, hi) {
+            var k = speed(); state = name; play(name, false, false, k);
+            later(function () { sit(); }, CAT[name][1] * 1000 * k * (lo + Math.floor(Math.random() * (hi - lo + 1))));
+        }
+        function onceAct(name) {
+            state = name; play(name, true);
+            later(function () { sit(1500 + Math.random() * 4000); }, CAT[name][1] * 1000);
         }
         function choose() {
             if (still()) return;
-            preload(['look', 'groom', 'walk', 'stand', 'lie', 'liedown', 'sleep']);
-            var r = Math.random();
-            if (r < 0.28) { state = 'look'; play('look'); later(function () { sit(); }, CAT.look[1] * 1000 * (1 + Math.floor(Math.random() * 2))); }
-            else if (r < 0.52) { state = 'groom'; play('groom'); later(function () { sit(); }, CAT.groom[1] * 1000 * (2 + Math.floor(Math.random() * 2))); }
-            else if (r < 0.74) stroll();
-            else liedown();
+            preload(['look', 'groom', 'walk', 'stand', 'lie', 'liedown', 'sleep', 'wash', 'scratch', 'tilt', 'stretch', 'loaf', 'loafdown'].filter(function (n) { return CAT[n]; }));
+            var pool = ACTS.filter(function (a) { return CAT[a[0]] && (a[0] !== 'loaf' || CAT.loafdown); });
+            var tot = 0, w = pool.map(function (a) { var x = a[1] * (recent.indexOf(a[0]) >= 0 ? 0.25 : 1); tot += x; return x; });
+            var r = Math.random() * tot, i = 0;
+            while (i < pool.length - 1 && r >= w[i]) { r -= w[i]; i++; }
+            recent.unshift(pool[i][0]); recent.length = Math.min(recent.length, 2);
+            pool[i][2]();
+        }
+        function loaf() {
+            state = 'loafdown'; play('loafdown', true);
+            later(function () {
+                state = 'loaf'; play('loaf', false, false, speed());
+                later(function () {
+                    state = 'loafdown'; play('loafdown', true, true);
+                    later(function () { sit(); }, CAT.loafdown[1] * 1000);
+                }, 6000 + Math.random() * 14000);
+            }, CAT.loafdown[1] * 1000);
         }
         function stroll() {
             /* 往右走到最多 40% 寬（不超過 420px）再走回來；碰到邊就掉頭。
