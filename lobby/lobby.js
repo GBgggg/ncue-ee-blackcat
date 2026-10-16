@@ -47,8 +47,9 @@
     /* 貓可以留下來的產品：只有小黑貓（2026-10-16 深夜起彰師電子也不留），而且只在「主頁」分頁（見 onHome）。
        其他頁是整個畫面拿來工作的（寫字、拉線、排版），角落多一隻會動的東西只會擋路。 */
     var HOMES = { cat: 1 };
-    /* 主站切分頁時 applyTab() 會在 <html> 寫 data-tab；沒寫過（還沒切過）就是主頁。 */
-    function onHome() { return (H.getAttribute('data-tab') || 'home') === 'home'; }
+    /* 主站切分頁時 applyTab() 會在 <html> 寫 data-cur-tab；沒寫過（還沒切過）就是主頁。
+       ⚠️ 不是 data-tab：主站很多地方在找 [data-tab]（分頁按鈕），<html> 帶著它就會被當成按鈕（見 applyTab 的註解）。 */
+    function onHome() { return (H.getAttribute('data-cur-tab') || 'home') === 'home'; }
 
     /* ---- 場景座標：從 Blender 的攝影機投影出來的（怎麼重算見 素材/大廳/README.md）----
        背景圖用 object-fit: cover 鋪滿畫面，所以這裡存的是「在原圖上的比例位置」，
@@ -540,7 +541,7 @@
     /* ======================================================
      * 留在畫面上的那隻（只有小黑貓、而且只在「主頁」分頁；設定裡可以關）
      *
-     * ★ 2026-10-16 深夜起：彰師電子不留貓（HOMES），切到其他分頁時藏起來（onHome()，看 <html data-tab>）。
+     * ★ 2026-10-16 深夜起：彰師電子不留貓（HOMES），切到其他分頁時藏起來（onHome()，看 <html data-cur-tab>）。
      * ★ 不只是「大廳之後」才有：直接打開小黑貓、或站內換頁回來，牠也在。
      *   設定寫的是「黑貓留在畫面上」，使用者會期待牠一直在，而不是只有進站那一次。
      * ★ 位置在左下角：右下角是「回到頂端」與吐司的地盤。手機上要墊在底部分頁列上面。
@@ -722,7 +723,7 @@
                     /* 省電模式：3D 貓收掉，換回序列圖的第一格；關掉省電再請 3D 回來。 */
                     if (btn) { if (now) want3d(null); else { load3d(); want3d(btn, 29); } }
                 }
-            }).observe(H, { attributes: true, attributeFilter: ['class', 'data-tab'] });
+            }).observe(H, { attributes: true, attributeFilter: ['class', 'data-cur-tab'] });
         }
         function remove() {
             clearTimeout(timer);

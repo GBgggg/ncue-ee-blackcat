@@ -7832,6 +7832,16 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-10-17',
+                title: '點畫面任何地方都會卡一下的問題修好了',
+                items: [
+                    ['點一下不再卡', '上一版在小黑貓裡點任何地方（空白處、輸入框、彈出視窗），網站都會以為你按了分頁按鈕，整頁重新切換一次，所以每點一下都會頓一下，點多了手機還可能當掉。現在只有真的按分頁按鈕才會切換。'],
+                    ['按住時整頁不會再縮一下', '上一版用滑鼠或手指按住畫面時，整個頁面會跟著縮小一點點，底部的分頁列、角落的黑貓也會跟著跳動。現在只有按鈕本身會有按下去的感覺。'],
+                    ['搜尋的字不會被點掉', '上一版在搜尋框打字之後，點畫面其他地方，搜尋的字就會被清掉。現在不會了。'],
+                    ['底部分頁列的亮塊不會消失', '上一版點過畫面之後，底部分頁列上標示「現在在哪一頁」的亮塊會不見。現在會一直停在你所在的那一頁。'],
+                ]
+            },
+            {
                 date: '2026-10-16',
                 title: '點招牌後不會再閃一整片亮黃色',
                 items: [
@@ -9152,8 +9162,12 @@
         }
 
         function applyTab(tab, activePage, handled) {
-            /* 角落的黑貓（lobby.js）只在主頁出現：牠看不到這支 module 裡的狀態，所以把分頁寫在 <html> 上給牠看（2026-10-16）。 */
-            document.documentElement.setAttribute('data-tab', tab);
+            /* 角落的黑貓（lobby.js）只在主頁出現：牠看不到這支 module 裡的狀態，所以把分頁寫在 <html> 上給牠看（2026-10-16）。
+               ⚠️⚠️ 名字**不能**叫 data-tab（2026-10-17 正式站上踩到）：全站有一堆東西在找 `[data-tab]`——
+               document 的點擊委派 `closest('[data-tab]')`（點哪裡都變成「切分頁」＋整頁 View Transition）、
+               `querySelector('[data-tab="home"]')`（找到的是 <html>，不是主頁按鈕）、
+               按下去縮 0.97 的 `[data-tab]:active`（整頁跟著縮、fixed 的東西全部跑掉）。所以叫 data-cur-tab。 */
+            document.documentElement.setAttribute('data-cur-tab', tab);
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
