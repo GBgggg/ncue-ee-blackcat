@@ -117,6 +117,12 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="小黑貓">
     <link rel="apple-touch-icon" href="logomain.jpg">
+    <!-- ★ 大廳（2026-10-16）：從外面打開首頁時先出現的夜街；別的頁「交棒」過來時也是它接手，
+         留在左下角的那隻黑貓也是它。普通 script、放在 <head>：body 一長出來就要蓋上去，
+         不能等最下面那個 module（它要先等 Firebase）。為什麼這樣做見 lobby/lobby.js 檔頭。
+         ★ 五頁都有這兩行（錯題本、電路、文書那三頁多寫一個 data-page），tests/lobby.mjs 比對。 -->
+    <link rel="stylesheet" href="lobby/lobby.css">
+    <script src="lobby/lobby.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -2475,7 +2481,7 @@
         /* ---- 分段切換鈕（顯示模式、特效…）：選中的那一顆跟分頁列同一個樣子 ----
            ★ 它們選中時是加 bg-white，而深色的「白」是面板色，跟外面那條 sunk 的槽幾乎一樣深，
              截圖上兩顆看起來都沒選。改成分頁列選中的那一塊（黃字＋底下一條燈管）。 */
-        :is(.theme-opt, .fx-opt).bg-white {
+        :is(.theme-opt, .fx-opt, .cat-opt).bg-white {
             background-color: var(--accent-tab) !important;
             color: var(--accent-tab-ink) !important;
             box-shadow: inset 0 -2px 0 var(--accent-tab-ink) !important;
@@ -3708,6 +3714,13 @@
                     <div class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-xs">
                         <button data-action="set-fx" data-fx="full" class="fx-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="sparkles" class="w-3.5 h-3.5 pointer-events-none"></i> 全開</button>
                         <button data-action="set-fx" data-fx="lite" class="fx-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="battery" class="w-3.5 h-3.5 pointer-events-none"></i> 省電</button>
+                    </div>
+                    <!-- 大廳的黑貓（2026-10-16）：撕開大廳之後要不要留在左下角。
+                         跟特效同一個理由只記在這台裝置上：手機畫面小，同一個人可能只想在桌機留牠。 -->
+                    <p class="text-xs text-slate-400 font-medium mt-4 mb-2">黑貓：從大廳的招牌跳下來之後，要不要留在畫面左下角陪你。點牠會喵一聲。這個只記在這台裝置上。</p>
+                    <div class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-xs">
+                        <button data-action="set-lobbycat" data-cat="stay" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="cat" class="w-3.5 h-3.5 pointer-events-none"></i> 留下來</button>
+                        <button data-action="set-lobbycat" data-cat="away" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="house" class="w-3.5 h-3.5 pointer-events-none"></i> 送牠回家</button>
                     </div>
                 </section>
 
@@ -7243,6 +7256,11 @@
         function screenCovered(){
             const sp = $('splash');
             if (sp && !sp.classList.contains('done')) return true;
+            /* 大廳（2026-10-16）蓋在最上面時也算。它不是 .fixed.inset-0（樣式在 lobby.css），
+               不擋的話在街上滑一下，底下的首頁會自己重新整理——大廳就再演一次。 */
+            /* ★ 用 querySelector 不用 $()：#lobby 是 lobby.js 動態建的，HTML 裡沒有這個 id，
+               tests/structure.mjs 的「沒有取用不存在的 id」會把它當成打錯字。 */
+            if (document.querySelector('#lobby')) return true;
             return [...document.querySelectorAll('.fixed.inset-0')]
                 .some(m => m.getClientRects().length > 0);
         }
@@ -7811,6 +7829,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-10-16',
+                title: '進站先逛一條夜街，黑貓帶你進去',
+                items: [
+                    ['打開首頁會先到一條夜街', '街上掛著五塊霓虹招牌，一塊就是一個小黑貓：小黑貓、彰師電子、錯題本、電路、文書。點哪一塊就進哪一個。電路和文書要用電腦開，手機上那兩塊招牌是暗的。'],
+                    ['黑貓會跳上招牌等你', '點下去之後，街上的黑貓會跳上去抓著招牌晃，晃到裡面準備好了，招牌就掉下去、把整條街撕開，後面就是你要去的地方。'],
+                    ['黑貓可以留下來', '進小黑貓或彰師電子之後，黑貓會待在畫面左下角，點牠會喵一聲，放著不管有時候會睡著。不想要的話到「設定 → 外觀 → 黑貓」選「送牠回家」。'],
+                    ['只有從外面進來才會看到', '在站裡切換、重新整理、按上一頁都不會再演一遍。手機有開「減少動態」的話，貓不跳、街不撕，選了就直接淡出。'],
+                ]
+            },
             {
                 date: '2026-10-16',
                 title: '文書小黑貓：雙面列印順序對了、並排看兩邊一起捲',
@@ -22036,6 +22064,30 @@
                 btn.classList.toggle('text-slate-400', !on);
             });
             updateFxToggleUI();
+            updateLobbyCatUI();
+        }
+
+        /* 大廳的黑貓：留下來／送牠回家（2026-10-16）。
+           ★ 狀態只有一份，在 localStorage（lobby/lobby.js 讀同一個鍵）。
+             這裡讀 localStorage 而不是問 window.BlackcatLobby：lobby.js 沒載到（離線第一次）
+             的時候設定頁還是要標得出現在是哪一個。
+           ★ 真正把貓叫出來／收回去的是 lobby.js，這裡只是轉告。 */
+        function updateLobbyCatUI() {
+            let stay = true;
+            try { stay = localStorage.getItem('eeblackcat-lobbycat') !== 'away'; } catch (e) {}
+            document.querySelectorAll('.cat-opt').forEach(btn => {
+                const on = (btn.dataset.cat === 'stay') === stay;
+                btn.classList.toggle('bg-white', on);
+                btn.classList.toggle('text-emerald-600', on);
+                btn.classList.toggle('shadow-sm', on);
+                btn.classList.toggle('text-slate-400', !on);
+            });
+        }
+        function setLobbyCat(mode) {
+            const stay = mode !== 'away';
+            if (window.BlackcatLobby) window.BlackcatLobby.setCatStay(stay);
+            else { try { localStorage.setItem('eeblackcat-lobbycat', stay ? 'stay' : 'away'); } catch (e) {} }
+            updateLobbyCatUI();
         }
 
         /* 特效：全開／省電（2026-10-03 晚）。
@@ -23150,6 +23202,7 @@
             },
 'set-theme': (t) => setTheme(t.dataset.theme),
             'set-fx': (t) => setFx(t.dataset.fx),
+            'set-lobbycat': (t) => setLobbyCat(t.dataset.cat),
 'set-schedule-mode': (t) => { scheduleEditMode = (t.dataset.mode ==='edit'); renderSchedule(); },
 'toggle-class-reminder': () => toggleClassReminder(),
 'edit-plan':   (t) => openPlanModal(t.dataset.id),
@@ -23795,6 +23848,10 @@
             splashDone = true;
             const el = document.getElementById('splash');
             if (el) el.classList.add('done');
+            /* ★ 大廳（lobby/lobby.js）在等這一聲：貓抓著招牌晃，晃到這裡才把街撕開。
+               旗標也要立——大廳可能在這之後才開始等（使用者慢慢挑招牌，這一聲早就響過了）。
+               try 是給測試的最小 DOM：那裡不一定有 Event。 */
+            try { window.__blackcatReady = true; window.dispatchEvent(new Event('blackcat:ready')); } catch (e) {}
         }
         function trySplash() {
             if (splashDone || !splashSettled.has('auth')) return;

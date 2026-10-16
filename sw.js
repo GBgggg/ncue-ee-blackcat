@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v171';
+const CACHE = 'blackcat-v172';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -30,6 +30,12 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './blackcatmd.html',      // 錯題本（獨立頁；2026-10-07 以前是筆記編輯器）
               './blackcatdoc.html',     // 文書小黑貓（外殼）。編輯器本體 doc/ 約 20MB，不進 CORE，用到才抓
               './blackcatdoc.webmanifest', // 文書小黑貓裝成 App 用的 manifest（2026-10-14）
+              /* ★ 大廳（2026-10-16）：五頁的 <head> 都載這兩支（交棒接手、角落的黑貓）。
+                 不進 CORE 的話離線時每一頁都少一支 script——不會壞，但貓不見了，也沒有人知道為什麼。
+                 ★ 夜街、招牌、貓的圖（lobby/*.webp，合計約 330KB）**刻意不進**：
+                   大廳只在「從外面打開首頁」時出現，而 lobby.js 抓不到背景圖會自己放棄、直接進站。
+                   第一次看過之後它們走下面「同源靜態資源快取優先」那條路留著，跟單字庫同一個判斷。 */
+              './lobby/lobby.js', './lobby/lobby.css',
               /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
                  搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`
                  那種浮動版本等於「上游下一次發布的程式碼會自動在使用者的

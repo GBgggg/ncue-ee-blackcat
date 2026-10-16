@@ -1,0 +1,190 @@
+/* ==========================================================
+   大廳：賽博龐克的夜街，五塊招牌＝五個小黑貓（2026-10-16）
+   程式在 lobby.js，為什麼這樣做寫在 架構.md「大廳：夜街、招牌與黑貓」那一節。
+
+   ★ 這支檔案五頁共用（主站、彰師電子、錯題本、電路、文書），
+     所以**不能依賴主站的 token**：var(--ease) 之類在錯題本那幾頁不存在。
+     需要的值在下面的 #lobby 自己定義一份，數字跟主站的動效刻度同一組
+     （90ms 的倍數、三條曲線），只是換了名字避免跟主站的變數打架。
+   ★ 大廳永遠是夜晚：場景是 Blender 算好的夜街，不跟著淺色／深色換。
+   ========================================================== */
+
+/* 開站的第一格：body 還沒出現、#lobby 還沒建起來之前，先用 html 的偽元素
+   鋪一層夜色＋街景，不然會先閃一下底下那一頁（交棒過來的那一頁尤其明顯）。
+   背景圖網址由 lobby.js 寫進 --lb-bg（它知道現在是橫的還是直的）。 */
+html.lobby-on::before {
+    content: ''; position: fixed; inset: 0; z-index: 2147483000;
+    background: #07060c var(--lb-bg, none) center / cover no-repeat;
+    pointer-events: none;
+}
+html.lobby-on.lobby-built::before { display: none; }
+html.lobby-on, html.lobby-on body { overflow: hidden !important; }
+
+#lobby {
+    --lb-ease:      cubic-bezier(0.22, 1, 0.36, 1);
+    --lb-ease-exit: cubic-bezier(0.4, 0, 1, 1);
+    --lb-mono: "Share Tech Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Noto Sans TC", monospace;
+    --lb-sign-font: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    position: fixed; inset: 0; z-index: 2147483001;
+    background: #07060c;
+    overflow: hidden;
+    touch-action: none;
+    -webkit-user-select: none; user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    color: #e8f6ff;
+}
+/* 撕開的那一刻底色要先拿掉，後面那一頁才看得到。 */
+#lobby.tearing { background: transparent; }
+
+/* 會被撕成兩半的那一層。外面那層 .lb-half 負責發光（drop-shadow），
+   裡面的 .lb-scene 負責被剪（clip-path）——同一個元素兩個都做的話，
+   光會被自己的 clip-path 剪掉（濾鏡先算、剪裁後算）。 */
+.lb-half { position: absolute; inset: 0; will-change: transform, opacity; }
+.lb-scene { position: absolute; inset: 0; }
+#lobby.tearing .lb-half { filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.9)) drop-shadow(0 0 2px #fff); }
+
+.lb-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+
+/* 雨：兩層斜線往下流。Blender 那張是靜止的，雨跟招牌閃爍讓它活起來。
+   ★ linear＋無限迴圈（主站動效規則第五條：迴圈不能用會減速的曲線）。 */
+.lb-rain, .lb-rain::after {
+    position: absolute; inset: -20% 0 0 0; pointer-events: none;
+    background-image: repeating-linear-gradient(104deg,
+        transparent 0 22px, rgba(170, 220, 255, 0.10) 22px 23px, transparent 23px 61px);
+    background-size: 100% 240px;
+    animation: lbRain 0.54s linear infinite;
+}
+.lb-rain::after { content: ''; inset: 0; opacity: 0.6; background-size: 100% 170px; animation-duration: 0.81s; }
+@keyframes lbRain { to { background-position: -40px 240px; } }
+
+/* 標題與提示 */
+.lb-hud {
+    position: absolute; left: 0; right: 0; top: max(14px, env(safe-area-inset-top));
+    text-align: center; pointer-events: none;
+    font-family: var(--lb-mono); letter-spacing: 0.16em; font-size: 13px;
+    color: #00f0ff; text-shadow: 0 0 8px rgba(0, 240, 255, 0.7);
+}
+.lb-hud::before { content: '> '; color: #ff2a6d; }
+.lb-hud::after { content: '_'; animation: lbCaret 1.08s steps(1, end) infinite; }
+@keyframes lbCaret { 50% { opacity: 0; } }
+#lobby.tearing .lb-hud { opacity: 0; transition: opacity 0.18s var(--lb-ease-exit); }
+
+/* ---- 招牌 ----
+   位置與大小由 lobby.js 依背景圖的「cover」換算後寫進 left/top/width/height。
+   轉軸在上緣中間（掛勾的位置），晃動只轉 `rotate`，不碰 transform——
+   transform 留給掉下去那一段的 WAAPI，兩個分開寫才不會互相蓋掉。 */
+.lb-sign {
+    position: absolute; padding: 0; margin: 0; border: 0; background: none; cursor: pointer;
+    transform-origin: 50% 0;
+    rotate: 0deg;
+    animation: lbSway 4.32s ease-in-out infinite alternate;
+    animation-delay: var(--lb-delay, 0s);
+    color: var(--c);
+    outline: none;
+}
+@keyframes lbSway { from { rotate: -1.2deg; } to { rotate: 1.2deg; } }
+.lb-sign img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.lb-sign .lb-name {
+    position: absolute; left: 50%; top: 13%; bottom: 9%; translate: -50% 0;
+    writing-mode: vertical-rl; text-orientation: upright;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--lb-sign-font); font-weight: 900; line-height: 1;
+    letter-spacing: 0.04em; white-space: nowrap;
+    color: #fff;
+    text-shadow: 0 0 2px #fff, 0 0 6px var(--c), 0 0 14px var(--c), 0 0 28px var(--c);
+    animation: lbFlicker 7.2s steps(1, end) infinite;
+    animation-delay: var(--lb-delay, 0s);
+}
+/* 霓虹偶爾閃一下：一輪 7.2 秒裡只有最後幾格在動（跟主站大標題的抖動同一個節奏）。 */
+@keyframes lbFlicker {
+    0%, 91%, 93%, 96%, 100% { opacity: 1; }
+    92%, 95% { opacity: 0.35; }
+}
+.lb-sign:hover .lb-name, .lb-sign:focus-visible .lb-name { animation: none; text-shadow: 0 0 2px #fff, 0 0 8px var(--c), 0 0 20px var(--c), 0 0 40px var(--c); }
+.lb-sign:focus-visible::after {
+    content: ''; position: absolute; inset: -6px; border: 2px dashed #00f0ff; pointer-events: none;
+}
+/* 桌機限定的產品：觸控裝置上是一塊沒插電的招牌，點不了。
+   條件跟主站 logo 選單的 .desktop-only 同一個 media query（tests/lobby.mjs 釘著）。 */
+.lb-sign .lb-off { display: none; }
+@media (pointer: coarse) and (hover: none) {
+    .lb-sign.desk-only { cursor: default; filter: saturate(0.15) brightness(0.55); animation: none; }
+    .lb-sign.desk-only .lb-name { animation: none; text-shadow: none; color: rgba(255, 255, 255, 0.35); }
+    .lb-sign.desk-only .lb-off {
+        display: block; position: absolute; left: 50%; bottom: -1.6em; translate: -50% 0;
+        font: 11px/1 var(--lb-mono); letter-spacing: 0.1em; white-space: nowrap; color: #8a8fa3;
+    }
+}
+#lobby.picked .lb-sign:not(.chosen) { pointer-events: none; }
+.lb-sign.chosen { animation: lbSwing 1.08s ease-in-out infinite alternate; z-index: 3; }
+.lb-sign.chosen.kick { animation: lbKick 0.54s var(--lb-ease) 1, lbSwing 1.08s ease-in-out 0.54s infinite alternate; }
+@keyframes lbKick { from { rotate: 0deg; } 40% { rotate: 14deg; } to { rotate: -10deg; } }
+@keyframes lbSwing { from { rotate: -10deg; } to { rotate: 10deg; } }
+
+/* 招牌底下的抓點：貓抓上去之後被搬進這裡，跟著招牌一起晃。 */
+.lb-grip { position: absolute; left: 50%; top: 96%; width: 0; height: 0; }
+
+/* ---- 黑貓（序列圖：一張橫的長條，每格一個正方形）----
+   格數與速度由 lobby.js 依動作寫進 --frames／--dur。
+   ★ steps(N, jump-none) 才會剛好停在第 1 格與第 N 格，
+     用 steps(N) 的話最後一格永遠看不到、第一格會出現兩次。 */
+.lb-cat {
+    position: absolute; width: var(--size, 120px); height: var(--size, 120px);
+    background-repeat: no-repeat;
+    background-size: calc(var(--frames, 1) * 100%) 100%;
+    background-position: 0 0;
+    animation: lbSprite var(--dur, 1s) steps(var(--frames, 1), jump-none) infinite;
+    pointer-events: none;
+    transform-origin: 50% 100%;
+}
+.lb-cat.once { animation-iteration-count: 1; animation-fill-mode: forwards; }
+@keyframes lbSprite { from { background-position: 0 0; } to { background-position: 100% 0; } }
+/* 掛在招牌上：錨點換成上緣中間（前腳抓著的地方）。 */
+.lb-grip > .lb-cat { left: calc(var(--size) / -2); top: calc(var(--size) * -0.12); transform-origin: 50% 0; }
+.lb-grip > .lb-cat.hang { animation: lbSprite var(--dur) steps(var(--frames), jump-none) infinite, lbDangle 1.08s ease-in-out infinite alternate; }
+@keyframes lbDangle { from { rotate: 6deg; } to { rotate: -6deg; } }
+
+/* 撕開時，被選中的招牌與貓搬到最上層，不跟著場景被剪成兩半。 */
+.lb-top { position: absolute; inset: 0; pointer-events: none; }
+
+/* ---- 留在畫面上的黑貓（小黑貓、彰師電子）----
+   z-index 30：在內容上面、在掃描線（35）、頁首、彈窗底下。 */
+#bcCat {
+    position: fixed; left: max(10px, env(safe-area-inset-left)); bottom: var(--bc-bottom, 12px); z-index: 30;
+    width: var(--size, 68px); height: var(--size, 68px);
+    padding: 0; border: 0; background-color: transparent; cursor: pointer;
+    background-repeat: no-repeat;
+    background-size: calc(var(--frames, 1) * 100%) 100%;
+    animation: lbSprite var(--dur, 1s) steps(var(--frames, 1), jump-none) infinite;
+    -webkit-tap-highlight-color: transparent;
+}
+#bcCat.once { animation-iteration-count: 1; animation-fill-mode: forwards; }
+#bcCat:focus-visible { outline: 2px dashed #00f0ff; outline-offset: 2px; }
+#bcCat .bc-bubble {
+    position: absolute; left: 70%; bottom: 82%; padding: 3px 8px;
+    font: 12px/1.2 "Share Tech Mono", ui-monospace, monospace; white-space: nowrap;
+    color: #07060c; background: #fcee0a; box-shadow: 3px 3px 0 #ff2a6d;
+    opacity: 0; translate: 0 6px; pointer-events: none;
+    transition: opacity 0.18s cubic-bezier(0.22, 1, 0.36, 1), translate 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+#bcCat.talk .bc-bubble { opacity: 1; translate: 0 0; }
+@media print { #bcCat, #lobby { display: none !important; } }
+
+/* ---- 交棒換頁：兩頁的大廳畫面是同一張，所以不要再疊主站的換頁雜訊 ----
+   :root 多一層特異性，壓過主站的 `::view-transition-new(root)` 與 `html.fx-lite::…`。 */
+html.lobby-on:root::view-transition-old(root),
+html.lobby-on:root::view-transition-new(root) { animation: none; }
+
+/* ---- 兩道門：減少動態／省電 ----
+   減少動態：不跳、不晃、不撕，選了就淡出（lobby.js 也會走另一條路）。
+   省電：雨與霓虹閃停掉；跳上去、晃、撕開是「選了哪一個」的回饋，保留。 */
+html.fx-lite .lb-rain, html.fx-lite .lb-rain::after { display: none; }
+html.fx-lite .lb-sign, html.fx-lite .lb-name, html.fx-lite .lb-hud::after { animation: none; }
+html.fx-lite .lb-sign.chosen { animation: lbSwing 1.08s ease-in-out infinite alternate; }
+html.fx-lite #bcCat { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+    .lb-rain, .lb-rain::after { display: none; }
+    .lb-sign, .lb-sign.chosen, .lb-sign.chosen.kick, .lb-name, .lb-hud::after,
+    .lb-grip > .lb-cat.hang, .lb-cat, #bcCat { animation: none !important; }
+    #lobby.fade { opacity: 0; transition: opacity 0.27s cubic-bezier(0.4, 0, 1, 1); }
+}
