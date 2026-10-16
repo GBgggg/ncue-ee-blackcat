@@ -79,12 +79,12 @@
           再把骨頭角度套到 Blender 的骨架上；流程見 素材/大廳/README.md）。
          影片是每秒 12 格，坐著、東張西望、側躺這種慢的動作隔一格取一格（每秒 6 格）。 */
     var CAT = {
-        idle:    [24, 4.00],   // 坐著：呼吸、轉頭、尾巴甩、眨眼（動態捕捉）
-        look:    [20, 3.33],   // 坐著東張西望、抬頭（動態捕捉）
-        groom:   [31, 2.58],   // 舔前掌、洗臉（動態捕捉）
-        walk:    [11, 0.92],   // 走路的一步循環（動態捕捉）
+        idle:    [24, 4.00],   // 坐著：呼吸、轉頭、尾巴甩、眨眼（轉頭的時機取自動態捕捉）
+        look:    [20, 3.33],   // 坐著東張西望、抬頭（轉頭的時機取自動態捕捉）
+        groom:   [31, 2.58],   // 抬右前掌、低頭舔、放下
+        walk:    [11, 0.92],   // 走路的一步循環（照 Muybridge 1887 側面連拍量的角度與腳步順序）
         stand:   [8,  0.67],   // 坐 → 站（倒著播就是站 → 坐）
-        lie:     [15, 2.50],   // 側躺、轉頭、尾巴拍地（動態捕捉）
+        lie:     [15, 2.50],   // 趴著（前臂平放）、轉頭、尾巴拍地
         liedown: [8,  0.67],   // 坐 → 趴（倒著播就是起來）
         sleep:   [8,  2.88],   // 趴著睡
         jump:    [8,  0.54],   // 蹲 → 撲 → 伸手
@@ -588,6 +588,9 @@
     var Companion = (function () {
         var btn = null, timer = 0, bubbleT = 0;
         var SIZE = 128;  // 一格 0.8m 見方，寫實版的貓坐著只佔三分之一：128px 的格子裡貓大約 45px 高（格子其他地方是透明的）
+        /* 走路速度要跟腳步對上，不然腳會在地上滑：Blender 裡一步（一個循環）往前 0.19m（cat2_natural.py 的 WALK.stride），
+           一格 0.8m＝SIZE px，一個循環 CAT.walk[1] 秒。 */
+        var WALK_PX = SIZE / 0.8 * 0.19 / CAT.walk[1];
         var LINES = ['喵', '喵～', '呼嚕呼嚕', '(=^･ω･^=)', '今天也要加油喵', '摸夠了沒'];
 
         function bottom() {
@@ -630,13 +633,14 @@
             else liedown();
         }
         function stroll() {
+            /* 往右走到最多 40% 寬（不超過 420px）再走回來；碰到邊就掉頭。
+               方向要在站起來之前決定：stand 這段序列圖會從「朝前坐」轉成「側身」，轉錯邊的話一起步就啪一下翻面。 */
+            var maxX = Math.min(W.innerWidth * 0.4, 420);
+            var to = x < maxX / 2 ? maxX * (0.5 + Math.random() * 0.5) : maxX * Math.random() * 0.3;
+            var dist = to - x, secs = Math.abs(dist) / WALK_PX;
+            flip = dist >= 0 ? 1 : -1; move();
             state = 'stand'; play('stand', true);
             later(function () {
-                /* 往右走到最多 40% 寬（不超過 420px）再走回來；碰到邊就掉頭。 */
-                var maxX = Math.min(W.innerWidth * 0.4, 420);
-                var to = x < maxX / 2 ? maxX * (0.5 + Math.random() * 0.5) : maxX * Math.random() * 0.3;
-                var dist = to - x, secs = Math.abs(dist) / 46;
-                flip = dist >= 0 ? 1 : -1;
                 state = 'walk'; play('walk');
                 btn.style.transition = 'transform ' + secs.toFixed(2) + 's linear';
                 x = to; move();
