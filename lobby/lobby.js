@@ -44,9 +44,11 @@
         ['spice', '電路小黑貓',     'blackcatspice.html', true,  '#39ff14'],
         ['doc',   '文書小黑貓',     'blackcatdoc.html',   true,  '#ff9a3c']
     ];
-    /* 貓可以留下來的產品。其他三頁是整個畫面拿來工作的（寫字、拉線、排版），
-       角落多一隻會動的東西只會擋路。 */
-    var HOMES = { cat: 1, ncue: 1 };
+    /* 貓可以留下來的產品：只有小黑貓（2026-10-16 深夜起彰師電子也不留），而且只在「主頁」分頁（見 onHome）。
+       其他頁是整個畫面拿來工作的（寫字、拉線、排版），角落多一隻會動的東西只會擋路。 */
+    var HOMES = { cat: 1 };
+    /* 主站切分頁時 applyTab() 會在 <html> 寫 data-tab；沒寫過（還沒切過）就是主頁。 */
+    function onHome() { return (H.getAttribute('data-tab') || 'home') === 'home'; }
 
     /* ---- 場景座標：從 Blender 的攝影機投影出來的（怎麼重算見 素材/大廳/README.md）----
        背景圖用 object-fit: cover 鋪滿畫面，所以這裡存的是「在原圖上的比例位置」，
@@ -59,19 +61,20 @@
         wide: { src: 'street-wide.webp', w: 1920, h: 1080,
                 signs: { cat: [0.2152, 0.0664, 0.3639], ncue: [0.7189, 0.0697, 0.3277],
                          md: [0.3318, 0.2165, 0.2150], spice: [0.6308, 0.2116, 0.1962], doc: [0.3832, 0.2756, 0.1491] },
-                cat: [0.4865, 0.8756, 0.3100] },
+                cat: [0.4865, 0.8756, 0.3100],
+                doors: { cat: [0.0948, 0.6141], ncue: [0.9123, 0.6097], md: [0.2809, 0.6346], spice: [0.7141, 0.633], doc: [0.3464, 0.6412] } },
         tall: { src: 'street-tall.webp', w: 1080, h: 1920,
                 signs: { cat: [0.2200, 0.0500, 0.2349], ncue: [0.7800, 0.1300, 0.2094],
                          md: [0.3700, 0.2500, 0.1641], spice: [0.6300, 0.2700, 0.1444], doc: [0.5000, 0.3300, 0.1067] },
-                cat: [0.5000, 0.7182, 0.2500] }
+                cat: [0.5000, 0.7182, 0.2500],
+                doors: { cat: [-0.1948, 0.5182], ncue: [1.1521, 0.5185], md: [0.0206, 0.5254], spice: [0.8595, 0.5291], doc: [0.1668, 0.5308] } }
     };
+    /* doors：每家店門口（離地 1.3m）在圖上的位置，只給「影片放不出來」的退路用（往那裡放大）。
+       直式畫面的小黑貓、彰師電子兩家，店門在畫面外面（x 小於 0、大於 1），退路會夾回畫面內。
+       跟 fly_rooms.py 的 DOORS 一起改。 */
     /* 招牌圖的寬 ÷ 高（sign-*.webp，408×1170）。圖的上緣就是掛勾，含 0.3m 的鏈子＋3.6m 的板子；
        寬度比板子多留兩側各 8cm 給霓虹的光暈，所以不是 1.2 ÷ 3.9。 */
     var SIGN_ASPECT = 408 / 1170;
-    /* 貓掛在招牌上時的大小＝招牌高 × 這個比例。
-       照透視算應該是 0.8 ÷ 3.9（序列圖一格 0.8m 見方，招牌含鏈子 3.9m），但那樣掛上去只剩
-       指甲大，手機上根本看不出是貓。刻意放大成差不多跟招牌一樣寬：看得清楚比透視正確重要。 */
-    var CAT_PER_SIGN = 0.54;
 
     /* 貓的序列圖：cat-<動作>.webp，一張橫條，每格正方形。[格數, 一輪幾秒] */
     /* ★ 2026-10-16 晚：坐著、東張西望、理毛、走路、側躺這五個是**從真貓影片做的動態捕捉**
@@ -208,7 +211,7 @@
     /* ======================================================
      * 大廳本體
      * ====================================================== */
-    var root, half, scene, top, hud, catEl, bgImg, lay, picked = false, done = false;
+    var root, half, scene, hud, catEl, bgImg, lay, picked = false, done = false;
     var signEls = {};
 
     function pickLayout() { return W.innerWidth >= W.innerHeight ? 'wide' : 'tall'; }
@@ -273,7 +276,8 @@
     function start() {
         load3d();
         lay = pickLayout();
-        H.style.setProperty('--lb-bg', 'url(' + DIR + SCENE[lay].src + ')');
+        /* 交棒過來的那一頁一開始就是店裡（影片最後一格），不是街上。 */
+        H.style.setProperty('--lb-bg', 'url(' + (mode === 'arrive' ? endSrc(PAGE, hand && hand.lay) : DIR + SCENE[lay].src) + ')');
         H.classList.add('lobby-on');
         whenBody(build);
     }
@@ -319,14 +323,13 @@
         });
 
         catEl = el('div', 'lb-cat', scene);
-        preload(['idle', 'jump', 'hang']);
+        preload(['idle']);
         setSprite(catEl, 'idle');
-        want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層：撕開時兩半與招牌都在貓底下
+        if (mode !== 'arrive') want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層
         if (mode === 'lobby' && !reduce) streetLife();
 
         hud = el('div', 'lb-hud', root);
         hud.textContent = mode === 'arrive' ? '連線中' : '選一家店走進去';
-        top = el('div', 'lb-top', root);
 
         D.body.appendChild(root);
         H.classList.add('lobby-built');
@@ -371,7 +374,7 @@
         var m = mapper(), S = SCENE[lay];
         SIGNS.forEach(function (s) {
             var b = signEls[s[0]], p = S.signs[s[0]];
-            if (!b || !p || b.parentNode === top) return;
+            if (!b || !p) return;
             var h = p[2] * m.ih, w = h * SIGN_ASPECT;
             b.style.left = (m.x(p[0]) - w / 2) + 'px';
             b.style.top = m.y(p[1]) + 'px';
@@ -386,9 +389,6 @@
             catEl.style.setProperty('--size', size + 'px');
             catEl.style.left = (m.x(c[0]) - size / 2) + 'px';
             catEl.style.top = (m.y(c[1]) - size) + 'px';
-        } else if (catEl && catEl.parentNode && catEl.parentNode.className === 'lb-grip') {
-            var host = catEl.parentNode.parentNode, hp = S.signs[host.dataset.k];
-            if (hp) catEl.style.setProperty('--size', (hp[2] * m.ih * CAT_PER_SIGN) + 'px');
         }
     }
 
@@ -399,87 +399,136 @@
         try { var l = D.createElement('link'); l.rel = 'prefetch'; l.href = href; D.head.appendChild(l); } catch (e) {}
     }
 
-    /* ---- 點了一塊招牌 ---- */
+    /* ---- 點了一塊招牌：鏡頭飛進那家店（2026-10-16 深夜，取代原本的「貓跳上招牌、把街撕開」）----
+       影片是 Blender 算好的（素材/大廳/README.md「轉場影片」）：鏡頭從街上轉向那家店、穿過亮著的店門、停在店裡。
+       選小黑貓的那一段，街上那隻貓會先起跑、跑在鏡頭前面衝進店裡，最後坐在店裡的貓窩上；
+       選別家的話，貓留在街上坐著，鏡頭從牠旁邊經過。
+       ★ 影片第一格就是街景（招牌的字也算進去了），所以一開始是把 HTML 的招牌與貓淡掉、影片淡進來，看不出接縫。
+       ★ 影片只有選到的那一段才下載（約 200～400KB）；滑鼠移到招牌上就先抓。
+         1.5 秒內還播不起來（網路慢、格式不支援）就退回「畫面往店門放大＋門口的光」，不讓人乾等。 */
     function pick(k) {
         if (picked || done) return;
         var s = signOf(k);
         if (!s || (s[3] && touch)) return;
         picked = true;
         root.classList.add('picked');
+        signEls[k].classList.add('chosen');
         arm();
         if (k !== PAGE) prefetch(s[2]);
-
-        if (reduce) {   // 減少動態：不跳不晃，選了就走
-            if (k === PAGE) within(readyP, 20000).then(fadeOut);
+        if (reduce) {   // 減少動態：不飛，選了就走
+            if (k === PAGE) within(readyP, 20000).then(function () { reveal(k); });
             else go(s);
             return;
         }
-        jumpTo(signEls[k]).then(function () {
-            if (k === PAGE) Promise.all([within(readyP, 20000), wait(900)]).then(function () { tear(k); });
-            else wait(480).then(function () { go(s); });
+        hud.textContent = '開門中';
+        fly(k).then(function () {
+            if (k === PAGE) within(readyP, 20000).then(function () { reveal(k); });
+            else go(s);
         });
     }
 
-    /* 交棒：記下要去哪、換頁。新的那一頁在 arrive() 接手。 */
+    /* 交棒：記下要去哪、換頁。新的那一頁在 arrive() 接手，先畫出店裡的最後一格。 */
     function go(s) {
-        try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now() })); } catch (e) {}
+        try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now(), lay: lay })); } catch (e) {}
         location.href = s[2];
     }
 
-    /* 貓沿著拋物線跳到招牌底下、抓住。
-       一律用 WAAPI 的 transform 移動，不動 left/top——那樣每一格都要重排版。 */
-    function jumpTo(sign) {
-        var grip = sign.querySelector('.lb-grip');
-        var cr = catEl.getBoundingClientRect(), gr = grip.getBoundingClientRect();
-        var size = cr.width;
-        var sx = cr.left + size / 2, sy = cr.top + size * 0.12;   // 起點：貓的「手」大概在頭頂
-        var ex = gr.left, ey = gr.top;
-        var dx = ex - sx, dy = ey - sy;
-        var peak = Math.min(sy, ey) - W.innerHeight * 0.12 - sy;   // 頂點比招牌底再高一點
-        var flip = dx < 0 ? -1 : 1;
-        /* 招牌比貓遠，抓上去之後要變小（見 CAT_PER_SIGN）。縮放的軸心放在「手」的位置
-           （上緣往下 12%），這樣縮放不會把手拉離拋物線，落點才會剛好是抓點。 */
-        var hp = SCENE[lay].signs[sign.dataset.k];
-        var k = hp ? (hp[2] * mapper().ih * CAT_PER_SIGN) / size : 1;
-        catEl.style.transformOrigin = '50% 12%';
-        var frames = [];
-        for (var i = 0; i <= 12; i++) {
-            var t = i / 12;
-            /* 二次貝茲：起點 → 控制點（水平中點、頂點高度）→ 終點。
-               控制點的 y 取 2×peak − 端點平均，曲線的最高點才會剛好碰到 peak。 */
-            var cy = 2 * peak - dy / 2;
-            var x = dx * t;
-            var y = 2 * (1 - t) * t * cy + t * t * dy;
-            var sc = 1 + (k - 1) * t;
-            frames.push({ transform: 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px) scale(' + (flip * sc).toFixed(3) + ',' + sc.toFixed(3) + ')' });
-        }
-        setSprite(catEl, 'jump', true);
-        var a = catEl.animate(frames, { duration: 620, easing: 'linear', fill: 'forwards' });
-        return a.finished.then(function () {
-            a.cancel();
-            catEl.style.left = catEl.style.top = catEl.style.transformOrigin = '';
-            grip.appendChild(catEl);
-            layout();   // 換成掛在招牌上的大小
-            setSprite(catEl, 'hang');
-            sign.classList.add('chosen', 'kick');
-            hud.textContent = '連線中';
-        }, function () {});
+    function flySrc(k, l) { return DIR + 'fly/' + (l || lay) + '-' + k + '.mp4'; }
+    function endSrc(k, l) { return DIR + 'fly/' + (l || lay) + '-' + k + '-end.webp'; }
+    var flyCache = {};
+    /* 先把影片（與最後一格的圖）抓起來：滑鼠移到招牌上、或點下去的那一刻。 */
+    function flyVideo(k) {
+        var key = lay + k;
+        if (flyCache[key]) return flyCache[key];
+        var v = D.createElement('video');
+        v.className = 'lb-fly';
+        v.muted = true; v.defaultMuted = true; v.playsInline = true;
+        v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true');
+        v.preload = 'auto';
+        v.src = flySrc(k);
+        try { v.load(); } catch (e) {}
+        var img = new Image(); img.src = endSrc(k);
+        flyCache[key] = v;
+        return v;
     }
 
-    /* 新的那一頁接手：同一條街、同一塊招牌、貓已經掛在上面晃。 */
+    function fly(k) {
+        var v = flyVideo(k);
+        root.insertBefore(v, hud);
+        return new Promise(function (res) {
+            var started = false, finished = false;
+            function end() { if (!finished) { finished = true; res(); } }
+            function start() {
+                if (started) return;
+                started = true; clearTimeout(slow);
+                v.classList.add('on');
+                root.classList.add('flying');           // 招牌、貓、雨淡掉（影片裡已經有它們了）
+                if (c3want && c3want.e === catEl) want3d(null);
+                setTimeout(end, ((v.duration || 2) + 1.5) * 1000);   // 播到一半卡住也要能走
+            }
+            function fallback() {
+                if (started) return;
+                started = true; clearTimeout(slow);
+                if (v.parentNode) v.parentNode.removeChild(v);
+                dolly(k).then(end);
+            }
+            var slow = setTimeout(fallback, 1500);
+            v.addEventListener('playing', start, { once: true });
+            v.addEventListener('ended', end, { once: true });
+            v.addEventListener('error', fallback, { once: true });
+            try { var p = v.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+        });
+    }
+
+    /* 退路：影片放不出來時，把整個場景往那家店的門口放大，門口的光（招牌的顏色）蓋滿畫面，
+       再換上店裡最後一格的圖（抓得到的話）。 */
+    function dolly(k) {
+        var d = SCENE[lay].doors[k], m = mapper();
+        var ox = Math.max(0.04, Math.min(0.96, d[0])), oy = d[1];
+        var px = m.x(ox), py = m.y(oy);
+        half.style.transformOrigin = px.toFixed(0) + 'px ' + py.toFixed(0) + 'px';
+        var a = half.animate([{ transform: 'scale(1)', filter: 'blur(0)' }, { transform: 'scale(3.4)', filter: 'blur(3px)' }],
+            { duration: 900, easing: 'cubic-bezier(0.55, 0, 0.9, 0.6)', fill: 'forwards' });
+        var glow = el('div', 'lb-glow', root);
+        glow.style.setProperty('--c', signOf(k)[4]);
+        glow.style.setProperty('--gx', px.toFixed(0) + 'px'); glow.style.setProperty('--gy', py.toFixed(0) + 'px');
+        var g = glow.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' });
+        if (c3want && c3want.e === catEl) want3d(null);
+        return Promise.all([a.finished, g.finished]).catch(function () {}).then(function () {
+            var img = el('img', 'lb-fly on', null);
+            img.alt = ''; img.src = endSrc(k);
+            img.onload = function () { root.insertBefore(img, glow); glow.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 270, fill: 'forwards' }); };
+        });
+    }
+
+    /* 新的那一頁接手：直接是店裡（影片的最後一格），等自己載好就走進去。 */
     function arrive(k) {
         picked = true;
         arm();
-        root.classList.add('picked');
-        var sign = signEls[k];
-        sign.querySelector('.lb-grip').appendChild(catEl);
-        catEl.style.left = catEl.style.top = '';
-        setSprite(catEl, 'hang');
-        sign.classList.add('chosen');
-        layout();
-        var fuse = PAGE === 'doc' ? 12000 : 20000;   // 文書的編輯器第一次要抓十幾 MB，別讓人一直看貓晃
-        Promise.all([within(readyP, fuse), wait(reduce ? 0 : 600)]).then(function () {
-            if (reduce) fadeOut(); else tear(k);
+        root.classList.add('picked', 'flying');
+        var img = el('img', 'lb-fly on', root);
+        img.alt = '';
+        img.onerror = function () { img.remove(); };
+        img.src = endSrc(k, hand && hand.lay);
+        root.insertBefore(img, hud);
+        hud.textContent = '開門中';
+        var fuse = PAGE === 'doc' ? 12000 : 20000;   // 文書的編輯器第一次要抓十幾 MB，別讓人一直看店門
+        Promise.all([within(readyP, fuse), wait(reduce ? 0 : 400)]).then(function () { reveal(k); });
+    }
+
+    /* 走進店裡：店裡的畫面往前推近一點、同時淡掉，後面就是那個產品。 */
+    function reveal(k) {
+        if (done) return;
+        var shot = root.querySelector('.lb-fly.on') || half;
+        root.classList.add('opening');
+        if (hud) hud.style.opacity = '0';
+        var spawnCat = HOMES[PAGE] && catStays();
+        if (reduce) { fadeOut(); return; }
+        var a = shot.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }], { duration: 540, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+        var b = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 540, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+        Promise.all([a.finished, b.finished]).catch(function () {}).then(function () {
+            finish();
+            if (spawnCat) Companion.spawn(k === 'cat');
         });
     }
 
@@ -488,109 +537,11 @@
         setTimeout(function () { finish(); if (HOMES[PAGE] && catStays()) Companion.spawn(); }, 300);
     }
 
-    /* ---- 招牌掉下去，把街撕成兩半 ----
-       撕的位置就是那塊招牌掛的地方，裂縫從上往下張開：
-       左半邊以左下角為軸往左倒、右半邊以右下角為軸往右倒——
-       上面先裂開、下面最後才分開，看起來就是招牌掉下去一路扯開的。 */
-    function tear(k) {
-        if (done) return;
-        var sign = signEls[k];
-        var vw = W.innerWidth, vh = W.innerHeight;
-        var sr = sign.getBoundingClientRect();
-        var tx = sr.left + sr.width / 2;
-
-        /* 1. 招牌與貓搬到最上層，不跟著場景被剪開。先把晃到一半的角度凍住。 */
-        var rot = getComputedStyle(sign).rotate;
-        sign.style.rotate = (rot && rot !== 'none') ? rot : '0deg';
-        sign.classList.remove('chosen', 'kick');
-        sign.style.animation = 'none';
-        top.appendChild(sign);
-        var cr = catEl.getBoundingClientRect();
-        top.appendChild(catEl);
-        catEl.style.left = cr.left + 'px';
-        catEl.style.top = cr.top + 'px';
-        catEl.style.rotate = '0deg';
-        catEl.classList.remove('hang');
-
-        /* 2. 一模一樣的另一半，各剪一邊。裂縫是一條鋸齒線。 */
-        var right = half.cloneNode(true);
-        root.insertBefore(right, top);
-        var pts = [], n = 16;
-        for (var i = 0; i <= n; i++) {
-            var jit = i === 0 ? 0 : (Math.random() - 0.5) * Math.min(28, vw * 0.035);
-            pts.push([tx + jit, (vh * i) / n]);
-        }
-        var seam = pts.map(function (p) { return p[0].toFixed(1) + 'px ' + p[1].toFixed(1) + 'px'; });
-        scene.style.clipPath = 'polygon(0 0, ' + seam.join(', ') + ', 0 ' + vh + 'px)';
-        right.firstChild.style.clipPath = 'polygon(' + vw + 'px 0, ' + seam.join(', ') + ', ' + vw + 'px ' + vh + 'px)';
-        /* 複製出來的那一半上面還有一份貓與招牌的空位、按鈕，全部拿掉，只留畫。 */
-        Array.prototype.forEach.call(right.querySelectorAll('button'), function (b) { b.tabIndex = -1; b.disabled = true; });
-        root.classList.add('tearing');
-
-        /* 3. 招牌掉下去（加速：重力）。 */
-        var spin = (Math.random() < 0.5 ? -1 : 1) * (18 + Math.random() * 14);
-        var fall = sign.animate([
-            { transform: 'translate(0,0)' },
-            { transform: 'translate(' + (spin * 0.8).toFixed(0) + 'px,' + (vh * 1.15).toFixed(0) + 'px) rotate(' + spin.toFixed(0) + 'deg)' }
-        ], { duration: 720, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' });
-
-        /* 4. 兩半往外倒、掉出畫面。比招牌晚 90ms 起步：先看到招牌鬆手，才看到裂開。 */
-        var ease = 'cubic-bezier(0.4, 0, 1, 1)';
-        var L = half.animate([
-            { transform: 'none', opacity: 1 },
-            { transform: 'translate(-6vw, 2vh) rotate(-5deg)', opacity: 1, offset: 0.45 },
-            { transform: 'translate(-70vw, 35vh) rotate(-18deg)', opacity: 0 }
-        ], { duration: 900, delay: 90, easing: ease, fill: 'forwards' });
-        half.style.transformOrigin = '0 100%';
-        right.style.transformOrigin = '100% 100%';
-        var R = right.animate([
-            { transform: 'none', opacity: 1 },
-            { transform: 'translate(6vw, 2vh) rotate(5deg)', opacity: 1, offset: 0.45 },
-            { transform: 'translate(70vw, 35vh) rotate(18deg)', opacity: 0 }
-        ], { duration: 900, delay: 90, easing: ease, fill: 'forwards' });
-        if (hud) hud.style.opacity = '0';
-
-        /* 5. 貓鬆手：留下來的話跳到左下角變成陪伴的那隻；不留就往旁邊跳走。 */
-        var stay = HOMES[PAGE] && catStays();
-        var catDone = stay ? catToCorner() : catAway(tx < vw / 2 ? -1 : 1);
-
-        Promise.all([fall.finished, L.finished, R.finished, catDone]).catch(function () {}).then(function () {
-            finish();
-            if (stay) Companion.spawn(true);
-        });
-    }
-
-    function catToCorner() {
-        var cr = catEl.getBoundingClientRect();
-        var t = Companion.target();   // {x, y, size}：左下角那隻的位置（左上角座標）
-        var k = t.size / cr.width;
-        var dx = t.x - cr.left, dy = t.y - cr.top;
-        /* 先往上彈一下再落到角落：從招牌上「跳下來」，不是滑過去。 */
-        var up = -W.innerHeight * 0.08;
-        setSprite(catEl, 'jump', true);
-        catEl.style.transformOrigin = '0 0';
-        var a = catEl.animate([
-            { transform: 'translate(0,0) scale(1)' },
-            { transform: 'translate(' + (dx * 0.35).toFixed(0) + 'px,' + up.toFixed(0) + 'px) scale(' + ((1 + k) / 2).toFixed(3) + ')', offset: 0.35 },
-            { transform: 'translate(' + dx.toFixed(0) + 'px,' + dy.toFixed(0) + 'px) scale(' + k.toFixed(3) + ')' }
-        ], { duration: 760, easing: 'cubic-bezier(0.3, 0, 0.7, 1)', fill: 'forwards' });
-        return a.finished;
-    }
-
-    function catAway(dir) {
-        setSprite(catEl, 'jump', true);
-        var a = catEl.animate([
-            { transform: 'translate(0,0) scaleX(' + dir + ')', opacity: 1 },
-            { transform: 'translate(' + (dir * W.innerWidth * 0.18).toFixed(0) + 'px,' + (-W.innerHeight * 0.1).toFixed(0) + 'px) scaleX(' + dir + ')', opacity: 1, offset: 0.4 },
-            { transform: 'translate(' + (dir * W.innerWidth * 0.6).toFixed(0) + 'px,' + (W.innerHeight * 0.5).toFixed(0) + 'px) scaleX(' + dir + ')', opacity: 0 }
-        ], { duration: 820, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
-        return a.finished;
-    }
-
     /* ======================================================
-     * 留在畫面上的那隻（小黑貓、彰師電子，設定裡可以關）
+     * 留在畫面上的那隻（只有小黑貓、而且只在「主頁」分頁；設定裡可以關）
      *
-     * ★ 不只是「大廳之後」才有：直接打開彰師電子、或站內換頁回來，牠也在。
+     * ★ 2026-10-16 深夜起：彰師電子不留貓（HOMES），切到其他分頁時藏起來（onHome()，看 <html data-tab>）。
+     * ★ 不只是「大廳之後」才有：直接打開小黑貓、或站內換頁回來，牠也在。
      *   設定寫的是「黑貓留在畫面上」，使用者會期待牠一直在，而不是只有進站那一次。
      * ★ 位置在左下角：右下角是「回到頂端」與吐司的地盤。手機上要墊在底部分頁列上面。
      * ====================================================== */
@@ -618,7 +569,7 @@
         function place() {
             if (!btn) return;
             btn.style.setProperty('--bc-bottom', 'calc(' + bottom() + 'px + env(safe-area-inset-bottom, 0px))');
-            btn.style.display = H.classList.contains('kb-open') ? 'none' : '';
+            btn.style.display = (H.classList.contains('kb-open') || !onHome()) ? 'none' : '';
         }
         /* ---- 牠自己決定接下來做什麼 ----
            坐著是「家」：從坐姿出發去東張西望、理毛、散步、趴下，做完一定回到坐姿。
@@ -771,7 +722,7 @@
                     /* 省電模式：3D 貓收掉，換回序列圖的第一格；關掉省電再請 3D 回來。 */
                     if (btn) { if (now) want3d(null); else { load3d(); want3d(btn, 29); } }
                 }
-            }).observe(H, { attributes: true, attributeFilter: ['class'] });
+            }).observe(H, { attributes: true, attributeFilter: ['class', 'data-tab'] });
         }
         function remove() {
             clearTimeout(timer);

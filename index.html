@@ -3717,7 +3717,7 @@
                     </div>
                     <!-- 大廳的黑貓（2026-10-16）：撕開大廳之後要不要留在左下角。
                          跟特效同一個理由只記在這台裝置上：手機畫面小，同一個人可能只想在桌機留牠。 -->
-                    <p class="text-xs text-slate-400 font-medium mt-4 mb-2">黑貓：從大廳的招牌跳下來之後，要不要留在畫面左下角陪你。點牠會喵一聲。這個只記在這台裝置上。</p>
+                    <p class="text-xs text-slate-400 font-medium mt-4 mb-2">黑貓：要不要讓牠留在小黑貓主頁的左下角陪你。點牠會喵一聲。這個只記在這台裝置上。</p>
                     <div class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-xs">
                         <button data-action="set-lobbycat" data-cat="stay" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="cat" class="w-3.5 h-3.5 pointer-events-none"></i> 留下來</button>
                         <button data-action="set-lobbycat" data-cat="away" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="house" class="w-3.5 h-3.5 pointer-events-none"></i> 送牠回家</button>
@@ -7833,6 +7833,15 @@
         const CHANGELOG = [
             {
                 date: '2026-10-16',
+                title: '點招牌之後，鏡頭會沿著街走進那家店',
+                items: [
+                    ['走進店裡的轉場', '在夜街點一塊招牌，畫面會像走在街上一樣往前，轉向那家店、穿過店門，停在店裡面（每家店裡的擺設不一樣），然後才打開那一個小黑貓。手機直拿和電腦橫的畫面各有一份。網路太慢、影片來不及播的時候，會改成往店門口放大進去。'],
+                    ['只有選小黑貓時，黑貓會跟你進店', '選小黑貓的時候，坐在街上的黑貓會從鏡頭前面一路跑進店裡。選其他招牌時，牠就留在街上看你走過去。'],
+                    ['黑貓只待在小黑貓的主頁', '角落那隻黑貓現在只出現在小黑貓的「主頁」分頁。切到計劃、學習、英文、理財或設定時牠會先躲起來，回到主頁再出來。彰師電子不會有貓。'],
+                ]
+            },
+            {
+                date: '2026-10-16',
                 title: '黑貓換了新模型，動作更像真的貓、也會做更多事',
                 items: [
                     ['換了一隻更像真貓的黑貓', '頭和身體的比例、尾巴的長度都照真的貓做（以前尾巴只有身體的一半長）。毛剪短了，變成貼身、有一點光澤的短毛，不再像一團毛球。模型改自 guillaume bolis 公開分享的作品，作者名字寫在「設定 → 外觀 → 黑貓」底下。'],
@@ -9136,6 +9145,8 @@
         }
 
         function applyTab(tab, activePage, handled) {
+            /* 角落的黑貓（lobby.js）只在主頁出現：牠看不到這支 module 裡的狀態，所以把分頁寫在 <html> 上給牠看（2026-10-16）。 */
+            document.documentElement.setAttribute('data-tab', tab);
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);

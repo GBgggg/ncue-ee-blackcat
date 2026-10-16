@@ -3717,7 +3717,7 @@
                     </div>
                     <!-- 大廳的黑貓（2026-10-16）：撕開大廳之後要不要留在左下角。
                          跟特效同一個理由只記在這台裝置上：手機畫面小，同一個人可能只想在桌機留牠。 -->
-                    <p class="text-xs text-slate-400 font-medium mt-4 mb-2">黑貓：從大廳的招牌跳下來之後，要不要留在畫面左下角陪你。點牠會喵一聲。這個只記在這台裝置上。</p>
+                    <p class="text-xs text-slate-400 font-medium mt-4 mb-2">黑貓：要不要讓牠留在小黑貓主頁的左下角陪你。點牠會喵一聲。這個只記在這台裝置上。</p>
                     <div class="flex gap-1 bg-slate-100 rounded-xl p-1 max-w-xs">
                         <button data-action="set-lobbycat" data-cat="stay" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="cat" class="w-3.5 h-3.5 pointer-events-none"></i> 留下來</button>
                         <button data-action="set-lobbycat" data-cat="away" class="cat-opt flex-1 py-2 rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-1"><i data-lucide="house" class="w-3.5 h-3.5 pointer-events-none"></i> 送牠回家</button>
@@ -9136,6 +9136,8 @@
         }
 
         function applyTab(tab, activePage, handled) {
+            /* 角落的黑貓（lobby.js）只在主頁出現：牠看不到這支 module 裡的狀態，所以把分頁寫在 <html> 上給牠看（2026-10-16）。 */
+            document.documentElement.setAttribute('data-tab', tab);
             document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove(...NAV_ACTIVE));
             const btn = document.querySelector(`[data-tab="${tab}"]`);
             if (btn) btn.classList.add(...NAV_ACTIVE);
