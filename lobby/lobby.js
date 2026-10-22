@@ -1,26 +1,29 @@
 /* ==========================================================
- * 大廳：賽博龐克的夜街，五塊招牌＝五個小黑貓（2026-10-16）
+ * 大廳：夜街的路面上五個發光的大洞＝五個小黑貓（2026-10-22 第四版）
  *
- * 從外面打開首頁時，先出現一條 Blender 算好的夜街。街上掛著五塊招牌（五個產品），
- * 地上坐著一隻黑貓。點一塊招牌：貓跳上去抓住、跟著招牌左右晃，
- * 晃到那個產品載好；載好之後招牌掉下去，順勢把整條街撕成兩半，後面就是那個產品。
+ * 從外面打開首頁時，先出現一條 Blender 算好的夜街，鏡頭從高處往下看：路面裂開五個發光的洞，
+ * 每個洞後緣立一塊電子看板（字是這裡畫上去的）。地上坐著一隻黑貓。
+ * 點一個洞：貓跑過去跳進去，畫面跟著衝進洞裡，接著是所有產品共用的「下墜隧道」（循環影片），
+ * 貓在畫面中間一起往下掉，掉到那個產品載好為止：
+ *   - 小黑貓：貓從隧道底掉出去，揭開首頁，接著貓從主頁上方掉下來（Companion 的出場）。
+ *   - 其他產品：換頁交棒，新的那一頁接著掉；載好時貓旁邊裂開一道次元裂縫，貓被吸進去，再揭開那一頁。
  *
- * 為什麼這樣做（細節在 架構.md「大廳：夜街、招牌與黑貓」）：
- *   - **背景與招牌是預先算好的圖，不在網頁裡跑 3D。** 網頁只負責疊起來動。
+ * 為什麼這樣做（細節在 架構.md「大廳」各節）：
+ *   - **背景與隧道是預先算好的圖與影片，不在網頁裡跑 3D 場景。** 網頁只負責疊起來動。
  *     大廳存在的理由是「等的時候有東西看」，不能反過來讓大廳自己先等一個 3D 引擎。
+ *   - **隧道影片裡沒有貓**，貓是疊上去的：載入多久影片就循環多久，抵達時貓要掉出去還是鑽進裂縫由這裡決定。
  *   - **貓是兩層：序列圖（一定有）＋即時 3D（載得到才換上）。** 走位全部在這支，
- *     3D 那支（lobby3d.js）只是「讀格子在哪、在播什麼，畫一隻 3D 貓蓋上去」。
- *     3D 沒載好之前、或這台跑不動，看到的就是序列圖，不會有空窗。見下面 want3d()。
+ *     3D 那支（lobby3d.js）只是「讀格子在哪、在播什麼，畫一隻 3D 貓蓋上去」。見下面 want3d()。
  *   - **這支是普通 script，五頁共用，放在 <head>。** 不能放進主站的 module：
  *     module 要等 Firebase 那幾個 await 才跑，大廳早就該出現了；而錯題本、電路、
  *     文書三頁根本沒有那個 module。也因此碰不到主站的任何狀態，不會踩暫時性死區。
- *   - **換頁是「交棒」。** 點了別的產品：貓抓上招牌之後，把「誰、哪一塊」寫進
- *     sessionStorage 再換頁；新的那一頁一讀到就立刻畫出同一條街、同一塊招牌、
- *     同一隻掛著的貓繼續晃，等自己載好才撕開。兩頁的畫面是同一張，看起來就是沒換過頁。
+ *   - **換頁是「交棒」。** 選了別的產品：貓掉進隧道之後，把「誰、哪一種畫面」寫進
+ *     sessionStorage 再換頁；新的那一頁一讀到就立刻畫出同一條隧道、同一隻在掉的貓，
+ *     等自己載好才揭開。兩頁的畫面是同一個，看起來就是沒換過頁。
  *
- * ⚠️ 招牌那張表（SIGNS）是主站 buildLogoMenu() 那張 items 的影子：
+ * ⚠️ 洞那張表（SIGNS）是主站 buildLogoMenu() 那張 items 的影子：
  *   站名、網址、桌機限定要跟它一致。tests/lobby.mjs 會比對，漏改的症狀是
- *   「選單叫 A、招牌叫 B」或「招牌點進去 404」，畫面上不會報錯。
+ *   「選單叫 A、看板叫 B」或「跳進去 404」，畫面上不會報錯。
  * ========================================================== */
 (function () {
     'use strict';
@@ -51,32 +54,43 @@
        ⚠️ 不是 data-tab：主站很多地方在找 [data-tab]（分頁按鈕），<html> 帶著它就會被當成按鈕（見 applyTab 的註解）。 */
     function onHome() { return (H.getAttribute('data-cur-tab') || 'home') === 'home'; }
 
-    /* ---- 場景座標：從 Blender 的攝影機投影出來的（怎麼重算見 素材/大廳/README.md）----
-       背景圖用 object-fit: cover 鋪滿畫面，所以這裡存的是「在原圖上的比例位置」，
-       執行時再換算成螢幕座標。改了 Blender 的攝影機或招牌位置，這張表要跟著重算。
-       招牌：[x, y, 高]——x、y 是掛勾（招牌上緣中間）在圖上的位置，高是招牌高度佔圖高的比例。
-       貓：  [x, y, 高]——x、y 是貓腳底中間，高是「序列圖一格」佔圖高的比例。
-       ★ 一格代表 0.8m 見方（掛在招牌上的那幾格要放得下整隻拉長的貓），寫實版的貓坐著只佔三分之一，
-         所以這裡比 Blender 投影出來的值（橫 0.1955、直 0.1578）刻意放大約 1.6 倍：照實際大小的話貓只剩一小點。 */
+    /* ---- 場景座標：從 Blender 的攝影機投影出來的（素材/大廳/scripts/lb_holes.py 的 project()；怎麼重算見 素材/大廳/README.md）----
+       背景圖用 object-fit: cover 鋪滿畫面，所以這裡存的是「在原圖上的比例位置」（0～1），執行時再換算成螢幕座標。
+       改了 Blender 的攝影機或洞的位置，這張表要跟著重算。
+       洞：c＝洞口中心；l、r＝左右緣；n、f＝靠鏡頭那一邊與遠的那一邊（按鈕的橢圓就是這四點框出來的）；
+           h＝在洞口前緣站一隻貓時「序列圖一格（0.8m）」佔圖高的比例（照透視，遠的洞貓比較小）；
+           board＝看板 LED 面的四個角（左上、右上、右下、左下）。
+       貓：[x, y, 高]——x、y 是一開始坐的地方（腳底中間），高同上。
+       ★ 照實際大小的話貓只剩一小點（一格 0.8m 見方、寫實版的貓坐著只佔三分之一），所以格子再放大 ENL 倍。 */
+    var ENL = 3.2;   // 2.4 時街上的貓只有 48px 高（720p），黑貓在暗的路面上幾乎看不到
     var SCENE = {
         wide: { src: 'street-wide.webp', w: 1920, h: 1080,
-                signs: { cat: [0.2152, 0.0664, 0.3639], ncue: [0.7189, 0.0697, 0.3277],
-                         md: [0.3318, 0.2165, 0.2150], spice: [0.6308, 0.2116, 0.1962], doc: [0.3832, 0.2756, 0.1491] },
-                cat: [0.4865, 0.8756, 0.3100],
-                doors: { cat: [0.0948, 0.6141], ncue: [0.9123, 0.6097], md: [0.2809, 0.6346], spice: [0.7141, 0.633], doc: [0.3464, 0.6412] } },
+                cat: [0.5117, 0.7684, 0.0833],
+                holes: {
+                cat: { c: [0.3836, 0.5586], l: [0.3269, 0.5586], r: [0.4403, 0.5586], n: [0.3726, 0.6226], f: [0.3929, 0.5048], h: 0.0765,
+                         board: [[0.3313, 0.3778], [0.4373, 0.3608], [0.4402, 0.4113], [0.3354, 0.4299]] },
+                ncue: { c: [0.6164, 0.5586], l: [0.5597, 0.5586], r: [0.6731, 0.5586], n: [0.6274, 0.6226], f: [0.6071, 0.5048], h: 0.0765,
+                         board: [[0.5627, 0.3608], [0.6687, 0.3778], [0.6646, 0.4299], [0.5598, 0.4113]] },
+                md: { c: [0.402, 0.3357], l: [0.364, 0.3357], r: [0.44, 0.3357], n: [0.3959, 0.3636], f: [0.4074, 0.3109], h: 0.0575,
+                         board: [[0.3668, 0.2137], [0.4384, 0.2076], [0.4399, 0.2433], [0.3691, 0.25]] },
+                spice: { c: [0.598, 0.3357], l: [0.56, 0.3357], r: [0.636, 0.3357], n: [0.6041, 0.3636], f: [0.5926, 0.3109], h: 0.0575,
+                         board: [[0.5616, 0.2076], [0.6332, 0.2137], [0.6309, 0.25], [0.5601, 0.2433]] },
+                doc: { c: [0.5, 0.4252], l: [0.4545, 0.4252], r: [0.5455, 0.4252], n: [0.5, 0.4657], f: [0.5, 0.3899], h: 0.066,
+                         board: [[0.4578, 0.2745], [0.5422, 0.2745], [0.5418, 0.3168], [0.4582, 0.3168]] } } },
         tall: { src: 'street-tall.webp', w: 1080, h: 1920,
-                signs: { cat: [0.2200, 0.0500, 0.2349], ncue: [0.7800, 0.1300, 0.2094],
-                         md: [0.3700, 0.2500, 0.1641], spice: [0.6300, 0.2700, 0.1444], doc: [0.5000, 0.3300, 0.1067] },
-                cat: [0.5000, 0.7182, 0.2500],
-                doors: { cat: [-0.1948, 0.5182], ncue: [1.1521, 0.5185], md: [0.0206, 0.5254], spice: [0.8595, 0.5291], doc: [0.1668, 0.5308] } }
+                cat: [0.526, 0.8424, 0.03],
+                holes: {
+                cat: { c: [0.3459, 0.6564], l: [0.2413, 0.6564], r: [0.4504, 0.6564], n: [0.3325, 0.7119], f: [0.3573, 0.6091], h: 0.0358,
+                         board: [[0.2149, 0.5388], [0.4588, 0.5179], [0.4679, 0.5545], [0.2254, 0.5768]] },
+                ncue: { c: [0.629, 0.5523], l: [0.5415, 0.5523], r: [0.7165, 0.5523], n: [0.6383, 0.5906], f: [0.6209, 0.5187], h: 0.0374,
+                         board: [[0.5322, 0.4378], [0.7371, 0.4485], [0.7299, 0.4804], [0.5272, 0.469]] },
+                md: { c: [0.389, 0.4773], l: [0.3138, 0.4773], r: [0.4643, 0.4773], n: [0.3823, 0.5054], f: [0.3951, 0.4523], h: 0.0365,
+                         board: [[0.297, 0.3853], [0.4734, 0.379], [0.4764, 0.4064], [0.3023, 0.4131]] },
+                spice: { c: [0.5973, 0.4207], l: [0.5313, 0.4207], r: [0.6633, 0.4207], n: [0.6025, 0.4422], f: [0.5926, 0.4014], h: 0.0346,
+                         board: [[0.5228, 0.3344], [0.6775, 0.3384], [0.6733, 0.3632], [0.5209, 0.359]] },
+                doc: { c: [0.4699, 0.3766], l: [0.4111, 0.3766], r: [0.5286, 0.3766], n: [0.4684, 0.3935], f: [0.4711, 0.3611], h: 0.0326,
+                         board: [[0.4004, 0.3012], [0.5378, 0.3003], [0.5376, 0.3227], [0.4022, 0.3237]] } } }
     };
-    /* doors：每家店門口（離地 1.3m）在圖上的位置，只給「影片放不出來」的退路用（往那裡放大）。
-       直式畫面的小黑貓、彰師電子兩家，店門在畫面外面（x 小於 0、大於 1），退路會夾回畫面內。
-       跟 fly_rooms.py 的 DOORS 一起改。 */
-    /* 招牌圖的寬 ÷ 高（sign-*.webp，408×1170）。圖的上緣就是掛勾，含 0.3m 的鏈子＋3.6m 的板子；
-       寬度比板子多留兩側各 8cm 給霓虹的光暈，所以不是 1.2 ÷ 3.9。 */
-    var SIGN_ASPECT = 408 / 1170;
-
     /* 貓的序列圖：cat-<動作>.webp，一張橫條，每格正方形。[格數, 一輪幾秒] */
     /* ★ 2026-10-16 晚：坐著、東張西望、理毛、走路、側躺這五個是**從真貓影片做的動態捕捉**
          （維基共享資源上 CC0／公有領域的影片，用 SuperAnimal 姿勢辨識抓出每一格的關節，
@@ -102,7 +116,9 @@
         loafdown:[8,  0.67],   // 坐 → 趴成麵包（倒著播就是起來）
         loaf:    [24, 4.00],   // 麵包：前腳收在胸口下，慢慢呼吸
         /* 2026-10-17：主頁的貓從畫面外跑進來、跑去方框邊邊用（Blender 的 nat_run，跟轉場影片裡衝進店的是同一套）。 */
-        run:     [8,  0.33]    // 奔跑的一個循環（每秒 3 步，一步往前 0.42m）
+        run:     [8,  0.33],   // 奔跑的一個循環（每秒 3 步，一步往前 0.42m）
+        /* 2026-10-22：跳進洞之後在下墜隧道裡、以及從主頁上方掉下來時用。四腳張開、尾巴往上當舵、耳朵往後貼，輕輕划動。 */
+        fall:    [8,  0.67]
     };
     /* 大廳一開就要用到的三個先抓，其他等角落那隻貓要用時才抓（全部約 1.3MB，不該讓每個進站的人都扛）。 */
     var preloaded = {};
@@ -126,7 +142,7 @@
        lobby3d.js 是 module，用插 <script type="module"> 的方式載（不寫 import()：
        那是語法，不認得它的舊瀏覽器會連這整支都解析失敗，序列圖貓也跟著沒了）。
        載好之後牠會「跟著」一個序列圖格子：大廳的 .lb-cat，或角落的 #bcCat。
-       ★ 只在小黑貓、彰師電子這兩頁載（HOMES）：錯題本、電路、文書三頁的貓只是掛一下就跳走，
+       ★ 只在小黑貓、彰師電子這兩頁載（HOMES）：錯題本、電路、文書三頁的貓掉一下就鑽進次元裂縫，
          為了那兩秒多抓 1.2MB、還跟那一頁自己的載入搶頻寬，不划算——那裡就用序列圖。
        ★ 減少動態、省電模式、沒有 module 支援：不載，序列圖照舊。 */
     var C3 = null, c3want = null, c3started = false;
@@ -279,8 +295,8 @@
     function start() {
         load3d();
         lay = pickLayout();
-        /* 交棒過來的那一頁一開始就是店裡（影片最後一格），不是街上。 */
-        H.style.setProperty('--lb-bg', 'url(' + (mode === 'arrive' ? endSrc(PAGE, hand && hand.lay) : DIR + SCENE[lay].src) + ')');
+        /* 交棒過來的那一頁一開始就是隧道裡（下墜影片的第一格），不是街上。 */
+        H.style.setProperty('--lb-bg', 'url(' + (mode === 'arrive' ? fallPoster(hand && hand.lay) : DIR + SCENE[lay].src) + ')');
         H.classList.add('lobby-on');
         whenBody(build);
     }
@@ -290,69 +306,74 @@
         root.id = 'lobby';
         root.setAttribute('role', 'dialog');
         root.setAttribute('aria-modal', 'true');
-        root.setAttribute('aria-label', '選一個小黑貓進去');
+        root.setAttribute('aria-label', '選一個洞跳下去');
         half = el('div', 'lb-half', root);
         scene = el('div', 'lb-scene', half);
 
         bgImg = el('img', 'lb-bg', scene);
         bgImg.alt = '';
         bgImg.decoding = 'async';
-        /* 背景圖抓不到（離線又沒進過快取）就直接放棄大廳：
-           一條黑漆漆、只有招牌的街比沒有大廳更像壞掉。 */
-        bgImg.onerror = abort;
-        bgImg.src = DIR + SCENE[lay].src;
+        /* 背景圖抓不到（離線又沒進過快取）就直接放棄大廳：一條黑漆漆、只有字的街比沒有大廳更像壞掉。
+           ★ 交棒過來的那一頁不看街景（直接是隧道），所以不用等它。 */
+        if (mode !== 'arrive') { bgImg.onerror = abort; bgImg.src = DIR + SCENE[lay].src; }
 
         el('div', 'lb-rain', scene);
 
-        SIGNS.forEach(function (s, i) {
-            var k = s[0], b = el('button', 'lb-sign' + (s[3] ? ' desk-only' : ''), scene);
-            b.type = 'button';
-            b.dataset.k = k;
-            b.style.setProperty('--c', s[4]);
-            b.style.setProperty('--lb-delay', (-i * 1.37).toFixed(2) + 's');   // 五塊不要同步晃
-            b.setAttribute('aria-label', '進入' + s[1]);
-            var art = el('img', '', b);
-            art.alt = '';
-            art.src = DIR + 'sign-' + k + '.webp';
-            art.onerror = function () { art.remove(); b.style.background = 'rgba(7,6,12,.85)'; b.style.boxShadow = '0 0 0 2px ' + s[4] + ', 0 0 18px ' + s[4]; };
-            el('span', 'lb-name', b).textContent = s[1];
-            if (s[3]) el('span', 'lb-off', b).textContent = '用電腦開';
-            el('span', 'lb-grip', b);
-            if (s[3] && touch) { b.disabled = true; b.setAttribute('aria-disabled', 'true'); }
-            b.addEventListener('click', function () { pick(k); });
-            /* 手指或滑鼠一靠近就先把那一頁抓起來，換頁時少等一點。 */
-            if (k !== PAGE) b.addEventListener('pointerenter', function () { prefetch(s[2]); }, { once: true });
-            signEls[k] = b;
+        if (mode !== 'arrive') SIGNS.forEach(function (s) {
+            var k = s[0], off = s[3] && touch;
+            /* 洞：一顆橢圓的按鈕蓋在路面的洞口上；看板：洞後緣那塊電子看板，字是網頁畫的（透視變形貼到看板上）。
+               兩個都點得到，hover／focus 時一起亮。 */
+            var hole = el('button', 'lb-hole' + (s[3] ? ' desk-only' : ''), scene);
+            hole.type = 'button';
+            hole.dataset.k = k;
+            hole.style.setProperty('--c', s[4]);
+            hole.setAttribute('aria-label', '跳進' + s[1]);
+            var board = el('div', 'lb-board' + (s[3] ? ' desk-only' : ''), scene);
+            board.style.setProperty('--c', s[4]);
+            board.setAttribute('aria-hidden', 'true');
+            el('span', 'lb-name', board).textContent = s[1];
+            if (s[3]) el('span', 'lb-off', board).textContent = '用電腦開';
+            if (off) { hole.disabled = true; hole.setAttribute('aria-disabled', 'true'); }
+            var go = function () { pick(k); };
+            hole.addEventListener('click', go);
+            if (!off) board.addEventListener('click', go);
+            var hot = function (on) { hole.classList.toggle('hot', on); board.classList.toggle('hot', on); };
+            [hole, board].forEach(function (e) {
+                e.addEventListener('pointerenter', function () { hot(true); if (k !== PAGE) prefetch(s[2]); });
+                e.addEventListener('pointerleave', function () { hot(false); });
+            });
+            hole.addEventListener('focus', function () { hot(true); });
+            hole.addEventListener('blur', function () { hot(false); });
+            signEls[k] = { hole: hole, board: board };
         });
 
         catEl = el('div', 'lb-cat', scene);
-        preload(['idle']);
-        setSprite(catEl, 'idle');
+        preload(['idle', 'run', 'jump', 'fall']);
+        if (mode !== 'arrive') { var pi = new Image(); pi.src = fallPoster(); }   // 下墜第一格先抓起來
+        setSprite(catEl, mode === 'arrive' ? 'fall' : 'idle');
         if (mode !== 'arrive') want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層
         if (mode === 'lobby' && !reduce) streetLife();
 
         hud = el('div', 'lb-hud', root);
-        hud.textContent = mode === 'arrive' ? '連線中' : '選一家店走進去';
+        hud.textContent = mode === 'arrive' ? '下墜中' : '選一個洞跳下去';
 
         D.body.appendChild(root);
         H.classList.add('lobby-built');
         layout();
         W.addEventListener('resize', layout);
 
-        /* ★ 不主動把焦點放到招牌上：開站時的程式聚焦在 Chrome 會被當成鍵盤焦點，
-             第一塊招牌一進來就套著一圈虛線框。招牌是 <button>，按 Tab 就到得了。 */
+        /* ★ 不主動把焦點放到洞上：開站時的程式聚焦在 Chrome 會被當成鍵盤焦點，第一個洞一進來就套著一圈虛線框。 */
         if (mode === 'arrive') arrive(PAGE);
     }
 
-    /* 使用者還在挑招牌時，街上的貓不要一直同一個動作：坐一下、東張西望、舔舔爪子。 */
+    /* 使用者還在挑的時候，街上的貓不要一直同一個動作：坐一下、東張西望、舔舔爪子。 */
     function streetLife() {
         setTimeout(function () { preload(['look', 'groom']); }, 2500);
         var seq = ['look', 'idle', 'groom', 'idle'], k = 0;
         (function next() {
             setTimeout(function () {
                 if (picked || done || !catEl || catEl.parentNode !== scene) return;
-                var n = seq[k++ % seq.length];
-                setSprite(catEl, n);
+                setSprite(catEl, seq[k++ % seq.length]);
                 next();
             }, k % 2 ? CAT.look[1] * 2000 : 6500);
         })();
@@ -363,36 +384,54 @@
         var S = SCENE[lay], vw = W.innerWidth, vh = W.innerHeight;
         var s = Math.max(vw / S.w, vh / S.h);
         var ox = (vw - S.w * s) / 2, oy = (vh - S.h * s) / 2;
-        return { s: s, x: function (n) { return ox + n * S.w * s; }, y: function (n) { return oy + n * S.h * s; }, ih: S.h * s };
+        return { s: s, x: function (n) { return ox + n * S.w * s; }, y: function (n) { return oy + n * S.h * s; }, ih: S.h * s,
+                 p: function (q) { return [ox + q[0] * S.w * s, oy + q[1] * S.h * s]; } };
+    }
+
+    /* 看板：一個 BW×BH 的長方形，用投影矩陣（matrix3d）貼到看板在畫面上的四個角。
+       跟相機把方形的看板拍成梯形是同一件事；Heckbert 的「單位正方形 → 任意四邊形」公式。 */
+    var BW = 360, BH = 100;
+    function quad(p) {
+        var x0 = p[0][0], y0 = p[0][1], x1 = p[1][0], y1 = p[1][1], x2 = p[2][0], y2 = p[2][1], x3 = p[3][0], y3 = p[3][1];
+        var dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
+        var den = dx1 * dy2 - dx2 * dy1, g = (dx3 * dy2 - dx2 * dy3) / den, h = (dx1 * dy3 - dx3 * dy1) / den;
+        var a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, d = y1 - y0 + g * y1, e = y3 - y0 + h * y3;
+        a /= BW; d /= BW; g /= BW; b /= BH; e /= BH; h /= BH;
+        return 'matrix3d(' + [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, x0, y0, 0, 1].map(function (v) { return +v.toFixed(6); }).join(',') + ')';
+    }
+
+    var catAt = null;   // 大廳裡的貓：{x, y, size}（腳底中間、格子邊長，px）；跑去洞口時由 runTo 改寫
+    function placeCat(x, y, size) {
+        catAt = { x: x, y: y, size: size };
+        catEl.style.setProperty('--size', size + 'px');
+        catEl.style.left = (x - size / 2) + 'px';
+        catEl.style.top = (y - size) + 'px';
     }
 
     function layout() {
         if (!root || done) return;
         var nl = pickLayout();
-        if (nl !== lay) {   // 手機轉向：換一張圖
+        if (nl !== lay && mode !== 'arrive' && !picked) {   // 手機轉向：換一張圖
             lay = nl;
             bgImg.src = DIR + SCENE[lay].src;
             H.style.setProperty('--lb-bg', 'url(' + DIR + SCENE[lay].src + ')');
         }
         var m = mapper(), S = SCENE[lay];
         SIGNS.forEach(function (s) {
-            var b = signEls[s[0]], p = S.signs[s[0]];
-            if (!b || !p) return;
-            var h = p[2] * m.ih, w = h * SIGN_ASPECT;
-            b.style.left = (m.x(p[0]) - w / 2) + 'px';
-            b.style.top = m.y(p[1]) + 'px';
-            b.style.width = w + 'px';
-            b.style.height = h + 'px';
-            /* 字要塞得進招牌：寬度的一半，或高度平均分給每個字，取小的。 */
-            var n = s[1].length;
-            b.querySelector('.lb-name').style.fontSize = Math.min(w * 0.52, (h * 0.76) / n) + 'px';
+            var o = signEls[s[0]], p = S.holes[s[0]];
+            if (!o || !p) return;
+            var l = m.p(p.l), r = m.p(p.r), f = m.p(p.f), n = m.p(p.n);
+            o.hole.style.left = l[0] + 'px'; o.hole.style.width = (r[0] - l[0]) + 'px';
+            o.hole.style.top = f[1] + 'px'; o.hole.style.height = (n[1] - f[1]) + 'px';
+            o.board.style.transform = quad(p.board.map(m.p));
+            /* 字要塞得進看板：BH 的六成，或 BW 平均分給每個字，取小的。 */
+            o.board.querySelector('.lb-name').style.fontSize = Math.min(BH * 0.6, (BW * 0.86) / s[1].length) + 'px';
         });
-        if (catEl && catEl.parentNode === scene) {
-            var c = S.cat, size = c[2] * m.ih;
-            catEl.style.setProperty('--size', size + 'px');
-            catEl.style.left = (m.x(c[0]) - size / 2) + 'px';
-            catEl.style.top = (m.y(c[1]) - size) + 'px';
+        if (catEl && catEl.parentNode === scene && !picked) {
+            var c = S.cat;
+            placeCat(m.x(c[0]), m.y(c[1]), c[2] * ENL * m.ih);
         }
+        if (fallOn) fallLayout();
     }
 
     var prefetched = {};
@@ -402,136 +441,208 @@
         try { var l = D.createElement('link'); l.rel = 'prefetch'; l.href = href; D.head.appendChild(l); } catch (e) {}
     }
 
-    /* ---- 點了一塊招牌：鏡頭飛進那家店（2026-10-16 深夜，取代原本的「貓跳上招牌、把街撕開」）----
-       影片是 Blender 算好的（素材/大廳/README.md「轉場影片」）：鏡頭從街上轉向那家店、穿過亮著的店門、停在店裡。
-       選小黑貓的那一段，街上那隻貓會先起跑、跑在鏡頭前面衝進店裡，最後坐在店裡的貓窩上；
-       選別家的話，貓留在街上坐著，鏡頭從牠旁邊經過。
-       ★ 影片第一格就是街景（招牌的字也算進去了），所以一開始是把 HTML 的招牌與貓淡掉、影片淡進來，看不出接縫。
-       ★ 影片只有選到的那一段才下載（約 200～400KB）；滑鼠移到招牌上就先抓。
-         1.5 秒內還播不起來（網路慢、格式不支援）就退回「畫面往店門放大＋門口的光」，不讓人乾等。 */
+    /* ---- 點了一個洞（2026-10-22，取代「鏡頭飛進店裡」）----
+       貓跑到洞口、跳進去；畫面往洞裡衝下去，接著是所有產品共用的下墜隧道（影片循環，載多久掉多久），貓在畫面中間一起掉。
+       選小黑貓：這一頁載好就從隧道底掉出去、揭開首頁，貓再從主頁上方掉下來（Companion.enter）。
+       選別的：掉一下就換頁（交棒），新的那一頁一開始就是同一條隧道、同一隻貓；載好時貓旁邊裂開一道次元裂縫，貓被吸進去，再揭開那一頁。 */
     function pick(k) {
         if (picked || done) return;
         var s = signOf(k);
         if (!s || (s[3] && touch)) return;
         picked = true;
         root.classList.add('picked');
-        signEls[k].classList.add('chosen');
+        signEls[k].hole.classList.add('chosen'); signEls[k].board.classList.add('chosen');
         arm();
         if (k !== PAGE) prefetch(s[2]);
-        if (reduce) {   // 減少動態：不飛，選了就走
-            if (k === PAGE) within(readyP, 20000).then(function () { reveal(k); });
+        if (reduce) {   // 減少動態：不跑、不掉，選了就走
+            if (k === PAGE) within(readyP, 20000).then(function () { fadeOut(); });
             else go(s);
             return;
         }
-        hud.textContent = '開門中';
-        fly(k).then(function () {
-            if (k === PAGE) within(readyP, 20000).then(function () { reveal(k); });
-            else go(s);
+        hud.textContent = '跳';
+        fallVideo();   // 先開始抓影片
+        var p = SCENE[lay].holes[k], m = mapper();
+        var n = m.p(p.n), c = m.p(p.c), hs = p.h * ENL * m.ih;
+        runTo(n[0], n[1] - hs * 0.04, hs).then(function () {
+            return jumpIn(c[0], c[1], hs);
+        }).then(function () {
+            return dive(c[0], c[1], s[4]);
+        }).then(function () {
+            fallStart();
+            if (k === PAGE) Promise.all([within(readyP, 20000), wait(1600)]).then(function () { dropOut(); });
+            else wait(900).then(function () { go(s); });
         });
     }
 
-    /* 交棒：記下要去哪、換頁。新的那一頁在 arrive() 接手，先畫出店裡的最後一格。 */
+    /* 交棒：記下要去哪、換頁。新的那一頁在 arrive() 接手，直接從隧道開始。 */
     function go(s) {
         try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now(), lay: lay })); } catch (e) {}
         location.href = s[2];
     }
 
-    function flySrc(k, l) { return DIR + 'fly/' + (l || lay) + '-' + k + '.mp4'; }
-    function endSrc(k, l) { return DIR + 'fly/' + (l || lay) + '-' + k + '-end.webp'; }
-    var flyCache = {};
-    /* 先把影片（與最後一格的圖）抓起來：滑鼠移到招牌上、或點下去的那一刻。 */
-    function flyVideo(k) {
-        var key = lay + k;
-        if (flyCache[key]) return flyCache[key];
+    /* 跑到洞口：位置與格子大小一起內插（越遠的洞貓越小，照透視）。 */
+    function frames(dur, step) {
+        return new Promise(function (res) {
+            var t0 = 0;
+            function f(now) {
+                if (done) return res();
+                if (!t0) t0 = now;
+                var u = Math.min(1, (now - t0) / (dur * 1000));
+                step(u);
+                if (u < 1) requestAnimationFrame(f); else res();
+            }
+            requestAnimationFrame(f);
+        });
+    }
+    function runTo(x, y, size) {
+        var a = catAt, dx = x - a.x, dist = Math.hypot(dx, y - a.y);
+        catEl.style.transform = dx < 0 ? 'scaleX(-1)' : '';
+        setSprite(catEl, 'run');
+        var dur = Math.max(0.45, Math.min(1.6, dist / ((a.size + size) * 1.1)));
+        return frames(dur, function (u) {
+            placeCat(a.x + dx * u, a.y + (y - a.y) * u, a.size + (size - a.size) * u);
+        });
+    }
+    /* 跳進洞：往洞中間拋物線，越掉越小（掉進去了），最後縮到看不見。3D 貓讀的是格子大小，所以也跟著縮。 */
+    function jumpIn(x, y, size) {
+        var a = { x: catAt.x, y: catAt.y, size: catAt.size };
+        setSprite(catEl, 'jump', true);
+        return frames(0.5, function (u) {
+            var k = u < 0.45 ? 1 : 1 - (u - 0.45) / 0.55;
+            placeCat(a.x + (x - a.x) * u, a.y + (y - a.y) * u - size * 0.55 * 4 * u * (1 - u) + size * 0.25 * u * u,
+                     Math.max(1, a.size * (0.15 + 0.85 * k)));
+        });
+    }
+    /* 往洞裡衝：整個街景以洞口為中心放大、變暗，洞的顏色蓋上來。 */
+    function dive(x, y, color) {
+        if (c3want && c3want.e === catEl) want3d(null);
+        catEl.style.visibility = 'hidden';
+        half.style.transformOrigin = x.toFixed(0) + 'px ' + y.toFixed(0) + 'px';
+        var a = half.animate([{ transform: 'scale(1)', filter: 'brightness(1) blur(0)' }, { transform: 'scale(7)', filter: 'brightness(0.35) blur(4px)' }],
+            { duration: 620, easing: 'cubic-bezier(0.55, 0, 0.9, 0.6)', fill: 'forwards' });
+        var glow = el('div', 'lb-glow', root);
+        glow.style.setProperty('--c', color);
+        glow.style.setProperty('--gx', x.toFixed(0) + 'px'); glow.style.setProperty('--gy', y.toFixed(0) + 'px');
+        var g = glow.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 620, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' });
+        return Promise.all([a.finished, g.finished]).catch(function () {}).then(function () { root.dataset.glow = '1'; });
+    }
+
+    /* ---- 下墜隧道：一支所有產品共用的循環影片（Blender 算的，素材/大廳/scripts/fall.py）＋畫面中間的貓 ----
+       ★ 影片裡沒有貓：貓是 cat-fall 序列圖（或 3D 貓）疊上去的，抵達時要掉出去還是鑽進裂縫由這裡決定。
+       ★ 影片抓不到或播不起來：留著第一格的圖（poster），一樣是隧道，只是不會動。 */
+    var fallEl = null, fallOn = false;
+    function fallSrc(l) { return DIR + 'fall-' + (l || lay) + '.mp4'; }
+    function fallPoster(l) { return DIR + 'fall-' + (l || lay) + '.webp'; }
+    function fallVideo(l) {
+        if (fallEl) return fallEl;
         var v = D.createElement('video');
-        v.className = 'lb-fly';
-        v.muted = true; v.defaultMuted = true; v.playsInline = true;
-        v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('aria-hidden', 'true');
+        v.className = 'lb-fall';
+        v.muted = true; v.defaultMuted = true; v.playsInline = true; v.loop = true;
+        v.setAttribute('muted', ''); v.setAttribute('playsinline', ''); v.setAttribute('loop', ''); v.setAttribute('aria-hidden', 'true');
         v.preload = 'auto';
-        v.src = flySrc(k);
+        v.poster = fallPoster(l);
+        /* poster 還沒畫出來之前影片是黑的（手機實測下墜一開始黑一下）：底下再鋪同一張圖 */
+        v.style.background = '#07060c url(' + fallPoster(l) + ') center / cover no-repeat';
+        v.src = fallSrc(l);
         try { v.load(); } catch (e) {}
-        var img = new Image(); img.src = endSrc(k);
-        flyCache[key] = v;
+        fallEl = v;
         return v;
     }
-
-    function fly(k) {
-        var v = flyVideo(k);
-        root.insertBefore(v, hud);
-        return new Promise(function (res) {
-            var started = false, finished = false;
-            function end() { if (!finished) { finished = true; res(); } }
-            function start() {
-                if (started) return;
-                started = true; clearTimeout(slow);
-                v.classList.add('on');
-                root.classList.add('flying');           // 招牌、貓、雨淡掉（影片裡已經有它們了）
-                if (c3want && c3want.e === catEl) want3d(null);
-                setTimeout(end, ((v.duration || 2) + 1.5) * 1000);   // 播到一半卡住也要能走
-            }
-            function fallback() {
-                if (started) return;
-                started = true; clearTimeout(slow);
-                if (v.parentNode) v.parentNode.removeChild(v);
-                dolly(k).then(end);
-            }
-            var slow = setTimeout(fallback, 1500);
-            v.addEventListener('playing', start, { once: true });
-            v.addEventListener('ended', end, { once: true });
-            v.addEventListener('error', fallback, { once: true });
-            try { var p = v.play(); if (p && p.catch) p.catch(fallback); } catch (e) { fallback(); }
+    /* 貓在隧道裡：很小、在畫面正中間（使用者畫的參考：遠遠的一隻在翻滾往下掉）。
+       格子裡的貓只佔格子的三分之一左右，所以格子取短邊的兩成，貓本身大約是短邊的 7%。 */
+    function fallLayout() {
+        var vw = W.innerWidth, vh = W.innerHeight, size = Math.min(vw, vh) * 0.2;
+        catEl.style.transform = '';
+        placeCat(vw / 2, vh * 0.36 + size * 0.42, size);   // 0.46 時貓跟花瓣帶同高，看起來像站在花瓣上
+    }
+    function fallStart(l) {
+        var v = fallVideo(l);
+        root.insertBefore(v, half.nextSibling);
+        /* 往洞裡衝時蓋上來的那層顏色，等影片淡進來就收掉 */
+        Array.prototype.forEach.call(root.querySelectorAll('.lb-glow'), function (g) {
+            var a = g.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 360, fill: 'forwards' });
+            a.finished.catch(function () {}).then(function () { if (g.parentNode) g.parentNode.removeChild(g); });
         });
+        root.classList.add('falling');
+        /* 貓搬出會被放大的街景那一層，放到隧道上面、畫面中間 */
+        root.insertBefore(catEl, hud);
+        catEl.style.visibility = '';
+        fallOn = true; fallLayout();
+        setSprite(catEl, 'fall');
+        catEl.classList.add('bob');
+        hud.textContent = '下墜中';
+        /* 隧道裡不用 3D 貓：翻滾是 CSS 的 rotate，3D 那支只讀格子的位置與左右翻面，接上去會變成不會翻的貓。 */
+        /* 交棒過來的那一頁：前一頁最後就是隧道，這裡直接接上，不淡入（淡入的那 0.27 秒是黑的） */
+        if (mode === 'arrive') v.classList.add('on');
+        else requestAnimationFrame(function () { v.classList.add('on'); });
+        try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
     }
 
-    /* 退路：影片放不出來時，把整個場景往那家店的門口放大，門口的光（招牌的顏色）蓋滿畫面，
-       再換上店裡最後一格的圖（抓得到的話）。 */
-    function dolly(k) {
-        var d = SCENE[lay].doors[k], m = mapper();
-        var ox = Math.max(0.04, Math.min(0.96, d[0])), oy = d[1];
-        var px = m.x(ox), py = m.y(oy);
-        half.style.transformOrigin = px.toFixed(0) + 'px ' + py.toFixed(0) + 'px';
-        var a = half.animate([{ transform: 'scale(1)', filter: 'blur(0)' }, { transform: 'scale(3.4)', filter: 'blur(3px)' }],
-            { duration: 900, easing: 'cubic-bezier(0.55, 0, 0.9, 0.6)', fill: 'forwards' });
-        var glow = el('div', 'lb-glow', root);
-        glow.style.setProperty('--c', signOf(k)[4]);
-        glow.style.setProperty('--gx', px.toFixed(0) + 'px'); glow.style.setProperty('--gy', py.toFixed(0) + 'px');
-        var g = glow.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 900, easing: 'cubic-bezier(0.55, 0, 1, 0.45)', fill: 'forwards' });
-        if (c3want && c3want.e === catEl) want3d(null);
-        return Promise.all([a.finished, g.finished]).catch(function () {}).then(function () {
-            var img = el('img', 'lb-fly on', null);
-            img.alt = ''; img.src = endSrc(k);
-            img.onload = function () { root.insertBefore(img, glow); glow.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 270, fill: 'forwards' }); };
-        });
-    }
-
-    /* 新的那一頁接手：直接是店裡（影片的最後一格），等自己載好就走進去。 */
+    /* 新的那一頁接手：直接是隧道、貓在中間掉，等自己載好。 */
     function arrive(k) {
         picked = true;
         arm();
-        root.classList.add('picked', 'flying');
-        var img = el('img', 'lb-fly on', root);
-        img.alt = '';
-        img.onerror = function () { img.remove(); };
-        img.src = endSrc(k, hand && hand.lay);
-        root.insertBefore(img, hud);
-        hud.textContent = '開門中';
-        var fuse = PAGE === 'doc' ? 12000 : 20000;   // 文書的編輯器第一次要抓十幾 MB，別讓人一直看店門
-        Promise.all([within(readyP, fuse), wait(reduce ? 0 : 400)]).then(function () { reveal(k); });
+        root.classList.add('picked');
+        fallStart(hand && hand.lay);
+        var fuse = PAGE === 'doc' ? 12000 : 20000;   // 文書的編輯器第一次要抓十幾 MB，別讓人一直掉
+        Promise.all([within(readyP, fuse), wait(reduce ? 0 : 900)]).then(function () {
+            if (reduce) { fadeOut(); return; }
+            if (HOMES[k]) dropOut(); else rift().then(reveal);
+        });
     }
 
-    /* 走進店裡：店裡的畫面往前推近一點、同時淡掉，後面就是那個產品。 */
-    function reveal(k) {
+    /* 小黑貓：貓從隧道底掉出畫面，隧道亮一下、淡掉，後面就是首頁；貓接著從首頁上方掉下來。 */
+    function dropOut() {
         if (done) return;
-        var shot = root.querySelector('.lb-fly.on') || half;
+        catEl.classList.remove('bob');
+        var size = catAt ? catAt.size : 200;
+        var a = catEl.animate([{ translate: '0 0' }, { translate: '0 ' + (W.innerHeight + size) + 'px' }],
+            { duration: 420, easing: 'cubic-bezier(0.5, 0, 1, 0.5)', fill: 'forwards' });
+        a.finished.catch(function () {}).then(function () { if (c3want && c3want.e === catEl) want3d(null); reveal(); });
+    }
+
+    /* 次元裂縫（不是小黑貓的那幾頁：貓不留在那裡）：貓旁邊裂開一道發光的縫，貓被吸進去、縫闔上，再揭開那一頁。 */
+    function rift() {
+        if (done) return Promise.resolve();
+        catEl.classList.remove('bob');
+        var a = catAt || { x: W.innerWidth / 2, y: W.innerHeight * 0.7, size: 200 };
+        var cx = a.x + a.size * 0.18, cy = a.y - a.size * 0.42;
+        var r = el('div', 'lb-rift', root);
+        r.style.left = cx + 'px'; r.style.top = cy + 'px';
+        r.style.setProperty('--w', (a.size * 0.5) + 'px'); r.style.setProperty('--h', (a.size * 1.05) + 'px');
+        r.innerHTML = '<svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="lbRiftG" x1="0" y1="0" x2="1" y2="0">'
+            + '<stop offset="0" stop-color="#00f0ff"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#ff2a6d"/></linearGradient></defs>'
+            + '<path d="M20 0 L24 14 L17 27 L26 41 L15 55 L25 68 L18 82 L22 100 L19 100 L14 82 L21 68 L11 55 L22 41 L13 27 L20 14 L16 0 Z" fill="url(#lbRiftG)"/></svg>';
+        root.insertBefore(r, catEl);
+        var open = r.animate([{ scale: '0.2 0', opacity: 0 }, { scale: '1 1', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' });
+        return open.finished.catch(function () {}).then(function () {
+            setSprite(catEl, 'jump', true);
+            var dx = cx - a.x, dy = cy + a.size * 0.42 - a.y;
+            var s = catEl.animate([
+                { translate: '0 0', scale: '1', rotate: '0deg', filter: 'none', opacity: 1 },
+                { translate: (dx * 0.6) + 'px ' + (dy * 0.6 - a.size * 0.15) + 'px', scale: '0.7', rotate: '-12deg', filter: 'hue-rotate(40deg) brightness(1.4)', opacity: 1, offset: 0.55 },
+                { translate: dx + 'px ' + dy + 'px', scale: '0.05 0.4', rotate: '-25deg', filter: 'hue-rotate(90deg) brightness(3) blur(2px)', opacity: 0 }
+            ], { duration: 520, easing: 'cubic-bezier(0.5, 0, 0.9, 0.5)', fill: 'forwards' });
+            return s.finished.catch(function () {});
+        }).then(function () {
+            var c = r.animate([{ scale: '1 1', opacity: 1, filter: 'brightness(1)' }, { scale: '0 0.9', opacity: 0, filter: 'brightness(3)' }],
+                { duration: 240, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+            return c.finished.catch(function () {});
+        });
+    }
+
+    /* 揭開：大廳（隧道）淡掉，後面就是那個產品。 */
+    function reveal() {
+        if (done) return;
         root.classList.add('opening');
         if (hud) hud.style.opacity = '0';
         var spawnCat = HOMES[PAGE] && catStays();
         if (reduce) { fadeOut(); return; }
-        var a = shot.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }], { duration: 540, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
-        var b = root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 540, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
-        Promise.all([a.finished, b.finished]).catch(function () {}).then(function () {
+        var b = root.animate([{ opacity: 1, filter: 'brightness(1)' }, { opacity: 1, filter: 'brightness(1.8)', offset: 0.25 }, { opacity: 0, filter: 'brightness(1)' }],
+            { duration: 520, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
+        b.finished.catch(function () {}).then(function () {
             finish();
-            if (spawnCat) Companion.spawn(k === 'cat');
+            if (spawnCat) Companion.spawn(true);
         });
     }
 
@@ -558,6 +669,7 @@
     var Companion = (function () {
         var btn = null, timer = 0, bubbleT = 0, raf = 0, endT = 0, lastT = 0, scrollT = 0, watchT = 0, ro = null, mo = null, shown = false;
         var SIZE = 128;  // 一格 0.8m 見方，寫實版的貓坐著只佔三分之一：128px 的格子裡貓大約 45px 高（格子其他地方是透明的）
+        var DROP_G = 2600;   // 從上方掉下來的重力加速度（px／秒²）：從畫面頂掉到 600px 處約 0.68 秒
         var FEET = SIZE * 0.025;   // 腳底在格子底往上 2.5%（跟 lobby3d.js 的 GROUND 同一個數，不然 3D 貓會浮在方框上或陷進去）
         /* 走路速度要跟腳步對上，不然腳會在地上滑：Blender 裡一步（一個循環）往前 0.14m（cat2_natural.py 的 WALK.stride），
            一格 0.8m＝SIZE px，一個循環 CAT.walk[1] 秒。 */
@@ -699,14 +811,17 @@
             if (!g) { a.to = { el: null, rx: clampFloor(lastX) }; g = aim(a.to); }   // 要跳上去的方框半路不見了：改落地板
             if (!a.dur) {
                 var d = Math.hypot(g.x - a.sx, g.y - a.sy);
-                a.dur = Math.max(0.4, Math.min(0.85, 0.28 + d / 1000));
+                if (a.drop) a.dur = Math.max(0.3, Math.min(0.95, Math.sqrt(2 * Math.max(0, g.y - a.sy) / DROP_G)));
+                else a.dur = Math.max(0.4, Math.min(0.85, 0.28 + d / 1000));
                 /* 往上跳：最高點要比目標高一截再落下來；往下跳：只往上彈一點點。 */
-                a.h = g.y < a.sy ? (a.sy - g.y) * 0.45 + 36 : 26 + Math.min(30, d * 0.05);
+                a.h = a.drop ? 0 : (g.y < a.sy ? (a.sy - g.y) * 0.45 + 36 : 26 + Math.min(30, d * 0.05));
             }
             var t = (now - a.t0) / 1000 - a.wait;
             if (t <= 0) { draw(a.sx, a.sy); return; }
             var u = Math.min(1, t / a.dur);
-            draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u - a.h * 4 * u * (1 - u));
+            /* 從上方掉下來：等加速度（越掉越快），不是拋物線 */
+            if (a.drop) draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u * u);
+            else draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u - a.h * 4 * u * (1 - u));
             if (u >= 1) {
                 cur = a.to.el; rx = a.to.rx; air = null;
                 state = 'land'; play('land', true);
@@ -863,7 +978,7 @@
             if (t) hop(t, true);
         }
 
-        /* ---- 出場：從畫面左邊跑進來，跳上課表那張大卡（使用者要的「一開始站在課表的方框上」）----
+        /* ---- 出場：從畫面上方掉下來，落在課表那張大卡上（2026-10-22 起；之前是從左邊跑進來跳上去）----
            沒登入（沒有課表）、切在任務／倒數子分頁、或課表大卡的頂邊不在畫面裡：改跳上畫面裡最好的方框，再沒有就停在地板上。 */
         function homeSpot() {
             var el = D.getElementById('home-user-schedule'), v = el && view(el);
@@ -881,15 +996,15 @@
                 state = 'sit'; play('idle'); btn.style.backgroundPosition = '0 0';
                 kick(); return;
             }
-            cur = null; flip = 1; rx = -SIZE * 0.35;
-            draw(rx, floorY());
-            var stop = home ? Math.max(56, Math.min(W.innerWidth * 0.45, home.x - 70)) : 80 + Math.random() * 120;
-            walkTo(stop, RUN, function () {
-                var h2 = home && (homeSpot() || best(null, lastX, lastY));
-                if (h2) { hop(h2, false); return; }
-                state = 'stand'; play('stand', true, true);
-                later(function () { sit(); }, CAT.stand[1] * 1000);
-            });
+            /* 2026-10-22：從畫面上方掉下來（大廳的貓從隧道底掉出去之後，就是從這裡掉進首頁），落在課表大卡上；
+               沒有大卡就落在畫面裡最好的方框，再沒有就落在地板。 */
+            var to = home || { el: null, rx: clampFloor(80 + Math.random() * 120) };
+            var x = to.el ? to.x : to.rx;
+            cur = null; flip = 1; rx = x;
+            draw(x, -8);   // 腳底在畫面上緣再上面一點：整格都還在畫面外
+            air = { sx: x, sy: -8, to: to, t0: 0, wait: 0, dur: 0, h: 0, drop: true };
+            state = 'jump'; play('fall');
+            kick();
         }
 
         /* 只在主頁出現；鍵盤彈出時先藏起來（不重演出場）；從別的分頁切回主頁時重新跑進來。 */
@@ -955,7 +1070,7 @@
             btn.appendChild(bub);
             btn.addEventListener('click', poke);
             D.body.appendChild(btn);
-            preload(['run', 'walk', 'jump', 'land', 'stand']);
+            preload(['fall', 'run', 'walk', 'jump', 'land', 'stand']);
             load3d();
             want3d(btn, 29);   // 比貓的按鈕（30）低一層：泡泡要在貓上面，點擊本來就穿透畫布
             if (still()) btn.style.backgroundPosition = '0 0';

@@ -33,7 +33,7 @@ const RIM = { value: 1 };   // 邊光強度（所有毛層共用一個）
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
 const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jump: 90, hang: 0,
-               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85 };
+               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30 };
 const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
 function furMaterial(skinned, h) {

@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v177';
+const CACHE = 'blackcat-v178';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -32,7 +32,7 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
               './blackcatdoc.webmanifest', // 文書小黑貓裝成 App 用的 manifest（2026-10-14）
               /* ★ 大廳（2026-10-16）：五頁的 <head> 都載這兩支（交棒接手、角落的黑貓）。
                  不進 CORE 的話離線時每一頁都少一支 script——不會壞，但貓不見了，也沒有人知道為什麼。
-                 ★ 夜街、招牌、貓的圖（lobby/*.webp，合計約 1.5MB；大廳只先抓其中約 400KB）**刻意不進**：
+                 ★ 夜街、洞、下墜、貓的圖（lobby/*.webp，合計約 1.5MB；大廳只先抓其中約 400KB）**刻意不進**：
                    大廳只在「從外面打開首頁」時出現，而 lobby.js 抓不到背景圖會自己放棄、直接進站。
                    第一次看過之後它們走下面「同源靜態資源快取優先」那條路留著，跟單字庫同一個判斷。
                  ★ 即時 3D 的貓（lobby/lobby3d.js、lobby/cat.glb、vendor/three/，合計約 1.4MB）也不進：
@@ -202,7 +202,7 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   // 只處理同源資源。跨源（Firebase／報價 Worker／字典 API）一律走網路。
   if (url.origin !== location.origin) return;
-  /* ★ 影片（大廳走進店裡的轉場，lobby/fly/*.mp4）不經過這裡，讓瀏覽器自己抓（2026-10-17）：
+  /* ★ 影片（大廳的下墜隧道 lobby/fall-*.mp4；2026-10-17 起的舊轉場也是）不經過這裡，讓瀏覽器自己抓（2026-10-17）：
      影片是分段（Range）要的，回 206；Safari 對 Service Worker 轉手的分段回應很挑，播不起來就會退回備用畫面。 */
   if (url.pathname.endsWith('.mp4')) return;
 

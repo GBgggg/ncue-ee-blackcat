@@ -1,5 +1,5 @@
 /* ==========================================================
-   大廳：賽博龐克的夜街，五塊招牌＝五個小黑貓（2026-10-16）
+   大廳：賽博龐克的夜街，路面上五個發光的洞＝五個小黑貓（2026-10-16；2026-10-22 招牌改成洞＋電子看板、轉場改成下墜隧道）
    程式在 lobby.js，為什麼這樣做寫在 架構.md「大廳：夜街、招牌與黑貓」那一節。
 
    ★ 這支檔案五頁共用（主站、彰師電子、錯題本、電路、文書），
@@ -69,60 +69,51 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 @keyframes lbCaret { 50% { opacity: 0; } }
 #lobby.tearing .lb-hud { opacity: 0; transition: opacity 0.18s var(--lb-ease-exit); }
 
-/* ---- 招牌 ----
-   位置與大小由 lobby.js 依背景圖的「cover」換算後寫進 left/top/width/height。
-   轉軸在上緣中間（掛勾的位置），晃動只轉 `rotate`，不碰 transform——
-   transform 留給掉下去那一段的 WAAPI，兩個分開寫才不會互相蓋掉。 */
-.lb-sign {
-    position: absolute; padding: 0; margin: 0; border: 0; background: none; cursor: pointer;
-    transform-origin: 50% 0;
-    rotate: 0deg;
-    animation: lbSway 4.32s ease-in-out infinite alternate;
-    animation-delay: var(--lb-delay, 0s);
-    color: var(--c);
-    outline: none;
+/* ---- 洞與電子看板（2026-10-22）----
+   洞：一顆橢圓的按鈕蓋在路面的洞口上（位置由 lobby.js 依背景圖的 cover 換算），平常透明，hover／focus 時洞口亮起來。
+   看板：360×100 的長方形，lobby.js 用 matrix3d 把它貼到 Blender 算出來的看板四個角上（所以 transform 不能再拿來做別的）。
+   字做成 LED 點陣：字本身用一層圓點格子當遮罩，發光放在外層的 filter（不然光暈也會被遮成點點）。 */
+.lb-hole {
+    position: absolute; padding: 0; margin: 0; border: 0; border-radius: 50%; cursor: pointer; outline: none;
+    background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 22%, transparent) 0, color-mix(in srgb, var(--c) 10%, transparent) 60%,
+                color-mix(in srgb, var(--c) 55%, transparent) 88%, transparent 100%);
+    box-shadow: 0 0 24px color-mix(in srgb, var(--c) 60%, transparent);
+    opacity: 0; transition: opacity 0.18s var(--lb-ease);
 }
-@keyframes lbSway { from { rotate: -1.2deg; } to { rotate: 1.2deg; } }
-.lb-sign img { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.lb-sign .lb-name {
-    position: absolute; left: 50%; top: 13%; bottom: 9%; translate: -50% 0;
-    writing-mode: vertical-rl; text-orientation: upright;
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--lb-sign-font); font-weight: 900; line-height: 1;
-    letter-spacing: 0.04em; white-space: nowrap;
-    color: #fff;
-    text-shadow: 0 0 2px #fff, 0 0 6px var(--c), 0 0 14px var(--c), 0 0 28px var(--c);
+.lb-hole.hot, .lb-hole:focus-visible { opacity: 1; }
+.lb-hole:focus-visible::after { content: ''; position: absolute; inset: -6px; border: 2px dashed #00f0ff; border-radius: 50%; pointer-events: none; }
+.lb-board {
+    position: absolute; left: 0; top: 0; width: 360px; height: 100px; transform-origin: 0 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    cursor: pointer; color: var(--c);
+    filter: drop-shadow(0 0 2px var(--c)) drop-shadow(0 0 7px var(--c));
+}
+.lb-board .lb-name {
+    font-family: var(--lb-sign-font); font-weight: 900; line-height: 1; letter-spacing: 0.06em; white-space: nowrap;
+    color: color-mix(in srgb, var(--c) 72%, #fff);
+    -webkit-mask: radial-gradient(circle, #000 56%, transparent 64%) 0 0 / 4px 4px;
+            mask: radial-gradient(circle, #000 56%, transparent 64%) 0 0 / 4px 4px;
     animation: lbFlicker 7.2s steps(1, end) infinite;
-    animation-delay: var(--lb-delay, 0s);
 }
 /* 霓虹偶爾閃一下：一輪 7.2 秒裡只有最後幾格在動（跟主站大標題的抖動同一個節奏）。 */
 @keyframes lbFlicker {
     0%, 91%, 93%, 96%, 100% { opacity: 1; }
     92%, 95% { opacity: 0.35; }
 }
-.lb-sign:hover .lb-name, .lb-sign:focus-visible .lb-name { animation: none; text-shadow: 0 0 2px #fff, 0 0 8px var(--c), 0 0 20px var(--c), 0 0 40px var(--c); }
-.lb-sign:focus-visible::after {
-    content: ''; position: absolute; inset: -6px; border: 2px dashed #00f0ff; pointer-events: none;
-}
-/* 桌機限定的產品：觸控裝置上是一塊沒插電的招牌，點不了。
+.lb-board.hot { filter: drop-shadow(0 0 3px var(--c)) drop-shadow(0 0 12px var(--c)) brightness(1.25); }
+.lb-board.hot .lb-name { animation: none; color: #fff; }
+/* 桌機限定的產品：觸控裝置上看板沒插電、洞點不了。
    條件跟主站 logo 選單的 .desktop-only 同一個 media query（tests/lobby.mjs 釘著）。 */
-.lb-sign .lb-off { display: none; }
+.lb-board .lb-off { display: none; }
 @media (pointer: coarse) and (hover: none) {
-    .lb-sign.desk-only { cursor: default; filter: saturate(0.15) brightness(0.55); animation: none; }
-    .lb-sign.desk-only .lb-name { animation: none; text-shadow: none; color: rgba(255, 255, 255, 0.35); }
-    .lb-sign.desk-only .lb-off {
-        display: block; position: absolute; left: 50%; bottom: -1.6em; translate: -50% 0;
-        font: 11px/1 var(--lb-mono); letter-spacing: 0.1em; white-space: nowrap; color: #8a8fa3;
-    }
+    .lb-hole.desk-only { cursor: default; }
+    .lb-board.desk-only { cursor: default; filter: saturate(0.15) brightness(0.55); }
+    .lb-board.desk-only .lb-name { animation: none; color: rgba(255, 255, 255, 0.4); }
+    .lb-board.desk-only .lb-off { display: block; font: 22px/1 var(--lb-mono); letter-spacing: 0.1em; color: #8a8fa3; }
 }
-#lobby.picked .lb-sign:not(.chosen) { pointer-events: none; }
-.lb-sign.chosen { animation: lbSwing 1.08s ease-in-out infinite alternate; z-index: 3; }
-.lb-sign.chosen.kick { animation: lbKick 0.54s var(--lb-ease) 1, lbSwing 1.08s ease-in-out 0.54s infinite alternate; }
-@keyframes lbKick { from { rotate: 0deg; } 40% { rotate: 14deg; } to { rotate: -10deg; } }
-@keyframes lbSwing { from { rotate: -10deg; } to { rotate: 10deg; } }
-
-/* 招牌底下的抓點：貓抓上去之後被搬進這裡，跟著招牌一起晃。 */
-.lb-grip { position: absolute; left: 50%; top: 96%; width: 0; height: 0; }
+#lobby.picked .lb-hole, #lobby.picked .lb-board { pointer-events: none; }
+.lb-board.chosen .lb-name { animation: lbBlink 0.27s steps(1, end) 3; color: #fff; }
+@keyframes lbBlink { 50% { opacity: 0.2; } }
 
 /* ---- 黑貓（序列圖：一張橫的長條，每格一個正方形）----
    格數與速度由 lobby.js 依動作寫進 --frames／--dur。
@@ -139,25 +130,44 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 }
 .lb-cat.once { animation-iteration-count: 1; animation-fill-mode: forwards; }
 @keyframes lbSprite { from { background-position: 0 0; } to { background-position: 100% 0; } }
-/* 掛在招牌上：錨點換成上緣中間（前腳抓著的地方）。 */
-.lb-grip > .lb-cat { left: calc(var(--size) / -2); top: calc(var(--size) * -0.12); transform-origin: 50% 0; }
-.lb-grip > .lb-cat.hang { animation: lbSprite var(--dur) steps(var(--frames), jump-none) infinite, lbDangle 1.08s ease-in-out infinite alternate; }
-@keyframes lbDangle { from { rotate: 6deg; } to { rotate: -6deg; } }
-
-/* ---- 轉場：鏡頭飛進店裡（2026-10-16 深夜，取代原本的撕開）----
-   影片（或退路時店裡最後一格的圖）跟背景圖一樣用 cover 鋪滿：影片的第一格就是同一條街，比例也一樣。
-   影片開始播的那一刻，HTML 的招牌、貓、雨一起淡掉（影片裡已經有它們了），兩邊對得上，看不出接縫。 */
-.lb-fly {
-    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
-    opacity: 0; pointer-events: none; transform-origin: 50% 55%;
-    transition: opacity 0.27s var(--lb-ease);
+/* 下墜隧道裡的貓：除了序列圖（四腳張開、輕輕划），整隻再慢慢翻滾、左右飄（使用者畫的參考：每一格朝向都不同）。
+   抵達時 lobby.js 先拿掉 .bob 再用 translate 做掉出去。轉軸在格子中間偏下（貓的身體在那裡）。 */
+.lb-cat.bob { transform-origin: 50% 70%;
+    animation: lbSprite var(--dur) steps(var(--frames), jump-none) infinite, lbTumble 3.6s ease-in-out infinite; }
+@keyframes lbTumble {
+    0%   { translate: 0 0;      rotate: -18deg; }
+    25%  { translate: 8% -6%;   rotate: 24deg; }
+    50%  { translate: -4% 4%;   rotate: -32deg; }
+    75%  { translate: -8% -4%;  rotate: 12deg; }
+    100% { translate: 0 0;      rotate: -18deg; }
 }
-.lb-fly.on { opacity: 1; }
-#lobby.flying .lb-half { opacity: 0; transition: opacity 0.27s var(--lb-ease) 0.09s; }
+
+/* ---- 下墜隧道（2026-10-22，取代鏡頭飛進店裡）----
+   所有產品共用一支循環影片（Blender 的 fall.py），跟背景圖一樣用 cover 鋪滿。影片裡沒有貓，貓是疊上去的 .lb-cat。
+   影片還沒開始播之前先看到 poster（第一格），交棒過來的那一頁也是從這一格開始。 */
+.lb-fall {
+    position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #07060c;
+    opacity: 0; pointer-events: none; transition: opacity 0.27s var(--lb-ease);
+}
+.lb-fall.on { opacity: 1; }
+#lobby.falling .lb-hud { color: #ff2a6d; text-shadow: 0 0 6px rgba(255, 255, 255, 0.9); }
+/* 四個角暗下去（參考圖的畫面邊緣是暗的），中間的白光才顯得亮。貓、裂縫、提示字要在它上面。 */
+#lobby.falling .lb-cat, #lobby.falling .lb-rift, #lobby.falling .lb-hud { z-index: 2; }
+#lobby.falling::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    background: radial-gradient(ellipse 75% 70% at 50% 46%, transparent 55%, rgba(12, 2, 14, 0.55) 85%, rgba(6, 0, 8, 0.85) 100%);
+}
+/* 次元裂縫：中間是更深的黑，邊緣是青→白→品紅的光；一直細細地抖。 */
+.lb-rift {
+    position: absolute; width: var(--w, 100px); height: var(--h, 200px); translate: -50% -50%; pointer-events: none;
+    filter: drop-shadow(0 0 4px #00f0ff) drop-shadow(0 0 12px #ff2a6d) drop-shadow(0 0 28px #9a7bff);
+}
+.lb-rift svg { display: block; width: 100%; height: 100%; animation: lbRiftJit 0.09s steps(2, end) infinite; }
+@keyframes lbRiftJit { 50% { transform: translateX(1px) skewY(2deg); } }
 /* 走進店裡：底色先拿掉，後面那一頁才看得到。 */
 #lobby.opening { background: transparent; }
-/* 退路（影片放不出來）：往店門放大時，畫面往門口暗下去，門口只留一點店的顏色。
-   ⚠️ 第一版是「白→店的顏色→到 95% 才黑」，放大 3.4 倍時整個畫面變成一片亮黃（正式站上看到的，2026-10-16）。 */
+/* 往洞裡衝的時候：畫面以洞口為中心放大、變暗，洞的顏色從中間蓋上來（接著影片淡進來）。
+   ⚠️ 2026-10-16 第一版是「白→顏色→到 95% 才黑」，放大時整個畫面變成一片亮黃，所以顏色只到 55%、外圈是黑的。 */
 .lb-glow {
     position: absolute; inset: 0; pointer-events: none; opacity: 0;
     background: radial-gradient(circle at var(--gx, 50%) var(--gy, 60%),
@@ -207,15 +217,13 @@ html.lobby-on:root::view-transition-old(root),
 html.lobby-on:root::view-transition-new(root) { animation: none; }
 
 /* ---- 兩道門：減少動態／省電 ----
-   減少動態：不跳、不晃、不撕，選了就淡出（lobby.js 也會走另一條路）。
-   省電：雨與霓虹閃停掉；跳上去、晃、撕開是「選了哪一個」的回饋，保留。 */
+   減少動態：不跑、不跳、不掉，選了就淡出（lobby.js 也會走另一條路）。
+   省電：雨、霓虹閃、裂縫抖動停掉；跑過去跳進洞、下墜是「選了哪一個」的回饋，保留。 */
 html.fx-lite .lb-rain, html.fx-lite .lb-rain::after { display: none; }
-html.fx-lite .lb-sign, html.fx-lite .lb-name, html.fx-lite .lb-hud::after { animation: none; }
-html.fx-lite .lb-sign.chosen { animation: lbSwing 1.08s ease-in-out infinite alternate; }
+html.fx-lite .lb-name, html.fx-lite .lb-hud::after, html.fx-lite .lb-rift svg { animation: none; }
 html.fx-lite #bcCat { animation: none; }
 @media (prefers-reduced-motion: reduce) {
     .lb-rain, .lb-rain::after { display: none; }
-    .lb-sign, .lb-sign.chosen, .lb-sign.chosen.kick, .lb-name, .lb-hud::after,
-    .lb-grip > .lb-cat.hang, .lb-cat, #bcCat { animation: none !important; }
+    .lb-name, .lb-hud::after, .lb-rift svg, .lb-cat, .lb-cat.bob, #bcCat { animation: none !important; }
     #lobby.fade { opacity: 0; transition: opacity 0.27s cubic-bezier(0.4, 0, 1, 1); }
 }
