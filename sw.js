@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v178';
+const CACHE = 'blackcat-v181';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -112,7 +112,11 @@ const PUSH_API = 'https://blackcat-quote.cctsai03.workers.dev';
 
 self.addEventListener('install', (e) => {
   e.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(CORE)).then(() => self.skipWaiting())
+    /* ★ 2026-10-22：每個檔案都用 cache:'reload' 抓（跳過瀏覽器自己的 HTTP 快取）。
+       GitHub Pages 每個檔案送 max-age=600：發布前後十分鐘內開過網站的話，普通的 addAll 會從 HTTP 快取拿到**舊的** lobby.js，
+       存進新版的快取裡，之後「先給快取」就一直是舊的，要等到下一次改版（使用者發布大廳第四版後看到的還是舊的店內轉場）。
+       HTML 那段早就是 cache:'reload'，這裡漏了。 */
+    caches.open(CACHE).then((c) => c.addAll(CORE.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())
   );
 });
 

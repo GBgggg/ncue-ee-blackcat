@@ -54,42 +54,32 @@
        ⚠️ 不是 data-tab：主站很多地方在找 [data-tab]（分頁按鈕），<html> 帶著它就會被當成按鈕（見 applyTab 的註解）。 */
     function onHome() { return (H.getAttribute('data-cur-tab') || 'home') === 'home'; }
 
-    /* ---- 場景座標：從 Blender 的攝影機投影出來的（素材/大廳/scripts/lb_holes.py 的 project()；怎麼重算見 素材/大廳/README.md）----
+    /* ---- 場景座標：從 Blender 的攝影機投影出來的（素材/大廳/scripts/lb_holes2.py 的 project()；怎麼重算見 素材/大廳/README.md）----
        背景圖用 object-fit: cover 鋪滿畫面，所以這裡存的是「在原圖上的比例位置」（0～1），執行時再換算成螢幕座標。
        改了 Blender 的攝影機或洞的位置，這張表要跟著重算。
        洞：c＝洞口中心；l、r＝左右緣；n、f＝靠鏡頭那一邊與遠的那一邊（按鈕的橢圓就是這四點框出來的）；
            h＝在洞口前緣站一隻貓時「序列圖一格（0.8m）」佔圖高的比例（照透視，遠的洞貓比較小）；
-           board＝看板 LED 面的四個角（左上、右上、右下、左下）。
+           t＝字的錨點（洞中心正上方 1m，字的底邊中間放這裡）。
        貓：[x, y, 高]——x、y 是一開始坐的地方（腳底中間），高同上。
        ★ 照實際大小的話貓只剩一小點（一格 0.8m 見方、寫實版的貓坐著只佔三分之一），所以格子再放大 ENL 倍。 */
     var ENL = 3.2;   // 2.4 時街上的貓只有 48px 高（720p），黑貓在暗的路面上幾乎看不到
     var SCENE = {
         wide: { src: 'street-wide.webp', w: 1920, h: 1080,
-                cat: [0.5117, 0.7684, 0.0833],
+                cat: [0.5139, 0.8091, 0.0838],
                 holes: {
-                cat: { c: [0.3836, 0.5586], l: [0.3269, 0.5586], r: [0.4403, 0.5586], n: [0.3726, 0.6226], f: [0.3929, 0.5048], h: 0.0765,
-                         board: [[0.3313, 0.3778], [0.4373, 0.3608], [0.4402, 0.4113], [0.3354, 0.4299]] },
-                ncue: { c: [0.6164, 0.5586], l: [0.5597, 0.5586], r: [0.6731, 0.5586], n: [0.6274, 0.6226], f: [0.6071, 0.5048], h: 0.0765,
-                         board: [[0.5627, 0.3608], [0.6687, 0.3778], [0.6646, 0.4299], [0.5598, 0.4113]] },
-                md: { c: [0.402, 0.3357], l: [0.364, 0.3357], r: [0.44, 0.3357], n: [0.3959, 0.3636], f: [0.4074, 0.3109], h: 0.0575,
-                         board: [[0.3668, 0.2137], [0.4384, 0.2076], [0.4399, 0.2433], [0.3691, 0.25]] },
-                spice: { c: [0.598, 0.3357], l: [0.56, 0.3357], r: [0.636, 0.3357], n: [0.6041, 0.3636], f: [0.5926, 0.3109], h: 0.0575,
-                         board: [[0.5616, 0.2076], [0.6332, 0.2137], [0.6309, 0.25], [0.5601, 0.2433]] },
-                doc: { c: [0.5, 0.4252], l: [0.4545, 0.4252], r: [0.5455, 0.4252], n: [0.5, 0.4657], f: [0.5, 0.3899], h: 0.066,
-                         board: [[0.4578, 0.2745], [0.5422, 0.2745], [0.5418, 0.3168], [0.4582, 0.3168]] } } },
+                cat: { c: [0.3221, 0.5514], l: [0.2439, 0.5514], r: [0.4002, 0.5514], n: [0.3021, 0.6524], f: [0.3383, 0.469], t: [0.3118, 0.4745], h: 0.0725 },
+                ncue: { c: [0.6779, 0.5514], l: [0.5998, 0.5514], r: [0.7561, 0.5514], n: [0.6979, 0.6524], f: [0.6617, 0.469], t: [0.6882, 0.4745], h: 0.0725 },
+                doc: { c: [0.5, 0.3876], l: [0.4405, 0.3876], r: [0.5595, 0.3876], n: [0.5, 0.4488], f: [0.5, 0.3351], t: [0.5, 0.3177], h: 0.0578 },
+                md: { c: [0.3545, 0.2742], l: [0.3022, 0.2742], r: [0.4067, 0.2742], n: [0.3439, 0.3192], f: [0.3636, 0.2349], t: [0.3488, 0.2111], h: 0.0484 },
+                spice: { c: [0.6455, 0.2742], l: [0.5933, 0.2742], r: [0.6978, 0.2742], n: [0.6561, 0.3192], f: [0.6364, 0.2349], t: [0.6512, 0.2111], h: 0.0484 } } },
         tall: { src: 'street-tall.webp', w: 1080, h: 1920,
-                cat: [0.526, 0.8424, 0.03],
+                cat: [0.5259, 0.851, 0.0496],
                 holes: {
-                cat: { c: [0.3459, 0.6564], l: [0.2413, 0.6564], r: [0.4504, 0.6564], n: [0.3325, 0.7119], f: [0.3573, 0.6091], h: 0.0358,
-                         board: [[0.2149, 0.5388], [0.4588, 0.5179], [0.4679, 0.5545], [0.2254, 0.5768]] },
-                ncue: { c: [0.629, 0.5523], l: [0.5415, 0.5523], r: [0.7165, 0.5523], n: [0.6383, 0.5906], f: [0.6209, 0.5187], h: 0.0374,
-                         board: [[0.5322, 0.4378], [0.7371, 0.4485], [0.7299, 0.4804], [0.5272, 0.469]] },
-                md: { c: [0.389, 0.4773], l: [0.3138, 0.4773], r: [0.4643, 0.4773], n: [0.3823, 0.5054], f: [0.3951, 0.4523], h: 0.0365,
-                         board: [[0.297, 0.3853], [0.4734, 0.379], [0.4764, 0.4064], [0.3023, 0.4131]] },
-                spice: { c: [0.5973, 0.4207], l: [0.5313, 0.4207], r: [0.6633, 0.4207], n: [0.6025, 0.4422], f: [0.5926, 0.4014], h: 0.0346,
-                         board: [[0.5228, 0.3344], [0.6775, 0.3384], [0.6733, 0.3632], [0.5209, 0.359]] },
-                doc: { c: [0.4699, 0.3766], l: [0.4111, 0.3766], r: [0.5286, 0.3766], n: [0.4684, 0.3935], f: [0.4711, 0.3611], h: 0.0326,
-                         board: [[0.4004, 0.3012], [0.5378, 0.3003], [0.5376, 0.3227], [0.4022, 0.3237]] } } }
+                cat: { c: [0.3225, 0.6808], l: [0.1747, 0.6808], r: [0.4704, 0.6808], n: [0.3141, 0.7656], f: [0.3302, 0.6033], t: [0.3101, 0.6589], h: 0.0474 },
+                ncue: { c: [0.6718, 0.5162], l: [0.543, 0.5162], r: [0.8007, 0.5162], n: [0.6789, 0.5828], f: [0.6653, 0.4546], t: [0.6827, 0.4861], h: 0.0428 },
+                md: { c: [0.3427, 0.3794], l: [0.2247, 0.3794], r: [0.4607, 0.3794], n: [0.3368, 0.4351], f: [0.3482, 0.3276], t: [0.3336, 0.3441], h: 0.039 },
+                spice: { c: [0.6451, 0.2639], l: [0.5363, 0.2639], r: [0.7539, 0.2639], n: [0.6501, 0.3111], f: [0.6404, 0.2197], t: [0.6527, 0.2254], h: 0.0359 },
+                doc: { c: [0.4243, 0.1651], l: [0.3234, 0.1651], r: [0.5252, 0.1651], n: [0.4219, 0.2056], f: [0.4266, 0.127], t: [0.4206, 0.1247], h: 0.0332 } } }
     };
     /* 貓的序列圖：cat-<動作>.webp，一張橫條，每格正方形。[格數, 一輪幾秒] */
     /* ★ 2026-10-16 晚：坐著、東張西望、理毛、走路、側躺這五個是**從真貓影片做的動態捕捉**
@@ -321,17 +311,20 @@
 
         if (mode !== 'arrive') SIGNS.forEach(function (s) {
             var k = s[0], off = s[3] && touch;
-            /* 洞：一顆橢圓的按鈕蓋在路面的洞口上；看板：洞後緣那塊電子看板，字是網頁畫的（透視變形貼到看板上）。
+            /* 洞：一顆橢圓的按鈕蓋在路面的洞口上；字：浮在洞口正上方的全息投影（2026-10-22 第五版，拿掉了看板）。
                兩個都點得到，hover／focus 時一起亮。 */
+            /* 訊號干擾只在洞上：洞口範圍一塊（.lb-gz），裡面有掃描線和三條切片（切片的背景是同一張圖、對齊到原位）。 */
+            var gz = el('div', 'lb-gz', scene), gs = [];
+            for (var gi = 0; gi < 3; gi++) gs.push(el('div', 'lb-slice s' + gi, gz));
             var hole = el('button', 'lb-hole' + (s[3] ? ' desk-only' : ''), scene);
             hole.type = 'button';
             hole.dataset.k = k;
             hole.style.setProperty('--c', s[4]);
             hole.setAttribute('aria-label', '跳進' + s[1]);
-            var board = el('div', 'lb-board' + (s[3] ? ' desk-only' : ''), scene);
+            var board = el('div', 'lb-label' + (s[3] ? ' desk-only' : ''), scene);
             board.style.setProperty('--c', s[4]);
             board.setAttribute('aria-hidden', 'true');
-            el('span', 'lb-name', board).textContent = s[1];
+            var nm = el('span', 'lb-name', board); nm.textContent = s[1]; nm.dataset.t = s[1];
             if (s[3]) el('span', 'lb-off', board).textContent = '用電腦開';
             if (off) { hole.disabled = true; hole.setAttribute('aria-disabled', 'true'); }
             var go = function () { pick(k); };
@@ -344,8 +337,10 @@
             });
             hole.addEventListener('focus', function () { hot(true); });
             hole.addEventListener('blur', function () { hot(false); });
-            signEls[k] = { hole: hole, board: board };
+            signEls[k] = { hole: hole, board: board, gz: gz, gs: gs };
         });
+
+        if (mode === 'lobby') glitch();   // 洞的訊號干擾
 
         catEl = el('div', 'lb-cat', scene);
         preload(['idle', 'run', 'jump', 'fall']);
@@ -364,6 +359,27 @@
 
         /* ★ 不主動把焦點放到洞上：開站時的程式聚焦在 Chrome 會被當成鍵盤焦點，第一個洞一進來就套著一圈虛線框。 */
         if (mode === 'arrive') arrive(PAGE);
+    }
+
+    /* 訊號干擾（只在洞上）：每 0.9～2.6 秒挑一個洞閃一下（0.2 秒），那個洞的三條切片各自往左右錯開、上面的字紅藍分離拉大。
+       洞的掃描線一直都在（CSS）。減少動態、省電模式都不閃（每次輪到時才檢查，中途切換也跟得上）。 */
+    function glitch() {
+        setTimeout(function () {
+            if (done || picked || !root) return;
+            if (!reduce && !H.classList.contains('fx-lite')) {
+                var ks = Object.keys(signEls), o = signEls[ks[Math.floor(Math.random() * ks.length)]];
+                if (o && o.gz) {
+                    o.gs.forEach(function (e) {
+                        var y = Math.random() * 85, h = 4 + Math.random() * 14;
+                        e.style.clipPath = 'inset(' + y + '% 0 ' + Math.max(0, 100 - y - h) + '% 0)';
+                        e.style.transform = 'translateX(' + ((Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 16)) + 'px)';
+                    });
+                    o.gz.classList.add('glitching'); o.board.classList.add('glitching');
+                    setTimeout(function () { o.gz.classList.remove('glitching'); o.board.classList.remove('glitching'); }, 200);
+                }
+            }
+            glitch();
+        }, 900 + Math.random() * 1700);
     }
 
     /* 使用者還在挑的時候，街上的貓不要一直同一個動作：坐一下、東張西望、舔舔爪子。 */
@@ -386,18 +402,6 @@
         var ox = (vw - S.w * s) / 2, oy = (vh - S.h * s) / 2;
         return { s: s, x: function (n) { return ox + n * S.w * s; }, y: function (n) { return oy + n * S.h * s; }, ih: S.h * s,
                  p: function (q) { return [ox + q[0] * S.w * s, oy + q[1] * S.h * s]; } };
-    }
-
-    /* 看板：一個 BW×BH 的長方形，用投影矩陣（matrix3d）貼到看板在畫面上的四個角。
-       跟相機把方形的看板拍成梯形是同一件事；Heckbert 的「單位正方形 → 任意四邊形」公式。 */
-    var BW = 360, BH = 100;
-    function quad(p) {
-        var x0 = p[0][0], y0 = p[0][1], x1 = p[1][0], y1 = p[1][1], x2 = p[2][0], y2 = p[2][1], x3 = p[3][0], y3 = p[3][1];
-        var dx1 = x1 - x2, dx2 = x3 - x2, dx3 = x0 - x1 + x2 - x3, dy1 = y1 - y2, dy2 = y3 - y2, dy3 = y0 - y1 + y2 - y3;
-        var den = dx1 * dy2 - dx2 * dy1, g = (dx3 * dy2 - dx2 * dy3) / den, h = (dx1 * dy3 - dx3 * dy1) / den;
-        var a = x1 - x0 + g * x1, b = x3 - x0 + h * x3, d = y1 - y0 + g * y1, e = y3 - y0 + h * y3;
-        a /= BW; d /= BW; g /= BW; b /= BH; e /= BH; h /= BH;
-        return 'matrix3d(' + [a, d, 0, g, b, e, 0, h, 0, 0, 1, 0, x0, y0, 0, 1].map(function (v) { return +v.toFixed(6); }).join(',') + ')';
     }
 
     var catAt = null;   // 大廳裡的貓：{x, y, size}（腳底中間、格子邊長，px）；跑去洞口時由 runTo 改寫
@@ -423,9 +427,17 @@
             var l = m.p(p.l), r = m.p(p.r), f = m.p(p.f), n = m.p(p.n);
             o.hole.style.left = l[0] + 'px'; o.hole.style.width = (r[0] - l[0]) + 'px';
             o.hole.style.top = f[1] + 'px'; o.hole.style.height = (n[1] - f[1]) + 'px';
-            o.board.style.transform = quad(p.board.map(m.p));
-            /* 字要塞得進看板：BH 的六成，或 BW 平均分給每個字，取小的。 */
-            o.board.querySelector('.lb-name').style.fontSize = Math.min(BH * 0.6, (BW * 0.86) / s[1].length) + 'px';
+            /* 干擾範圍：洞口外擴一圈（含崩裂的邊）；切片背景用整張圖的大小、往回移到這塊的位置，平常完全對齊原圖。 */
+            var gw = (r[0] - l[0]) * 1.3, gh = (n[1] - f[1]) * 1.45, gx = l[0] - (r[0] - l[0]) * 0.15, gy = f[1] - (n[1] - f[1]) * 0.25;
+            var gz = o.gz.style;
+            gz.left = gx + 'px'; gz.top = gy + 'px'; gz.width = gw + 'px'; gz.height = gh + 'px';
+            gz.setProperty('--bgs', (S.w * m.s) + 'px ' + (S.h * m.s) + 'px');
+            gz.setProperty('--bgp', (m.x(0) - gx) + 'px ' + (m.y(0) - gy) + 'px');
+            /* 字：底邊中間對齊錨點 t（洞中心正上方 1m）；直版鏡頭幾乎朝下，1m 高投影出來還在洞口裡，
+               所以底邊最低只到洞的遠緣 f（字永遠在洞的上方、不蓋住洞）。字級跟洞一樣寬（遠的洞字小），但不小於 13px。 */
+            var t = m.p(p.t), w = r[0] - l[0];
+            o.board.style.left = t[0] + 'px'; o.board.style.top = Math.min(t[1], f[1] - w * 0.04) + 'px';
+            o.board.style.fontSize = Math.max(13, Math.min(w * 0.24, (w * 1.2) / s[1].length)) + 'px';
         });
         if (catEl && catEl.parentNode === scene && !picked) {
             var c = S.cat;
