@@ -308,15 +308,18 @@
            ★ 交棒過來的那一頁不看街景（直接是隧道），所以不用等它。 */
         if (mode !== 'arrive') { bgImg.onerror = abort; bgImg.src = DIR + SCENE[lay].src; }
 
-        el('div', 'lb-rain', scene);
+        var rainCv = mode !== 'arrive' ? el('canvas', 'lb-rain', scene) : null;   // 雨（rainStart，layout 之後才開始）
+        if (mode !== 'arrive') noiseTile();
 
         if (mode !== 'arrive') SIGNS.forEach(function (s) {
             var k = s[0], off = s[3] && touch;
             /* 洞：一顆橢圓的按鈕蓋在路面的洞口上；字：浮在洞口正上方的全息投影（2026-10-22 第五版，拿掉了看板）。
                兩個都點得到，hover／focus 時一起亮。 */
-            /* 訊號干擾只在洞上：洞口範圍一塊（.lb-gz），裡面有掃描線和三條切片（切片的背景是同一張圖、對齊到原位）。 */
+            /* 訊號干擾只在洞口裡面：.lb-gz 就是洞口那塊橢圓，裡面有掃描線、跟蹤帶、雜訊顆粒（.lb-gn）和六條切片
+               （切片的背景是同一張圖、對齊到原位；s0／s1 是 RGB 分離的洋紅與青）。 */
             var gz = el('div', 'lb-gz', scene), gs = [];
-            for (var gi = 0; gi < 3; gi++) gs.push(el('div', 'lb-slice s' + gi, gz));
+            for (var gi = 0; gi < 6; gi++) gs.push(el('div', 'lb-slice s' + gi, gz));
+            el('div', 'lb-gn', gz);
             var hole = el('button', 'lb-hole' + (s[3] ? ' desk-only' : ''), scene);
             hole.type = 'button';
             hole.dataset.k = k;
@@ -357,30 +360,202 @@
         H.classList.add('lobby-built');
         layout();
         W.addEventListener('resize', layout);
+        if (rainCv && !reduce) rainStart(rainCv);
 
         /* ★ 不主動把焦點放到洞上：開站時的程式聚焦在 Chrome 會被當成鍵盤焦點，第一個洞一進來就套著一圈虛線框。 */
         if (mode === 'arrive') arrive(PAGE);
     }
 
-    /* 訊號干擾（只在洞上）：每 0.9～2.6 秒挑一個洞閃一下（0.2 秒），那個洞的三條切片各自往左右錯開、上面的字紅藍分離拉大。
-       洞的掃描線一直都在（CSS）。減少動態、省電模式都不閃（每次輪到時才檢查，中途切換也跟得上）。 */
+    /* 訊號干擾（只在洞口裡面，2026-10-22 第二版）：
+       一直都有：細掃描線、一條慢慢往下捲的「跟蹤帶」（像錄影帶）、雜訊顆粒——都只在洞口的橢圓裡（.lb-gz 就是洞口，遮罩邊緣在洞緣以內）。
+       不時：
+         · 大閃：每 1.4～3.4 秒挑一個洞，約 0.3 秒內換四次切片（每次位置、粗細、錯開量都不同），洋紅與青兩條同一位置往反方向錯開＝RGB 分離。
+         · 小閃：中間穿插一條細切片閃 70ms，比較常出現、很輕。
+       錯開量照洞的寬度算（遠的洞小、近的洞大），不會因為螢幕大小而顯得太猛或看不到。
+       上面的浮字不跟著閃（干擾只在洞裡）。減少動態、省電模式都不閃（每次輪到時才檢查，中途切換也跟得上）。 */
+    function glitchBurst(o, steps, small) {
+        var w = o.gz.offsetWidth || 100, n = 0;
+        (function step() {
+            if (done || n++ >= steps) {
+                o.gz.classList.remove('glitching', 'tiny');
+                o.gs.forEach(function (e) { e.style.clipPath = ''; e.style.transform = ''; });
+                return;
+            }
+            var y0 = 8 + Math.random() * 74;
+            o.gs.forEach(function (e, i) {
+                if (small && i > 0) { e.style.clipPath = 'inset(100% 0 0 0)'; return; }
+                // s0／s1 是同一條帶子的洋紅、青兩份（RGB 分離），其他各自隨機
+                var y = i < 2 ? y0 : 6 + Math.random() * 82, h = small ? 1 + Math.random() * 2.5 : (i < 2 ? 2 + Math.random() * 7 : 0.8 + Math.random() * 5);
+                var dx = (small ? 0.015 : 0.02 + Math.random() * 0.07) * w * (i === 1 ? 1 : i === 0 ? -1 : (Math.random() < 0.5 ? -1 : 1));
+                e.style.clipPath = 'inset(' + y.toFixed(1) + '% 0 ' + Math.max(0, 100 - y - h).toFixed(1) + '% 0)';
+                e.style.transform = 'translateX(' + dx.toFixed(1) + 'px)';
+            });
+            o.gz.classList.add('glitching');
+            o.gz.classList.toggle('tiny', !!small);
+            setTimeout(step, small ? 70 : 55 + Math.random() * 40);
+        })();
+    }
     function glitch() {
         setTimeout(function () {
             if (done || picked || !root) return;
             if (!reduce && !H.classList.contains('fx-lite')) {
                 var ks = Object.keys(signEls), o = signEls[ks[Math.floor(Math.random() * ks.length)]];
-                if (o && o.gz) {
-                    o.gs.forEach(function (e) {
-                        var y = Math.random() * 85, h = 4 + Math.random() * 14;
-                        e.style.clipPath = 'inset(' + y + '% 0 ' + Math.max(0, 100 - y - h) + '% 0)';
-                        e.style.transform = 'translateX(' + ((Math.random() < 0.5 ? -1 : 1) * (4 + Math.random() * 16)) + 'px)';
-                    });
-                    o.gz.classList.add('glitching'); o.board.classList.add('glitching');
-                    setTimeout(function () { o.gz.classList.remove('glitching'); o.board.classList.remove('glitching'); }, 200);
+                if (o && o.gz && !o.gz.classList.contains('glitching')) {
+                    if (Math.random() < 0.45) glitchBurst(o, 4 + Math.floor(Math.random() * 2), false);
+                    else glitchBurst(o, 1, true);
                 }
             }
             glitch();
-        }, 900 + Math.random() * 1700);
+        }, 700 + Math.random() * 1500);
+    }
+
+    /* 雜訊顆粒：一張 96px 的灰階雜訊，產生一次、存成 #lobby 的 --lb-noise，洞裡的 .lb-gn 拿來鋪。 */
+    function noiseTile() {
+        try {
+            var c = D.createElement('canvas'); c.width = c.height = 96;
+            var x = c.getContext && c.getContext('2d'); if (!x) return;
+            var im = x.createImageData(96, 96), p = im.data;
+            for (var q = 0; q < p.length; q += 4) { var v = Math.random() * 255; p[q] = p[q + 1] = p[q + 2] = v; p[q + 3] = 255; }
+            x.putImageData(im, 0, 0);
+            root.style.setProperty('--lb-noise', 'url(' + c.toDataURL() + ')');
+        } catch (e) {}
+    }
+
+    /* ---- 雨（2026-10-22 第二版：用 canvas 一滴一滴畫，取代兩層斜線）----
+       第一版是兩層固定間距的斜線往下流，一眼就看得出是同一張花紋在重複。這一版每一滴是真的「在空中某個高度往下掉」：
+       ★ 透視：鏡頭從高處往下看，垂直往下掉的東西在畫面上會朝同一個點（天底點 V）收過去，不是平行往下。
+         V 用場景表算：每個洞的 c（洞中心）與 t（洞中心正上方 1m）連成一條「垂直線」，五條線的交點就是 V（最小平方）。
+         同一條線上，高度 h 的點投影在 V + (g − V)·Hc/(Hc − h)，Hc 是「鏡頭的等效高度」，也從 t 量出來。
+       ★ 遠近：雨滴越高（越靠近鏡頭）越粗、越亮、拖得越長；落地時在柏油上濺出一圈漣漪，
+         漣漪是被透視壓扁的橢圓（扁的比例取洞口的長寬比，洞是圓的），大小照當地「一公尺幾 px」。
+       ★ 掉進洞裡的雨不會在地面濺漣漪。
+       省電、減少動態：不畫（每 30 格檢查一次，中途切換也跟得上）。掉進洞之後（.falling）也停。 */
+    function rainGeo() {
+        var S = SCENE[lay], m = mapper(), hs = [];
+        Object.keys(S.holes).forEach(function (k) {
+            var p = S.holes[k], c = m.p(p.c), t = m.p(p.t), l = m.p(p.l), r = m.p(p.r), n = m.p(p.n), f = m.p(p.f);
+            hs.push({ c: c, u: [t[0] - c[0], t[1] - c[1]], rx: (r[0] - l[0]) / 2, ry: (n[1] - f[1]) / 2,
+                      ppm: p.h * m.ih / 0.8, asp: (n[1] - f[1]) / Math.max(1, r[0] - l[0]) });
+        });
+        // 天底點：Σ(I − d dᵀ) V = Σ(I − d dᵀ) c
+        var a = 0, b = 0, d = 0, ex = 0, ey = 0;
+        hs.forEach(function (h) {
+            var L = Math.hypot(h.u[0], h.u[1]) || 1, dx = h.u[0] / L, dy = h.u[1] / L;
+            var m00 = 1 - dx * dx, m01 = -dx * dy, m11 = 1 - dy * dy;
+            a += m00; b += m01; d += m11; ex += m00 * h.c[0] + m01 * h.c[1]; ey += m01 * h.c[0] + m11 * h.c[1];
+        });
+        var det = a * d - b * b, V;
+        if (Math.abs(det) > 1e-6) V = [(d * ex - b * ey) / det, (a * ey - b * ex) / det];
+        if (!V || !isFinite(V[0]) || V[1] < W.innerHeight * 0.3) V = [W.innerWidth / 2, W.innerHeight * 6];   // 線幾乎平行：當成很遠
+        hs.forEach(function (h) {
+            var cv = Math.hypot(h.c[0] - V[0], h.c[1] - V[1]) || 1, k = Math.hypot(h.u[0], h.u[1]) / cv;   // t = V + (c − V)(1 + k)
+            h.Hc = Math.max(2.5, (1 + k) / k);   // 1 + k = Hc / (Hc − 1)
+        });
+        hs.sort(function (p, q) { return p.c[1] - q.c[1]; });
+        // 依畫面高度在洞與洞之間內插（超出範圍就用最近那個洞的值）
+        function at(y, key) {
+            if (y <= hs[0].c[1]) return hs[0][key];
+            for (var i = 1; i < hs.length; i++) if (y <= hs[i].c[1]) {
+                var u = (y - hs[i - 1].c[1]) / (hs[i].c[1] - hs[i - 1].c[1] || 1);
+                return hs[i - 1][key] + (hs[i][key] - hs[i - 1][key]) * u;
+            }
+            var z = hs[hs.length - 1], y0 = hs[hs.length - 2] || z;
+            // 比最近的洞還靠近鏡頭：ppm 照趨勢外插（越近越大），其他維持
+            if (key === 'ppm' && z.c[1] > y0.c[1]) return z.ppm * Math.min(2.2, 1 + (y - z.c[1]) / (z.c[1] - y0.c[1] || 1) * (z.ppm / y0.ppm - 1));
+            return z[key];
+        }
+        function inHole(x, y) {
+            for (var i = 0; i < hs.length; i++) {
+                var h = hs[i], qx = (x - h.c[0]) / h.rx, qy = (y - h.c[1]) / h.ry;
+                if (qx * qx + qy * qy < 0.9) return true;
+            }
+            return false;
+        }
+        return { V: V, at: at, inHole: inHole };
+    }
+    function rainStart(cv) {
+        var ctx = cv && cv.getContext && cv.getContext('2d');
+        if (!ctx || !W.requestAnimationFrame) return;
+        var G = null, drops = [], rips = [], dpr = 1, vw = 0, vh = 0, frame = 0, off = false, last = 0;
+        var WIND = 0.7, SPEED = 8.5, SHUTTER = 0.03;   // 風 m/s、雨滴終端速度 m/s、「快門」秒數（拖影長度）
+        function fit() {
+            dpr = Math.min(1.5, W.devicePixelRatio || 1); vw = W.innerWidth; vh = W.innerHeight;
+            cv.width = Math.round(vw * dpr); cv.height = Math.round(vh * dpr);
+            cv.style.width = vw + 'px'; cv.style.height = vh + 'px';
+            G = rainGeo();
+            var want = Math.round(Math.max(110, Math.min(380, vw * vh / 5200)) * (touch ? 0.6 : 1));
+            while (drops.length < want) drops.push(spawn({}, true));
+            drops.length = want;
+        }
+        function spawn(o, anyH) {
+            o.gx = -vw * 0.1 + Math.random() * vw * 1.2; o.gy = Math.random() * vh * 1.05;
+            var Hc = G.at(o.gy, 'Hc');
+            o.top = Math.min(7, Hc * 0.72);
+            o.h = anyH ? Math.random() * o.top : o.top * (0.75 + Math.random() * 0.25);
+            o.v = SPEED * (0.85 + Math.random() * 0.3);
+            o.tint = Math.random();
+            return o;
+        }
+        // 高度 h 的那一點投影到螢幕上：沿著「往天底點的那條線」放大
+        function proj(gx, gy, h, Hc) {
+            var s = Hc / Math.max(0.4, Hc - h), V = G.V;
+            return [V[0] + (gx - V[0]) * s, V[1] + (gy - V[1]) * s, s];
+        }
+        function splash(x, y) {
+            if (G.inHole(x, y) || rips.length > 90) return;
+            var ppm = G.at(y, 'ppm');
+            rips.push({ x: x, y: y, t: 0, R: ppm * (0.06 + Math.random() * 0.05), asp: G.at(y, 'asp'), two: Math.random() < 0.35 });
+        }
+        function tick(now) {
+            if (done || !cv.isConnected) return;
+            W.requestAnimationFrame(tick);
+            if ((frame++ % 30) === 0) {
+                var o2 = reduce || H.classList.contains('fx-lite') || (root && root.classList.contains('falling'));
+                if (o2 !== off) { off = o2; ctx.clearRect(0, 0, cv.width, cv.height); }
+                if (W.innerWidth !== vw || W.innerHeight !== vh) fit();
+            }
+            if (off) { last = 0; return; }
+            var dt = last ? Math.min(0.05, (now - last) / 1000) : 0.016; last = now;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            ctx.clearRect(0, 0, vw, vh);
+            ctx.lineCap = 'round';
+            for (var i = 0; i < drops.length; i++) {
+                var o = drops[i];
+                o.h -= o.v * dt;
+                var ppm = G.at(o.gy, 'ppm'), wx = WIND * ppm;   // 風：落地點跟著往右飄
+                if (o.h <= 0) { if (Math.random() < 0.55) splash(o.gx, o.gy); spawn(o, false); continue; }
+                var Hc = G.at(o.gy, 'Hc');
+                var gx = o.gx + wx * (o.h / o.v);
+                var a = proj(gx, o.gy, o.h, Hc), b = proj(gx + wx * SHUTTER, o.gy, Math.min(o.top, o.h + o.v * SHUTTER), Hc);
+                if (a[0] < -20 || a[0] > vw + 20 || a[1] < -40 || b[1] > vh + 40) continue;
+                var near = (a[2] - 1);   // 0＝貼地、越大越靠近鏡頭
+                var al = Math.min(0.42, 0.10 + near * 0.35);
+                ctx.lineWidth = Math.min(2.4, 0.55 + near * 1.6 + ppm * 0.004);
+                ctx.strokeStyle = o.tint < 0.1 ? 'rgba(120,235,255,' + al + ')' : o.tint < 0.17 ? 'rgba(255,120,190,' + (al * 0.9) + ')' : 'rgba(200,222,255,' + al + ')';
+                ctx.beginPath(); ctx.moveTo(b[0], b[1]); ctx.lineTo(a[0], a[1]); ctx.stroke();
+            }
+            // 漣漪：0.5 秒內擴大、變淡；開頭 60ms 有一點亮的水花
+            for (var j = rips.length - 1; j >= 0; j--) {
+                var r = rips[j]; r.t += dt;
+                var u = r.t / 0.5;
+                if (u >= 1) { rips.splice(j, 1); continue; }
+                var e = 1 - Math.pow(1 - u, 2.2), rr = r.R * (0.15 + e);
+                ctx.lineWidth = 0.8;
+                ctx.strokeStyle = 'rgba(190,215,255,' + (0.22 * (1 - u)) + ')';
+                ctx.beginPath(); ctx.ellipse(r.x, r.y, rr, rr * r.asp, 0, 0, Math.PI * 2); ctx.stroke();
+                if (r.two && u > 0.2) {
+                    ctx.strokeStyle = 'rgba(190,215,255,' + (0.14 * (1 - u)) + ')';
+                    var r2 = r.R * (u - 0.2) * 0.9;
+                    ctx.beginPath(); ctx.ellipse(r.x, r.y, r2, r2 * r.asp, 0, 0, Math.PI * 2); ctx.stroke();
+                }
+                if (r.t < 0.06) {
+                    ctx.fillStyle = 'rgba(235,245,255,' + (0.5 * (1 - r.t / 0.06)) + ')';
+                    ctx.beginPath(); ctx.ellipse(r.x, r.y - r.R * 0.12, r.R * 0.14, r.R * 0.14 * Math.max(0.5, r.asp), 0, 0, Math.PI * 2); ctx.fill();
+                }
+            }
+        }
+        fit();
+        W.requestAnimationFrame(tick);
     }
 
     /* 使用者還在挑的時候，街上的貓不要一直同一個動作：坐一下、東張西望、舔舔爪子。 */
@@ -432,8 +607,9 @@
             var l = m.p(p.l), r = m.p(p.r), f = m.p(p.f), n = m.p(p.n);
             o.hole.style.left = l[0] + 'px'; o.hole.style.width = (r[0] - l[0]) + 'px';
             o.hole.style.top = f[1] + 'px'; o.hole.style.height = (n[1] - f[1]) + 'px';
-            /* 干擾範圍：洞口外擴一圈（含崩裂的邊）；切片背景用整張圖的大小、往回移到這塊的位置，平常完全對齊原圖。 */
-            var gw = (r[0] - l[0]) * 1.3, gh = (n[1] - f[1]) * 1.45, gx = l[0] - (r[0] - l[0]) * 0.15, gy = f[1] - (n[1] - f[1]) * 0.25;
+            /* 干擾範圍＝洞口本身（稍微內縮），遮罩在洞緣以內就淡掉——干擾只在洞裡，不跑到柏油上（GB 2026-10-22）。
+               切片背景用整張圖的大小、往回移到這塊的位置，平常完全對齊原圖。 */
+            var gw = (r[0] - l[0]) * 0.96, gh = (n[1] - f[1]) * 0.96, gx = l[0] + (r[0] - l[0]) * 0.02, gy = f[1] + (n[1] - f[1]) * 0.02;
             var gz = o.gz.style;
             gz.left = gx + 'px'; gz.top = gy + 'px'; gz.width = gw + 'px'; gz.height = gh + 'px';
             gz.setProperty('--bgs', (S.w * m.s) + 'px ' + (S.h * m.s) + 'px');
@@ -632,20 +808,99 @@
         a.finished.catch(function () {}).then(function () { if (c3want && c3want.e === catEl) want3d(null); reveal(); });
     }
 
-    /* 次元裂縫（不是小黑貓的那幾頁：貓不留在那裡）：貓旁邊裂開一道發光的縫，貓被吸進去、縫闔上，再揭開那一頁。 */
+    /* 次元裂縫（不是小黑貓的那幾頁：貓不留在那裡）：貓旁邊裂開一道發光的縫，貓被吸進去、縫闔上，再揭開那一頁。
+       2026-10-22 第二版（GB：精緻一點）：
+         · 形狀每次都不一樣：中線是隨機彎折的折線，寬度中間寬、兩端尖（sin 的 0.8 次方），左右緣各自再抖。
+         · 縫裡面是另一個空間：深紫到黑的漸層＋會轉的星點與螺旋（只畫在縫的形狀裡，clipPath）。
+         · 邊緣四層：外圈模糊的洋紅光、錯開的青與洋紅兩條（RGB 分離）、中間一條白芯。
+         · 邊緣伸出幾條細細的電弧，每 90ms 重長一次（取代第一版整塊抖動）。
+         · 周圍的光點被吸進去；開的時候先是一條亮線從中間往上下劃開，再撐開；闔上時先壓回一條線、閃一下才消失。 */
+    function riftPath(w0) {
+        var N = 15, sp = [], L = [], R = [], x = 50;
+        for (var i = 0; i <= N; i++) {
+            var t = i / N, y = 4 + t * 192;
+            x += (Math.random() - 0.5) * 9; x += (50 - x) * 0.25;
+            var hw = w0 * Math.pow(Math.sin(Math.PI * t), 0.8) * (0.75 + Math.random() * 0.4);
+            sp.push([x, y]);
+            L.push([x - hw - Math.random() * 1.8, y + (Math.random() - 0.5) * 3]);
+            R.push([x + hw + Math.random() * 1.8, y + (Math.random() - 0.5) * 3]);
+        }
+        L[0] = R[0] = sp[0]; L[N] = R[N] = sp[N];
+        var d = 'M' + L.map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' L')
+              + ' L' + R.slice().reverse().map(function (p) { return p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' L') + ' Z';
+        return { d: d, L: L, R: R };
+    }
+    function riftArcs(sh) {
+        var out = '';
+        for (var i = 0; i < 6; i++) {
+            var side = Math.random() < 0.5 ? sh.L : sh.R, sg = side === sh.L ? -1 : 1;
+            var p = side[2 + Math.floor(Math.random() * (side.length - 4))], x = p[0], y = p[1], d = 'M' + x.toFixed(1) + ' ' + y.toFixed(1);
+            for (var k = 0, n = 2 + Math.floor(Math.random() * 3); k < n; k++) {
+                x += sg * (3 + Math.random() * 7); y += (Math.random() - 0.5) * 14;
+                d += ' L' + x.toFixed(1) + ' ' + y.toFixed(1);
+            }
+            out += '<path d="' + d + '"/>';
+        }
+        return out;
+    }
     function rift() {
         if (done) return Promise.resolve();
         catEl.classList.remove('bob');
         var a = catAt || { x: W.innerWidth / 2, y: W.innerHeight * 0.7, size: 200 };
-        var cx = a.x + a.size * 0.18, cy = a.y - a.size * 0.42;
+        var cx = a.x + a.size * 0.2, cy = a.y - a.size * 0.42;
         var r = el('div', 'lb-rift', root);
         r.style.left = cx + 'px'; r.style.top = cy + 'px';
-        r.style.setProperty('--w', (a.size * 0.5) + 'px'); r.style.setProperty('--h', (a.size * 1.05) + 'px');
-        r.innerHTML = '<svg viewBox="0 0 40 100" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="lbRiftG" x1="0" y1="0" x2="1" y2="0">'
-            + '<stop offset="0" stop-color="#00f0ff"/><stop offset=".5" stop-color="#fff"/><stop offset="1" stop-color="#ff2a6d"/></linearGradient></defs>'
-            + '<path d="M20 0 L24 14 L17 27 L26 41 L15 55 L25 68 L18 82 L22 100 L19 100 L14 82 L21 68 L11 55 L22 41 L13 27 L20 14 L16 0 Z" fill="url(#lbRiftG)"/></svg>';
+        r.style.setProperty('--w', (a.size * 0.75) + 'px'); r.style.setProperty('--h', (a.size * 1.3) + 'px');
+        var sh = riftPath(22), stars = '';
+        for (var i = 0; i < 46; i++) {
+            stars += '<circle cx="' + (Math.random() * 100).toFixed(1) + '" cy="' + (Math.random() * 200).toFixed(1) + '" r="' + (0.3 + Math.random() * 0.9).toFixed(2)
+                   + '" fill="' + (Math.random() < 0.2 ? '#7ff6ff' : Math.random() < 0.25 ? '#ff8fc0' : '#fff') + '" opacity="' + (0.35 + Math.random() * 0.65).toFixed(2) + '"/>';
+        }
+        var spiral = '';
+        for (var s = 0; s < 3; s++) {
+            var d = '', a0 = s * 2.09;
+            for (var q = 0; q <= 40; q++) { var th = a0 + q * 0.28, rr = 2 + q * 1.6; d += (q ? ' L' : 'M') + (50 + Math.cos(th) * rr).toFixed(1) + ' ' + (100 + Math.sin(th) * rr * 1.6).toFixed(1); }
+            spiral += '<path d="' + d + '"/>';
+        }
+        r.innerHTML = '<div class="lb-rift-halo"></div>'
+            + '<svg viewBox="0 0 100 200" preserveAspectRatio="none" aria-hidden="true"><defs>'
+            + '<clipPath id="lbRiftC"><path d="' + sh.d + '"/></clipPath>'
+            + '<radialGradient id="lbRiftV" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#000"/><stop offset=".55" stop-color="#0d0220"/><stop offset=".85" stop-color="#2a0a4e"/><stop offset="1" stop-color="#5a1a7a"/></radialGradient>'
+            + '<filter id="lbRiftB" x="-50%" y="-20%" width="200%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs>'
+            + '<g clip-path="url(#lbRiftC)"><rect width="100" height="200" fill="url(#lbRiftV)"/>'
+            + '<g class="lb-rift-sky">' + stars + '<g class="lb-rift-sp" fill="none" stroke="#9a7bff" stroke-width=".6" opacity=".35">' + spiral + '</g></g></g>'
+            + '<path d="' + sh.d + '" fill="none" stroke="#ff2a6d" stroke-width="5" opacity=".7" filter="url(#lbRiftB)"/>'
+            + '<path d="' + sh.d + '" fill="none" stroke="#00f0ff" stroke-width="1.8" transform="translate(-0.9 0)" opacity=".9"/>'
+            + '<path d="' + sh.d + '" fill="none" stroke="#ff2a6d" stroke-width="1.8" transform="translate(0.9 0)" opacity=".9"/>'
+            + '<path d="' + sh.d + '" fill="none" stroke="#fff" stroke-width=".8"/>'
+            + '<g class="lb-rift-arc" fill="none" stroke="#bff8ff" stroke-width=".6" stroke-linejoin="round">' + riftArcs(sh) + '</g></svg>';
         root.insertBefore(r, catEl);
-        var open = r.animate([{ scale: '0.2 0', opacity: 0 }, { scale: '1 1', opacity: 1 }], { duration: 260, easing: 'cubic-bezier(0.22, 1, 0.36, 1)', fill: 'forwards' });
+        var arcG = r.querySelector && r.querySelector('.lb-rift-arc');
+        var lite = H.classList.contains('fx-lite');
+        var arcT = arcG && !lite ? setInterval(function () { if (done || !r.isConnected) return clearInterval(arcT); arcG.innerHTML = riftArcs(sh); }, 90) : 0;
+        // 光點被吸進去：從四周往縫的中心飛，越近越快、最後縮成一點
+        var motes = 0;
+        function mote() {
+            if (done || !r.isConnected || lite) return;
+            var p = el('i', 'lb-mote', r), ang = Math.random() * Math.PI * 2, R0 = a.size * (0.45 + Math.random() * 0.45);
+            // 隧道是白的：光點用青、洋紅、紫（白的會看不見）
+            p.style.color = ['#00d8ff', '#ff2a6d', '#9a7bff'][Math.floor(Math.random() * 3)];
+            var x0 = Math.cos(ang) * R0, y0 = Math.sin(ang) * R0 * 1.3;
+            var m = p.animate([{ transform: 'translate(' + x0 + 'px,' + y0 + 'px) scale(1)', opacity: 0 },
+                               { transform: 'translate(' + (x0 * 0.6) + 'px,' + (y0 * 0.6) + 'px) scale(1)', opacity: 1, offset: 0.3 },
+                               { transform: 'translate(0px,0px) scale(0.2)', opacity: 0 }],
+                { duration: 520 + Math.random() * 380, easing: 'cubic-bezier(0.55, 0, 0.9, 0.6)', fill: 'forwards' });
+            m.finished.catch(function () {}).then(function () { if (p.parentNode) p.parentNode.removeChild(p); });
+            if (++motes < 34) setTimeout(mote, 28 + Math.random() * 30);
+        }
+        // 開：先是一條亮線往上下劃開，再撐開（稍微超過一點再回來）
+        var open = r.animate([
+            { scale: '0.04 0', opacity: 0, filter: 'brightness(3)' },
+            { scale: '0.04 1', opacity: 1, filter: 'brightness(3)', offset: 0.4 },
+            { scale: '1.08 1.02', opacity: 1, filter: 'brightness(1.3)', offset: 0.8 },
+            { scale: '1 1', opacity: 1, filter: 'brightness(1)' }
+        ], { duration: 460, easing: 'cubic-bezier(0.3, 0, 0.2, 1)', fill: 'forwards' });
+        setTimeout(mote, 180);
         return open.finished.catch(function () {}).then(function () {
             setSprite(catEl, 'jump', true);
             var dx = cx - a.x, dy = cy + a.size * 0.42 - a.y;
@@ -654,11 +909,16 @@
                 { translate: (dx * 0.6) + 'px ' + (dy * 0.6 - a.size * 0.15) + 'px', scale: '0.7', rotate: '-12deg', filter: 'hue-rotate(40deg) brightness(1.4)', opacity: 1, offset: 0.55 },
                 { translate: dx + 'px ' + dy + 'px', scale: '0.05 0.4', rotate: '-25deg', filter: 'hue-rotate(90deg) brightness(3) blur(2px)', opacity: 0 }
             ], { duration: 520, easing: 'cubic-bezier(0.5, 0, 0.9, 0.5)', fill: 'forwards' });
+            // 貓進去的那一下，縫被撐一下
+            r.animate([{ scale: '1 1' }, { scale: '1.12 1.03', offset: 0.85 }, { scale: '1 1' }], { duration: 520, easing: 'ease-in-out' });
             return s.finished.catch(function () {});
         }).then(function () {
-            var c = r.animate([{ scale: '1 1', opacity: 1, filter: 'brightness(1)' }, { scale: '0 0.9', opacity: 0, filter: 'brightness(3)' }],
-                { duration: 240, easing: 'cubic-bezier(0.4, 0, 1, 1)', fill: 'forwards' });
-            return c.finished.catch(function () {});
+            var c = r.animate([
+                { scale: '1 1', opacity: 1, filter: 'brightness(1)' },
+                { scale: '0.04 1', opacity: 1, filter: 'brightness(2.5)', offset: 0.55 },
+                { scale: '0.04 0', opacity: 0, filter: 'brightness(4)' }
+            ], { duration: 300, easing: 'cubic-bezier(0.5, 0, 0.75, 0)', fill: 'forwards' });
+            return c.finished.catch(function () {}).then(function () { if (arcT) clearInterval(arcT); });
         });
     }
 

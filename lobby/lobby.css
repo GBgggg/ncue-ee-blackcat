@@ -45,17 +45,8 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 
 .lb-bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
 
-/* 雨：兩層斜線往下流。Blender 那張是靜止的，雨跟招牌閃爍讓它活起來。
-   ★ linear＋無限迴圈（主站動效規則第五條：迴圈不能用會減速的曲線）。 */
-.lb-rain, .lb-rain::after {
-    position: absolute; inset: -20% 0 0 0; pointer-events: none;
-    background-image: repeating-linear-gradient(104deg,
-        transparent 0 22px, rgba(170, 220, 255, 0.10) 22px 23px, transparent 23px 61px);
-    background-size: 100% 240px;
-    animation: lbRain 0.54s linear infinite;
-}
-.lb-rain::after { content: ''; inset: 0; opacity: 0.6; background-size: 100% 170px; animation-duration: 0.81s; }
-@keyframes lbRain { to { background-position: -40px 240px; } }
+/* 雨：canvas，一滴一滴照透視畫（lobby.js 的 rainStart），落地濺漣漪。畫布大小由 JS 給。 */
+.lb-rain { position: absolute; left: 0; top: 0; pointer-events: none; }
 
 /* 標題與提示 */
 .lb-hud {
@@ -72,7 +63,7 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 /* ---- 洞與浮字（2026-10-22 第五版）----
    洞：一顆橢圓的按鈕蓋在路面的洞口上（位置由 lobby.js 依背景圖的 cover 換算），平常透明，hover／focus 時洞口亮起來。
    字：浮在洞中心正上方的全息投影。lobby.js 只給 left/top（字的底邊中間）和 font-size，其餘在這裡。
-   ★ 訊號干擾：字一直有一點紅藍分離（::before/::after 兩份拷貝左右錯開），自己的洞閃的那 0.2 秒（.lb-label.glitching）拉大。 */
+   ★ 訊號干擾：字一直有一點紅藍分離（::before/::after 兩份拷貝左右錯開）。洞的訊號干擾不再波及字（干擾只在洞口裡面，2026-10-22）。 */
 .lb-hole {
     position: absolute; padding: 0; margin: 0; border: 0; border-radius: 50%; cursor: pointer; outline: none;
     background: radial-gradient(closest-side, color-mix(in srgb, var(--c) 22%, transparent) 0, color-mix(in srgb, var(--c) 10%, transparent) 60%,
@@ -105,9 +96,6 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 }
 .lb-label .lb-name::before { color: rgba(255, 30, 90, 0.55); transform: translateX(-0.03em); }
 .lb-label .lb-name::after { color: rgba(0, 220, 255, 0.55); transform: translateX(0.03em); }
-.lb-label.glitching .lb-name::before { transform: translate(-0.14em, 0.04em); }
-.lb-label.glitching .lb-name::after { transform: translate(0.14em, -0.04em); }
-.lb-label.glitching { filter: hue-rotate(25deg) brightness(1.3); }
 @keyframes lbHover { from { margin-top: 0; } to { margin-top: -0.12em; } }
 /* 霓虹偶爾閃一下：一輪 7.2 秒裡只有最後幾格在動（跟主站大標題的抖動同一個節奏）。 */
 @keyframes lbFlicker {
@@ -128,32 +116,49 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 .lb-label.chosen .lb-name { animation: lbBlink 0.27s steps(1, end) 3; color: #fff; }
 @keyframes lbBlink { 50% { opacity: 0.2; } }
 
-/* ---- 訊號干擾（只在洞上，2026-10-22）----
-   .lb-gz：每個洞口外擴一圈的一塊（位置由 lobby.js 給），用橢圓遮罩把邊緣淡掉。
-   一直都有：細橫紋往下流、整塊微微閃。
-   切片：三條跟背景同一張圖的橫條（--bgs／--bgp 讓它跟原圖對齊，平常藏著），
-   .lb-gz.glitching 那 0.2 秒才出現，位置與錯開量由 lobby.js 每次亂數給。 */
+/* ---- 訊號干擾（只在洞口裡面，2026-10-22 第二版）----
+   .lb-gz：就是洞口那塊橢圓（位置由 lobby.js 給，比洞緣再內縮一點），遮罩從 72% 開始淡、到洞緣前就沒了。
+   一直都有：極細的掃描線往下流（::after）、一條慢慢往下捲的跟蹤帶（::before）、雜訊顆粒（.lb-gn）。
+   切片：六條跟背景同一張圖的橫條（--bgs／--bgp 讓它跟原圖對齊，平常藏著），.glitching 時才出現，
+   位置、粗細、錯開量由 lobby.js 每一步亂數給；.tiny 是只有一條細切片的小閃。
+   ★ 迴圈全部 linear 或 steps（主站動效規則第五條）。 */
 .lb-gz {
-    position: absolute; pointer-events: none;
-    -webkit-mask: radial-gradient(closest-side, #000 62%, transparent 100%);
-            mask: radial-gradient(closest-side, #000 62%, transparent 100%);
+    position: absolute; pointer-events: none; overflow: hidden; border-radius: 50%;
+    -webkit-mask: radial-gradient(closest-side, #000 72%, transparent 100%);
+            mask: radial-gradient(closest-side, #000 72%, transparent 100%);
 }
+.lb-gz::before {
+    content: ''; position: absolute; inset: 0; mix-blend-mode: screen; z-index: 2;
+    background: linear-gradient(to bottom, transparent 0 44%, rgba(190, 225, 255, 0.07) 47%, rgba(255, 255, 255, 0.14) 49.5%, rgba(255, 60, 140, 0.08) 50.5%, rgba(190, 225, 255, 0.06) 53%, transparent 56% 100%);
+    background-size: 100% 320%;
+    animation: lbGzTrack 4.3s linear infinite;
+}
+@keyframes lbGzTrack { from { background-position: 0 100%; } to { background-position: 0 0; } }
 .lb-gz::after {
-    content: ''; position: absolute; inset: 0;
-    background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.09) 0 1px, transparent 1px 3px, rgba(0, 0, 0, 0.25) 3px 4px);
-    background-size: 100% 4px; mix-blend-mode: screen;
-    animation: lbGzRoll 0.9s linear infinite, lbGzFlick 2.3s steps(1, end) infinite;
+    content: ''; position: absolute; inset: 0; z-index: 2;
+    background: repeating-linear-gradient(to bottom, rgba(255, 255, 255, 0.055) 0 1px, transparent 1px 2px, rgba(0, 0, 0, 0.2) 2px 3px);
+    background-size: 100% 3px; mix-blend-mode: screen;
+    animation: lbGzRoll 0.6s linear infinite, lbGzFlick 2.9s steps(1, end) infinite;
 }
-@keyframes lbGzRoll { to { background-position: 0 4px; } }
-@keyframes lbGzFlick { 0%, 100% { opacity: 0.8; } 37% { opacity: 0.45; } 41% { opacity: 1; } 73% { opacity: 0.6; } }
+@keyframes lbGzRoll { to { background-position: 0 3px; } }
+@keyframes lbGzFlick { 0%, 100% { opacity: 0.85; } 31% { opacity: 0.6; } 33% { opacity: 1; } 68% { opacity: 0.7; } 70% { opacity: 0.9; } }
+.lb-gn {
+    position: absolute; inset: 0; z-index: 1; opacity: 0.045; mix-blend-mode: screen;
+    background: var(--lb-noise, none) repeat; background-size: 96px 96px;
+    animation: lbGrain 0.42s steps(6, end) infinite;
+}
+@keyframes lbGrain { to { background-position: 517px 283px; } }
 .lb-slice {
     position: absolute; inset: 0; visibility: hidden;
     background: var(--lb-bg, none) no-repeat; background-size: var(--bgs, cover); background-position: var(--bgp, center);
 }
-/* 背景很暗，只錯開看不出來：切片調亮、再蓋一層色。第一條偏洋紅、第二條偏青（RGB 分離的感覺），第三條白噪。 */
-.lb-gz.glitching .lb-slice { visibility: visible; filter: brightness(2.2) saturate(1.6); box-shadow: inset 0 0 0 100vmax rgba(255, 255, 255, 0.08); }
-.lb-gz.glitching .lb-slice.s0 { box-shadow: inset 0 0 0 100vmax rgba(255, 0, 110, 0.25); }
-.lb-gz.glitching .lb-slice.s1 { box-shadow: inset 0 0 0 100vmax rgba(0, 220, 255, 0.22); }
+/* 背景很暗，只錯開看不出來：切片調亮、再蓋一層色。s0 洋紅、s1 青（同一條帶子往反方向錯開＝RGB 分離），其他是亮一點的白噪。 */
+.lb-gz.glitching .lb-slice { visibility: visible; filter: brightness(2) saturate(1.5); box-shadow: inset 0 0 0 100vmax rgba(255, 255, 255, 0.06); }
+.lb-gz.glitching .lb-slice.s0 { mix-blend-mode: screen; box-shadow: inset 0 0 0 100vmax rgba(255, 0, 110, 0.34); }
+.lb-gz.glitching .lb-slice.s1 { mix-blend-mode: screen; box-shadow: inset 0 0 0 100vmax rgba(0, 220, 255, 0.3); }
+.lb-gz.glitching.tiny .lb-slice { filter: brightness(1.6) saturate(1.3); }
+.lb-gz.glitching .lb-gn { opacity: 0.2; }
+.lb-gz.glitching:not(.tiny) { filter: contrast(1.12) brightness(1.08); }
 .lb-gz.glitching::after { opacity: 1; animation-play-state: paused; }
 
 /* ---- 黑貓（序列圖：一張橫的長條，每格一個正方形）----
@@ -199,13 +204,21 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
     content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 1;
     background: radial-gradient(ellipse 75% 70% at 50% 46%, transparent 55%, rgba(12, 2, 14, 0.55) 85%, rgba(6, 0, 8, 0.85) 100%);
 }
-/* 次元裂縫：中間是更深的黑，邊緣是青→白→品紅的光；一直細細地抖。 */
-.lb-rift {
-    position: absolute; width: var(--w, 100px); height: var(--h, 200px); translate: -50% -50%; pointer-events: none;
-    filter: drop-shadow(0 0 4px #00f0ff) drop-shadow(0 0 12px #ff2a6d) drop-shadow(0 0 28px #9a7bff);
-}
-.lb-rift svg { display: block; width: 100%; height: 100%; animation: lbRiftJit 0.09s steps(2, end) infinite; }
-@keyframes lbRiftJit { 50% { transform: translateX(1px) skewY(2deg); } }
+/* 次元裂縫（2026-10-22 第二版）：形狀、星點、電弧都是 lobby.js 的 rift() 畫的 SVG。
+   ★ 發光（drop-shadow）放在 svg 上、不放在 .lb-rift：開闔動畫會動 .lb-rift 的 filter（brightness），會把光蓋掉。 */
+.lb-rift { position: absolute; width: var(--w, 100px); height: var(--h, 200px); translate: -50% -50%; pointer-events: none; }
+.lb-rift svg { position: relative; display: block; width: 100%; height: 100%; overflow: visible;
+    filter: drop-shadow(0 0 3px #00f0ff) drop-shadow(0 0 10px #ff2a6d) drop-shadow(0 0 26px #9a7bff); }
+.lb-rift-halo { position: absolute; inset: -30% -90%;
+    background: radial-gradient(closest-side, rgba(154, 123, 255, 0.34), rgba(255, 42, 109, 0.12) 55%, transparent);
+    animation: lbRiftPulse 1.3s linear infinite; }
+@keyframes lbRiftPulse { 0%, 100% { opacity: 0.7; scale: 1; } 50% { opacity: 1; scale: 1.08; } }
+.lb-rift-sky { transform-origin: 50px 100px; animation: lbRiftSpin 11s linear infinite; }
+.lb-rift-sp { transform-origin: 50px 100px; animation: lbRiftSpin 3.4s linear infinite reverse; }
+@keyframes lbRiftSpin { to { transform: rotate(360deg); } }
+.lb-rift-arc { filter: drop-shadow(0 0 1.5px #00f0ff); }
+.lb-mote { position: absolute; left: 50%; top: 50%; width: 4px; height: 4px; margin: -2px; border-radius: 50%;
+    background: currentColor; box-shadow: 0 0 6px 1px currentColor; }
 /* 走進店裡：底色先拿掉，後面那一頁才看得到。 */
 #lobby.opening { background: transparent; }
 /* 往洞裡衝的時候：畫面以洞口為中心放大、變暗，洞的顏色從中間蓋上來（接著影片淡進來）。
@@ -260,14 +273,15 @@ html.lobby-on:root::view-transition-new(root) { animation: none; }
 
 /* ---- 兩道門：減少動態／省電 ----
    減少動態：不跑、不跳、不掉，選了就淡出（lobby.js 也會走另一條路）。
-   省電：雨、霓虹閃、掃描帶、訊號干擾、裂縫抖動停掉；跑過去跳進洞、下墜是「選了哪一個」的回饋，保留。 */
-html.fx-lite .lb-rain, html.fx-lite .lb-rain::after { display: none; }
-html.fx-lite .lb-name, html.fx-lite .lb-label, html.fx-lite .lb-gz::after, html.fx-lite .lb-hud::after, html.fx-lite .lb-rift svg { animation: none; }
+   省電：雨、霓虹閃、掃描帶、訊號干擾、裂縫裡的轉動與電弧停掉；跑過去跳進洞、下墜是「選了哪一個」的回饋，保留。 */
+html.fx-lite .lb-rain { display: none; }
+html.fx-lite .lb-name, html.fx-lite .lb-label, html.fx-lite .lb-gz::before, html.fx-lite .lb-gz::after, html.fx-lite .lb-gn, html.fx-lite .lb-hud::after,
+html.fx-lite .lb-rift-halo, html.fx-lite .lb-rift-sky, html.fx-lite .lb-rift-sp { animation: none; }
 html.fx-lite .lb-slice { display: none; }
 html.fx-lite #bcCat { animation: none; }
 @media (prefers-reduced-motion: reduce) {
-    .lb-rain, .lb-rain::after { display: none; }
-    .lb-name, .lb-label, .lb-gz::after, .lb-hud::after, .lb-rift svg, .lb-cat, .lb-cat.bob, #bcCat { animation: none !important; }
+    .lb-rain { display: none; }
+    .lb-name, .lb-label, .lb-gz::before, .lb-gz::after, .lb-gn, .lb-hud::after, .lb-rift-halo, .lb-rift-sky, .lb-rift-sp, .lb-cat, .lb-cat.bob, #bcCat { animation: none !important; }
     .lb-slice { display: none; }
     #lobby.fade { opacity: 0; transition: opacity 0.27s cubic-bezier(0.4, 0, 1, 1); }
 }
