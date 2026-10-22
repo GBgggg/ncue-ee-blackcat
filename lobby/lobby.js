@@ -976,7 +976,8 @@
         var btn = null, timer = 0, bubbleT = 0, raf = 0, endT = 0, lastT = 0, scrollT = 0, watchT = 0, ro = null, mo = null, shown = false;
         var SIZE = 128;  // 一格 0.8m 見方，寫實版的貓坐著只佔三分之一：128px 的格子裡貓大約 45px 高（格子其他地方是透明的）
         var DROP_G = 2600;   // 從上方掉下來的重力加速度（px／秒²）：從畫面頂掉到 600px 處約 0.68 秒
-        var FEET = SIZE * 0.025;   // 腳底在格子底往上 2.5%（跟 lobby3d.js 的 GROUND 同一個數，不然 3D 貓會浮在方框上或陷進去）
+        var FEET = SIZE * 0.025;
+        var PAW_DROP = 0.14;   // 跳下最後一格前腳尖在格子地面以下幾格（0.112m ÷ 0.8m）   // 腳底在格子底往上 2.5%（跟 lobby3d.js 的 GROUND 同一個數，不然 3D 貓會浮在方框上或陷進去）
         /* 走路速度要跟腳步對上，不然腳會在地上滑：Blender 裡一步（一個循環）往前 0.14m（cat2_natural.py 的 WALK.stride），
            一格 0.8m＝SIZE px，一個循環 CAT.walk[1] 秒。 */
         var WALK = { name: 'walk', spd: 1, px: SIZE / 0.8 * 0.14 / CAT.walk[1] };
@@ -1108,7 +1109,8 @@
             flip = g.x >= lastX ? 1 : -1;
             air = { sx: lastX, sy: lastY, to: to, t0: 0, wait: crouch ? 0.16 : 0.03, dur: 0, h: 0 };
             /* 往上跳（目標比腳高）用跳上，其他（平的、往下）用跳下 */
-            state = 'jump'; play(g.y < lastY - 4 ? 'jumpup' : 'jumpdown', true);
+            air.down = !(g.y < lastY - 4);
+            state = 'jump'; play(air.down ? 'jumpdown' : 'jumpup', true);
             kick();
         }
         function flyStep(now) {
@@ -1128,7 +1130,12 @@
             var u = Math.min(1, t / a.dur);
             /* 從上方掉下來：等加速度（越掉越快），不是拋物線 */
             if (a.drop) draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u * u);
-            else draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u - a.h * 4 * u * (1 - u));
+            /* 跳下：最後一格前腳往下伸，腳尖比格子的「地面」低約 0.14 格（cat2_jump3.py 的骨盆固定高度）。
+               拋物線終點抬高這麼多，前腳剛好碰到下面那一層；落地換成 land 時才放到真正的地面。 */
+            else {
+                var ey = g.y - (a.down ? SIZE * PAW_DROP : 0);
+                draw(a.sx + (g.x - a.sx) * u, a.sy + (ey - a.sy) * u - a.h * 4 * u * (1 - u));
+            }
             if (u >= 1) {
                 cur = a.to.el; rx = a.to.rx; air = null;
                 state = 'land'; play('land', true);
