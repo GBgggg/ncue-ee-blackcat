@@ -240,6 +240,8 @@ class Cat3D {
         }
         let face = FACE[name] != null ? FACE[name] : 20;
         if (flipped) face = -face;
+        /* data-face：大廳跑向洞口時，lobby.js 直接給真正的朝向（已含左右），蓋過上面的預設與翻面 */
+        if (d.face) face = parseFloat(d.face);
         return { name, ax, ay, size, rot, face, ground, opacity: parseFloat(cs.opacity) };
     }
 

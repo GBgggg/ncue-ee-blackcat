@@ -255,6 +255,7 @@
         e.dataset.once = once ? '1' : '';
         e.dataset.rev = reverse ? '1' : '';
         e.dataset.t = String(++spriteSeq);
+        e.dataset.face = '';   // 換動作就回到那個動作預設的朝向（runTo／jumpIn 會再蓋掉）
         /* 換了序列圖要從第一格重來：把動畫拿掉、讓瀏覽器量一次版面、再放回去。 */
         e.style.animationName = 'none';
         void e.offsetWidth;
@@ -404,6 +405,10 @@
                  p: function (q) { return [ox + q[0] * S.w * s, oy + q[1] * S.h * s]; } };
     }
 
+    /* 2026-10-22：跑向洞口時照「實際要去的方向」轉身，不是固定側身。
+       回傳 3D 貓的朝向（度）：0＝朝鏡頭（往畫面下方跑），90＝往右，180＝背對鏡頭（往畫面上方跑）。 */
+    function headingTo(dx, dy) { return (Math.atan2(dx, dy) * 180 / Math.PI).toFixed(1); }
+
     var catAt = null;   // 大廳裡的貓：{x, y, size}（腳底中間、格子邊長，px）；跑去洞口時由 runTo 改寫
     function placeCat(x, y, size) {
         catAt = { x: x, y: y, size: size };
@@ -512,6 +517,7 @@
         var a = catAt, dx = x - a.x, dist = Math.hypot(dx, y - a.y);
         catEl.style.transform = dx < 0 ? 'scaleX(-1)' : '';
         setSprite(catEl, 'run');
+        if (dist > 1) catEl.dataset.face = headingTo(dx, y - a.y);
         var dur = Math.max(0.45, Math.min(1.6, dist / ((a.size + size) * 1.1)));
         return frames(dur, function (u) {
             placeCat(a.x + dx * u, a.y + (y - a.y) * u, a.size + (size - a.size) * u);
@@ -520,7 +526,10 @@
     /* 跳進洞：往洞中間拋物線，越掉越小（掉進去了），最後縮到看不見。3D 貓讀的是格子大小，所以也跟著縮。 */
     function jumpIn(x, y, size) {
         var a = { x: catAt.x, y: catAt.y, size: catAt.size };
+        var face = catEl.dataset.face;
         setSprite(catEl, 'jump', true);
+        /* 跳的時候維持跑來的方向（洞口中心幾乎都在前緣的正後方），不要半空中突然轉成側身 */
+        if (face) catEl.dataset.face = face;
         return frames(0.5, function (u) {
             var k = u < 0.45 ? 1 : 1 - (u - 0.45) / 0.55;
             placeCat(a.x + (x - a.x) * u, a.y + (y - a.y) * u - size * 0.55 * 4 * u * (1 - u) + size * 0.25 * u * u,
