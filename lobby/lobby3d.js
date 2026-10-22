@@ -26,13 +26,15 @@ const SHELLS = matchMedia('(pointer: coarse)').matches ? 10 : 16;
 const FUR_LEN = 0.0115;           // 公尺；跟 Blender 的毛一樣長（2026-10-16 從 19mm 剪短：短毛黑貓貼身，19mm 的輪廓像一團毛球）
 const FRAME_M = 0.8;              // 序列圖一格代表 0.8m 見方
 const GROUND = 0.025;             // 序列圖裡地面在格子底往上 2.5% 的地方（Blender 的 CatCam 量的）
-const TILT = THREE.MathUtils.degToRad(8);   // CatCam 往下看 8°
+const TILT = THREE.MathUtils.degToRad(8);   // CatCam 往下看 8°（序列圖與主頁角落那隻用這個）
+/* 2026-10-22：大廳的鏡頭改成從高處往下看（寬版在貓那裡往下 65°、直版 82°），3D 貓還用 8° 的話像從側面看，跟地面對不上。
+   lobby.js 依貓在畫面上的高度查「那裡的鏡頭往下幾度」寫進 data-tilt（度），這裡照著轉；沒寫就是 8°。 */
 const PINK = new THREE.Color('#ff2a6d'), CYAN = new THREE.Color('#00d8ff');
 const RIM = { value: 1 };   // 邊光強度（所有毛層共用一個）
 
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
-const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jump: 90, hang: 0,
+const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jumpup: 90, jumpdown: 90, hang: 0,
                tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30 };
 const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
@@ -213,7 +215,7 @@ class Cat3D {
         a.timeScale = (reverse ? -1 : 1) / (spd || 1);
         if (reverse) a.time = clip.duration;
         a.play();
-        if (prev && prev !== a) prev.crossFadeTo(a, name === 'jump' || name === 'hang' ? 0.1 : 0.25, false);
+        if (prev && prev !== a) prev.crossFadeTo(a, /^jump/.test(name) || name === 'hang' ? 0.1 : 0.25, false);
         this.cur = a;
     }
 
@@ -242,7 +244,8 @@ class Cat3D {
         if (flipped) face = -face;
         /* data-face：大廳跑向洞口時，lobby.js 直接給真正的朝向（已含左右），蓋過上面的預設與翻面 */
         if (d.face) face = parseFloat(d.face);
-        return { name, ax, ay, size, rot, face, ground, opacity: parseFloat(cs.opacity) };
+        const tilt = d.tilt ? THREE.MathUtils.degToRad(parseFloat(d.tilt)) : TILT;
+        return { name, ax, ay, size, rot, face, ground, tilt, opacity: parseFloat(cs.opacity) };
     }
 
     loop() {
@@ -270,18 +273,21 @@ class Cat3D {
         const cv = this.canvas;
         if (cv._w !== W || cv._h !== H) { this.renderer.setSize(W, H, false); cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv._w = W; cv._h = H; }
         // 畫布跟著貓走：腳（或掛著時的前爪）落在畫布裡固定的位置
-        const ox = W / 2, oy = s.ground ? H * 0.86 : H * 0.14;
+        /* 腳在畫布裡的位置：側面看時貓幾乎都在腳的上方（0.86）；越往下看，朝鏡頭那一半身體（頭或屁股）會投影到腳的下方，
+           腳要往上挪，不然面向鏡頭時頭會被畫布切掉。 */
+        const ox = W / 2, oy = s.ground ? H * (0.86 - 0.3 * Math.max(0, Math.sin(s.tilt) - Math.sin(TILT))) : H * 0.14;
         cv.style.transform = 'translate3d(' + (s.ax - ox).toFixed(1) + 'px,' + (s.ay - oy).toFixed(1) + 'px,0)';
         cv.style.visibility = '';
         cv.style.opacity = s.opacity < 1 ? String(s.opacity) : '';
         const cam = this.camera; cam.left = -ox; cam.right = W - ox; cam.top = oy; cam.bottom = oy - H; cam.updateProjectionMatrix();
         this.tilt.scale.setScalar(F / FRAME_M);
+        this.tilt.rotation.x = s.tilt;
         this.tilt.rotation.z = THREE.MathUtils.degToRad(-s.rot);
         // 轉身：慢慢轉過去（走到一半掉頭會看到牠轉身），不是瞬間翻面
         const target = THREE.MathUtils.degToRad(s.face);
-        this.yaw += (target - this.yaw) * Math.min(1, dt * (s.name === 'jump' ? 14 : 6));
+        this.yaw += (target - this.yaw) * Math.min(1, dt * (/^jump/.test(s.name) ? 14 : 6));
         this.turn.rotation.y = Math.PI + this.yaw;   // 模型本來背對鏡頭（Blender 裡面向 +Y）
-        this.shadow.visible = s.ground && s.name !== 'jump';
+        this.shadow.visible = s.ground && !/^jump/.test(s.name);
         // 上一格加在頭上的轉動先還原，再讓動作覆寫（某些動作沒有頭的軌道時才不會越轉越多）
         if (this.base) { this.neck.quaternion.copy(this.base[0]); this.head.quaternion.copy(this.base[1]); }
         /* 霓虹燈只在夜街上：角落那隻貓待在一般頁面（多半是白天的淺色底），粉紅與青色的燈還開著的話，

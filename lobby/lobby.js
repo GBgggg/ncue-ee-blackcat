@@ -64,7 +64,10 @@
        ★ 照實際大小的話貓只剩一小點（一格 0.8m 見方、寫實版的貓坐著只佔三分之一），所以格子再放大 ENL 倍。 */
     var ENL = 3.2;   // 2.4 時街上的貓只有 48px 高（720p），黑貓在暗的路面上幾乎看不到
     var SCENE = {
+        /* tilt：鏡頭在圖的第 0、0.1、…、1 高度往下看幾度（畫面中線；CamWide／CamTall 的 view_frame 算的，改了鏡頭要重算）。
+           3D 貓照這個轉（lobby3d.js 的 data-tilt），不然鏡頭從高處往下看、貓卻像從側面拍的。 */
         wide: { src: 'street-wide.webp', w: 1920, h: 1080,
+                tilt: [-1.3, 4.8, 11.9, 19.9, 28.7, 38, 47.3, 56.1, 64.1, 71.2, 77.3],
                 cat: [0.5139, 0.8091, 0.0838],
                 holes: {
                 cat: { c: [0.3221, 0.5514], l: [0.2439, 0.5514], r: [0.4002, 0.5514], n: [0.3021, 0.6524], f: [0.3383, 0.469], t: [0.3118, 0.4745], h: 0.0725 },
@@ -73,6 +76,7 @@
                 md: { c: [0.3545, 0.2742], l: [0.3022, 0.2742], r: [0.4067, 0.2742], n: [0.3439, 0.3192], f: [0.3636, 0.2349], t: [0.3488, 0.2111], h: 0.0484 },
                 spice: { c: [0.6455, 0.2742], l: [0.5933, 0.2742], r: [0.6978, 0.2742], n: [0.6561, 0.3192], f: [0.6364, 0.2349], t: [0.6512, 0.2111], h: 0.0484 } } },
         tall: { src: 'street-tall.webp', w: 1080, h: 1920,
+                tilt: [31.6, 36.8, 42.4, 48.3, 54.6, 61, 67.4, 73.7, 79.6, 85.2, 89.6],
                 cat: [0.5259, 0.851, 0.0496],
                 holes: {
                 cat: { c: [0.3225, 0.6808], l: [0.1747, 0.6808], r: [0.4704, 0.6808], n: [0.3141, 0.7656], f: [0.3302, 0.6033], t: [0.3101, 0.6589], h: 0.0474 },
@@ -95,7 +99,11 @@
         lie:     [15, 2.50],   // 趴著（前臂平放）、轉頭、尾巴拍地
         liedown: [8,  0.67],   // 坐 → 趴（倒著播就是起來）
         sleep:   [8,  2.88],   // 趴著睡
-        jump:    [8,  0.54],   // 蹲 → 撲 → 伸手
+        /* 2026-10-22 第三版：跳分成跳上、跳下，各自從真貓影片動態捕捉（素材/大廳/scripts/cat2_jump3.py）。
+           跳上：蹲 → 前腳先收起來 → 蹬 → 身體往上斜、前腳往前上伸 → 前臂水平搭上去。
+           跳下：在邊上往前傾、低頭 → 前腳伸出邊緣 → 後腳往後蹬直 → 身體往下斜 → 前腳先著地。 */
+        jumpup:  [8,  0.54],
+        jumpdown:[8,  0.54],
         hang:    [8,  0.81],   // 前腳抓著，後腳踢
         land:    [6,  0.36],   // 跳一下（摸牠的時候）
         /* 2026-10-16 第二輪加的待機動作（都從坐姿開始、回到坐姿）。 */
@@ -347,7 +355,7 @@
         if (mode === 'lobby') glitch();   // 洞的訊號干擾
 
         catEl = el('div', 'lb-cat', scene);
-        preload(['idle', 'run', 'jump', 'fall']);
+        preload(['idle', 'run', 'jumpdown', 'fall']);
         if (mode !== 'arrive') { var pi = new Image(); pi.src = fallPoster(); }   // 下墜第一格先抓起來
         setSprite(catEl, mode === 'arrive' ? 'fall' : 'idle');
         if (mode !== 'arrive') want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層
@@ -584,9 +592,15 @@
        回傳 3D 貓的朝向（度）：0＝朝鏡頭（往畫面下方跑），90＝往右，180＝背對鏡頭（往畫面上方跑）。 */
     function headingTo(dx, dy) { return (Math.atan2(dx, dy) * 180 / Math.PI).toFixed(1); }
 
+    /* 貓腳下那一點，鏡頭往下看幾度（SCENE.<lay>.tilt 內插）。 */
+    function tiltAt(y) {
+        var T = SCENE[lay].tilt, m = mapper(), v = Math.max(0, Math.min(1, (y - m.y(0)) / m.ih)) * 10, i = Math.min(9, Math.floor(v));
+        return (T[i] + (T[i + 1] - T[i]) * (v - i)).toFixed(1);
+    }
     var catAt = null;   // 大廳裡的貓：{x, y, size}（腳底中間、格子邊長，px）；跑去洞口時由 runTo 改寫
     function placeCat(x, y, size) {
         catAt = { x: x, y: y, size: size };
+        if (mode === 'lobby' && !(root && root.classList.contains('falling'))) catEl.dataset.tilt = tiltAt(y);
         catEl.style.setProperty('--size', size + 'px');
         catEl.style.left = (x - size / 2) + 'px';
         catEl.style.top = (y - size) + 'px';
@@ -703,7 +717,7 @@
     function jumpIn(x, y, size) {
         var a = { x: catAt.x, y: catAt.y, size: catAt.size };
         var face = catEl.dataset.face;
-        setSprite(catEl, 'jump', true);
+        setSprite(catEl, 'jumpdown', true);   // 往下跳進洞
         /* 跳的時候維持跑來的方向（洞口中心幾乎都在前緣的正後方），不要半空中突然轉成側身 */
         if (face) catEl.dataset.face = face;
         return frames(0.5, function (u) {
@@ -763,6 +777,7 @@
             a.finished.catch(function () {}).then(function () { if (g.parentNode) g.parentNode.removeChild(g); });
         });
         root.classList.add('falling');
+        if (catEl) catEl.dataset.tilt = '';   // 隧道裡回到 8°（下墜的動作是照那個角度做的）
         /* 貓搬出會被放大的街景那一層，放到隧道上面、畫面中間 */
         root.insertBefore(catEl, hud);
         catEl.style.visibility = '';
@@ -902,7 +917,7 @@
         ], { duration: 460, easing: 'cubic-bezier(0.3, 0, 0.2, 1)', fill: 'forwards' });
         setTimeout(mote, 180);
         return open.finished.catch(function () {}).then(function () {
-            setSprite(catEl, 'jump', true);
+            setSprite(catEl, 'jumpup', true);   // 往旁邊的裂縫撲進去（往上一點）
             var dx = cx - a.x, dy = cy + a.size * 0.42 - a.y;
             var s = catEl.animate([
                 { translate: '0 0', scale: '1', rotate: '0deg', filter: 'none', opacity: 1 },
@@ -1092,7 +1107,8 @@
             if (!g) { to = { el: null, rx: clampFloor(lastX) }; g = aim(to); }
             flip = g.x >= lastX ? 1 : -1;
             air = { sx: lastX, sy: lastY, to: to, t0: 0, wait: crouch ? 0.16 : 0.03, dur: 0, h: 0 };
-            state = 'jump'; play('jump', true);
+            /* 往上跳（目標比腳高）用跳上，其他（平的、往下）用跳下 */
+            state = 'jump'; play(g.y < lastY - 4 ? 'jumpup' : 'jumpdown', true);
             kick();
         }
         function flyStep(now) {
@@ -1176,7 +1192,7 @@
         }
         function choose() {
             if (still()) return;
-            preload(['look', 'groom', 'walk', 'run', 'stand', 'jump', 'land', 'lie', 'liedown', 'sleep', 'wash', 'scratch', 'tilt', 'stretch', 'loaf', 'loafdown'].filter(function (n) { return CAT[n]; }));
+            preload(['look', 'groom', 'walk', 'run', 'stand', 'jumpup', 'jumpdown', 'land', 'lie', 'liedown', 'sleep', 'wash', 'scratch', 'tilt', 'stretch', 'loaf', 'loafdown'].filter(function (n) { return CAT[n]; }));
             var pool = ACTS.filter(function (a) { return (a[0] === 'hop' || CAT[a[0]]) && (a[0] !== 'loaf' || CAT.loafdown); });
             var tot = 0, w = pool.map(function (a) { var x = a[1] * (recent.indexOf(a[0]) >= 0 ? 0.25 : 1); tot += x; return x; });
             var r = Math.random() * tot, i = 0;
@@ -1361,7 +1377,7 @@
             btn.appendChild(bub);
             btn.addEventListener('click', poke);
             D.body.appendChild(btn);
-            preload(['fall', 'run', 'walk', 'jump', 'land', 'stand']);
+            preload(['fall', 'run', 'walk', 'jumpup', 'jumpdown', 'land', 'stand']);
             load3d();
             want3d(btn, 29);   // 比貓的按鈕（30）低一層：泡泡要在貓上面，點擊本來就穿透畫布
             if (still()) btn.style.backgroundPosition = '0 0';
