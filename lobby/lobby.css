@@ -175,12 +175,13 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
    抵達時 lobby.js 先拿掉 .bob 再用 translate 做掉出去。轉軸在格子中間偏下（貓的身體在那裡）。 */
 .lb-cat.bob { transform-origin: 50% 70%;
     animation: lbSprite var(--dur) steps(var(--frames), jump-none) infinite, lbTumble 3.6s ease-in-out infinite; }
+/* ★ 只左右飄、不上下飄：上下飄的時候貓相對隧道一下快一下慢，看起來掉的速度不一致（GB 2026-10-22）。 */
 @keyframes lbTumble {
-    0%   { translate: 0 0;      rotate: -18deg; }
-    25%  { translate: 8% -6%;   rotate: 24deg; }
-    50%  { translate: -4% 4%;   rotate: -32deg; }
-    75%  { translate: -8% -4%;  rotate: 12deg; }
-    100% { translate: 0 0;      rotate: -18deg; }
+    0%   { translate: 0 0;   rotate: -18deg; }
+    25%  { translate: 8% 0;  rotate: 24deg; }
+    50%  { translate: -4% 0; rotate: -32deg; }
+    75%  { translate: -8% 0; rotate: 12deg; }
+    100% { translate: 0 0;   rotate: -18deg; }
 }
 
 /* ---- 下墜隧道（2026-10-22，取代鏡頭飛進店裡）----

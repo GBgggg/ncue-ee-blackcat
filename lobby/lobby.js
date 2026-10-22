@@ -488,7 +488,9 @@
 
     /* 交棒：記下要去哪、換頁。新的那一頁在 arrive() 接手，直接從隧道開始。 */
     function go(s) {
-        try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now(), lay: lay })); } catch (e) {}
+        /* ft：隧道影片播到第幾秒。新的那一頁從「這一秒＋換頁花掉的時間」接著播，不從頭開始（從頭開始會頓一下，像掉的速度變了）。 */
+        var ft = fallEl && isFinite(fallEl.currentTime) ? fallEl.currentTime : 0;
+        try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now(), lay: lay, ft: ft })); } catch (e) {}
         location.href = s[2];
     }
 
@@ -585,6 +587,14 @@
         hud.textContent = '下墜中';
         /* 隧道裡不用 3D 貓：翻滾是 CSS 的 rotate，3D 那支只讀格子的位置與左右翻面，接上去會變成不會翻的貓。 */
         /* 交棒過來的那一頁：前一頁最後就是隧道，這裡直接接上，不淡入（淡入的那 0.27 秒是黑的） */
+        if (mode === 'arrive' && hand && hand.ft != null) {
+            var seek = function () {
+                var d = v.duration;
+                if (!(d > 0) || !isFinite(d)) return;
+                try { v.currentTime = (hand.ft + Math.max(0, Date.now() - (hand.at || Date.now())) / 1000) % d; } catch (e) {}
+            };
+            if (v.readyState >= 1) seek(); else v.addEventListener('loadedmetadata', seek, { once: true });
+        }
         if (mode === 'arrive') v.classList.add('on');
         else requestAnimationFrame(function () { v.classList.add('on'); });
         try { var p = v.play(); if (p && p.catch) p.catch(function () {}); } catch (e) {}
