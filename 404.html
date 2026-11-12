@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<!-- 找不到頁面時 GitHub Pages 會回這一頁（2026-11-12；以前是 Firebase 產生的英文預設頁，而且沒發布）。
+     ★ 這一頁會出現在「任何一層」的錯網址底下（/ncue-ee-blackcat/a/b/c），所以連結與圖
+       一律寫從網域根開始的完整路徑，寫 ./ 會連到不存在的地方。網站搬家要跟著改。
+     ★ 刻意不載站上任何 script、樣式或字型：它只在出錯時出現，愈少東西愈不會跟著壞。
+       顏色是抄主站的 --paper／--ink（亮／夜各一組），不是共用。 -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src 'self'; base-uri 'none'; form-action 'none'">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>找不到這一頁 - 小黑貓</title>
+<style>
+    :root { --paper:#e7e4da; --card:#f4f2ea; --ink:#1c1b18; --ink-2:#5a574e; --line:#c9c5b8; --btn:#1c1b18; --btn-ink:#f4f2ea; }
+    @media (prefers-color-scheme: dark) {
+        :root { --paper:#07060c; --card:#14121c; --ink:#ece9f5; --ink-2:#a09bb3; --line:#2b2838; --btn:#ece9f5; --btn-ink:#07060c; }
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; }
+    body { background: var(--paper); color: var(--ink); display: flex; align-items: center; justify-content: center;
+           padding: 24px; font-family: system-ui, -apple-system, "PingFang TC", "Noto Sans TC", "Microsoft JhengHei", sans-serif; }
+    main { width: 100%; max-width: 360px; background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+           padding: 32px 24px 24px; text-align: center; }
+    img { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; border: 1px solid var(--line); }
+    .code { margin: 16px 0 4px; font-size: 13px; letter-spacing: .2em; color: var(--ink-2); }
+    h1 { margin: 0 0 8px; font-size: 22px; font-weight: 700; }
+    p { margin: 0 0 24px; font-size: 15px; line-height: 1.7; color: var(--ink-2); }
+    a.home { display: block; min-height: 48px; line-height: 48px; border-radius: 12px; background: var(--btn); color: var(--btn-ink);
+             font-size: 16px; font-weight: 700; text-decoration: none; }
+    nav { margin-top: 16px; display: flex; justify-content: center; gap: 4px; flex-wrap: wrap; }
+    nav a { display: inline-block; min-height: 44px; line-height: 44px; padding: 0 10px; font-size: 14px; color: var(--ink-2); }
+    a:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<main>
+    <img src="/ncue-ee-blackcat/logomain.jpg" alt="" width="88" height="88">
+    <div class="code">404</div>
+    <h1>找不到這一頁</h1>
+    <p>網址可能打錯了，或是這一頁已經搬走。</p>
+    <a class="home" href="/ncue-ee-blackcat/">回小黑貓首頁</a>
+    <nav aria-label="其他頁面">
+        <a href="/ncue-ee-blackcat/ncue.html">彰師電子</a>
+        <a href="/ncue-ee-blackcat/blackcatspice.html">電路模擬器</a>
+        <a href="/ncue-ee-blackcat/blackcatmd.html">錯題本</a>
+        <a href="/ncue-ee-blackcat/blackcatdoc.html">文書</a>
+    </nav>
+</main>
+</body>
+</html>

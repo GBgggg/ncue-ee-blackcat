@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v189';
+const CACHE = 'blackcat-v191';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -19,6 +19,18 @@ const CACHE = 'blackcat-v189';
    名字要跟 publicnew.html 的 PUSH_KEY_CACHE 一致。 */
 const AUTH_CACHE = 'blackcat-push-auth';
 const AUTH_URL   = 'https://blackcat-push.local/authkey';
+/* ★ 從別的 App「分享」進來的那一張圖暫放的地方（2026-11-12）。
+   為什麼要暫放：分享是系統對 ./share-target 送一個 POST（表單夾著圖），而 GitHub Pages 只會回靜態檔，
+   收不了 POST。所以由這支 service worker 攔下來，把圖放進這個快取，再把人轉去 ./?share=1；
+   首頁看到 ?share=1 就來這裡領，**領完整個快取刪掉**（照片不留在裝置的快取裡）。
+   ★ 三個名字要跟 publicnew.html 的 SHARE_CACHE／SHARE_IMG_URL／SHARE_TEXT_URL 一字不差，
+     對不上的症狀是「分享過來，解題頁是空的」，沒有錯誤。tests/share.mjs 會比。
+   ★ 只有 Android 的 Chrome、電腦的 Chrome／Edge 把網站裝成 App 之後才會走到這裡；
+     iPhone 的 Safari 沒有這個功能（分享選單裡不會出現小黑貓），iPhone 走解題頁那顆「貼上」。 */
+const SHARE_CACHE    = 'blackcat-share';
+const SHARE_IMG_URL  = 'https://blackcat-share.local/image';
+const SHARE_TEXT_URL = 'https://blackcat-share.local/text';
+const SHARE_MAX      = 25 * 1024 * 1024;   // 超過就不收（手機原圖多半 3～8 MB；頁面那邊還會再縮到長邊 1024）
 /* ★ 每一個會發布出去的頁面都要在這裡。漏掉不會報錯——
    只有離線、或 service worker 已經接管的時候點過去才會白畫面，
    而且只有把網站裝成 App 的人遇得到。
@@ -38,6 +50,10 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
                  ★ 即時 3D 的貓（lobby/lobby3d.js、lobby/cat.glb、vendor/three/，合計約 1.4MB）也不進：
                    3D 是加分，離線抓不到時 lobby.js 就留在序列圖貓，不會壞。 */
               './lobby/lobby.js', './lobby/lobby.css',
+              /* ★ Tailwind 的樣式（2026-11-12 起是事先算好的檔案，由 tools/mktw.mjs 產生）。
+                 主站與彰師電子的排版全靠它：不進 CORE 的話，離線打開就是一整頁沒排版的字。
+                 以前掛 cdn.tailwindcss.com 的時候離線本來就是這樣，搬進來之後才進得了 CORE。 */
+              './tw.css',
               /* ★ 自己 host 的第三方函式庫（原本掛在 unpkg／cdnjs 上）。
                  搬進來的理由是資安不是效能：`unpkg.com/lucide@latest`
                  那種浮動版本等於「上游下一次發布的程式碼會自動在使用者的
@@ -125,7 +141,8 @@ self.addEventListener('activate', (e) => {
     caches.keys()
       // AUTH_CACHE 不是版本化的快取，是一把金鑰，絕對不能跟著清（見上面）
       .then((keys) => Promise.all(
-        keys.filter((k) => k !== CACHE && k !== AUTH_CACHE).map((k) => caches.delete(k))))
+        /* SHARE_CACHE 也不清：新版剛好在「圖放進去」跟「首頁來領」中間接手的話，圖會不見（見上面） */
+        keys.filter((k) => k !== CACHE && k !== AUTH_CACHE && k !== SHARE_CACHE).map((k) => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -200,8 +217,34 @@ const putInCache = (req, res) => {
   return res;
 };
 
+/* 收下分享進來的東西，回一個轉址。★ 不管成功失敗都要轉回首頁：
+   這裡丟例外的話，使用者看到的是瀏覽器的錯誤頁，而且人已經離開原本那個 App 了。 */
+async function takeShare(req) {
+  try {
+    const form = await req.formData();
+    const file = form.getAll('image').find((f) => f && typeof f !== 'string'
+      && f.size > 0 && f.size <= SHARE_MAX && String(f.type).startsWith('image/'));
+    const text = ['title', 'text', 'url'].map((k) => form.get(k))
+      .filter((v) => typeof v === 'string' && v.trim()).join('\n').slice(0, 1000);
+    await caches.delete(SHARE_CACHE);            // 上一次沒領走的先丟掉，不然會領到舊的那張
+    const c = await caches.open(SHARE_CACHE);
+    if (file) await c.put(SHARE_IMG_URL, new Response(file, { headers: { 'Content-Type': file.type } }));
+    if (text) await c.put(SHARE_TEXT_URL, new Response(text, { headers: { 'Content-Type': 'text/plain; charset=utf-8' } }));
+  } catch (e) { /* 領不到東西時首頁會自己說「沒有收到圖片」 */ }
+  return Response.redirect('./?share=1', 303);
+}
+
+/* POST 只攔 share-target，別的 POST 不碰（放給瀏覽器自己處理）。
+   ★ 寫成外面的一支而不是直接寫在下面的 fetch 裡：tests/lobby.mjs 用「fetch 裡第一個回應」的位置
+     釘住「影片在任何回應之前就放行」，這裡插一個回應進去會讓那條檢查量錯地方。 */
+function sharePost(e) {
+  const u = new URL(e.request.url);
+  if (u.origin === location.origin && u.pathname.endsWith('/share-target')) e.respondWith(takeShare(e.request));
+}
+
 self.addEventListener('fetch', (e) => {
   const req = e.request;
+  if (req.method === 'POST') return sharePost(e);
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   // 只處理同源資源。跨源（Firebase／報價 Worker／字典 API）一律走網路。

@@ -36,7 +36,7 @@
          ★ 改了外部來源就要跟著改這裡。症狀是那個功能安靜地沒反應，
          畫面上什麼都不會說，錯誤只出現在 DevTools 的 Console——
          正是這個專案一路在躲的那一類。目前白名單裡的每一項：
-           cdn.tailwindcss.com  樣式（唯一還在外面的 script，見 架構.md）
+           （cdn.tailwindcss.com 2026-11-12 拿掉了：樣式改成事先算好的 tw.css，見 tools/mktw.mjs）
            www.gstatic.com      Firebase SDK 的 ES module
            apis.google.com      Google 登入
            firestore／identitytoolkit／securetoken.googleapis.com  Firestore 與登入（2026-10-09 起逐一列出）
@@ -71,11 +71,11 @@
              前者只放行 WebAssembly，後者連 eval() 都一起開了。 -->
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'self';
-        script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.tailwindcss.com https://www.gstatic.com https://apis.google.com;
+        script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://www.gstatic.com https://apis.google.com;
         style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
         font-src 'self' data: https://fonts.gstatic.com;
         img-src 'self' data: blob:;
-        connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://cdn.tailwindcss.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev http://localhost:11434 http://127.0.0.1:11434;
+        connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://content-firebaseappcheck.googleapis.com https://www.gstatic.com https://apis.google.com https://eeblackcat-c605d.firebaseapp.com https://fonts.googleapis.com https://fonts.gstatic.com https://api.dictionaryapi.dev https://blackcat-quote.cctsai03.workers.dev http://localhost:11434 http://127.0.0.1:11434;
         frame-src https://eeblackcat-c605d.firebaseapp.com https://accounts.google.com https://apis.google.com https://www.youtube-nocookie.com;
         worker-src 'self';
         manifest-src 'self';
@@ -101,6 +101,22 @@
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title data-product-title>彰師電子小黑貓 - 課程評價與資源</title>
+    <!-- ★ 網站簡介與分享預覽（2026-11-12）。這幾行不是給站上的人看的：
+         `description` 是搜尋結果底下那段字；`og:` 那幾行是把連結貼到 LINE／Discord／IG 時
+         跳出來的那張卡（標題、說明、圖）。沒有的話貼連結只有一行網址。
+         ★ 讀這幾行的是對方的伺服器，它**不跑 JS**，所以不能像站名那樣載入後再填，
+           要直接寫在 HTML 裡；彰師電子那一頁由 tools/mkpages.mjs 換成自己的（字從 PRODUCT_META 的 desc 讀）。
+         ★ `og:image`／`og:url` 一定要寫完整網址，相對路徑對方抓不到圖，而且不會報錯。
+           網站搬家的話這兩行要跟著改。 -->
+    <meta name="description" content="彰化師大電子系的課程評價、課程地圖和同學分享的資料。">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="zh_TW">
+    <meta property="og:site_name" content="彰師電子小黑貓">
+    <meta property="og:title" content="彰師電子小黑貓 - 課程評價與資源">
+    <meta property="og:description" content="彰化師大電子系的課程評價、課程地圖和同學分享的資料。">
+    <meta property="og:url" content="https://gbgggg.github.io/ncue-ee-blackcat/ncue.html">
+    <meta property="og:image" content="https://gbgggg.github.io/ncue-ee-blackcat/logoncueee.jpg">
+    <meta name="twitter:card" content="summary">
     <!-- PWA：可安裝 + 離線 -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#e7e4da" media="(prefers-color-scheme: light)">
@@ -128,7 +144,6 @@
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
         }
     </script>
-    <script src="https://cdn.tailwindcss.com"></script>
     <!-- ★ lucide 從 `unpkg.com/lucide@latest` 搬進 vendor/，這不是為了省流量。
          `@latest` 的意思是「上游下一次發布的任何程式碼，都會自動在使用者的
          瀏覽器上、以我們的來源執行」。真的發生的時候它拿得到的是 Firebase 的
@@ -2611,6 +2626,12 @@
         // 特效「省電」也一樣要在畫面出來之前套上：不然會先下一秒的雨、再突然停。
         try { if (localStorage.getItem('eeblackcat-fx') ==='lite') document.documentElement.classList.add('fx-lite'); } catch (e) {}
     </script>
+    <!-- ★★ Tailwind 的樣式（2026-11-12 起是事先算好的檔案，不再是 cdn.tailwindcss.com 那支現場編譯器）。
+         產生檔，不手改：用到新的類別就跑 node tools/mktw.mjs（理由與代價見那支的檔頭）。
+         ★ 一定要是 <head> 的**最後一個**樣式，不要往上搬：以前那支編譯器也是把樣式插在 <head> 最尾端，
+           上面那一大段 <style> 裡的接管規則，跟它同分的時候誰贏是照這個順序調出來的。
+           搬到 <style> 前面不會報錯，只會讓一批顏色與間距安靜地換人贏。tests/tw.mjs 釘住這個位置。 -->
+    <link rel="stylesheet" href="tw.css">
 </head>
 <!-- ★ body 身上不要放底色類別（原本是 `class="bg-slate-50 text-slate-800"`）。
      整站的底色由 <style> 裡「底：一塊安靜的顏色」那一段決定；放了 bg-slate-50
@@ -3890,6 +3911,15 @@
                             <img id="solvePreview" alt="你上傳的題目" class="max-h-64 mx-auto rounded-xl shadow-sm">
                             <p id="solveImgInfo" class="text-xs text-slate-400 mt-2"></p>
                         </div>
+                    </div>
+                    <!-- 「貼上」那顆（2026-11-12）：手機沒有 Ctrl+V，尤其 iPhone 沒辦法從照片的分享選單直接傳進來
+                         （Safari 不支援），最短的路是在照片按「拷貝照片」再回來按這顆。
+                         瀏覽器不給讀剪貼簿的話這一列不出現（bindSolveInputs 決定），所以預設 hidden。
+                         ★ 放在 #solveDrop 外面：那一格整格點了會開選照片，按鈕放裡面會兩件事一起發生。 -->
+                    <div id="solvePasteRow" class="hidden mt-3 flex justify-center">
+                        <button data-action="solve-paste" class="px-4 py-3 text-sm font-bold bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition flex items-center gap-2">
+                            <i data-lucide="clipboard-paste" class="w-4 h-4 pointer-events-none"></i> 貼上剛剛拷貝的照片
+                        </button>
                     </div>
                     <div id="solveImgActions" class="hidden mt-3 flex justify-center">
                         <button data-action="solve-clear" class="px-4 py-2 text-sm font-bold bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition flex items-center gap-2">
@@ -5728,9 +5758,11 @@
            不是一句話能回答的。 */
         const PRODUCT_META = {
             cat:  { name:'小黑貓',   en:'Little Black Cat', logo:'logomain.jpg',
-                    title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./', ladder:'tier' },
+                    title:'小黑貓 - 課表、學習、理財與電路模擬', href:'./', ladder:'tier',
+                    desc:'課表、讀書計劃、每日測驗、背單字、理財和電路模擬放在同一個站，給還在念書的學生用。免費，手機可以裝成 App。' },
             ncue: { name:'彰師電子小黑貓', en:'NCUE EE Black Cat', logo:'logoncueee.jpg',
-                    title:'彰師電子小黑貓 - 課程評價與資源', href:'ncue.html', ladder:'role' }
+                    title:'彰師電子小黑貓 - 課程評價與資源', href:'ncue.html', ladder:'role',
+                    desc:'彰化師大電子系的課程評價、課程地圖和同學分享的資料。' }
         };
         /* ★ `logo` 是唯一來源，但**填的人是產生器不是這支程式**（見 tools/mkpages.mjs）。
            跟站名、英文名那種「載入後用 JS 填」不一樣，理由是圖片會被看見：
@@ -7834,6 +7866,19 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-11-12',
+                title: '照片可以直接送進解題，貼連結會出現預覽',
+                items: [
+                    ['解題多一顆「貼上」', '在手機的照片按「拷貝照片」，回到解題按「貼上剛剛拷貝的照片」，圖就進來了，不用再從相簿找一次。iPhone 按了之後系統會再跳一顆「貼上」，點它就好。'],
+                    ['Android 和電腦可以直接分享進來', '把小黑貓裝成 App 之後，在相簿或其他 App 按「分享」會看到小黑貓，選它就直接打開解題、照片已經放好。iPhone 的分享選單不開放給網頁，所以 iPhone 用上面那顆「貼上」。'],
+                    ['貼連結會出現預覽', '把小黑貓或彰師電子的連結貼到 LINE、Discord，會出現標題、一句介紹和圖，不再只有一行網址。'],
+                    ['打錯網址有自己的頁面', '網址打錯的時候會看到「找不到這一頁」和回首頁的按鈕，不再是一張英文的錯誤頁。'],
+                    ['App 打開不再閃一下', '裝成 App 之後，啟動畫面的顏色跟網站一樣了。'],
+                    ['開站少等一段', '以前每次打開，手機都要先下載一支程式、現場把全站的排版算出來。現在排版是事先算好跟著網站一起來的，不用再等那一段，離線也看得到完整的排版。'],
+                    ['連結的樣子修好了', '自學單元裡的影片、講義那幾顆連結鈕，還有彰師電子的消息與連結標題，前陣子變成沒有樣式的純文字，現在恢復了。'],
+                ]
+            },
+            {
                 date: '2026-10-22',
                 title: '大廳的洞變得像真的坑，字浮在洞上',
                 items: [
@@ -9354,7 +9399,7 @@
                  刪除鈕的 id 一定跳脫——快速連結與公告的文件 id 是巫醫自己取的（規則不限字元），
                  而這顆鈕畫給所有 4 級以上的人看：沒跳脫的話，一個巫醫可以在星族的畫面上執行任何事。 */
             const link = url && isValidUrl(url)
-                ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class=""font-bold text-slate-800 hover:${hoverColor} hover:underline">${escapeHTML(title)}</a>`
+                ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="font-bold text-slate-800 ${hoverColor} hover:underline">${escapeHTML(title)}</a>`
                 : `<span class="font-bold text-slate-800">${escapeHTML(title)}</span>`;
             const delBtn = currentUserLevel >= 4
                 ? `<button data-action="delete" data-type="${escapeHTML(deleteType)}" data-id="${escapeHTML(id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>`
@@ -9375,7 +9420,7 @@
                 ? emptyState({ text:'這個分類目前沒有最新消息。',
                                hint:'消息由巫醫以上發布，可以切換上面的分類看看。',
                                clickId:'addNewsBtn', label:'發一則消息' })
-                : filtered.map(n => renderListItem({ icon:'bell-ring', iconColor:'text-emerald-400', title: n.title, url: n.url, hoverColor:'text-emerald-600', deleteType:'news', id: n.id })).join('');
+                : filtered.map(n => renderListItem({ icon:'bell-ring', iconColor:'text-emerald-400', title: n.title, url: n.url, hoverColor:'hover:text-emerald-600', deleteType:'news', id: n.id })).join('');
             icons();
         }
 
@@ -9384,7 +9429,7 @@
                 ? emptyState({ text:'還沒有常用連結。',
                                hint:'這裡放系上常用的網頁，例如教務系統、課程網。',
                                clickId:'addLinkBtn', label:'新增第一個連結' })
-                : state.links.map(l => renderListItem({ icon:'link', iconColor:'text-blue-400', title: l.title, url: l.url, hoverColor:'text-blue-600', deleteType:'quickLink', id: l.id })).join('');
+                : state.links.map(l => renderListItem({ icon:'link', iconColor:'text-blue-400', title: l.title, url: l.url, hoverColor:'hover:text-blue-600', deleteType:'quickLink', id: l.id })).join('');
             icons();
         }
 
@@ -13217,8 +13262,18 @@
                 return;
             }
             /* 2026-10-09 資安：網址再驗一次 http／https，連結加 rel（同 renderListItem）。 */
+            /* ★ 顏色用查表，不用 `bg-${color}-50` 拼（2026-11-12）：樣式是 tools/mktw.mjs 讀原始碼的字事先算好的，
+               拼出來的名字它看不到，那顆按鈕就會沒有顏色，而且不會報錯。
+               ⚠️ 同一天順手修掉：這裡跟 renderListItem 的 class 從 10-09 起多打了一個引號（class=""flex…），
+               整串類別其實都沒套上去，連結一直是沒有樣式的純文字。 */
+            const LINK_TONE = {
+                red:    'bg-red-50 text-red-600 hover:bg-red-100 border-red-100',
+                blue:   'bg-blue-50 text-blue-600 hover:bg-blue-100 border-blue-100',
+                amber:  'bg-amber-50 text-amber-600 hover:bg-amber-100 border-amber-100',
+                indigo: 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border-indigo-100',
+            };
             const linkBtn = (url, icon, label, color) => url && isValidUrl(url)
-                ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class=""flex items-center gap-2 px-4 py-2 bg-${color}-50 text-${color}-600 font-bold rounded-xl hover:bg-${color}-100 transition border border-${color}-100 text-sm"><i data-lucide="${icon}" class="w-4 h-4"></i> ${label}</a>`
+                ? `<a href="${escapeHTML(url)}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-2 px-4 py-2 ${LINK_TONE[color]} font-bold rounded-xl transition border text-sm"><i data-lucide="${icon}" class="w-4 h-4"></i> ${label}</a>`
                 :'';
             /* ★ 正在播的那一部：整張清單重畫會把 iframe 抽掉（影片從頭重載）。先記住看到哪，畫完再從那裡接著播。 */
             /* ★ 影片中途考一題的狀態也要接回去（問過哪幾個停點、題目開著沒、「繼續看」那一條在不在）：
@@ -13481,7 +13536,11 @@
                 const u = (state.ssUnits ||[]).find(x => x.id === el.dataset.ssUnit);
                 const box = el.querySelector('.ss-prog');
                 if (u && box) box.innerHTML = ssUnitProgHTML(u);
-                el.classList.toggle('border-emerald-300', !!(u && isSignedInMember() && ssUnitDone(u)));
+                /* ★ 兩個邊框色一換一，不是只加綠的（2026-11-12）：兩個都在的話誰贏要看 tw.css 裡誰排後面，
+                   而排後面的是 slate——綠框會安靜地不見。 */
+                const ssDone = !!(u && isSignedInMember() && ssUnitDone(u));
+                el.classList.toggle('border-emerald-300', ssDone);
+                el.classList.toggle('border-slate-100', !ssDone);
             });
             const bar = $('ssDetailsProg');
             if (bar) {
@@ -14309,8 +14368,63 @@
             });
         }
 
+        /* ---- 按一下把剪貼簿裡的圖貼進來（2026-11-12）----
+           ★ 跟下面 document 上那個 paste 事件是兩條路：那一條要鍵盤的 Ctrl+V，手機沒有。
+             這一條是主動去讀剪貼簿，iPhone 會先跳一顆系統的「貼上」要人再點一次，那是系統的規定不是壞掉。
+           ★ 讀不到（使用者按了不允許、剪貼簿是空的）只說一句話，不當成錯誤。 */
+        function solveCanPaste() {
+            return !!(navigator.clipboard && typeof navigator.clipboard.read === 'function');
+        }
+        async function solvePaste() {
+            let items;
+            try { items = await navigator.clipboard.read(); }
+            catch (e) { return showToast("讀不到剪貼簿，改點上面那格選照片"); }
+            for (const it of items || []) {
+                const type = (it.types || []).find(t => t.startsWith('image/'));
+                if (!type) continue;
+                let blob;
+                try { blob = await it.getType(type); }
+                catch (e) { return showToast("這張圖讀不進來，換一張試試"); }
+                return solveSetImage(blob);
+            }
+            showToast("剪貼簿裡沒有圖片，先到照片按「拷貝照片」");
+        }
+        /* ---- 從別的 App「分享」一張圖進來（2026-11-12）----
+           Android 的 Chrome、電腦的 Chrome／Edge 把小黑貓裝成 App 之後，系統的分享選單裡會有小黑貓。
+           圖是 sw.js 的 takeShare 先收下來放在一個暫存的快取，再把人轉到 ./?share=1；這裡來領。
+           ★ 三個名字要跟 sw.js 一字不差（tests/share.mjs 會比），對不上就是「分享過來解題頁是空的」。
+           ★ 領完整個快取刪掉：照片不留在裝置的快取裡，跟解題頁「照片只會送去算，不會存」是同一個承諾。
+           ★ 網址上的 ?share=1 一進來就拿掉：留著的話重新整理會再領一次（領不到，跳一句莫名其妙的話）。
+           ★ iPhone 走不到這裡（Safari 沒有這個功能），iPhone 用上面那顆「貼上」。 */
+        const SHARE_CACHE    = 'blackcat-share';
+        const SHARE_IMG_URL  = 'https://blackcat-share.local/image';
+        const SHARE_TEXT_URL = 'https://blackcat-share.local/text';
+        function shareWanted(search) {
+            try { return new URLSearchParams(search).has('share'); } catch (e) { return false; }
+        }
+        async function consumeShare() {
+            if (!shareWanted(location.search)) return;
+            try { history.replaceState(null, '', location.pathname); } catch (e) {}
+            /* 解題住在「學習」底下；彰師電子那一頁沒有這個分頁，就什麼都不做。 */
+            if (!TABS.some(([k]) => k === 'self-study') || !('caches' in window)) return;
+            switchTab('self-study', true);
+            switchStudySub('solve');
+            try {
+                const c = await caches.open(SHARE_CACHE);
+                const [img, txt] = await Promise.all([c.match(SHARE_IMG_URL), c.match(SHARE_TEXT_URL)]);
+                const blob = img ? await img.blob() : null;
+                const text = txt ? (await txt.text()).slice(0, 1000) : '';
+                await caches.delete(SHARE_CACHE);
+                if (text) $('solveText').value = text;
+                if (blob) await solveSetImage(blob);
+                else if (!text) showToast("沒有收到圖片，直接在這裡選一張");
+            } catch (e) {
+                showToast("分享過來的圖讀不進來，直接在這裡選一張");
+            }
+        }
+
         async function solveSetImage(file) {
-            if (!file || !file.type.startsWith('image/')) return showToast("請選一張圖片");
+            if (!file || !String(file.type || '').startsWith('image/')) return showToast("請選一張圖片");
             try {
                 solveImage = await solveShrink(file);
             } catch (e) {
@@ -14320,6 +14434,7 @@
             $('solveDropHint').classList.add('hidden');
             $('solvePreviewWrap').classList.remove('hidden');
             $('solveImgActions').classList.remove('hidden');
+            $('solvePasteRow').classList.add('hidden');      // 有圖了就收起來，要換按「換一張」
             // 讓使用者看得到「縮過了」，省得懷疑是不是傳了原圖
             $('solveImgInfo').textContent = `已縮到長邊 ${SOLVE_MAX_EDGE}px，約 ${Math.round(solveImage.length / 1024)} KB`;
             icons();
@@ -14332,6 +14447,7 @@
             $('solveDropHint').classList.remove('hidden');
             $('solvePreviewWrap').classList.add('hidden');
             $('solveImgActions').classList.add('hidden');
+            if (solveCanPaste()) $('solvePasteRow').classList.remove('hidden');
             icons();
         }
 
@@ -23142,6 +23258,7 @@
             },
 'solve-run':            () => runSolve(),
 'solve-clear':          () => solveClearImage(),
+'solve-paste':          () => solvePaste(),
 'solve-settings':       () => openSolveSettings(),
 'solve-settings-save':  () => saveSolveSettings(),
 'solve-settings-test':  () => testSolveSettings(),
@@ -23457,6 +23574,9 @@
         (function bindSolveInputs() {
             const drop = $('solveDrop'), file = $('solveFile');
             if (!drop || !file) return;
+
+            /* 「貼上」那顆只在瀏覽器真的給讀剪貼簿裡的圖時才出現（見 HTML 那段註解）。 */
+            if (solveCanPaste()) $('solvePasteRow').classList.remove('hidden');
 
             drop.addEventListener('click', () => file.click());
             file.addEventListener('change', () => { if (file.files[0]) solveSetImage(file.files[0]); });
@@ -24178,6 +24298,9 @@
                畫面上卻是小黑貓的課表——沒有錯誤訊息，就只是顯示錯的東西。
                switchTab 會先把所有頁收起來再開對的那一頁，順便載入該頁的資料。 */
             switchTab(TABS[0][0]);
+            /* 從別的 App 分享一張圖進來的話，接著跳去解題把圖放好（沒有 ?share 就什麼都不做）。
+               ★ 要排在上面那行後面：它自己會再切一次分頁，順序反了會被切回主頁。 */
+            consumeShare();
         };
         if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once: true });
         else boot();
