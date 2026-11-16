@@ -31,6 +31,13 @@ const TILT = THREE.MathUtils.degToRad(8);   // CatCam 往下看 8°（序列圖�
    lobby.js 依貓在畫面上的高度查「那裡的鏡頭往下幾度」寫進 data-tilt（度），這裡照著轉；沒寫就是 8°。 */
 const PINK = new THREE.Color('#ff2a6d'), CYAN = new THREE.Color('#00d8ff');
 const RIM = { value: 1 };   // 邊光強度（所有毛層共用一個）
+/* 毛的光澤（2026-11-17）。黑貓的毛幾乎不反射漫射光（底色只有 1%），以前整隻就是一塊黑色剪影，胸、腿、臉分不出來。
+   真的黑貓看得出形狀靠的是「毛的反光」：光打在一根根順著同一個方向的毛上，會拉出一條條跟毛垂直的亮帶（背上、肩膀、頭頂那幾道）。
+   做法是 Kajiya-Kay（1989，畫頭髮最老也最便宜的方法）：不用表面的法線算反光，改用「毛的方向」算——
+   光與視線的半角向量跟毛越垂直越亮。這裡的值是整體強度，白天頁面上那隻調低一點（淺色底上太亮會像灰貓）。 */
+const SHEEN = { value: 1 };
+/* 隧道裡的翻滾（2026-11-17）：身體中心離腳底幾公尺（下墜姿勢四腳張開，中心大約在這裡）。繞這一點轉，不是繞腳底。 */
+const TUMBLE_C = 0.17;
 
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
@@ -48,11 +55,12 @@ function furMaterial(skinned, h) {
         sh.uniforms.uPink = { value: PINK };
         sh.uniforms.uCyan = { value: CYAN };
         sh.uniforms.uRim = RIM;
+        sh.uniforms.uSheen = SHEEN;
         sh.vertexShader = sh.vertexShader
             .replace('#include <common>', `#include <common>
                 attribute vec4 color;
                 uniform float uH; uniform float uLen;
-                varying vec3 vRest; varying float vL;`)
+                varying vec3 vRest; varying float vL; varying vec3 vHair;`)
             .replace('#include <skinning_vertex>', `#include <skinning_vertex>
                 {
                     // 頂點顏色存的是 Blender 座標（Z 朝上）的梳毛方向，換成 glTF 的 Y 朝上
@@ -64,11 +72,14 @@ function furMaterial(skinned, h) {
                     float L = color.a * 1.4 * uLen;
                     transformed += (normalize(objectNormal) * 0.8 + comb * (0.25 + uH)) * uH * L;
                     vRest = position; vL = color.a;
+                    // 這一層的毛往哪裡長（上面那條位移對 uH 微分），轉到鏡頭座標給光澤用
+                    vHair = normalMatrix * (normalize(objectNormal) * 0.8 + comb * (0.25 + 2.0 * uH));
                 }`);
         sh.fragmentShader = sh.fragmentShader
             .replace('#include <common>', `#include <common>
-                uniform vec3 uPink; uniform vec3 uCyan; uniform float uH; uniform float uRim;
-                varying vec3 vRest; varying float vL;
+                uniform vec3 uPink; uniform vec3 uCyan; uniform float uH; uniform float uRim; uniform float uSheen;
+                varying vec3 vRest; varying float vL; varying vec3 vHair;
+                float furR = 0.5;   // 這一根毛的亂數（光澤用它讓每根毛亮的位置差一點，才是一絲一絲的，不是一整片塑膠反光）
                 float h13(vec3 p){ p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }`)
             .replace('#include <alphatest_fragment>', `#include <alphatest_fragment>
                 if (uH > 0.0) {
@@ -76,7 +87,7 @@ function furMaterial(skinned, h) {
                     // 一根毛＝一個小格子；越外層留下來的毛越少、越細
                     vec3 p = vRest * 520.0;
                     vec3 c = floor(p); vec3 f = fract(p) - 0.5;
-                    float r = h13(c);
+                    float r = h13(c); furR = r;
                     vec3 j = (vec3(h13(c + 7.1), h13(c + 3.3), h13(c + 5.7)) - 0.5) * 0.5;
                     float d = length(f + j);
                     float rad = 0.62 * (1.0 - uH) * (0.55 + 0.6 * r);
@@ -95,6 +106,25 @@ function furMaterial(skinned, h) {
                 float fres = pow(1.0 - clamp(abs(vn.z), 0.0, 1.0), 5.0) * smoothstep(0.35, 0.9, abs(vn.x)) * (1.0 - smoothstep(0.0, 0.5, vn.y));
                 vec3 rim = vn.x < 0.0 ? uPink : uCyan;
                 outgoingLight += rim * fres * (0.05 + 0.25 * uH) * uRim;
+                // 毛的光澤（Kajiya-Kay）。兩道：窄的一道偏白（毛的表面直接反光）、寬的一道很淡（光鑽進毛裡再出來，讓暗面不是死黑）。
+                #if NUM_DIR_LIGHTS > 0
+                {
+                    vec3 hT = normalize(vHair + vn * (furR - 0.5) * 0.14);
+                    vec3 sheen = vec3(0.0);
+                    for (int i = 0; i < NUM_DIR_LIGHTS; i++) {
+                        vec3 hL = directionalLights[i].direction;
+                        float th = dot(hT, normalize(hL + geometryViewDir));
+                        float s = sqrt(max(0.0, 1.0 - th * th));
+                        // 背光的那一面不亮；第 0 盞是主光，後面兩盞霓虹只給一點（全給的話趴著的貓整片背是粉紅的，2026-10-16 踩過）
+                        float lit = smoothstep(-0.15, 0.55, dot(vn, hL)) * (i == 0 ? 1.0 : 0.22);
+                        sheen += directionalLights[i].color * (pow(s, 30.0) * 0.13 + pow(s, 6.0) * 0.02) * lit;
+                    }
+                    /* ★ 每一層的光澤差不多亮（毛根只暗一點）。第一版越外層越亮：最外面幾層只剩最長的那幾根毛，
+                         它們比旁邊（已經到頭的毛）亮好幾倍，各自變成一顆顆白點，貓縮小時像沾了一身頭皮屑。
+                         再加一個上限，剛好正對光的毛也不會爆掉。 */
+                    outgoingLight += min(sheen * uSheen * mix(0.6, 1.0, uH) * (0.88 + 0.24 * furR), vec3(0.04));
+                }
+                #endif
                 #include <opaque_fragment>`);
     };
     m.customProgramCacheKey = () => 'catfur' + (skinned ? 's' : 'm') + (h > 0 ? 'h' : 'b');
@@ -139,6 +169,20 @@ class Cat3D {
             if (o.isMesh) o.frustumCulled = false;
         });
         this.eyeScale = this.eyes.map((o) => o.scale.clone());
+        /* 眼睛的反光點（2026-11-17）。角膜是幾乎全透明的一層（alpha 0.08），主光在上面打出的亮點也跟著被乘成 8%，等於沒有——
+           眼睛看起來像兩片貼上去的黃色貼紙。沒有那個亮點的眼睛是「死的」，畫人像、做角色第一件事就是點它。
+           做法：亮點多亮，那裡就多不透明。粗糙度從 0.02 放到 0.16：0.02 的亮點比一個像素還小，貓不大的時候會閃爍。 */
+        root.traverse((o) => {
+            if (!o.isMesh || !/^Cat3DCornea_/.test(o.name)) return;
+            const m = o.material = o.material.clone();
+            m.roughness = 0.16; m.depthWrite = false;
+            m.onBeforeCompile = (sh) => {
+                sh.fragmentShader = sh.fragmentShader.replace('#include <opaque_fragment>', `
+                    diffuseColor.a = clamp(diffuseColor.a + dot(reflectedLight.directSpecular, vec3(0.3333)) * 0.9, 0.0, 1.0);
+                    #include <opaque_fragment>`);
+            };
+            m.customProgramCacheKey = () => 'catcornea';
+        });
         this.buildFur(root);
         // 地上的影子：一片放射漸層的圓
         const sc = document.createElement('canvas'); sc.width = sc.height = 64;
@@ -232,6 +276,12 @@ class Cat3D {
         const flipped = m.a < 0;
         let ax, ay, rot = 0, ground = true;
         const grip = el.parentNode;
+        if (d.tumble) {
+            /* 隧道裡翻滾：錨點是身體中心（不是腳底），整隻繞著它轉。格子本身不轉了（lobby.css 的 .bob.is3d 關掉 CSS 那個平面的旋轉），
+               所以量到的框就是格子原本的位置；抵達時 lobby.js 用 translate 讓牠掉出去，這裡跟著框走。 */
+            const r = el.getBoundingClientRect();
+            return { name, ax: r.left + r.width / 2, ay: r.bottom - (GROUND + TUMBLE_C / FRAME_M) * size, size, rot: 0, face: 0, ground: false, tumble: true, tilt: TILT, opacity: parseFloat(cs.opacity) };
+        }
         if (grip && grip.classList && grip.classList.contains('lb-grip')) {
             // 掛在招牌上：前爪就是抓點；整隻跟著招牌晃，再加上自己的擺盪
             const g = grip.getBoundingClientRect(); ax = g.left; ay = g.top; ground = false;
@@ -269,6 +319,12 @@ class Cat3D {
 
     draw(s, dt) {
         const F = s.size;                      // 一格（0.8m）在螢幕上幾 px
+        if (s.tumble) return this.drawTumble(s, dt);
+        if (this.tumbleT0) {
+            this.tumbleT0 = 0; this.tilt.position.set(0, 0, 0); this.tilt.rotation.set(0, 0, 0);
+            // 翻滾時 yaw 一路累加了好幾圈：收回 ±180° 內，不然接下來角落那隻會原地倒轉好幾圈才面向前面
+            this.yaw = Math.atan2(Math.sin(this.yaw), Math.cos(this.yaw));
+        }
         const W = Math.ceil(F * 1.7), H = Math.ceil(F * 1.6);
         const cv = this.canvas;
         if (cv._w !== W || cv._h !== H) { this.renderer.setSize(W, H, false); cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv._w = W; cv._h = H; }
@@ -298,8 +354,46 @@ class Cat3D {
         this.hemi.color.setRGB(0.54 + 0.4 * (1 - this.night), 0.5 + 0.42 * (1 - this.night), 0.69 + 0.2 * (1 - this.night));
         this.hemi.intensity = 0.5 + 0.5 * (1 - this.night);
         RIM.value = 0.15 + 0.85 * this.night;
+        SHEEN.value = 0.7 + 0.3 * this.night;
         this.mixer.update(dt);
         this.lookAt(s, dt);
+        this.fidget(s);
+        this.blink(s.name);
+        this.renderer.render(this.scene, cam);
+    }
+
+    /* 隧道裡的翻滾（2026-11-17，取代序列圖＋CSS 平面旋轉）。
+       以前是 8 格序列圖整張在螢幕上左右搖（rotate），永遠只看得到同一個角度的貓，像一張貼紙在晃。
+       現在是 3D 的貓真的在轉：身體慢慢打轉（約 7 秒一圈，看得到背、側面、肚子輪流出現）、前後俯仰與左右側滾各自慢慢擺，
+       三個週期互不成倍數，所以不會看出「同一段在重播」。
+       ★ 只左右飄、不上下飄：上下飄時貓相對隧道一下快一下慢，看起來掉的速度不一致（GB 2026-10-22，CSS 版同一條規矩）。
+       ★ 繞身體中心轉，不繞腳底：繞腳底的話整隻貓會在畫面上甩一個大圈。 */
+    drawTumble(s, dt) {
+        const F = s.size, now = performance.now();
+        if (!this.tumbleT0) this.tumbleT0 = now;
+        const t = (now - this.tumbleT0) / 1000;
+        const W = Math.ceil(F * 1.8), H = W;
+        const cv = this.canvas;
+        if (cv._w !== W || cv._h !== H) { this.renderer.setSize(W, H, false); cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv._w = W; cv._h = H; }
+        const ox = W / 2, oy = H / 2;
+        const drift = F * 0.07 * Math.sin(t * 1.75);
+        cv.style.transform = 'translate3d(' + (s.ax + drift - ox).toFixed(1) + 'px,' + (s.ay - oy).toFixed(1) + 'px,0)';
+        cv.style.visibility = '';
+        cv.style.opacity = s.opacity < 1 ? String(s.opacity) : '';
+        const cam = this.camera; cam.left = -ox; cam.right = W - ox; cam.top = oy; cam.bottom = oy - H; cam.updateProjectionMatrix();
+        const k = F / FRAME_M;
+        this.tilt.scale.setScalar(k);
+        this.tilt.rotation.set(0.55 + 0.4 * Math.sin(t * 1.3), 0, 0.5 * Math.sin(t * 0.83 + 1.0));
+        this.yaw = THREE.MathUtils.degToRad(FACE.fall) + t * 0.9;
+        this.turn.rotation.y = Math.PI + this.yaw;
+        // 身體中心（腳底往上 TUMBLE_C）釘在畫布正中間
+        this.tilt.position.set(0, TUMBLE_C * k, 0).applyEuler(this.tilt.rotation).multiplyScalar(-1);
+        this.shadow.visible = false;
+        if (this.base) { this.neck.quaternion.copy(this.base[0]); this.head.quaternion.copy(this.base[1]); this.base = null; }
+        this.night += (1 - this.night) * Math.min(1, dt * 3);
+        this.neon[0].intensity = 0.5 * this.night; this.neon[1].intensity = 0.45 * this.night;
+        RIM.value = 1; SHEEN.value = 1;
+        this.mixer.update(dt);
         this.fidget(s);
         this.blink(s.name);
         this.renderer.render(this.scene, cam);

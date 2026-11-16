@@ -181,6 +181,8 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 .lb-cat.bob { transform-origin: 50% 70%;
     animation: lbSprite var(--dur) steps(var(--frames), jump-none) infinite, lbTumble 3.6s ease-in-out infinite; }
 /* ★ 只左右飄、不上下飄：上下飄的時候貓相對隧道一下快一下慢，看起來掉的速度不一致（GB 2026-10-22）。 */
+/* 3D 貓接上之後（2026-11-17）翻滾由 lobby3d.js 在立體空間裡做，這裡的平面旋轉關掉：兩邊一起轉的話 3D 貓量到的框會跟著晃。 */
+.lb-cat.bob.is3d { animation: none; }
 @keyframes lbTumble {
     0%   { translate: 0 0;   rotate: -18deg; }
     25%  { translate: 8% 0;  rotate: 24deg; }

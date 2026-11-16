@@ -822,7 +822,12 @@
         setSprite(catEl, 'fall');
         catEl.classList.add('bob');
         hud.textContent = '下墜中';
-        /* 隧道裡不用 3D 貓：翻滾是 CSS 的 rotate，3D 那支只讀格子的位置與左右翻面，接上去會變成不會翻的貓。 */
+        /* 隧道裡的 3D 貓（2026-11-17）：3D 已經載好的話接上去，由牠自己在立體空間裡翻滾（lobby3d.js 的 drawTumble，看 data-tumble）；
+           格子上 CSS 的平面旋轉在 .bob.is3d 時關掉（lobby.css），不然兩邊各轉各的。
+           ★ 只在「這一頁的大廳點了洞」而且 3D 當下已經在（C3）才接：交棒過來的那一頁一開始就在隧道裡，3D 還沒載到，
+             掉到一半從序列圖跳成 3D 會閃一下，那裡就整段用序列圖。
+           ★ 沒接上的（3D 沒載到、省電模式、錯題本那幾頁）照舊是序列圖＋CSS 旋轉，什麼都不用退。 */
+        if (C3 && mode === 'lobby' && !H.classList.contains('fx-lite')) { catEl.dataset.tumble = '1'; want3d(catEl, 2147483002); }
         /* 交棒過來的那一頁：前一頁最後就是隧道，這裡直接接上，不淡入（淡入的那 0.27 秒是黑的） */
         if (mode === 'arrive' && hand && hand.ft != null) {
             var seek = function () {
