@@ -357,6 +357,14 @@
         catEl = el('div', 'lb-cat', scene);
         preload(['idle', 'run', 'jumpdown', 'fall']);
         if (mode !== 'arrive') { var pi = new Image(); pi.src = fallPoster(); }   // 下墜第一格先抓起來
+        /* 影片也先抓（2026-11-16）：以前等到點了洞才開始抓，貓跑過去＋跳進去只有一秒半到兩秒半，
+           網路慢的時候隧道一開始是不會動的那張圖。街景出來 1.5 秒後就開始（讓街景和貓先下載完）。
+           減少動態的人不會看到隧道、開了省流量的人別替他先花：這兩種不抓。 */
+        if (mode === 'lobby' && !reduce) {
+            probeAv1();
+            var nv = W.navigator;
+            if (!(nv && nv.connection && nv.connection.saveData)) setTimeout(function () { if (!done && !picked) fallVideo(); }, 1500);
+        }
         setSprite(catEl, mode === 'arrive' ? 'fall' : 'idle');
         if (mode !== 'arrive') want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層
         if (mode === 'lobby' && !reduce) streetLife();
@@ -685,7 +693,7 @@
     function go(s) {
         /* ft：隧道影片播到第幾秒。新的那一頁從「這一秒＋換頁花掉的時間」接著播，不從頭開始（從頭開始會頓一下，像掉的速度變了）。 */
         var ft = fallEl && isFinite(fallEl.currentTime) ? fallEl.currentTime : 0;
-        try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now(), lay: lay, ft: ft })); } catch (e) {}
+        try { sessionStorage.setItem(HAND_KEY, JSON.stringify({ to: s[0], at: Date.now(), lay: lay, av1: fallUsesAv1, ft: ft })); } catch (e) {}
         location.href = s[2];
     }
 
@@ -744,7 +752,29 @@
        ★ 影片裡沒有貓：貓是 cat-fall 序列圖（或 3D 貓）疊上去的，抵達時要掉出去還是鑽進裂縫由這裡決定。
        ★ 影片抓不到或播不起來：留著第一格的圖（poster），一樣是隧道，只是不會動。 */
     var fallEl = null, fallOn = false;
-    function fallSrc(l) { return DIR + 'fall-' + (l || lay) + '.mp4'; }
+    /* 影片有兩種編碼（2026-11-16），畫面一樣、只差檔案大小：
+         fall-<lay>.av1.mp4  AV1，約 240～280KB。比較新的壓法，同樣的畫質只要三分之一的檔案。
+         fall-<lay>.mp4      H.264，約 760KB。每一台都播得動，當備援。
+       ★ 不能只問「會不會播」（canPlayType）：舊手機沒有 AV1 的硬體解碼，瀏覽器會說「會」然後用 CPU 硬算，隧道一格一格跳。
+         所以再問一次 mediaCapabilities「播起來順不順」（smooth），兩個都說好才用 AV1；問不到、還沒回答，一律 H.264。
+       ★ 交棒過來的那一頁不重問（問是非同步的，那一頁一開始就要播）：前一頁把用了哪一支寫在交棒的 av1 裡，照用，
+         剛好也是瀏覽器才抓過的同一個檔。
+       ★ AV1 那支抓不到或解不動（error 事件）就當場換回 H.264，不留一片不會動的隧道。 */
+    var AV1_TYPE = 'video/mp4; codecs="av01.0.05M.08"';
+    var fallAv1 = false, fallUsesAv1 = false;
+    function probeAv1() {
+        try {
+            var t = D.createElement('video'), mc = W.navigator && W.navigator.mediaCapabilities;
+            if (!t.canPlayType || !t.canPlayType(AV1_TYPE) || !mc || !mc.decodingInfo) return;
+            mc.decodingInfo({ type: 'file', video: { contentType: AV1_TYPE, width: 1280, height: 720, bitrate: 300000, framerate: 24 } })
+                .then(function (r) { fallAv1 = !!(r && r.supported && r.smooth); }, function () {});
+        } catch (e) {}
+    }
+    /* 影片的內容每 FALL_LOOP 秒重複一次（48 格接成 4 輪＝8 秒，見 素材/大廳/轉檔.py）。
+       接著播的時候只跳到「第一輪裡的同一格」：畫面一模一樣，但解碼器只要從開頭往後算最多 47 格，
+       不用算到 191 格（整支只有開頭一格是完整的圖，後面每一格都要靠前面的算出來）。 */
+    var FALL_LOOP = 2;
+    function fallSrc(l, av1) { return DIR + 'fall-' + (l || lay) + (av1 ? '.av1' : '') + '.mp4'; }
     function fallPoster(l) { return DIR + 'fall-' + (l || lay) + '.webp'; }
     function fallVideo(l) {
         if (fallEl) return fallEl;
@@ -756,7 +786,14 @@
         v.poster = fallPoster(l);
         /* poster 還沒畫出來之前影片是黑的（手機實測下墜一開始黑一下）：底下再鋪同一張圖 */
         v.style.background = '#07060c url(' + fallPoster(l) + ') center / cover no-repeat';
-        v.src = fallSrc(l);
+        fallUsesAv1 = mode === 'arrive' ? !!(hand && hand.av1) : fallAv1;
+        if (fallUsesAv1) v.addEventListener('error', function () {
+            if (!fallUsesAv1) return;
+            fallUsesAv1 = false; fallAv1 = false;
+            v.src = fallSrc(l, false);
+            try { v.load(); if (fallOn) { var p = v.play(); if (p && p.catch) p.catch(function () {}); } } catch (e) {}
+        });
+        v.src = fallSrc(l, fallUsesAv1);
         try { v.load(); } catch (e) {}
         fallEl = v;
         return v;
@@ -791,7 +828,7 @@
             var seek = function () {
                 var d = v.duration;
                 if (!(d > 0) || !isFinite(d)) return;
-                try { v.currentTime = (hand.ft + Math.max(0, Date.now() - (hand.at || Date.now())) / 1000) % d; } catch (e) {}
+                try { v.currentTime = (hand.ft + Math.max(0, Date.now() - (hand.at || Date.now())) / 1000) % Math.min(d, FALL_LOOP); } catch (e) {}
             };
             if (v.readyState >= 1) seek(); else v.addEventListener('loadedmetadata', seek, { once: true });
         }
