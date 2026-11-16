@@ -199,6 +199,28 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
     opacity: 0; pointer-events: none; transition: opacity 0.27s var(--lb-ease);
 }
 .lb-fall.on { opacity: 1; }
+/* 開場白光與回憶照片（2026-11-17，做法與理由見 lobby.js 的 fallFx）。
+   白光是一顆圓心在畫面左下角、邊緣柔的白色圓，從蓋住整個畫面縮到沒有——所以白是往左下收、隧道從右上露出來。
+   ★ 只動 transform（顯示卡自己做，不重畫）。第一版用 clip-path＋filter: blur，隧道影片與 3D 貓同時開工的那一秒
+     主執行緒卡住，動畫整段沒演就被拿掉了。
+   ★ 元素本身只有 100vmax，用 scale 放大到蓋滿：直接做成五倍大的話那一層貼圖要好幾千 px 見方。 */
+.lb-flash { position: absolute; left: 0; top: 100%; width: 100vmax; height: 100vmax; margin: -50vmax 0 0 -50vmax; z-index: 2; pointer-events: none;
+    border-radius: 50%; background: radial-gradient(circle, #fff 0, #fff 56%, rgba(255, 255, 255, 0) 70%);
+    transform: scale(5.6); will-change: transform; animation: lbFlash 0.95s cubic-bezier(0.55, 0, 0.25, 1) 0.08s both; }
+@keyframes lbFlash { from { transform: scale(5.6); } to { transform: scale(0); } }
+.lb-fall.swirl { animation: lbSwirl 1s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+@keyframes lbSwirl { from { transform: scale(1.55) rotate(-26deg); } to { transform: none; } }
+.lb-mem { position: absolute; inset: 0; overflow: hidden; z-index: 1; pointer-events: none; }
+.lb-photo { position: absolute; left: var(--x); top: 0; width: var(--w); aspect-ratio: var(--ar); box-sizing: border-box;
+    border: max(2px, calc(var(--w) * 0.05)) solid #fff; border-radius: 2px;
+    /* 照片的圖是 lobby.js 用 background-image 指定的（站上功能的截圖 mem-N.webp）；圖還沒到之前先是照片自己的顏色。 */
+    background: var(--c) center / cover no-repeat;
+    /* 三層光：貼著框的白、外面一圈照片自己的顏色、往下拖的一道（牠在往上飛，尾巴在下面） */
+    box-shadow: 0 0 calc(var(--w) * 0.16) rgba(255, 255, 255, 0.95), 0 0 calc(var(--w) * 0.55) var(--c),
+                0 calc(var(--w) * 0.55) calc(var(--w) * 0.4) calc(var(--w) * -0.14) rgba(255, 255, 255, 0.6);
+    transform: translate3d(0, var(--y0), 0) rotate(var(--r)); will-change: transform;
+    animation: lbPhoto var(--d) linear var(--dl) infinite; }
+@keyframes lbPhoto { from { transform: translate3d(0, var(--y0), 0) rotate(var(--r)); } to { transform: translate3d(0, var(--y1), 0) rotate(var(--r)); } }
 #lobby.falling .lb-hud { color: #ff2a6d; text-shadow: 0 0 6px rgba(255, 255, 255, 0.9); }
 /* 四個角暗下去（參考圖的畫面邊緣是暗的），中間的白光才顯得亮。貓、裂縫、提示字要在它上面。 */
 #lobby.falling .lb-cat, #lobby.falling .lb-rift, #lobby.falling .lb-hud { z-index: 2; }

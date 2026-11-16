@@ -363,7 +363,7 @@
         if (mode === 'lobby' && !reduce) {
             probeAv1();
             var nv = W.navigator;
-            if (!(nv && nv.connection && nv.connection.saveData)) setTimeout(function () { if (!done && !picked) fallVideo(); }, 1500);
+            if (!(nv && nv.connection && nv.connection.saveData)) setTimeout(function () { if (!done && !picked) { fallVideo(); memPreload(); } }, 1500);
         }
         setSprite(catEl, mode === 'arrive' ? 'fall' : 'idle');
         if (mode !== 'arrive') want3d(catEl, 2147483002);   // 比整個大廳（2147483001）高一層
@@ -798,6 +798,51 @@
         fallEl = v;
         return v;
     }
+    /* 隧道上面疊的兩樣東西（2026-11-17，GB 給了一段參考影片：開場一片白、碎片旋轉著湧進來；一張張發光的照片從旁邊飛過去）。
+       都是網頁畫的，不在影片裡：影片是 2 秒一輪的循環，放不進「只演一次的開場」；照片每次的位置、大小也才會不一樣。
+       · 開場白光（.lb-flash）：整片白，從右上往左下收掉，底下的隧道同時從放大、歪著的樣子轉正（.lb-fall.swirl）。
+         只在「這一頁點了洞」時演：交棒過來的那一頁前一頁已經演過，再白一次像閃了兩下。
+       · 回憶照片（.lb-mem 裡的 .lb-photo）：白框、發光、往上飛（我們在往下掉）。只放兩側，中間留給貓。
+         每張的大小、速度、歪的角度、顏色都是亂數；越大的越近、飛得越快。
+       ★ 省電模式不放（減少動態的人根本不會進隧道）。照片是 7 個 div 的 transform 動畫，不佔版面計算。 */
+    var MEM_TONES = ['#ffd23f', '#ff2a6d', '#00d8ff', '#4ade80', '#ff9f43'];
+    /* 照片裡是站上各功能的截圖（2026-11-17，GB：「換成真的圖」）：測驗、電路模擬器、手機版測驗、單字庫、自學課程。
+       ★ 截圖是從正式站截的，**裁掉了最上面那一排**（右上角有登入的帳號）；課表、計劃、理財是個人資料，沒有放。
+         換圖時守同一條：公開的站上不能出現任何人的帳號、課表、帳目。
+       一張 320×240 或 240×320、2～7KB，五張合計 23KB；跟影片一起先抓。 */
+    var MEM_PICS = [['mem-1', '4 / 3'], ['mem-2', '4 / 3'], ['mem-3', '3 / 4'], ['mem-4', '3 / 4'], ['mem-5', '4 / 3']];
+    function memPreload() { MEM_PICS.forEach(function (m) { var i = new Image(); i.src = DIR + m[0] + '.webp'; }); }
+    function fallFx(v) {
+        if (reduce || H.classList.contains('fx-lite')) return;
+        if (mode === 'lobby') {
+            var fl = el('div', 'lb-flash'); root.insertBefore(fl, root.firstChild);   // 放最前面：跟貓同一層（z-index 2），後面才插進來的貓會在它上面
+            v.classList.add('swirl');
+            /* 演完才拿掉（animationend），不用固定的秒數：隧道剛開始那一下常常卡，固定秒數會在還沒演之前就把它拿掉。3 秒是保險。 */
+            var flOff = function () { if (fl.parentNode) fl.parentNode.removeChild(fl); };
+            fl.addEventListener('animationend', flOff); setTimeout(flOff, 3000);
+            v.addEventListener('animationend', function () { v.classList.remove('swirl'); }, { once: true });
+        }
+        var vw = W.innerWidth, vh = W.innerHeight, vmin = Math.min(vw, vh);
+        var mem = el('div', 'lb-mem', root);
+        mem.style.setProperty('--y0', Math.round(vh * 1.12) + 'px');
+        for (var i = 0; i < 7; i++) {
+            var p = el('div', 'lb-photo', mem), near = Math.random();          // near 越大越近
+            var pic = MEM_PICS[i % MEM_PICS.length];
+            var w = vmin * (0.09 + 0.13 * near) * (pic[1] === '3 / 4' ? 0.8 : 1);
+            var x = (i % 2 ? 0.66 + Math.random() * 0.26 : 0.04 + Math.random() * 0.24) * vw - w / 2;
+            var dur = (1.7 - 0.9 * near + Math.random() * 0.25) * 0.66;   // ×0.66：GB「速度再快一點」，跟隧道一起加快 1.5 倍
+            p.style.setProperty('--w', w.toFixed(0) + 'px');
+            p.style.setProperty('--ar', pic[1]);
+            p.style.backgroundImage = 'url(' + DIR + pic[0] + '.webp)';
+            p.style.setProperty('--x', x.toFixed(0) + 'px');
+            p.style.setProperty('--r', ((Math.random() * 2 - 1) * 16).toFixed(1) + 'deg');
+            p.style.setProperty('--c', MEM_TONES[i % MEM_TONES.length]);
+            p.style.setProperty('--y1', Math.round(-w * 2.2) + 'px');
+            p.style.setProperty('--d', dur.toFixed(2) + 's');
+            p.style.setProperty('--dl', (-Math.random() * dur - i * 0.23).toFixed(2) + 's');
+            p.style.opacity = (0.72 + 0.26 * near).toFixed(2);
+        }
+    }
     /* 貓在隧道裡：很小、在畫面正中間（使用者畫的參考：遠遠的一隻在翻滾往下掉）。
        格子裡的貓只佔格子的三分之一左右，所以格子取短邊的兩成，貓本身大約是短邊的 7%。 */
     function fallLayout() {
@@ -814,6 +859,7 @@
             a.finished.catch(function () {}).then(function () { if (g.parentNode) g.parentNode.removeChild(g); });
         });
         root.classList.add('falling');
+        fallFx(v);
         if (catEl) catEl.dataset.tilt = '';   // 隧道裡回到 8°（下墜的動作是照那個角度做的）
         /* 貓搬出會被放大的街景那一層，放到隧道上面、畫面中間 */
         root.insertBefore(catEl, hud);
