@@ -1,4 +1,4 @@
-/* tw.css：由 tools/mktw.mjs 從 publicnew.html 產生（tailwindcss 3.4.17），不要手改。指紋 b85e6fff1cf80239 */
+/* tw.css：由 tools/mktw.mjs 從 publicnew.html 產生（tailwindcss 3.4.17），不要手改。指紋 986f1fd74dfdece9 */
 *, ::before, ::after {
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
@@ -785,6 +785,11 @@ video {
   grid-column: 1 / -1;
 }
 
+.-mx-1 {
+  margin-left: -0.25rem;
+  margin-right: -0.25rem;
+}
+
 .mx-0\.5 {
   margin-left: 0.125rem;
   margin-right: 0.125rem;
@@ -1023,6 +1028,10 @@ video {
   height: 1.5rem;
 }
 
+.h-60 {
+  height: 15rem;
+}
+
 .h-7 {
   height: 1.75rem;
 }
@@ -1223,6 +1232,10 @@ video {
   min-width: 700px;
 }
 
+.min-w-\[8\.5rem\] {
+  min-width: 8.5rem;
+}
+
 .max-w-2xl {
   max-width: 42rem;
 }
@@ -1401,6 +1414,11 @@ video {
   touch-action: var(--tw-pan-x) var(--tw-pan-y) var(--tw-pinch-zoom);
 }
 
+.touch-pan-y {
+  --tw-pan-y: pan-y;
+  touch-action: var(--tw-pan-x) var(--tw-pan-y) var(--tw-pinch-zoom);
+}
+
 .select-none {
   -webkit-user-select: none;
      -moz-user-select: none;
@@ -1469,6 +1487,10 @@ video {
 
 .items-center {
   align-items: center;
+}
+
+.items-baseline {
+  align-items: baseline;
 }
 
 .justify-end {
@@ -3112,6 +3134,11 @@ video {
   --tw-ring-color: rgb(52 211 153 / var(--tw-ring-opacity, 1));
 }
 
+.ring-fuchsia-200 {
+  --tw-ring-opacity: 1;
+  --tw-ring-color: rgb(245 208 254 / var(--tw-ring-opacity, 1));
+}
+
 .ring-teal-200 {
   --tw-ring-opacity: 1;
   --tw-ring-color: rgb(153 246 228 / var(--tw-ring-opacity, 1));
@@ -3814,8 +3841,16 @@ video {
     padding: 0.5rem;
   }
 
+  .md\:p-5 {
+    padding: 1.25rem;
+  }
+
   .md\:p-6 {
     padding: 1.5rem;
+  }
+
+  .md\:p-7 {
+    padding: 1.75rem;
   }
 
   .md\:p-8 {

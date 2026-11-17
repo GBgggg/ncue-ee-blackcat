@@ -4176,6 +4176,20 @@
 
                 <!-- 投資 -->
                 <div id="finance-sub-invest" class="hidden">
+                    <!-- 市場指標（2026-11-17）：費半、加權、KOSPI…點一下看走勢線。
+                         資料從 Worker 的 /market/indices 來，全站共用快取。 -->
+                    <div class="bg-white rounded-[2rem] p-4 md:p-5 shadow-sm border-2 border-slate-100 mb-6">
+                        <div class="flex items-center justify-between gap-2 mb-3 px-1">
+                            <h3 class="font-black text-slate-900 flex items-center gap-2"><i data-lucide="activity" class="w-5 h-5 text-emerald-500"></i> 市場指標</h3>
+                            <div class="flex items-center gap-1">
+                                <span id="mktStamp" class="text-[11px] font-bold text-slate-400"></span>
+                                <button data-action="mkt-refresh" aria-label="重新整理指標" class="p-1.5 text-slate-400 hover:text-emerald-500 rounded-lg"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="mkt-toggle-picker" aria-label="選擇要顯示的指標" class="p-1.5 text-slate-400 hover:text-emerald-500 rounded-lg"><i data-lucide="sliders-horizontal" class="w-4 h-4 pointer-events-none"></i></button>
+                            </div>
+                        </div>
+                        <div id="mktPicker" class="hidden flex flex-wrap gap-2 mb-3 px-1"></div>
+                        <div id="mktChips" class="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1"></div>
+                    </div>
                     <div class="bg-slate-900 rounded-[2rem] p-4 md:p-6 mb-6 text-white shadow-2xl relative overflow-hidden border-4 border-slate-800">
                         <div class="relative z-10">
                             <h2 class="text-2xl md:text-3xl font-bold flex items-center gap-3">投資追蹤 <span class="animate-bounce">📈</span></h2>
@@ -4190,11 +4204,18 @@
                                 <button data-action="open-watch-modal" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="eye" class="w-4 h-4 pointer-events-none"></i> 新增筆記</button>
                                 <button id="refreshPricesBtn" data-action="refresh-prices" class="px-4 py-2 bg-white/10 border border-white/20 text-white rounded-xl font-bold text-sm hover:bg-white/20 transition-colors inline-flex items-center gap-1"><i data-lucide="refresh-cw" class="w-4 h-4 pointer-events-none"></i> 更新現價</button>
                             </div>
-                            <p class="text-[11px] text-slate-500 mt-3">※ 僅為個人記錄工具，不提供投資建議；現價需自行更新。</p>
+                            <p id="invFxNote" class="text-[11px] text-slate-400 mt-3 hidden"></p>
+                            <p class="text-[11px] text-slate-500 mt-1">※ 僅為個人記錄工具，不提供投資建議。報價有延遲，金額一律換算成台幣。</p>
                         </div>
                     </div>
                     <div class="bg-white rounded-[2rem] p-5 md:p-6 shadow-sm border-2 border-slate-100 mb-6">
-                        <h3 class="font-black text-slate-900 mb-4 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i> 資產配置</h3>
+                        <div class="flex items-center justify-between gap-2 mb-4">
+                            <h3 class="font-black text-slate-900 flex items-center gap-2"><i data-lucide="pie-chart" class="w-5 h-5 text-emerald-500"></i> 資產配置</h3>
+                            <div class="flex gap-1">
+                                <button data-action="inv-alloc-by" data-by="name" class="inv-alloc-opt px-3 py-1 rounded-lg text-xs font-black bg-emerald-500 text-white">依標的</button>
+                                <button data-action="inv-alloc-by" data-by="type" class="inv-alloc-opt px-3 py-1 rounded-lg text-xs font-black bg-slate-100 text-slate-500">依類型</button>
+                            </div>
+                        </div>
                         <div id="allocationChart" class="space-y-2"></div>
                     </div>
                     <h3 class="font-black text-slate-700 mb-3 px-1 flex items-center gap-2"><i data-lucide="briefcase" class="w-4 h-4 text-emerald-500"></i> 持倉</h3>
@@ -5476,10 +5497,14 @@
                     <option value="股票">股票</option><option value="ETF">ETF</option><option value="基金">基金</option>
                     <option value="加密貨幣">加密貨幣</option><option value="定存/現金">定存/現金</option><option value="其他">其他</option>
                 </select>
+                <select id="holdingCcy" aria-label="計價幣別" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm appearance-none text-slate-700">
+                    <option value="">幣別：自動（美股代號算美元，其他算台幣）</option>
+                    <option value="TWD">台幣計價</option><option value="USD">美元計價</option>
+                </select>
                 <div class="grid grid-cols-3 gap-3">
                     <input type="number" id="holdingQty" placeholder="數量" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="數量">
                     <input type="number" id="holdingCost" placeholder="成本價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="成本價">
-                    <input type="number" id="holdingPrice" placeholder="現價" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="現價">
+                    <input type="number" id="holdingPrice" placeholder="現價（選填）" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-emerald-500 font-bold text-sm text-center" aria-label="現價">
                 </div>
                 <div class="flex gap-4 pt-2">
                     <button data-close="holdingModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
@@ -5504,11 +5529,42 @@
                     <input type="number" id="tradePrice" placeholder="價格" step="any" class="px-3 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center" aria-label="價格">
                 </div>
                 <input type="date" id="tradeDate" aria-label="交易日期" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-medium text-sm text-slate-600">
+                <select id="tradeKind" aria-label="交易種類" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm appearance-none text-slate-700">
+                    <option value="twstock">台股股票（賣出證交稅 0.3%）</option>
+                    <option value="twetf">台股 ETF（賣出證交稅 0.1%）</option>
+                    <option value="none">其他（不自動算手續費與稅）</option>
+                </select>
+                <div class="grid grid-cols-2 gap-3">
+                    <label class="text-xs font-bold text-slate-500">手續費折扣<input type="number" id="tradeFeeDisc" step="any" min="0" max="1" placeholder="1 = 不打折" class="mt-1 w-full px-3 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center"></label>
+                    <label class="text-xs font-bold text-slate-500">最低手續費<input type="number" id="tradeFeeMin" step="1" min="0" placeholder="20" class="mt-1 w-full px-3 py-2 bg-slate-50 rounded-xl border-none focus:ring-2 focus:ring-blue-500 font-bold text-sm text-center"></label>
+                </div>
+                <p id="tradeFeePreview" class="text-xs font-bold text-slate-500 px-1"></p>
                 <div class="flex gap-4 pt-2">
                     <button data-close="tradeModal" class="flex-1 py-3 font-bold text-slate-400 hover:bg-slate-100 rounded-xl transition-colors">取消</button>
                     <button data-action="save-trade" class="flex-1 py-3 bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-200 hover:bg-blue-400 transition-colors">儲存</button>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- 走勢圖（2026-11-17）：指標、持倉、觀察清單共用這一個視窗 -->
+    <div id="chartModal" class="fixed inset-0 bg-slate-900/90 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white rounded-[2.5rem] w-full max-h-[90vh] overflow-y-auto max-w-2xl p-5 md:p-7 shadow-2xl border-t-8 border-emerald-500">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <h3 id="chartTitle" class="text-xl font-black text-slate-900 truncate"></h3>
+                    <div class="flex items-baseline gap-2 mt-1 flex-wrap">
+                        <span id="chartLast" class="text-2xl font-black text-slate-900"></span>
+                        <span id="chartChg" class="text-sm font-black"></span>
+                    </div>
+                    <div id="chartHover" class="text-xs font-bold text-slate-400 mt-1 min-h-[1rem]"></div>
+                </div>
+                <button data-close="chartModal" aria-label="關閉" class="p-2 text-slate-300 hover:text-slate-600 rounded-xl shrink-0"><i data-lucide="x" class="w-5 h-5 pointer-events-none"></i></button>
+            </div>
+            <div id="chartRanges" class="flex gap-1 mt-4 overflow-x-auto"></div>
+            <div id="chartBox" class="mt-3 relative h-60 select-none touch-pan-y"></div>
+            <div id="chartLegend" class="flex flex-wrap gap-3 mt-2 text-[11px] font-bold text-slate-500"></div>
+            <p class="text-[11px] text-slate-400 mt-3">※ 報價有延遲，僅供記錄參考，不是投資建議。</p>
         </div>
     </div>
 
@@ -5519,6 +5575,7 @@
             <div class="space-y-4">
                 <input type="hidden" id="editWatchId">
                 <input type="text" id="watchName" maxlength="30" placeholder="標的名稱" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-lg" aria-label="標的名稱">
+                <input type="text" id="watchSymbol" maxlength="20" placeholder="代號（選填，看走勢線、到價提醒用：2330 / AAPL）" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-medium text-sm" aria-label="代號（選填）">
                 <input type="number" id="watchTarget" placeholder="目標價（選填）" step="any" class="w-full px-5 py-3 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-bold text-sm" aria-label="目標價（選填）">
                 <textarea id="watchNote" maxlength="500" placeholder="你的想法、觀察重點…" class="w-full px-5 py-4 bg-slate-50 rounded-2xl border-none focus:ring-2 focus:ring-fuchsia-500 font-medium text-sm min-h-[120px] resize-none" aria-label="你的想法、觀察重點…"></textarea>
                 <div class="flex gap-4 pt-2">
@@ -7865,6 +7922,20 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-11-17',
+                title: '投資頁：看得到大盤、看得到走勢線',
+                items: [
+                    ['市場指標', '投資頁最上面多了一排小卡：加權指數、費城半導體、那斯達克、S&P 500、KOSPI、日經、美元匯率，看得到漲跌和今天的小走勢。右上角可以選要顯示哪幾個。'],
+                    ['走勢線', '點指標小卡，或持倉、觀察清單旁邊的小圖示，就會打開走勢圖：可以切 1 日到 5 年，手指在線上滑會顯示那一天的價格。'],
+                    ['線上標出你自己', '看持股的走勢線時，會畫一條你的成本線，買進、賣出的那幾天也會標在線上；觀察清單會畫出你設的目標價。'],
+                    ['美股的錢算對了', '以前同時有台股跟美股的話，美元直接當台幣加，總額是錯的。現在會先用當天匯率換成台幣再加，總覽底下會寫用哪個匯率換的。'],
+                    ['看得出現價多久沒更新', '每一檔都會寫「3 小時前更新」；沒填過現價的會標出來，不再偷偷拿成本價頂、顯示損益 0。'],
+                    ['台股手續費跟證交稅自動算', '記錄交易時選「台股股票」或「台股 ETF」，會幫你算手續費（可以填券商折扣）和賣出的證交稅，直接顯示實付、實收多少。'],
+                    ['觀察清單會提醒到價', '筆記填了代號跟目標價，按「更新現價」之後碰到目標價那張卡會亮起來。'],
+                    ['資產配置可以看類型', '除了看每一檔佔多少，也可以切成「股票、ETF、現金…」各佔多少。'],
+                ]
+            },
             {
                 date: '2026-11-17',
                 title: '下墜畫面重做，黑貓變立體了',
@@ -14614,6 +14685,18 @@
          * 14.4 理財（記帳 / 投資）— 個人私密資料，僅本人可讀寫
          * ========================================================== */
         let financeSub ='expense', expenseType ='expense', tradeSide ='buy';
+        /* 投資頁的狀態（2026-11-17）。★ 放在這裡（renderInvest 之前）：
+           renderFinance 一被叫就會讀到它們，宣告在後面的話是暫時性死區，
+           症狀是一進理財頁就白掉（CLAUDE.md「四件會壞掉但不會報錯的事」第一條）。 */
+        const FX_KEY ='bc.fx', FEE_KEY ='bc.fee', MKT_KEY ='bc.mktSyms';
+        /* 這幾樣只是這台裝置的偏好（指標要看哪幾個、券商折扣、上次的匯率），
+           放 localStorage 就好；讀不到（無痕、被擋）就當沒有。 */
+        const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v ?? d; } catch { return d; } };
+        const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} };
+        let invFx = lsGet(FX_KEY, null);          // { usd: 32.1, at: 毫秒 }，美元換台幣
+        let invAllocBy ='name';                   // 資產配置：依標的 'name'／依類型 'type'
+        let mktData = {}, mktAt = 0, mktBusy = false, mktErr ='';
+        let chartCtx = null, chartResizeWired = false;
         const financeUnsubs = [];
         const EXPENSE_CATS = { expense: ['飲食','交通','學習','娛樂','生活用品','醫療','其他'], income: ['打工','獎學金','家人','其他'] };
         // 負數要寫成 -$302 而不是 $-302。紅綠色盲看不出漲跌顏色，
@@ -14638,6 +14721,7 @@
             $('finance-sub-expense').classList.toggle('hidden', financeSub !=='expense');
             $('finance-sub-invest').classList.toggle('hidden', financeSub !=='invest');
             updateFinanceSubUI(); renderFinance(); icons();
+            if (financeSub ==='invest') loadMarket(false);
         }
 
         // 登入後才訂閱個人理財資料；登出時取消
@@ -14656,6 +14740,7 @@
         function stopFinanceSubs() {
             while (financeUnsubs.length) { try { financeUnsubs.pop()(); } catch (e) {} }
             state.expenses = []; state.holdings = []; state.trades = []; state.watchlist = [];
+            mktData = {}; mktAt = 0; mktErr ='';
         }
 
         function renderFinance() {
@@ -14665,6 +14750,7 @@
             $('financeContent').classList.toggle('hidden', !logged);
             if (!logged) { icons(); return; }
             renderExpenses(); renderInvest(); updateFinanceSubUI(); icons();
+            if (financeSub ==='invest') loadMarket(false);   // 兩分鐘內抓過就只重畫
         }
 
         function renderExpenses() {
@@ -14708,23 +14794,91 @@
                     </div>`).join('');
         }
 
+        /* ==========================================================
+         * 投資（2026-11-17 改版）
+         *
+         * ★ 幣別：以前美股的價格（美元）跟台股（台幣）直接加在一起，
+         *   同時有台股跟美股的人，總市值跟損益都是錯的，畫面上看不出來。
+         *   現在每一檔有自己的幣別（ccyOf），加總前一律換成台幣（toTwd）。
+         *   匯率抓不到的那幾檔**不算進總額**，並且在總覽卡底下明講——
+         *   不能拿 1:1 頂，那等於回到原本的錯。
+         * ★ 現價：以前沒填現價就存成本價，畫面上損益 0，看起來像「沒漲沒跌」，
+         *   其實是「根本沒更新」。現在沒現價就存 null、記 priceAt，卡片上寫幾天前更新。
+         * ========================================================== */
+        const ccyOf = (h) => h.ccy || (symbolKind(h) ==='us' ?'USD' :'TWD');
+        const toTwd = (amt, ccy) => ccy ==='USD' ? (invFx && invFx.usd > 0 ? amt * invFx.usd : null) : amt;
+        const UNIT_OF = {'股票':'股','ETF':'股','基金':'單位','加密貨幣':'','定存/現金':'','其他':'' };
+        const fmtNum = (n, d = 2) => (typeof n ==='number' && Number.isFinite(n))
+            ? n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: d }) :'—';
+        const fmtPx = (n, ccy) => (ccy ==='USD' ?'US$' :'') + fmtNum(n, 4);
+        /* 「3 天前」。超過一週就直接寫日期，「42 天前」比日期還難懂。 */
+        function agoText(ms) {
+            if (!ms) return'';
+            const m = Math.round((Date.now() - ms) / 60000);
+            if (m < 1) return'剛剛';
+            if (m < 60) return m +' 分鐘前';
+            if (m < 60 * 24) return Math.round(m / 60) +' 小時前';
+            if (m < 60 * 24 * 7) return Math.round(m / 1440) +' 天前';
+            const d = new Date(ms); return (d.getMonth() + 1) +'/' + d.getDate();
+        }
+        /* 走勢線要用的代號。台股分上市（.TW）上櫃（.TWO），存在 h.ex
+           （按一次「更新現價」就會記下來）；還沒記到的先猜上市。
+           加密貨幣存的是 CoinGecko 的 id（bitcoin），Yahoo 不認得，就不給線。 */
+        function chartSymOf(h) {
+            const k = symbolKind(h), s = (h.symbol ||'').trim();
+            if (k ==='tw') return s + (h.ex ==='otc' ?'.TWO' :'.TW');
+            if (k ==='us') return s.toUpperCase();
+            return null;
+        }
+        /* 一檔持倉的現價狀態。三種：有更新時間、有價但不知道何時（舊資料）、根本沒有。 */
+        function priceState(h) {
+            const has = typeof h.price ==='number' && h.price > 0;
+            if (has && h.priceAt) return { px: h.price, label: agoText(h.priceAt) +'更新', stale: false };
+            if (has && h.price !== h.cost) return { px: h.price, label:'更新時間不明', stale: false };
+            return { px: h.cost || 0, label:'還沒有現價（先用成本算）', stale: true };
+        }
+
         function renderInvest() {
             const hs = state.holdings;
-            const cost = hs.reduce((s, h) => s + (h.qty || 0) * (h.cost || 0), 0);
-            const val = hs.reduce((s, h) => s + (h.qty || 0) * (h.price || h.cost || 0), 0);
+            let cost = 0, val = 0, noFx = 0, stale = 0, usd = 0;
+            const rows = hs.map(h => {
+                const ccy = ccyOf(h), q = h.qty || 0, ps = priceState(h);
+                if (ccy ==='USD') usd++;
+                const c = toTwd(q * (h.cost || 0), ccy), v = toTwd(q * ps.px, ccy);
+                if (c == null) noFx++;
+                else { cost += c; val += v; if (ps.stale) stale++; }
+                return { h, ccy, ps, c, v };
+            });
             const pnl = val - cost;
             $('invCost').textContent = money(cost); $('invValue').textContent = money(val);
             $('invPnl').textContent = (pnl >= 0 ?'+' :'') + money(pnl) + (cost ? `（${(pnl / cost * 100).toFixed(1)}%）` :'');
             $('invPnl').className ='text-lg font-black ' + (pnl >= 0 ?'val-up' :'val-down');
 
-            // 資產配置（依標的現值佔比）
+            const notes = [];
+            if (usd && invFx && invFx.usd > 0) notes.push(`美元以 1 : ${fmtNum(invFx.usd, 3)} 換成台幣（${agoText(invFx.at)}）`);
+            if (noFx) notes.push(`有 ${noFx} 檔美元計價的還沒抓到匯率，暫時沒算進上面的總額——按「更新現價」`);
+            if (stale) notes.push(`${stale} 檔還沒有現價，先用成本算`);
+            $('invFxNote').textContent = notes.join('；');
+            $('invFxNote').classList.toggle('hidden', !notes.length);
+
+            // 資產配置：依標的或依類型（股票／ETF／現金…）
             // 用專屬色票，不要用 Tailwind 色階：emerald / blue / teal 在新配色裡
             // 全都被對應成同一個磚紅，七本單字冊會有三本長得一模一樣。
             const COLORS = ['bg-sw-1','bg-sw-2','bg-sw-3','bg-sw-4','bg-sw-5','bg-sw-6','bg-sw-7'];
-            const rows = hs.map(h => ({ name: h.name, v: (h.qty || 0) * (h.price || h.cost || 0) })).filter(r => r.v > 0).sort((a, b) => b.v - a.v);
-            $('allocationChart').innerHTML = rows.length === 0
+            const groups = new Map();
+            rows.forEach(r => { if (r.v > 0) {
+                const k = invAllocBy ==='type' ? (r.h.type ||'其他') : r.h.name;
+                groups.set(k, (groups.get(k) || 0) + r.v);
+            } });
+            const alloc = [...groups].map(([name, v]) => ({ name, v })).sort((a, b) => b.v - a.v);
+            document.querySelectorAll('.inv-alloc-opt').forEach(b => {
+                const on = b.dataset.by === invAllocBy;
+                b.classList.toggle('bg-emerald-500', on); b.classList.toggle('text-white', on);
+                b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-500', !on);
+            });
+            $('allocationChart').innerHTML = alloc.length === 0
                 ?'<div class="text-slate-400 text-sm text-center py-4">還沒有持倉</div>'
-                : rows.map((r, i) => `
+                : alloc.map((r, i) => `
                     <div>
                         <div class="flex justify-between text-xs font-bold mb-1"><span class="text-slate-600">${escapeHTML(r.name)}</span><span class="text-slate-500">${money(r.v)}（${Math.round(r.v / val * 100)}%）</span></div>
                         <div class="h-2 bg-slate-100 rounded-full overflow-hidden"><div class="h-full ${COLORS[i % COLORS.length]} rounded-full" style="width:${Math.max(2, r.v / val * 100)}%"></div></div>
@@ -14732,50 +14886,66 @@
 
             $('holdingList').innerHTML = hs.length === 0
                 ? emptyState({ text:'還沒有持倉。',
-                               hint:'登錄之後按「更新現價」會帶入台股與美股的參考價。',
+                               hint:'填了代號之後按「更新現價」會帶入台股、美股的參考價，也能看走勢線。',
                                clickId:'openHoldingModalBtn', label:'新增第一筆持倉' })
-                : hs.map(h => {
-                    const c = (h.qty || 0) * (h.cost || 0), v = (h.qty || 0) * (h.price || h.cost || 0), p = v - c;
-                    return `<div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
+                : rows.map(({ h, ccy, ps, c, v }) => {
+                    const p = (c == null) ? null : v - c;
+                    const unit = UNIT_OF[h.type] ?? '';
+                    const cs = chartSymOf(h);
+                    return `<div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center gap-2">
                         <div class="min-w-0">
-                            <div class="font-black text-slate-900 truncate">${escapeHTML(h.name)} <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${escapeHTML(h.type ||'')}</span>${h.symbol ? `<span class="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded ml-1">${escapeHTML(h.symbol)}</span>` :''}</div>
-                            <div class="text-xs text-slate-400">${h.qty} 股 · 成本 ${h.cost} · 現價 ${h.price || h.cost}</div>
+                            <div class="font-black text-slate-900 truncate">${escapeHTML(h.name)} <span class="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">${escapeHTML(h.type ||'')}</span>${h.symbol ? `<span class="text-[10px] font-bold text-slate-400 ml-1">${escapeHTML(h.symbol)}</span>` :''}${ccy ==='USD' ?'<span class="text-[10px] font-bold text-slate-400 ml-1">美元</span>' :''}</div>
+                            <div class="text-xs text-slate-400">${fmtNum(h.qty, 6)}${unit ?' ' + unit :''} · 成本 ${fmtPx(h.cost, ccy)} · 現價 ${fmtPx(ps.px, ccy)}</div>
+                            <div class="text-[10px] font-bold ${ps.stale ?'text-amber-500' :'text-slate-400'}">${ps.label}</div>
                         </div>
-                        <div class="flex items-center gap-2 shrink-0">
-                            <div class="text-right"><div class="font-black text-slate-800 text-sm">${money(v)}</div><div class="text-xs font-bold ${p >= 0 ?'val-up' :'val-down'}">${p >= 0 ?'+' :''}${money(p)}</div></div>
-                            <button data-action="edit-holding" data-id="${escapeHTML(h.id)}" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                            <button data-action="del-finance" data-col="holdings" data-id="${escapeHTML(h.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                        <div class="flex items-center gap-1 shrink-0">
+                            <div class="text-right mr-1"><div class="font-black text-slate-800 text-sm">${v == null ?'—' : money(v)}</div><div class="text-xs font-bold ${p == null ?'text-slate-400' : p >= 0 ?'val-up' :'val-down'}">${p == null ?'等匯率' : (p >= 0 ?'+' :'') + money(p)}</div></div>
+                            ${cs ? `<button data-action="chart-holding" data-id="${escapeHTML(h.id)}" aria-label="看走勢線" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="line-chart" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                            <button data-action="edit-holding" data-id="${escapeHTML(h.id)}" aria-label="編輯" class="p-1.5 text-slate-300 hover:text-emerald-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                            <button data-action="del-finance" data-col="holdings" data-id="${escapeHTML(h.id)}" aria-label="刪除" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                         </div>
                     </div>`; }).join('');
 
             $('tradeList').innerHTML = state.trades.length === 0
                 ? emptyState({ text:'還沒有交易紀錄。',
-                               hint:'買賣紀錄會用來算成本與損益。' })
-                : state.trades.slice(0, 100).map(t => `
+                               hint:'記下來的買賣會標在那一檔的走勢線上；台股會順便幫你算手續費與證交稅。' })
+                : state.trades.slice(0, 100).map(t => {
+                    const extra = (t.fee || t.tax) ? ` · 手續費 ${money(t.fee || 0)}${t.tax ? ` · 稅 ${money(t.tax)}` :''}` :'';
+                    return `
                     <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100 flex justify-between items-center">
                         <div class="min-w-0">
                             <div class="font-black text-slate-900 truncate"><span class="${t.side ==='sell' ?'text-rose-500' :'text-blue-500'}">${t.side ==='sell' ?'賣出' :'買入'}</span> ${escapeHTML(t.name)}</div>
-                            <div class="text-xs text-slate-400">${t.qty} × ${t.price} = ${money((t.qty || 0) * (t.price || 0))} · ${escapeHTML(t.date ||'')}</div>
+                            <div class="text-xs text-slate-400">${t.qty} × ${t.price} = ${money((t.qty || 0) * (t.price || 0))}${extra} · ${escapeHTML(t.date ||'')}</div>
                         </div>
-                        <button data-action="del-finance" data-col="trades" data-id="${escapeHTML(t.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg shrink-0"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
-                    </div>`).join('');
+                        <button data-action="del-finance" data-col="trades" data-id="${escapeHTML(t.id)}" aria-label="刪除" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg shrink-0"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                    </div>`; }).join('');
 
             $('watchList').innerHTML = state.watchlist.length === 0
                 ? emptyState({ text:'還沒有投資筆記。',
-                               hint:'記下當時為什麼買、為什麼賣，之後回頭看很有用。' })
-                : state.watchlist.map(w => `
-                    <div class="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
+                               hint:'記下當時為什麼買、為什麼賣，之後回頭看很有用。填了代號跟目標價，到價時這張卡會亮起來。' })
+                : state.watchlist.map(w => {
+                    const cs = chartSymOf({ symbol: w.symbol, ex: w.ex });
+                    const hasPx = typeof w.price ==='number' && w.price > 0;
+                    /* 「到價」只看有沒有碰到目標價，不管方向：
+                       有人設的是想買的價（等它跌下來），有人設的是想賣的價。
+                       判斷方向要多一個欄位讓人選，先用「現價跟目標價差不到 1%，或已經越過」帶過。 */
+                    const hit = hasPx && w.target > 0 && (Math.abs(w.price - w.target) / w.target < 0.01
+                        || (w.base > 0 && (w.base - w.target) * (w.price - w.target) <= 0));
+                    return `
+                    <div class="bg-white rounded-2xl p-4 shadow-sm border ${hit ?'border-fuchsia-400 ring-2 ring-fuchsia-200' :'border-slate-100'}">
                         <div class="flex justify-between items-start gap-2">
                             <div class="min-w-0">
-                                <div class="font-black text-slate-900 truncate">${escapeHTML(w.name)}${w.target ? `<span class="ml-2 text-xs font-bold text-fuchsia-600 bg-fuchsia-50 px-2 py-0.5 rounded">目標 ${w.target}</span>` :''}</div>
+                                <div class="font-black text-slate-900 truncate">${escapeHTML(w.name)}${w.symbol ? `<span class="text-[10px] font-bold text-slate-400 ml-1">${escapeHTML(w.symbol)}</span>` :''}${w.target ? `<span class="ml-2 text-xs font-bold text-fuchsia-600 bg-fuchsia-50 px-2 py-0.5 rounded">目標 ${w.target}</span>` :''}${hit ?'<span class="ml-1 text-xs font-black text-white bg-fuchsia-500 px-2 py-0.5 rounded">到價了</span>' :''}</div>
+                                ${hasPx ? `<div class="text-xs font-bold text-slate-500 mt-0.5">現價 ${fmtNum(w.price, 4)} <span class="text-slate-400 font-medium">· ${agoText(w.priceAt)}</span></div>` :''}
                                 ${w.note ? `<p class="text-sm text-slate-600 mt-1 whitespace-pre-wrap break-words">${escapeHTML(w.note)}</p>` :''}
                             </div>
                             <div class="flex gap-1 shrink-0">
-                                <button data-action="edit-watch" data-id="${escapeHTML(w.id)}" class="p-1.5 text-slate-300 hover:text-fuchsia-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
-                                <button data-action="del-finance" data-col="watchlist" data-id="${escapeHTML(w.id)}" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
+                                ${cs ? `<button data-action="chart-watch" data-id="${escapeHTML(w.id)}" aria-label="看走勢線" class="p-1.5 text-slate-300 hover:text-fuchsia-500 rounded-lg"><i data-lucide="line-chart" class="w-4 h-4 pointer-events-none"></i></button>` :''}
+                                <button data-action="edit-watch" data-id="${escapeHTML(w.id)}" aria-label="編輯" class="p-1.5 text-slate-300 hover:text-fuchsia-500 rounded-lg"><i data-lucide="edit" class="w-4 h-4 pointer-events-none"></i></button>
+                                <button data-action="del-finance" data-col="watchlist" data-id="${escapeHTML(w.id)}" aria-label="刪除" class="p-1.5 text-slate-300 hover:text-red-500 rounded-lg"><i data-lucide="trash-2" class="w-4 h-4 pointer-events-none"></i></button>
                             </div>
                         </div>
-                    </div>`).join('');
+                    </div>`; }).join('');
         }
 
         // --- 記帳 CRUD ---
@@ -14816,17 +14986,32 @@
         function openHoldingModal(id = null) {
             const h = id ? state.holdings.find(x => x.id === id) : null;
             $('holdingModalTitle').textContent = h ?'編輯持倉' :'新增持倉';
+            /* 舊資料「沒填現價就存成本價」，打開來不要把那個假現價填回去，
+               不然使用者按儲存的瞬間它就變成一筆「剛剛更新」的真現價。 */
+            const realPx = h && typeof h.price ==='number' && h.price > 0 && (h.priceAt || h.price !== h.cost) ? h.price :'';
             setVals({ editHoldingId: h ? h.id :'', holdingName: h ? h.name :'', holdingSymbol: h ? (h.symbol ||'') :'',
-                      holdingQty: h ? h.qty :'', holdingCost: h ? h.cost :'', holdingPrice: h ? (h.price ||'') :'' });
+                      holdingQty: h ? h.qty :'', holdingCost: h ? h.cost :'', holdingPrice: realPx });
             $('holdingType').value = h ? (h.type ||'股票') :'股票';
+            $('holdingCcy').value = h ? (h.ccy ||'') :'';
             openModal('holdingModal');
         }
         async function saveHolding() {
             const name = getVal('holdingName'), qty = parseFloat(getVal('holdingQty')), cost = parseFloat(getVal('holdingCost'));
             if (!isValidText(name, 30)) return showToast("請輸入標的名稱");
             if (!qty || !cost) return showToast("請輸入數量與成本價");
-            const payload = { name, symbol: getVal('holdingSymbol').trim(), type: $('holdingType').value, qty, cost, price: parseFloat(getVal('holdingPrice')) || cost };
             const id = getVal('editHoldingId');
+            const old = id ? state.holdings.find(x => x.id === id) : null;
+            const px = parseFloat(getVal('holdingPrice'));
+            const price = px > 0 ? px : null;
+            /* 現價有變才更新時間；沒動的話保留原本的時間，
+               不然只是改個名字，卡片就會說「剛剛更新」。 */
+            const priceAt = price == null ? null
+                          : (old && old.price === price && old.priceAt) ? old.priceAt : Date.now();
+            const symbol = getVal('holdingSymbol').trim();
+            const payload = { name, symbol, type: $('holdingType').value, ccy: $('holdingCcy').value,
+                              qty, cost, price, priceAt };
+            /* 代號換了，上市／上櫃要重新判斷 */
+            if (old && old.symbol !== symbol) payload.ex = null;
             try {
                 if (id) await updateDoc(doc(db, PU('holdings'), id), payload);
                 else await setDoc(doc(collection(db, PU('holdings'))), { ...payload, createdAt: Date.now() });
@@ -14841,32 +15026,89 @@
                 b.classList.toggle('text-white', on);
                 b.classList.toggle('bg-slate-100', !on); b.classList.toggle('text-slate-500', !on);
             });
+            updateTradeFeePreview();
         }
+
+        /* ---- 台股手續費與證交稅 ----
+           手續費 0.1425% 乘上券商折扣，無條件捨去，低於最低手續費就收最低（多數券商整股 20 元；
+           零股很多家是 1 元，所以讓人自己改）。證交稅只有賣出收：股票 0.3%、ETF 0.1%。
+           ★ 折扣是「打幾折」寫成小數：6 折 = 0.6、2.8 折 = 0.28。
+           有些券商是月底退款而不是當下打折，那種人的實際成本會跟券商 App 顯示的不一樣，
+           這不是算錯——券商 App 的試算通常不含折讓。 */
+        const TW_FEE_RATE = 0.001425;
+        const TW_TAX = { twstock: 0.003, twetf: 0.001 };
+        function calcTradeCost(side, kind, qty, price, disc, minFee) {
+            const amt = (qty || 0) * (price || 0);
+            if (!(amt > 0) || !TW_TAX[kind]) return { amt, fee: 0, tax: 0 };
+            const d = disc > 0 && disc <= 1 ? disc : 1;
+            const fee = Math.max(minFee >= 0 ? minFee : 20, Math.floor(amt * TW_FEE_RATE * d));
+            const tax = side ==='sell' ? Math.floor(amt * TW_TAX[kind]) : 0;
+            return { amt, fee, tax };
+        }
+        function tradeFeeInputs() {
+            const disc = parseFloat(getVal('tradeFeeDisc')), min = parseFloat(getVal('tradeFeeMin'));
+            return { disc: disc > 0 ? disc : 1, min: min >= 0 ? min : 20 };
+        }
+        function updateTradeFeePreview() {
+            const el = $('tradeFeePreview'); if (!el) return;
+            const kind = $('tradeKind').value, { disc, min } = tradeFeeInputs();
+            const r = calcTradeCost(tradeSide, kind, parseFloat(getVal('tradeQty')), parseFloat(getVal('tradePrice')), disc, min);
+            if (!(r.amt > 0) || !TW_TAX[kind]) { el.textContent =''; return; }
+            el.textContent = tradeSide ==='sell'
+                ? `成交 ${money(r.amt)} − 手續費 ${money(r.fee)} − 證交稅 ${money(r.tax)} ＝ 實收 ${money(r.amt - r.fee - r.tax)}`
+                : `成交 ${money(r.amt)} ＋ 手續費 ${money(r.fee)} ＝ 實付 ${money(r.amt + r.fee)}`;
+        }
+        let tradeFeeWired = false;
         function openTradeModal() {
-            tradeSide ='buy'; updateTradeSideUI();
-            setVals({ tradeName:'', tradeQty:'', tradePrice:'', tradeDate: new Date().toISOString().slice(0, 10) });
+            tradeSide ='buy';
+            const fee = lsGet(FEE_KEY, {});
+            setVals({ tradeName:'', tradeQty:'', tradePrice:'', tradeDate: new Date().toISOString().slice(0, 10),
+                      tradeFeeDisc: fee.disc ??'', tradeFeeMin: fee.min ??'' });
+            $('tradeKind').value = fee.kind ||'twstock';
+            if (!tradeFeeWired) {
+                tradeFeeWired = true;
+                ['tradeQty','tradePrice','tradeKind','tradeFeeDisc','tradeFeeMin'].forEach(i =>
+                    $(i).addEventListener('input', updateTradeFeePreview));
+                $('tradeKind').addEventListener('change', updateTradeFeePreview);
+            }
+            updateTradeSideUI();
             openModal('tradeModal');
         }
         async function saveTrade() {
             const name = getVal('tradeName'), qty = parseFloat(getVal('tradeQty')), price = parseFloat(getVal('tradePrice'));
             if (!isValidText(name, 30)) return showToast("請輸入標的名稱");
             if (!qty || !price) return showToast("請輸入數量與價格");
+            const kind = $('tradeKind').value, { disc, min } = tradeFeeInputs();
+            const { fee, tax } = calcTradeCost(tradeSide, kind, qty, price, disc, min);
+            /* 折扣與最低手續費記在這台裝置上，下次不用再填（它是券商的設定，不是這一筆的） */
+            lsSet(FEE_KEY, { disc: getVal('tradeFeeDisc') ==='' ? undefined : disc,
+                             min: getVal('tradeFeeMin') ==='' ? undefined : min, kind });
             try {
-                await setDoc(doc(collection(db, PU('trades'))), { name, side: tradeSide, qty, price, date: getVal('tradeDate'), createdAt: Date.now() });
+                await setDoc(doc(collection(db, PU('trades'))), { name, side: tradeSide, qty, price, kind, fee, tax,
+                                                                  date: getVal('tradeDate'), createdAt: Date.now() });
                 closeModal('tradeModal'); showToast("已記錄");
             } catch (e) { console.error(e); showToast("儲存失敗…（請確認已更新安全性規則）"); }
         }
         function openWatchModal(id = null) {
             const w = id ? state.watchlist.find(x => x.id === id) : null;
             $('watchModalTitle').textContent = w ?'編輯筆記' :'投資筆記';
-            setVals({ editWatchId: w ? w.id :'', watchName: w ? w.name :'', watchTarget: w ? (w.target ||'') :'', watchNote: w ? (w.note ||'') :'' });
+            setVals({ editWatchId: w ? w.id :'', watchName: w ? w.name :'', watchSymbol: w ? (w.symbol ||'') :'',
+                      watchTarget: w ? (w.target ||'') :'', watchNote: w ? (w.note ||'') :'' });
             openModal('watchModal');
         }
         async function saveWatch() {
             const name = getVal('watchName');
             if (!isValidText(name, 30)) return showToast("請輸入標的名稱");
-            const payload = { name, target: parseFloat(getVal('watchTarget')) || null, note: getVal('watchNote') };
             const id = getVal('editWatchId');
+            const old = id ? state.watchlist.find(x => x.id === id) : null;
+            const symbol = getVal('watchSymbol').trim();
+            const target = parseFloat(getVal('watchTarget')) || null;
+            const payload = { name, symbol, target, note: getVal('watchNote') };
+            /* base＝設目標價那時候的價格，拿來判斷「越過了沒」。目標價或代號換了就重來。 */
+            if (!old || old.target !== target || (old.symbol ||'') !== symbol) {
+                payload.base = old && (old.symbol ||'') === symbol && old.price > 0 ? old.price : null;
+            }
+            if (old && (old.symbol ||'') !== symbol) { payload.price = null; payload.priceAt = null; payload.ex = null; }
             try {
                 if (id) await updateDoc(doc(db, PU('watchlist'), id), payload);
                 else await setDoc(doc(collection(db, PU('watchlist'))), { ...payload, createdAt: Date.now() });
@@ -14881,17 +15123,22 @@
             const s = (h.symbol ||'').trim();
             if (!s) return null;
             if (h.type ==='加密貨幣') return'crypto';
-            if (/^[0-9]{4,6}$/.test(s)) return'tw';       // 台股代號為純數字
+            if (/^[0-9]{4,6}[A-Za-z]?$/.test(s)) return'tw';   // 台股代號為數字（00631L 這種槓桿 ETF 尾巴有一個字母）
             if (/^[A-Za-z.\-]{1,10}$/.test(s)) return'us'; // 英文代號視為美股
             return null;
         };
 
         async function refreshPrices() {
             if (!QUOTE_API) return showToast("尚未設定報價來源，請先部署 Worker 並填入 QUOTE_API");
+            /* 持倉與觀察清單一起更新。兩邊的同一個代號只問一次（Worker 那邊也會去重，
+               但這裡先去重可以少打一支請求）。 */
+            const items = [...state.holdings.map(h => ({ col:'holdings', d: h })),
+                           ...state.watchlist.map(w => ({ col:'watchlist', d: w }))];
             const groups = { tw: [], us: [], crypto: [] };
-            state.holdings.forEach(h => { const k = symbolKind(h); if (k) groups[k].push(h); });
+            items.forEach(it => { const k = symbolKind(it.d); if (k) groups[k].push(it); });
             const total = Object.values(groups).reduce((s, a) => s + a.length, 0);
-            if (!total) return showToast("沒有可更新的持倉（請先填寫代號）");
+            const needFx = state.holdings.some(h => ccyOf(h) ==='USD');
+            if (!total && !needFx) return showToast("沒有可更新的持倉（請先填寫代號）");
 
             const btn = $('refreshPricesBtn'); btn.disabled = true;
             const orig = btn.innerHTML; btn.textContent ='更新中…';
@@ -14902,11 +15149,15 @@
                （持股存在 PU('holdings')），所以這一層不會擋到任何人。
                ★ getIdToken() 自己處理過期換發，不要自己快取那串字。 */
             const tok = auth.currentUser ? await auth.currentUser.getIdToken() :'';
-            let ok = 0, fail = 0, denied = '';
+            let ok = 0, fail = 0, denied ='';
+            /* ★ 一次寫進去（writeBatch）。以前一檔一個 updateDoc 依序等，
+               十檔就是十次來回，而且中途斷線會變成「一半新一半舊」。 */
+            const batch = writeBatch(db); let writes = 0;
+            const now = Date.now();
             for (const [type, list] of Object.entries(groups)) {
                 if (!list.length) continue;
                 try {
-                    const syms = [...new Set(list.map(h => h.symbol.trim()))].join(',');
+                    const syms = [...new Set(list.map(it => it.d.symbol.trim()))].join(',');
                     const r = await fetch(`${QUOTE_API}/?type=${type}&symbols=${encodeURIComponent(syms)}`,
                                          { headers: {'Authorization':`Bearer ${tok}` } });
                     /* ★ 401 與 429 要分開講，跟 AI 補全同一條理由：兩個都是
@@ -14919,20 +15170,273 @@
                     }
                     const d = await r.json();
                     if (!d || !d.ok) throw new Error(d && d.error ||'bad response');
-                    for (const h of list) {
-                        const key = type ==='crypto' ? h.symbol.trim().toLowerCase()
-                                  : type ==='us' ? h.symbol.trim().toUpperCase() : h.symbol.trim();
+                    for (const it of list) {
+                        const s = it.d.symbol.trim();
+                        const key = type ==='crypto' ? s.toLowerCase() : type ==='us' ? s.toUpperCase() : s;
                         const p = d.prices[key];
                         if (typeof p ==='number' && p > 0) {
-                            try { await updateDoc(doc(db, PU('holdings'), h.id), { price: p }); ok++; }
-                            catch { fail++; }
-                        }
+                            const upd = { price: p, priceAt: now };
+                            if (type ==='tw' && d.ex && d.ex[key]) upd.ex = d.ex[key];
+                            if (it.col ==='watchlist' && it.d.target > 0 && !(it.d.base > 0)) upd.base = p;
+                            batch.update(doc(db, PU(it.col), it.d.id), upd); writes++; ok++;
+                        } else fail++;
                     }
                 } catch (e) { console.error(type, e); fail += list.length; }
             }
+            try { if (writes) await batch.commit(); }
+            catch (e) { console.error(e); fail += ok; ok = 0; }
+            if (needFx) await loadMarket(true);
             btn.disabled = false; btn.innerHTML = orig; icons();
             showToast(ok ? `已更新 ${ok} 檔現價${fail ? `，${fail} 檔失敗` :''}`
-                         : denied ||"更新失敗，請確認代號與 Worker 設定");
+                         : denied || (total ?"更新失敗，請確認代號與 Worker 設定" :"匯率已更新"));
+        }
+
+        /* ==========================================================
+         * 市場指標列與走勢圖（2026-11-17）
+         *
+         * 資料來自 Worker 的 /market/indices 與 /market/chart（Yahoo 的非官方端點）。
+         * ★ Worker 那邊是全站共用快取，這邊再加一層「兩分鐘內不重抓」，
+         *   切來切去分頁不會一直打。
+         * ★ 抓不到就說抓不到（mktErr），不要留著上一次的數字假裝是現在的。
+         * ========================================================== */
+        const MKT_ALL = [['^TWII','加權指數'], ['^TWOII','櫃買指數'], ['^SOX','費城半導體'], ['^IXIC','那斯達克'],
+                         ['^GSPC','S&P 500'], ['^DJI','道瓊'], ['^KS11','KOSPI'], ['^N225','日經 225'],
+                         ['^HSI','恒生指數'], ['TWD=X','美元／台幣']];
+        const MKT_NAME = Object.fromEntries(MKT_ALL);
+        const MKT_DEFAULT = ['^TWII','^SOX','^IXIC','^GSPC','^KS11','^N225','TWD=X'];
+        const mktSymsNow = () => {
+            const s = lsGet(MKT_KEY, null);
+            return Array.isArray(s) ? s.filter(x => MKT_NAME[x]) : MKT_DEFAULT;
+        };
+
+        async function marketFetch(pathq) {
+            if (!WORKER_BASE) throw new Error('還沒設定報價來源');
+            const tok = auth.currentUser ? await auth.currentUser.getIdToken() :'';
+            const r = await fetch(WORKER_BASE + pathq, { headers: {'Authorization':`Bearer ${tok}` } });
+            if (r.status === 401) throw new Error('要先登入');
+            if (r.status === 429) throw new Error('今天的查詢次數用完了，明天再試');
+            const d = await r.json().catch(() => null);
+            if (!r.ok || !d || !d.ok) throw new Error('現在抓不到報價，晚點再試');
+            return d;
+        }
+
+        async function loadMarket(force) {
+            if (!auth.currentUser || auth.currentUser.isAnonymous || mktBusy) return;
+            if (!force && Date.now() - mktAt < 120000) { renderMarket(); return; }
+            mktBusy = true; renderMarket();
+            /* 匯率一定要抓：就算指標列沒勾「美元／台幣」，美股持倉也要它換算 */
+            const want = [...new Set([...mktSymsNow(), 'TWD=X'])];
+            try {
+                const d = await marketFetch('/market/indices?symbols=' + encodeURIComponent(want.join(',')));
+                mktData = d.data || {}; mktAt = Date.now(); mktErr ='';
+                const fx = mktData['TWD=X'];
+                if (fx && fx.last > 0) { invFx = { usd: fx.last, at: fx.time || Date.now() }; lsSet(FX_KEY, invFx); }
+            } catch (e) { mktErr = e.message ||'抓不到'; }
+            mktBusy = false;
+            renderMarket(); renderInvest(); icons();
+        }
+
+        /* 小卡上的那條小線：純 SVG，不用任何套件 */
+        function sparkSvg(vals, cls) {
+            const v = (vals ||[]).filter(x => typeof x ==='number');
+            if (v.length < 2) return'';
+            const lo = Math.min(...v), hi = Math.max(...v), span = (hi - lo) || 1;
+            const pts = v.map((y, i) => `${(i / (v.length - 1) * 80).toFixed(1)},${(22 - (y - lo) / span * 20).toFixed(1)}`).join(' ');
+            return `<svg viewBox="0 0 80 24" class="w-20 h-6 ${cls}" aria-hidden="true"><polyline points="${pts}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+        }
+
+        function renderMarket() {
+            const box = $('mktChips'); if (!box) return;
+            const syms = mktSymsNow();
+            $('mktStamp').textContent = mktBusy ?'更新中…' : mktErr ? mktErr : mktAt ? agoText(mktAt) :'';
+            $('mktPicker').innerHTML = MKT_ALL.map(([s, n]) => {
+                const on = syms.includes(s);
+                return `<button data-action="mkt-pick" data-sym="${escapeHTML(s)}" class="px-3 py-1.5 rounded-xl text-xs font-black transition-colors ${on ?'bg-emerald-500 text-white' :'bg-slate-100 text-slate-500'}">${escapeHTML(n)}</button>`;
+            }).join('');
+            if (!syms.length) { box.innerHTML ='<div class="text-slate-400 text-sm py-2">右上角選要顯示哪幾個指標</div>'; return; }
+            box.innerHTML = syms.map(s => {
+                const d = mktData[s];
+                const name = MKT_NAME[s] || s;
+                if (!d) return `<button data-action="open-chart" data-sym="${escapeHTML(s)}" data-name="${escapeHTML(name)}" class="shrink-0 min-w-[8.5rem] text-left bg-slate-50 rounded-2xl px-3 py-2 border border-slate-100">
+                        <div class="text-[11px] font-black text-slate-500">${escapeHTML(name)}</div>
+                        <div class="text-sm font-black text-slate-300">${mktBusy ?'…' :'—'}</div></button>`;
+                const chg = d.prev ? d.last - d.prev : 0, pct = d.prev ? chg / d.prev * 100 : 0;
+                const cls = chg >= 0 ?'val-up' :'val-down';
+                const dp = s ==='TWD=X' ? 3 : 2;
+                return `<button data-action="open-chart" data-sym="${escapeHTML(s)}" data-name="${escapeHTML(name)}" class="shrink-0 min-w-[8.5rem] text-left bg-slate-50 hover:bg-slate-100 rounded-2xl px-3 py-2 border border-slate-100 transition-colors">
+                        <div class="text-[11px] font-black text-slate-500">${escapeHTML(name)}</div>
+                        <div class="text-base font-black text-slate-900">${fmtNum(d.last, dp)}</div>
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-[11px] font-black ${cls}">${chg >= 0 ?'+' :''}${pct.toFixed(2)}%</span>
+                            ${sparkSvg(d.spark, cls)}
+                        </div>
+                        <div class="text-[10px] font-bold text-slate-400">${marketClock(d.time)}</div>
+                    </button>`;
+            }).join('');
+        }
+        /* 「盤中」的判斷：最後一筆成交在 20 分鐘內。報價本來就有延遲，抓更緊會一直顯示收盤。 */
+        function marketClock(t) {
+            if (!t) return'';
+            const d = new Date(t), live = Date.now() - t < 20 * 60000;
+            const hm = String(d.getHours()).padStart(2,'0') +':' + String(d.getMinutes()).padStart(2,'0');
+            const sameDay = d.toDateString() === new Date().toDateString();
+            return (live ?'盤中 ' :'收盤 ') + (sameDay ? hm : (d.getMonth() + 1) +'/' + d.getDate());
+        }
+        function toggleMarketPick(sym) {
+            const cur = mktSymsNow();
+            const next = cur.includes(sym) ? cur.filter(x => x !== sym)
+                       : MKT_ALL.map(x => x[0]).filter(x => x === sym || cur.includes(x));   // 保持固定順序
+            lsSet(MKT_KEY, next);
+            const missing = next.some(s => !mktData[s]);
+            renderMarket(); icons();
+            if (missing) loadMarket(true);
+        }
+
+        /* ---- 走勢圖 ---- */
+        const CHART_RANGES = [['1d','1日'], ['5d','5日'], ['1mo','1月'], ['6mo','6月'], ['ytd','今年'], ['1y','1年'], ['5y','5年']];
+        const chartCache = new Map();   // 「代號|區間」→ { at, data }
+
+        function openChart(o) {
+            const isIdx = o.sym.startsWith('^') || o.sym.includes('=');
+            chartCtx = { range: isIdx ?'1d' :'6mo', ...o, data: null, err:'' };
+            $('chartTitle').textContent = o.name ||  o.sym;
+            $('chartLast').textContent =''; $('chartChg').textContent =''; $('chartHover').textContent ='';
+            openModal('chartModal');
+            renderChartRanges(); loadChart();
+            if (!chartResizeWired) {
+                chartResizeWired = true;
+                window.addEventListener('resize', () => { if (chartCtx && !$('chartModal').classList.contains('hidden')) drawChart(); });
+            }
+        }
+        function renderChartRanges() {
+            $('chartRanges').innerHTML = CHART_RANGES.map(([r, n]) => {
+                const on = chartCtx && chartCtx.range === r;
+                return `<button data-action="chart-range" data-range="${r}" class="px-3 py-1.5 rounded-xl text-xs font-black shrink-0 transition-colors ${on ?'bg-emerald-500 text-white' :'bg-slate-100 text-slate-500'}">${n}</button>`;
+            }).join('');
+        }
+        async function loadChart() {
+            const ctx = chartCtx; if (!ctx) return;
+            const key = ctx.sym +'|' + ctx.range;
+            const c = chartCache.get(key);
+            if (c && Date.now() - c.at < 60000) { ctx.data = c.data; ctx.err =''; drawChart(); return; }
+            ctx.data = null; ctx.err =''; drawChart();
+            try {
+                const d = await marketFetch(`/market/chart?symbol=${encodeURIComponent(ctx.sym)}&range=${ctx.range}`);
+                chartCache.set(key, { at: Date.now(), data: d });
+                if (chartCtx === ctx && ctx.sym +'|' + ctx.range === key) { ctx.data = d; drawChart(); }
+            } catch (e) {
+                if (chartCtx === ctx) { ctx.err = e.message ||'抓不到'; drawChart(); }
+            }
+        }
+        function fmtChartTime(t, range) {
+            const d = new Date(t), p = (n) => String(n).padStart(2,'0');
+            return (range ==='1d' || range ==='5d')
+                ? `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`
+                : `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}`;
+        }
+        /* 線的顏色、y 軸範圍與標記都在這裡算；畫出來是一張 SVG。
+           ★ 成本線、目標價一起算進 y 軸範圍：只看價格的話，
+             成本在畫面外就看不出「我現在是賺是賠」，那條線就白畫了。
+             但離太遠（超過三倍）就不硬塞，否則價格本身會被壓成一條平線。 */
+        function drawChart() {
+            const ctx = chartCtx, box = $('chartBox'); if (!ctx || !box) return;
+            const d = ctx.data;
+            if (ctx.err) { box.innerHTML = `<div class="h-full flex items-center justify-center text-sm font-bold text-slate-400">${escapeHTML(ctx.err)}</div>`; return; }
+            if (!d) { box.innerHTML ='<div class="h-full flex items-center justify-center text-sm font-bold text-slate-300">載入中…</div>'; return; }
+            const pts = d.points ||[];
+            const ccyMark = d.ccy && d.ccy !=='TWD' ?' ' + d.ccy :'';
+            const dp = ctx.sym ==='TWD=X' ? 3 : 2;
+            const base = d.prev || (pts[0] && pts[0][1]) || 0;
+            const chg = base ? d.last - base : 0;
+            const up = chg >= 0, cls = up ?'val-up' :'val-down';
+            $('chartLast').textContent = fmtNum(d.last, dp) + ccyMark;
+            $('chartChg').className ='text-sm font-black ' + cls;
+            const rname = (CHART_RANGES.find(x => x[0] === ctx.range) ||[])[1] ||'';
+            $('chartChg').textContent = base ? `${up ?'+' :''}${fmtNum(chg, dp)}（${up ?'+' :''}${(chg / base * 100).toFixed(2)}%）${rname}` :'';
+            if (pts.length < 2) { box.innerHTML ='<div class="h-full flex items-center justify-center text-sm font-bold text-slate-400">這一段沒有走勢資料（只拿得到最新價）</div>'; $('chartLegend').innerHTML =''; return; }
+
+            const W = Math.max(280, box.clientWidth || 600), H = box.clientHeight || 240;
+            const L = 6, R = 58, T = 10, B = 22;
+            const ys = pts.map(p => p[1]);
+            let lo = Math.min(...ys), hi = Math.max(...ys);
+            const refs = [];
+            /* ★ 不靠顏色分：站上的配色把 blue／rose／emerald 都對應成同一個磚紅，
+               買賣點跟成本線用顏色分的話全部長一樣。改用形狀（實心／空心、虛線／點線）。 */
+            if (ctx.cost > 0) refs.push({ v: ctx.cost, label:'成本', cls:'text-slate-500', dash:'6 4' });
+            if (ctx.target > 0) refs.push({ v: ctx.target, label:'目標', cls:'text-slate-500', dash:'1 3' });
+            const shown = refs.filter(r => r.v < hi * 3 && r.v > lo / 3);
+            shown.forEach(r => { lo = Math.min(lo, r.v); hi = Math.max(hi, r.v); });
+            const pad = (hi - lo) * 0.08 || hi * 0.01 || 1; lo -= pad; hi += pad;
+            const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+            /* 1 日、5 日線用「第幾筆」當橫軸，不用時間：中間夾著收盤的夜裡與週末，
+               照時間畫的話一大半畫面是空的平線。 */
+            const byIdx = ctx.range ==='1d' || ctx.range ==='5d';
+            const X = (i) => L + (byIdx ? i / (pts.length - 1) : (pts[i][0] - t0) / ((t1 - t0) || 1)) * (W - L - R);
+            const Y = (v) => T + (1 - (v - lo) / (hi - lo)) * (H - T - B);
+            const line = pts.map((p, i) => `${X(i).toFixed(1)},${Y(p[1]).toFixed(1)}`).join(' ');
+            const area = `${X(0).toFixed(1)},${H - B} ${line} ${X(pts.length - 1).toFixed(1)},${H - B}`;
+            const grid = [hi - pad, (hi + lo) / 2, lo + pad].map(v =>
+                `<line x1="${L}" x2="${W - R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="currentColor" stroke-opacity=".12"/>
+                 <text x="${W - R + 6}" y="${(Y(v) + 4).toFixed(1)}" font-size="10" fill="currentColor">${fmtNum(v, dp)}</text>`).join('');
+            /* 這裡插進屬性的全是數字或上面寫死的 class，沒有使用者打的字 */
+            const refSvg = shown.map(({ v, label, cls: rc, dash }) => {
+                const ry = Y(v).toFixed(1), ty = (Y(v) - 3).toFixed(1);
+                return `<g class="${rc}">
+                 <line x1="${L}" x2="${W - R}" y1="${ry}" y2="${ry}" stroke="currentColor" stroke-dasharray="${dash}" stroke-width="1.4"/>
+                 <text x="${L + 4}" y="${ty}" font-size="10" font-weight="700" fill="currentColor">${label}</text></g>`; }).join('');
+            /* 交易點：日期落在這一段裡面的，標在最接近的那一筆上 */
+            const marks = (ctx.trades ||[]).map(t => {
+                const tm = Date.parse(t.date ||'');
+                if (!Number.isFinite(tm) || tm < t0 - 864e5 || tm > t1 + 864e5) return'';
+                let bi = 0; for (let i = 1; i < pts.length; i++) if (Math.abs(pts[i][0] - tm) < Math.abs(pts[bi][0] - tm)) bi = i;
+                const sell = t.side ==='sell', mx = X(bi).toFixed(1), my = Y(pts[bi][1]).toFixed(1);
+                /* 買＝實心、賣＝空心 */
+                return `<circle cx="${mx}" cy="${my}" r="4.5" class="text-slate-800" fill="${sell ?'white' :'currentColor'}" stroke="currentColor" stroke-width="2"><title>${sell ?'賣出' :'買入'} ${escapeHTML(String(t.qty))} @ ${escapeHTML(String(t.price))}（${escapeHTML(t.date ||'')}）</title></circle>`;
+            }).join('');
+            box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" height="100%" class="text-slate-400 block" role="img" aria-label="走勢線">
+                ${grid}
+                <polygon points="${area}" class="${cls}" fill="currentColor" fill-opacity=".08"/>
+                <polyline points="${line}" class="${cls}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>
+                ${refSvg}${marks}
+                <text x="${L}" y="${H - 6}" font-size="10" fill="currentColor">${fmtChartTime(t0, ctx.range)}</text>
+                <text x="${W - R}" y="${H - 6}" font-size="10" fill="currentColor" text-anchor="end">${fmtChartTime(t1, ctx.range)}</text>
+                <g id="chartCross" class="hidden"><line y1="${T}" y2="${H - B}" stroke="currentColor" stroke-opacity=".5"/><circle r="4" class="${cls}" fill="currentColor"/></g>
+                <rect x="${L}" y="0" width="${W - L - R}" height="${H}" fill="transparent" id="chartHit"/>
+            </svg>`;
+            $('chartLegend').innerHTML = [
+                shown.some(r => r.label ==='成本') ?'<span>╌╌ 你的成本</span>' :'',
+                shown.some(r => r.label ==='目標') ?'<span>┈┈ 目標價</span>' :'',
+                marks ?'<span class="text-slate-800">●</span><span>買入</span><span class="text-slate-800">○</span><span>賣出</span>' :'',
+                refs.length > shown.length ?'<span>（成本或目標價離現在太遠，沒畫進來）</span>' :'',
+            ].filter(Boolean).join('');
+
+            /* 十字線：手指或滑鼠在圖上移動，上面那一行顯示那一刻的價格 */
+            const svg = box.querySelector('svg'), hit = $('chartHit'), cross = $('chartCross');
+            const move = (ev) => {
+                const rc = svg.getBoundingClientRect();
+                const x = (ev.clientX - rc.left) / rc.width * W;
+                let bi = 0; for (let i = 1; i < pts.length; i++) if (Math.abs(X(i) - x) < Math.abs(X(bi) - x)) bi = i;
+                const cx = X(bi).toFixed(1), cy = Y(pts[bi][1]).toFixed(1);
+                cross.classList.remove('hidden');
+                cross.querySelector('line').setAttribute('x1', cx); cross.querySelector('line').setAttribute('x2', cx);
+                cross.querySelector('circle').setAttribute('cx', cx); cross.querySelector('circle').setAttribute('cy', cy);
+                $('chartHover').textContent = `${fmtChartTime(pts[bi][0], ctx.range)}　${fmtNum(pts[bi][1], dp)}${ccyMark}`;
+            };
+            hit.addEventListener('pointermove', move);
+            hit.addEventListener('pointerdown', move);
+            hit.addEventListener('pointerleave', () => { cross.classList.add('hidden'); $('chartHover').textContent =''; });
+        }
+        function chartForHolding(id) {
+            const h = state.holdings.find(x => x.id === id); if (!h) return;
+            const sym = chartSymOf(h); if (!sym) return;
+            const nm = (h.name ||'').trim();
+            openChart({ sym, name: h.name, cost: h.cost, trades: state.trades.filter(t => (t.name ||'').trim() === nm) });
+        }
+        function chartForWatch(id) {
+            const w = state.watchlist.find(x => x.id === id); if (!w) return;
+            const sym = chartSymOf({ symbol: w.symbol, ex: w.ex }); if (!sym) return;
+            const nm = (w.name ||'').trim();
+            openChart({ sym, name: w.name, target: w.target, trades: state.trades.filter(t => (t.name ||'').trim() === nm) });
         }
 
         async function deleteFinanceDoc(col, id) {
@@ -23480,6 +23984,14 @@
 'save-watch': saveWatch,
 'del-finance': (t) => deleteFinanceDoc(t.dataset.col, t.dataset.id),
 'refresh-prices': refreshPrices,
+'mkt-refresh': () => loadMarket(true),
+'mkt-toggle-picker': () => $('mktPicker').classList.toggle('hidden'),
+'mkt-pick': (t) => toggleMarketPick(t.dataset.sym),
+'open-chart': (t) => openChart({ sym: t.dataset.sym, name: t.dataset.name }),
+'chart-holding': (t) => chartForHolding(t.dataset.id),
+'chart-watch': (t) => chartForWatch(t.dataset.id),
+'chart-range': (t) => { if (chartCtx) { chartCtx.range = t.dataset.range; renderChartRanges(); loadChart(); } },
+'inv-alloc-by': (t) => { invAllocBy = t.dataset.by ==='type' ?'type' :'name'; renderInvest(); },
             /* 查字典：開站內的英英小卡（劍橋連結在小卡裡）。
                ★ 小卡貼在按鈕旁邊，所以要把按鈕本身傳進去當定位錨點。 */
 'cambridge-quick': (t) => {
