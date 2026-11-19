@@ -156,7 +156,13 @@
          然後真的開一次頁面看圖示還在不在——tests 只驗得了「檔案存在」。
          ★ Tailwind 還在外面。它是 JIT 編譯器不是一支函式庫，換掉要重排版，
          而排版對不對只能用眼睛看。待辦寫在 架構.md。 -->
-    <script src="vendor/lucide.min.js"></script>
+    <!-- ★ defer（2026-11-19，開站變快）：這支 417KB，以前是普通 script，瀏覽器要把它下載、
+         讀完才肯往下排版，整頁都卡在這裡。全站只有最下面那支主程式（module）用到它
+         （`icons = () => lucide.createIcons()`），而 defer 與 module 都是「HTML 讀完才依文件順序執行」，
+         這支排在前面，所以主程式跑的時候 lucide 一定已經在了。
+         ⚠️ 以後如果有別的普通 script 標籤（不是 module）要叫 lucide，要嘛也加 defer 排在這支後面，
+           要嘛等 DOMContentLoaded——直接叫會是 lucide is not defined。tests/swhtml.mjs 有一條在看。 -->
+    <script defer src="vendor/lucide.min.js"></script>
     <!-- ★ ts-fsrs 5.4.1 從這裡拿掉了（2026-09-01，`blackcat-v115`）。
          每日測驗 2026-08-29 換成 FSRS、2026-09-01 又退回五階 Leitner，
          所以這支 71 KB 的排程器現在沒有人載、也不在 `sw.js` 的 CORE 裡。
@@ -3115,6 +3121,30 @@
                     <i data-lucide="log-in" class="w-4 h-4"></i>
                     <span>登入<span class="login-reg"> / 註冊</span></span>
                 </button>
+                <!-- ★ 主程式還沒跑起來之前就先接住「登入」這一下（2026-11-19）。
+                     症狀（使用者回報，iPhone Safari）：右上角「登入／註冊」按不下去。
+                     原因：這顆鈕寫死在 HTML 裡，一開站就看得到；但它的動作是主程式
+                     boot() 裡的 bind() 才掛上去的。主程式是一支很大的 module，前面還要等
+                     Firebase 從 gstatic 載完——iPhone 上常常超過八秒，載入畫面被保底計時器
+                     收掉之後，畫面上就是一顆「看得到、按了沒反應」的鈕（其他按鈕是 boot 才
+                     畫出來的，所以使用者看到的是「其他等很久才出現」）。
+                     改法：先掛一個暫時的 onclick，只記下「按過了」並讓鈕變淡表示收到；
+                     bind() 之後會用 el.onclick = … 蓋掉它，handleAuthState 第一次跑完時
+                     看到旗子就替使用者補按一次（那時才知道他到底是訪客還是已登入）。
+                     ⚠️ 不能在這裡直接打開登入視窗：登入狀態還沒還原，已經登入的人
+                     這時看到的也是「登入／註冊」，直接開視窗會叫他再登入一次。
+                     ⚠️ 用 style 不用 Tailwind 類別：tw.css 是照這份檔案的字算出來的。 -->
+                <script>
+                    (function () {
+                        var b = document.getElementById('adminBtn');
+                        if (!b) return;
+                        b.onclick = function () {
+                            window.__adminTapEarly = true;
+                            b.style.opacity = '0.55';
+                            b.setAttribute('aria-busy', 'true');
+                        };
+                    })();
+                </script>
                 <!-- 已登入帳號選單 -->
                 <!-- ★ 一律靠右展開（`right-0`），手機桌機都是。
 
@@ -7922,6 +7952,16 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-11-19',
+                title: '開站變快，iPhone 上「登入」按了沒反應也修好了',
+                items: [
+                    ['打開網站比較快', '以前每次打開網站，手機都要把整個網站重新下載一遍，就算內容一個字都沒改。現在會先問一聲「有沒有更新」，沒有的話直接用手機裡那份，網站一改版還是會馬上拿到新的。'],
+                    ['訊號差也不會一直白畫面', '網路很慢的時候，最多等兩秒就先打開上次存在手機裡的那一份，新的在背景偷偷下載，下次打開就是新版。'],
+                    ['畫面先出來，圖示晚一點點', '一大包小圖示的資料改成等畫面排好再載，網站的版面會比以前早出現。'],
+                    ['剛打開網站就能按登入', '用 iPhone 開網站時，網站還在準備的那幾秒，右上角的「登入／註冊」按了不會有任何反應，看起來像壞掉。現在先按也沒關係：按鈕會變淡表示收到了，網站一準備好就自動幫你打開登入視窗。'],
+                ]
+            },
             {
                 date: '2026-11-19',
                 title: '文書小黑貓：貼上 AI 的回答，公式也跟著過來',
@@ -22953,7 +22993,17 @@
            會漏掉，所以用 try/finally 包起來。 */
         async function handleAuthState(user) {
             try { await applyAuthState(user); }
-            finally { noteAuthApplied(user ? user.uid : null); }   // 裡面會 markSettled('auth')
+            finally {
+                noteAuthApplied(user ? user.uid : null);   // 裡面會 markSettled('auth')
+                /* 主程式起來前就按了「登入」（見 #adminBtn 底下那支小 script）：
+                   現在知道是訪客還是已登入了，替他補按一次。只補一次。 */
+                if (window.__adminTapEarly) {
+                    window.__adminTapEarly = false;
+                    const b = $('adminBtn');
+                    if (b) { b.style.opacity = ''; b.removeAttribute('aria-busy'); }
+                    handleAdminBtn();
+                }
+            }
         }
 
         async function applyAuthState(user) {

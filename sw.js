@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v199';
+const CACHE = 'blackcat-v201';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -206,6 +206,10 @@ self.addEventListener('notificationclick', (e) => {
 });
 
 // 導覽請求，或明確要 HTML 的請求
+/* HTML 等網路最多等多久，超過就先給快取那份（理由見 fetch 裡 isHTML 那段）。
+   2 秒：沒改版時 no-cache 的那一問通常幾百毫秒就回來，不會被這條切掉。 */
+const HTML_WAIT = 2000;
+
 const isHTML = (req) =>
   req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html');
 
@@ -261,11 +265,33 @@ self.addEventListener('fetch', (e) => {
        原本是用完整網址當鑰匙：開過的每一個 blackcatspice.html?c=<整個電路>、blackcatmd.html?nb=<本子 id>
        都各留一份，換下一個人用同一台電腦就看得到你開過哪些電路、哪幾本。頁面內容本來就跟網址參數無關。 */
     const htmlKey = url.origin + url.pathname;
-    e.respondWith(
-      fetch(new Request(req.url, { cache: 'reload', credentials: 'same-origin' }))
-        .then((res) => putInCache(htmlKey, res))
-        .catch(() => caches.match(htmlKey).then((c) => c || caches.match('./index.html')))
-    );
+    /* ★★ 開站變快（2026-11-19，iPhone 回報開站很久）：兩處改動，「發布後一開就是新版」的原則不變。
+       一、`cache:'reload'` → `cache:'no-cache'`。
+           reload ＝ 不管有沒有改，每次都把整份 HTML 重新下載一遍（主站與彰師電子各約 1.8MB，
+           壓縮後也有 560KB）。no-cache ＝ 先問 GitHub Pages「這份跟我手上那份一樣嗎」（帶 ETag），
+           沒改就回 304、只傳幾百個位元組，瀏覽器直接用自己 HTTP 快取裡那份；有改才下載新的。
+           兩者都繞過 max-age=600 那十分鐘（上面那段的理由），所以發布後一樣馬上拿到新版。
+       二、網路等 HTML_WAIT 毫秒還沒回來、而快取裡有一份 → 先給快取那份讓頁面開起來，
+           網路那份照樣在背景下載完寫進快取（waitUntil 撐著 service worker 不被收掉），下一次開就是新的。
+           ★ 代價：網路很慢的那一次，看到的可能是上一版；下一次開就會是新版。
+             以前的行為是「網路多慢就等多慢」，訊號差的時候整個白畫面等十幾秒。
+           ★ 快取裡沒有（第一次來、或剛換版 activate 把舊快取清掉）就照舊一路等網路。 */
+    const net = fetch(new Request(req.url, { cache: 'no-cache', credentials: 'same-origin' }))
+      .then(async (res) => {
+        if (res && res.status === 200) {
+          const copy = res.clone();
+          try { await (await caches.open(CACHE)).put(htmlKey, copy); } catch (err) { /* 存不進去就算了 */ }
+        }
+        return res;
+      });
+    e.waitUntil(net.catch(() => {}));
+    e.respondWith((async () => {
+      const cached = await caches.match(htmlKey);
+      if (!cached) return net.catch(() => caches.match('./index.html'));
+      const late = new Promise((r) => setTimeout(() => r(null), HTML_WAIT));
+      const res = await Promise.race([net.catch(() => null), late]);
+      return res || cached;
+    })());
     return;
   }
 
