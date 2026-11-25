@@ -184,7 +184,12 @@
            那是**變淡一點**，不是變成預設字型，所以不會有破版。
            ★ 不能砍 900：font-black 用了 154 次，而且標題全靠它撐起層次；
            少了它瀏覽器會用 700 硬撐，標題與內文就分不出來了。 */
-        @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Share+Tech+Mono&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+        /* 2026-11-26 GB：「字體找日本漢字字體」→ Noto Sans JP（漢字是日本的字形，內文 400／粗體 700／大標題 900）。
+           ★ 為什麼不是 Zen Kaku Gothic、Dela Gothic One 這些更有個性的日本字：日本字型沒有繁體專用的字
+             （內、每、說、貓…日本寫成 内、毎、説、猫），拿全站的字去比對，Zen Kaku 缺 130 個常用字、Dela 缺 88 個（連「貓」都沒有），
+             缺的字會掉回別的字型，一句話裡粗細、字形東一個西一個。Noto Sans JP 只缺 15 個很少用的字，
+             而且它跟後備的 Noto Sans TC 是同一套設計（Source Han），掉回去也看不出來。 */
+        @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Share+Tech+Mono&family=Noto+Sans+JP:wght@400;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap');
         .hidden { display: none !important; }
         /* ★★ 這個 keyframe 原本是壞的，而且是那種「看得到但不會被當成 bug」的壞。
            提示框靠 `left-1/2 -translate-x-1/2` 置中，也就是它**靜止時的
@@ -808,7 +813,7 @@
             --radius-lg:    4px;
             --cut:          10px;      /* 切角的大小（卡片 14、按鈕 8，見裝飾層） */
             /* ---- 字 ---- */
-            --font-display: "Chakra Petch", -apple-system, BlinkMacSystemFont, "PingFang TC", "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+            --font-display: "Chakra Petch", "Noto Sans JP", -apple-system, BlinkMacSystemFont, "PingFang TC", "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
             --font-mono:    "Share Tech Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, "Noto Sans TC", monospace;
             /* ---- 動效 ----（四階都是 90ms 的倍數）
                --ease 快出慢收；--ease-spring 會過衝，只給 transform／opacity；
@@ -1123,9 +1128,11 @@
            ★ 標題不再用明體。Apple 的層次全靠同一套黑體的字重與大小，
              襯線體在這套語彙裡會像另一個網站。 */
         body, button, input, select, textarea {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro TC", "SF Pro Text", "PingFang TC",
+            font-family: "Noto Sans JP", -apple-system, BlinkMacSystemFont, "SF Pro TC", "SF Pro Text", "PingFang TC",
                          "Helvetica Neue", "Segoe UI", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
         }
+        /* 大標題用 Noto Sans JP 最粗的 900（看板字的感覺）。 */
+        h1, h2 { font-weight: 900 !important; }
         h1, h2, h3, h4, .serif {
             font-family: inherit;
             letter-spacing: -0.01em;   /* 大字收一點字距：apple.com 的標題就是這樣，中文不受影響 */
@@ -2791,6 +2798,92 @@
                 bottom: calc(var(--wall-h) + var(--ledge-h) + 8px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px 4px 8px; column-gap: 8px; }
             #cityHud .big { font-size: 22px; } }
         html.kb-open #cityHud { display: none !important; }
+
+        /* ---- 白天的分頁大標題（測驗、專屬單字庫、歡迎來到…）：直接疊在白天的城市上，深色字跟後面的大樓糊在一起
+           （GB 2026-11-26：「白天的測驗跟專屬單字庫有點不太明顯」）。白天給它墊一塊白色的標牌，左邊一條青色燈條；
+           晚上背景暗，白字本來就清楚，不動。不能用 text-shadow（使用者要求字上不疊任何影子）。 */
+        html.city-wall:not(.dark) .bg-slate-900.border-slate-800 h2 {
+            display: inline-flex; width: auto; padding: 6px 16px 6px 14px;
+            background: rgba(255, 255, 255, 0.94); color: #0f172a !important;
+            border-left: 4px solid #0891b2; border-radius: 6px; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.16);
+        }
+
+        /* ---- 全站按鈕：扁平霓虹按鈕（2026-11-26 第三版）----
+           第一、二版是 Gemini 畫的金屬框按鈕板（九宮格貼圖）；GB：「好醜，不要鐵鏽」→ 去鏽重畫 →「綠色很醜、外框再細一點、不要螺絲、
+           整個換成沒有金屬框的扁平霓虹按鈕」。扁平霓虹不需要貼圖：一條 1.5px 的燈管（邊框）＋外面一圈光暈（box-shadow），
+           純 CSS 畫，放大縮小都銳利，也不用下載圖。
+           按鈕是 Tailwind 一顆一顆寫的（300 多顆），照「顏色＝角色」分兩種：
+             亮著的（原本實心色）→ 燈管亮、有光暈。主要的綠／黑一律換成青色霓虹（不要綠色）；各分頁的代表色照舊（藍、琥珀、紫…），紅＝危險。
+             熄著的（淺灰、白底有框、取消那種淡字、不能按時的深灰）→ 灰色燈管、沒有光暈。
+           切換鈕（選中＝實心色、沒選＝淺灰）自然就是「亮著的那顆／熄著的那顆」。
+           白天燈管不發光：同一個顏色的細框＋淡淡的底色，像白天看到沒開的霓虹。
+           不換的：圓形按鈕（rounded-full）、清單那種整列可點的（text-left／justify-between）、分頁招牌、只有圖示的小按鈕、淡色底（bg-*-50）。
+           ⚠️ 字上不疊 text-shadow（使用者要求取消文字模糊，tests/quizplus.mjs 會擋），發光只能放在框上。
+           ⚠️ 按鈕清單用 :where() 不用 :is()：:is() 的權重＝清單裡最重的那個（.text-slate-400[class*=…][class*=…] 有 3 個），
+              會讓「全部按鈕」那條蓋過後面「深色＋亮著」那條，光暈整個不見（第一次就是這樣）。
+           ⚠️ #adminBtn 自己用 ID 寫了 border／box-shadow／clip-path 的 !important，要另外點名。 */
+        html.city-wall button.bg-emerald-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #0891b2; }
+        html.dark.city-wall button.bg-emerald-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #00f0ff; }
+        html.city-wall button.bg-slate-900:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #0891b2; }
+        html.dark.city-wall button.bg-slate-900:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #00f0ff; }
+        html.city-wall button.bg-teal-400:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #0891b2; }
+        html.dark.city-wall button.bg-teal-400:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #00f0ff; }
+        html.city-wall button.bg-teal-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #0891b2; }
+        html.dark.city-wall button.bg-teal-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #00f0ff; }
+        html.city-wall button.bg-sky-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #0284c7; }
+        html.dark.city-wall button.bg-sky-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #38bdf8; }
+        html.city-wall button.bg-blue-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #2563eb; }
+        html.dark.city-wall button.bg-blue-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #5b9bff; }
+        html.city-wall button.bg-blue-600:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #2563eb; }
+        html.dark.city-wall button.bg-blue-600:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #5b9bff; }
+        html.city-wall button.bg-indigo-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #4f46e5; }
+        html.dark.city-wall button.bg-indigo-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #8b8cff; }
+        html.city-wall button.bg-indigo-600:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #4f46e5; }
+        html.dark.city-wall button.bg-indigo-600:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #8b8cff; }
+        html.city-wall button.bg-violet-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #7c3aed; }
+        html.dark.city-wall button.bg-violet-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #b48cff; }
+        html.city-wall button.bg-violet-600:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #7c3aed; }
+        html.dark.city-wall button.bg-violet-600:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #b48cff; }
+        html.city-wall button.bg-fuchsia-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #c026d3; }
+        html.dark.city-wall button.bg-fuchsia-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #ff4fe0; }
+        html.city-wall button.bg-amber-400:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #b45309; }
+        html.dark.city-wall button.bg-amber-400:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #fcee0a; }
+        html.city-wall button.bg-amber-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #b45309; }
+        html.dark.city-wall button.bg-amber-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #fcee0a; }
+        html.city-wall button.bg-red-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #e11d48; }
+        html.dark.city-wall button.bg-red-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #ff3b6b; }
+        html.city-wall button.bg-rose-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #e11d48; }
+        html.dark.city-wall button.bg-rose-500:not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { --neon: #ff3b6b; }
+        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn), html.city-wall #adminBtn {
+            border-radius: 8px !important; clip-path: none !important;   /* 全站按鈕預設的切角會把光暈切掉 */
+            border: 1.5px solid var(--neon) !important;
+            /* 白天：底色要夠實（92% 白）——按鈕常常直接疊在城市背景上，半透明的話字會跟後面的大樓糊在一起 */
+            background: color-mix(in srgb, var(--neon) 12%, rgba(255, 255, 255, 0.92)) !important;
+            box-shadow: 0 1px 0 rgba(15, 23, 42, 0.08) !important;
+            color: color-mix(in srgb, var(--neon) 80%, #0b1220) !important;
+            transition: box-shadow var(--dur-base) var(--ease), background-color var(--dur-base) var(--ease), transform var(--dur-base) var(--ease);
+        }
+        html.dark.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) {
+            background: color-mix(in srgb, var(--neon) 10%, rgba(4, 8, 18, 0.55)) !important;
+            box-shadow: 0 0 6px color-mix(in srgb, var(--neon) 70%, transparent), 0 0 16px color-mix(in srgb, var(--neon) 35%, transparent),
+                        inset 0 0 10px color-mix(in srgb, var(--neon) 22%, transparent) !important;
+            color: color-mix(in srgb, var(--neon) 45%, #fff) !important;
+        }
+        /* 熄著的燈管 */
+        html.city-wall button:where(.bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn), html.city-wall #adminBtn { --neon: #64748b; color: #475569 !important; background: rgba(255, 255, 255, 0.92) !important; }
+        html.dark.city-wall button:where(.bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn), html.dark.city-wall #adminBtn { --neon: #5b6b82; color: #cbd5e1 !important; background: rgba(8, 12, 24, 0.55) !important; }
+        /* 裡面的字、圖示跟著燈管的顏色（原本寫死 text-slate-600 之類的） */
+        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) :is(span, i, svg), html.city-wall #adminBtn :is(span, i, svg) { color: inherit !important; }
+        /* 滑過去：燈亮一點（熄著的那種會微微亮起來）；按下去往下沉 1px；不能按：整顆褪色 */
+        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn):hover, html.city-wall #adminBtn:hover {
+            background: color-mix(in srgb, var(--neon) 18%, rgba(255, 255, 255, 0.94)) !important;
+            box-shadow: 0 0 10px color-mix(in srgb, var(--neon) 45%, transparent) !important; }
+
+        html.dark.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn):hover, html.dark.city-wall #adminBtn:hover { background: color-mix(in srgb, var(--neon) 18%, rgba(4, 8, 18, 0.6)) !important; }
+        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn):active, html.city-wall #adminBtn:active { transform: translateY(1px); }
+        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn):is(:disabled, .cursor-not-allowed), html.dark.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn):is(:disabled, .cursor-not-allowed) {
+            border-color: #94a3b8 !important; color: #94a3b8 !important; background: transparent !important;
+            opacity: 0.55; box-shadow: none !important; transform: none; }
 
         /* ---- 兩道門：減少動態、省電 → 背景完全不動（city.js 也不做視差與慣性） ---- */
         html.fx-lite .city-lay.sway, html.fx-lite .city-rail.mv::after, html.fx-lite #cityHud .chev i, html.fx-lite #cityHud.ding,
@@ -6377,7 +6470,7 @@
         }
         /* ★ 宣告在常數區並且是 let：讀到雲端的設定之後整張換掉，
            renderSchedule／highlightCurrentClass／buildReminderItems 都是當下才查，
-           所以换一次就全部跟著走。別把它拆進別的區塊（暫時性死區踩過六次）。 */
+           所以換一次就全部跟著走。別把它拆進別的區塊（暫時性死區踩過六次）。 */
         let timeSlots = buildTimeSlots(null, null);
         let userSlotTimes = [];          // 使用者改過的那幾節（空 = 全部預設）
         let userExtraSlots = [];         // 使用者自己加開的那幾節（空 = 只有預設那幾節）
@@ -8134,6 +8227,26 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-11-26',
+                title: '全站換成日本字型，白天的大標題更清楚',
+                items: [
+                    ['日本字型', '網站的字換成日本的黑體，漢字是日本的寫法，跟整座城市、牆上的假名招牌比較搭。大標題用最粗的字重，像看板一樣。'],
+                    ['不會一個字一個樣', '日本字型裡沒有的繁體字（像「內」「說」），會用長得一模一樣的中文版補上，一句話裡不會忽粗忽細。'],
+                    ['白天的大標題看得清楚了', '「測驗」「專屬單字庫」這種分頁最上面的大標題，白天直接疊在城市上不太顯眼，現在底下墊了一塊白色的牌子，左邊一條青色的燈。晚上維持原樣。'],
+                ]
+            },
+            {
+                date: '2026-11-26',
+                title: '全站的按鈕換成霓虹燈風格',
+                items: [
+                    ['一整套新按鈕', '網站裡所有的按鈕都換成一條細細的霓虹燈管框起來的樣子，跟背景那座城市、底部牆上的招牌是同一個味道。'],
+                    ['亮著的和熄著的', '最主要的那顆（儲存、開始、登入）燈是亮的，原本的綠色改成青色；要小心的（刪除）是紅色的；次要的（取消、返回）燈是熄著的灰色。各分頁原本的代表色還在，例如英文那邊的按鈕還是藍色。'],
+                    ['白天和晚上不一樣', '深色模式是晚上，亮著的按鈕外面有一圈光；淺色模式是白天，燈不會發光，只看得到彩色的細框，底色是白的，疊在城市背景上字也看得清楚。'],
+                    ['按下去有感覺', '滑鼠移過去燈會亮一點，按下去會往下沉一點點；暫時不能按的按鈕會整顆變淡。'],
+                    ['切換的按鈕', '像「課表／任務／倒數」這種一排選一個的按鈕，選到的那顆亮著，沒選到的熄著。'],
+                ]
+            },
             {
                 date: '2026-11-26',
                 title: '小黑貓只在牆上活動，還可以把牠拎起來',
