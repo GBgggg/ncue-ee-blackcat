@@ -272,6 +272,9 @@ html.lobby-on, html.lobby-on body { overflow: hidden !important; }
 #bcCat.rev, .lb-cat.rev { animation-direction: reverse; }
 /* lobby.js 每一格寫 transform（translate 到腳下的位置，往左走時再 scaleX(-1)），翻面要以格子中間為軸。 */
 #bcCat { transform-origin: 50% 100%; }
+/* 2026-11-26：貓可以拎起來（lobby.js 的 lift）。按在貓身上不要捲動頁面；拎著的時候繞著上緣的抓點轉。 */
+#bcCat { touch-action: none; }
+#bcCat.held { transform-origin: 50% 14%; cursor: grabbing; }
 #bcCat:focus-visible { outline: 2px dashed #00f0ff; outline-offset: 2px; }
 #bcCat .bc-bubble {
     position: absolute; left: 58%; bottom: 44%; padding: 3px 8px;

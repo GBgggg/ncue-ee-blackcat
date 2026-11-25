@@ -250,16 +250,19 @@
     }
 
     var spriteSeq = 0;
+    /* 2026-11-26：主頁那隻貓的新動作沒有自己的序列圖，3D 貓是現場拼出來的（lobby3d.js 的 CLIP／POSE）；
+       萬一 3D 沒上場（不支援 WebGL2），序列圖就借這幾張。data-sprite 還是寫原本的名字，3D 那邊才認得。 */
+    var ALIAS = { crawl: 'walk', crouch: 'loaf', pounce: 'jumpdown', held: 'hang' };
     function setSprite(e, name, once, reverse, spd) {
-        var a = CAT[name];
+        var src = ALIAS[name] || name, a = CAT[src];
         spd = spd || 1;     // 播放時間的倍數（>1 是慢一點）；3D 貓也照這個速度播
-        e.style.backgroundImage = 'url(' + DIR + 'cat-' + name + '.webp)';
+        e.style.backgroundImage = 'url(' + DIR + 'cat-' + src + '.webp)';
         e.style.setProperty('--frames', a[0]);
         e.style.setProperty('--dur', (a[1] * spd).toFixed(3) + 's');
         e.dataset.spd = spd === 1 ? '' : spd.toFixed(3);
         e.classList.toggle('once', !!once);
         e.classList.toggle('rev', !!reverse);
-        e.classList.toggle('hang', name === 'hang');
+        e.classList.toggle('hang', src === 'hang');
         /* 給 3D 貓看的：現在播哪個、播一次還是循環、倒著播嗎；t 每次都不同，
            同一個動作重播（例如連摸兩下）3D 那邊也認得出「要從頭來」。 */
         e.dataset.sprite = name;
@@ -1075,15 +1078,21 @@
         /* 跑：一步往前 0.42m（cat2_idle2.py 的 RUN.stride），換算方式跟走路一樣，腳才不會在地上滑（約 200px／秒）。
            萬一 CAT.run 被拿掉，退回把走路加快 2.5 倍播。 */
         var RUN = CAT.run ? { name: 'run', spd: 1, px: SIZE / 0.8 * 0.42 / CAT.run[1] } : { name: 'walk', spd: 0.4, px: WALK.px / 0.4 * 1.6 };
+        /* 匍匐前進：走路的動作檔放慢到 0.55 倍（腳一步一步蹭），往前的速度跟著打折，腳才不會在地上滑。 */
+        var CRAWL = { name: 'crawl', spd: 1 / 0.55, px: WALK.px * 0.55 };
         var EDGE = 28;   // 貓的中心離方框左右邊至少這麼遠（側身走路時身體約 60px 長，再近就半隻懸空）
         /* 哪些東西算「方框」。只認主頁上的：別的分頁、別的子分頁藏起來時寬高是 0，自然不算。
            ⚠️ 主頁改版（換 id、課表不再是 <table>）時這張表要跟著改，漏了不會報錯，只會「貓不上那個框」。 */
         var PLAT_SEL = '#page-home [id^="home-sub-"] > div, #page-home [id^="home-sub-"] > section, #scheduleNowNext, ' +
                        '#scheduleTable th, #scheduleTable td, #missionList > *, #home-user-hero .shrink-0';
+        var WALL_ONLY = true;
         var LINES = ['喵', '喵～', '呼嚕呼嚕', '(=^･ω･^=)', '今天也要加油喵', '摸夠了沒'];
 
         /* 貓現在站在哪：cur＝腳下的方框（null＝底部地板）；rx＝在方框上的位置（離方框左邊幾 px），地板上就是螢幕 x。 */
         var state = 'sit', flip = 1, cur = null, rx = 0, air = null, mv = null, lastX = 0, lastY = 0;
+        /* 被手指（滑鼠）提起來的時候：grab.lifted；放手就自由落體掉回牆上。 */
+        var grab = null, dragged = false, HANG_PAW = 0.46;
+        function held() { return !!(grab && grab.lifted); }
 
         function bottom() {
             var dock = D.getElementById('navDock');
@@ -1093,6 +1102,9 @@
                 /* ★ 2026-11-25：有城市背景時底部那條是一面女兒牆（lobby/city.js），#navDock 的上緣＝牆頂，
                    貓要踩在牆頂上（往下 3px 是壓頂的上面），不是浮在分頁列上面 8px。 */
                 var lift = H.classList.contains('city-wall') ? -3 : 8;
+                /* ★ 2026-11-26：牆頂多了一條「頂面」（city.js 的 #cityLedge，有厚度的那一片水泥），貓踩在頂面的中間偏前。 */
+                var lg = D.getElementById('cityLedge'), lh = lg && lg.offsetHeight;
+                if (lh) lift = lh * 0.55;
                 if (r.height) base = Math.max(base, W.innerHeight - r.top + lift);
             }
             return base;
@@ -1105,7 +1117,8 @@
             if (h) { var r = h.getBoundingClientRect(); if (r.height && r.bottom > 0) b = r.bottom; }
             return b + SIZE * 0.6;
         }
-        function clampFloor(x) { return Math.max(24, Math.min(W.innerWidth - 96, x)); }   // 右下角是「回到頂端」與吐司
+        /* 右下角原本是「回到頂端」：有城市背景的時候那顆按鈕拿掉了（2026-11-26），整面牆都能走。 */
+        function clampFloor(x) { return Math.max(44, Math.min(W.innerWidth - (H.classList.contains('city-wall') ? 44 : 96), x)); }
         /* 方框在螢幕上看得到的那一段；課表在手機上是橫向捲動的，被裁掉的部分不算。a～b 是貓的中心可以站的範圍。 */
         function view(el) {
             var r = el.getBoundingClientRect();
@@ -1115,7 +1128,10 @@
             if (clip) { var c = clip.getBoundingClientRect(); a = Math.max(a, c.left); b = Math.min(b, c.right); }
             return { el: el, r: r, top: r.top, a: a + EDGE, b: b - EDGE };
         }
+        /* ★ 2026-11-26 GB：「限制貓咪只能在牆上移動」——不再跳上課表、方框，只在底部那面牆的頂面上活動。
+           方框那一套（view／best／hop 到方框）留著沒拆，但 plats() 一律回空的，所以永遠只有地板（＝牆頂）。 */
         function plats() {
+            if (WALL_ONLY) return [];
             var out = [], zt = topY(), zb = floorY() - 36;
             D.querySelectorAll(PLAT_SEL).forEach(function (el) {
                 var v = view(el);
@@ -1161,9 +1177,10 @@
             if (!btn || !shown) { lastT = 0; return; }
             var dt = lastT ? Math.min(0.1, (now - lastT) / 1000) : 0;   // 分頁被切到背景再回來時不要一步瞬移
             lastT = now;
-            if (air) flyStep(now);
+            if (held()) heldStep(dt);
+            else if (air) flyStep(now);
             else { if (mv) walkStep(dt); if (!air) ground(); }
-            if (air || mv || now < endT) raf = requestAnimationFrame(tick);
+            if (air || mv || held() || now < endT) raf = requestAnimationFrame(tick);
             else lastT = 0;
         }
         function ground() {
@@ -1212,6 +1229,7 @@
             if (!a.t0) a.t0 = now;
             var g = aim(a.to);
             if (!g) { a.to = { el: null, rx: clampFloor(lastX) }; g = aim(a.to); }   // 要跳上去的方框半路不見了：改落地板
+            if (!a.dur && a.held) a.dur = 1;
             if (!a.dur) {
                 var d = Math.hypot(g.x - a.sx, g.y - a.sy);
                 if (a.drop) a.dur = Math.max(0.3, Math.min(0.95, Math.sqrt(2 * Math.max(0, g.y - a.sy) / DROP_G)));
@@ -1224,6 +1242,8 @@
             var u = Math.min(1, t / a.dur);
             /* 從上方掉下來：等加速度（越掉越快），不是拋物線 */
             if (a.drop) draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u * u);
+            /* 撲：平平的拋物線，前腳先到、落在同一個高度（不是跳下那種「前腳伸到下一層」） */
+            else if (a.pounce) draw(a.sx + (g.x - a.sx) * u, a.sy + (g.y - a.sy) * u - a.h * 4 * u * (1 - u));
             /* 跳下：最後一格前腳往下伸，腳尖比格子的「地面」低約 0.14 格（cat2_jump3.py 的骨盆固定高度）。
                拋物線終點抬高這麼多，前腳剛好碰到下面那一層；落地換成 land 時才放到真正的地面。 */
             else {
@@ -1233,7 +1253,9 @@
             if (u >= 1) {
                 cur = a.to.el; rx = a.to.rx; air = null;
                 state = 'land'; play('land', true);
-                later(function () { sit(); }, CAT.land[1] * 1000 + 60);
+                /* 撲完：看一下四周（撲空了）；被放下來：落地後坐好。 */
+                if (a.pounce && CAT.look) later(function () { loopAct('look', 1, 1); }, CAT.land[1] * 1000 + 60);
+                else later(function () { sit(); }, CAT.land[1] * 1000 + 60);
                 kick();
             }
         }
@@ -1259,7 +1281,7 @@
            散步要先站起來（stand）、走完倒著播 stand 坐回去；趴下也一樣（liedown 正著播趴、倒著播起來）。
            所以序列圖之間永遠是同一個姿勢接同一個姿勢，不會「啪」一下換掉（跳是例外：被捲動逼著跳時來不及站起來）。 */
         function play(name, once, reverse, spd) { setSprite(btn, name, once, reverse, spd); }
-        function later(fn, ms) { clearTimeout(timer); timer = setTimeout(function () { if (btn && shown && !air) fn(); }, ms); }
+        function later(fn, ms) { clearTimeout(timer); timer = setTimeout(function () { if (btn && shown && !air && !held()) fn(); }, ms); }
         function still() { return reduce || H.classList.contains('fx-lite'); }
         function sit(ms) {
             state = 'sit'; play('idle', false, false, speed());
@@ -1280,7 +1302,7 @@
             ['yawn', 8, function () { onceAct('yawn'); }],
             ['meerkat', 7, function () { onceAct('meerkat'); }],
             ['walk', 16, function () { stroll(); }],
-            ['hop', 18, function () { hopAct(); }],
+            ['crawl', 14, function () { crawl(); }],
             ['lie', 10, function () { liedown(); }],
             ['loaf', 10, function () { loaf(); }]
         ];
@@ -1296,7 +1318,7 @@
         function choose() {
             if (still()) return;
             preload(['look', 'groom', 'walk', 'run', 'stand', 'jumpup', 'jumpdown', 'land', 'lie', 'liedown', 'sleep', 'wash', 'scratch', 'tilt', 'stretch', 'yawn', 'meerkat', 'loaf', 'loafdown'].filter(function (n) { return CAT[n]; }));
-            var pool = ACTS.filter(function (a) { return (a[0] === 'hop' || CAT[a[0]]) && (a[0] !== 'loaf' || CAT.loafdown); });
+            var pool = ACTS.filter(function (a) { return (a[0] === 'hop' || a[0] === 'crawl' || CAT[a[0]]) && (a[0] !== 'loaf' || CAT.loafdown); });
             var tot = 0, w = pool.map(function (a) { var x = a[1] * (recent.indexOf(a[0]) >= 0 ? 0.25 : 1); tot += x; return x; });
             var r = Math.random() * tot, i = 0;
             while (i < pool.length - 1 && r >= w[i]) { r -= w[i]; i++; }
@@ -1317,7 +1339,7 @@
            stand 這段序列圖會從「朝前坐」轉成「側身」，轉錯邊的話一起步就啪一下翻面。 */
         function stroll() {
             var s = span();
-            if (!s || s[1] - s[0] < 50) return hopAct();
+            if (!s || s[1] - s[0] < 50) return sit();
             var lo = Math.max(s[0], rx - 260), hi = Math.min(s[1], rx + 260);
             var to = lo + (hi - lo) * Math.random();
             if (Math.abs(to - rx) < 24) return sit();
@@ -1364,6 +1386,36 @@
             state = 'stand'; play('stand', true);
             later(go, CAT.stand[1] * 1000);
         }
+        /* ---- 匍匐前進一段，然後往前撲（2026-11-26 GB 要的）----
+           站起來 → 壓低身體慢慢往前蹭 120～220px → 停下來蹲低、屁股扭一扭 → 往前撲 70～110px → 落地 → 東張西望一下（撲空了）。
+           方向挑空間夠的那邊；兩邊都不夠就不做。 */
+        function crawl() {
+            var s = span();
+            if (!s) return sit();
+            var go = 120 + Math.random() * 100, jump = 70 + Math.random() * 40;
+            var dir = Math.random() < 0.5 ? -1 : 1;
+            if ((dir > 0 ? s[1] - rx : rx - s[0]) < go + jump) dir = -dir;
+            var room = dir > 0 ? s[1] - rx : rx - s[0];
+            if (room < 90) return sit();
+            if (room < go + jump) { go = room * 0.62; jump = room * 0.38; }
+            var to = rx + dir * go, land = rx + dir * (go + jump);
+            flip = dir; kick();
+            state = 'stand'; play('stand', true);
+            later(function () {
+                walkTo(to, CRAWL, function () {
+                    state = 'crouch'; play('crouch');
+                    later(function () { pounce(land); }, 650 + Math.random() * 500);
+                });
+            }, CAT.stand[1] * 1000);
+        }
+        function pounce(x) {
+            clearTimeout(timer); mv = null;
+            x = clampFloor(x);
+            flip = x >= rx ? 1 : -1;
+            air = { sx: lastX, sy: lastY, to: { el: null, rx: x }, t0: 0, wait: 0, dur: 0.42, h: 30 + Math.random() * 14, pounce: true };
+            state = 'jump'; play('pounce', true, false, 0.42 / CAT.jumpdown[1]);
+            kick();
+        }
         function liedown() {
             state = 'liedown'; play('liedown', true);
             later(function () {
@@ -1391,6 +1443,7 @@
         /* ---- 出場：從畫面上方掉下來，落在課表那張大卡上（2026-10-22 起；之前是從左邊跑進來跳上去）----
            沒登入（沒有課表）、切在任務／倒數子分頁、或課表大卡的頂邊不在畫面裡：改跳上畫面裡最好的方框，再沒有就停在地板上。 */
         function homeSpot() {
+            if (WALL_ONLY) return null;   // 2026-11-26 起只在牆上：從上方掉下來就落在牆頂
             var el = D.getElementById('home-user-schedule'), v = el && view(el);
             if (v && v.top >= topY() && v.top <= floorY() - 36 && v.b > v.a) {
                 var x = Math.min(v.b, v.a + 30 + Math.random() * 60);
@@ -1417,10 +1470,16 @@
             kick();
         }
 
-        /* 只在主頁出現；鍵盤彈出時先藏起來（不重演出場）；從別的分頁切回主頁時重新跑進來。 */
+        /* ★ 2026-11-26 GB：「貓咪只出現在首頁的課表頁，其他地方隱藏」——主頁的其他子分頁（任務、讀書計時、倒數…）也不出現。 */
+        function onSchedule() {
+            var e = D.getElementById('home-sub-schedule');
+            return onHome() && (!e || !e.classList.contains('hidden'));
+        }
+        /* 只在主頁的課表出現；鍵盤彈出時先藏起來（不重演出場）；從別的分頁切回課表時重新從上面掉下來。 */
         function place() {
             if (!btn) return;
-            var home = onHome();
+            var home = onSchedule();
+            if (!home && grab) { clearTimeout(grab.holdT); grab = null; unhold(); }
             btn.style.display = home && !H.classList.contains('kb-open') ? '' : 'none';
             if (home && !shown) { shown = true; enter(); }
             else if (!home && shown) { shown = false; clearTimeout(timer); air = null; mv = null; }
@@ -1433,7 +1492,77 @@
             if (still()) { state = 'sit'; play('idle'); kick(); return; }
             sit();
         }
+        /* ---- 提起來（2026-11-26，參考荒野亂鬥大廳那隻氣球吉祥物）----
+           按住不放（0.26 秒）或按著拖一下 → 貓被拎起來：前爪抓著手指、後腳亂踢，跟著手指走，
+           手往旁邊甩的時候身體會落後、像鐘擺一樣晃回來。放手 → 自由落體掉回牆頂（甩著放會順勢往那邊飛一點），落地坐好。
+           只是點一下還是「摸摸」（冒對話泡泡）。減少動態、省電模式不給拎（牠在那兩個模式本來就不動）。 */
+        function onDown(e) {
+            dragged = false;
+            if (!btn || (e.button && e.button !== 0) || still() || air) return;
+            grab = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, px: e.clientX, vx: 0, ang: 0, av: 0, lifted: false };
+            try { btn.setPointerCapture(e.pointerId); } catch (_) {}
+            grab.holdT = setTimeout(function () { if (grab && !grab.lifted) lift(); }, 260);
+        }
+        function onMove(e) {
+            if (!grab || e.pointerId !== grab.id) return;
+            grab.x = e.clientX; grab.y = e.clientY;
+            if (!grab.lifted && Math.hypot(grab.x - grab.x0, grab.y - grab.y0) > 8) lift();
+            if (grab.lifted) { if (e.cancelable) e.preventDefault(); kick(); }
+        }
+        function onUp(e) {
+            if (!grab || e.pointerId !== grab.id) return;
+            clearTimeout(grab.holdT);
+            var g = grab; grab = null;
+            if (g.lifted) { dragged = true; drop(g); }
+        }
+        function lift() {
+            if (!grab || !btn) return;
+            clearTimeout(timer); mv = null; air = null; cur = null;
+            grab.lifted = true; grab.px = grab.x; flip = 1;
+            btn.classList.add('held'); btn.classList.remove('talk');
+            state = 'held'; play('held');
+            heldStep(0);
+            kick();
+        }
+        function unhold() {
+            if (!btn) return;
+            btn.classList.remove('held');
+            btn.dataset.held = ''; btn.dataset.rot = '';
+        }
+        /* 拎著的每一格：手指在哪，前爪就在哪；身體照手的橫向速度往反方向擺（彈簧＋阻尼，放著不動會晃幾下停下來）。 */
+        function heldStep(dt) {
+            var g = grab;
+            if (dt > 0) {
+                var v = (g.x - g.px) / dt; g.px = g.x;
+                g.vx += (v - g.vx) * Math.min(1, dt * 12);
+                var want = Math.max(-38, Math.min(38, g.vx * 0.045));
+                g.av += ((want - g.ang) * 90 - g.av * 7) * dt;
+                g.ang += g.av * dt;
+            }
+            btn.dataset.held = '1';
+            btn.dataset.gx = g.x.toFixed(1);
+            /* hang 這支的原點在腳底（不是前爪）：前爪在原點上方約 0.46 格，所以原點要放在手指下面這麼多，前爪才會剛好在手指上。 */
+            btn.dataset.gy = (g.y + SIZE * HANG_PAW).toFixed(1); btn.dataset.rot = g.ang.toFixed(2);
+            /* 按鈕（序列圖、點擊範圍）也跟著：上緣中間＝抓點 */
+            lastX = g.x; lastY = g.y + SIZE * HANG_PAW;
+            btn.style.transform = 'translate(' + (g.x - SIZE / 2).toFixed(1) + 'px,' + (g.y - SIZE * 0.14).toFixed(1) + 'px) rotate(' + g.ang.toFixed(1) + 'deg)';
+            btn.style.setProperty('--bc-flip', 1);
+        }
+        /* 放手：從腳的位置自由落體掉到牆頂；甩著放的話往那邊多飛一點。放的地方比牆頂還低（拖到牆裡）就從牆頂上面一點點落下。 */
+        function drop(g) {
+            unhold();
+            var fl = floorY(), sy = Math.min(g.y + SIZE * HANG_PAW, fl - 20);
+            var tx = clampFloor(g.x + Math.max(-160, Math.min(160, g.vx * 0.18)));
+            lastX = g.x; lastY = sy; rx = tx; cur = null;
+            flip = tx >= g.x ? 1 : -1;
+            draw(g.x, sy);
+            air = { sx: g.x, sy: sy, to: { el: null, rx: tx }, t0: 0, wait: 0, dur: 0, h: 0, drop: true };
+            state = 'jump'; play('fall');
+            kick();
+        }
+
         function poke() {
+            if (dragged) { dragged = false; return; }   // 剛剛是拎起來放下，不是點一下
             if (!btn) return;
             var b = btn.querySelector('.bc-bubble');
             b.textContent = LINES[Math.floor(Math.random() * LINES.length)];
@@ -1466,7 +1595,7 @@
         function watch() {
             clearTimeout(watchT);
             if (!btn) return;
-            if (shown && !air && !mv && !raf) ground();
+            if (shown && !air && !mv && !raf && !held()) ground();
             watchT = setTimeout(watch, 800);
         }
         function spawn() {
@@ -1482,6 +1611,14 @@
             bub.setAttribute('aria-live', 'polite');
             btn.appendChild(bub);
             btn.addEventListener('click', poke);
+            btn.addEventListener('pointerdown', onDown);
+            btn.addEventListener('pointermove', onMove);
+            btn.addEventListener('pointerup', onUp);
+            btn.addEventListener('pointercancel', onUp);
+            /* 在貓身上按下去不算「往左右撥換分頁」、也不算「往下拉重新整理」（那兩個都掛在 window 的 touchstart）。 */
+            btn.addEventListener('touchstart', function (e) { e.stopPropagation(); }, { passive: true });
+            /* iPhone 的網址列收起來、跳出來時版面高度會變，但不一定有 resize：跟著 visualViewport 重算牆頂。 */
+            if (W.visualViewport) W.visualViewport.addEventListener('resize', onResize);
             D.body.appendChild(btn);
             preload(['fall', 'run', 'walk', 'jumpup', 'jumpdown', 'land', 'stand']);
             load3d();
@@ -1512,6 +1649,8 @@
                 }
             });
             mo.observe(H, { attributes: true, attributeFilter: ['class', 'data-cur-tab'] });
+            var sub = D.getElementById('home-sub-schedule');
+            if (sub) mo.observe(sub, { attributes: true, attributeFilter: ['class'] });
         }
         function remove() {
             clearTimeout(timer); clearTimeout(scrollT); clearTimeout(watchT);
@@ -1520,17 +1659,25 @@
             if (mo) { mo.disconnect(); mo = null; }
             if (ro) { ro.disconnect(); ro = null; }
             W.removeEventListener('resize', onResize);
+            if (W.visualViewport) W.visualViewport.removeEventListener('resize', onResize);
+            if (grab) { clearTimeout(grab.holdT); grab = null; }
             W.removeEventListener('scroll', onScroll, { capture: true });
             if (c3want && c3want.e === btn) want3d(null);
             if (btn && btn.parentNode) btn.parentNode.removeChild(btn);
             btn = null;
         }
-        return { spawn: spawn, remove: remove };
+        /* act：叫牠現在做某個動作（tests 與除錯用，例如 BlackcatLobby.catAct('crawl')）。 */
+        function act(n) {
+            var a = ACTS.filter(function (x) { return x[0] === n; })[0];
+            if (a && btn && shown && !air && !held()) { clearTimeout(timer); mv = null; a[2](); }
+        }
+        return { spawn: spawn, remove: remove, act: act };
     })();
 
     /* 設定頁用的開關（主站的 setLobbyCat 會叫這兩個）。 */
     W.BlackcatLobby = {
         catStays: catStays,
+        catAct: function (n) { Companion.act(n); },
         setCatStay: function (on) {
             try { localStorage.setItem(CAT_KEY, on ? 'stay' : 'away'); } catch (e) {}
             if (on) Companion.spawn(true); else Companion.remove();

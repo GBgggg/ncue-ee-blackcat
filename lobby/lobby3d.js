@@ -42,7 +42,15 @@ const TUMBLE_C = 0.17;
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
 const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jumpup: 90, jumpdown: 90, hang: 0,
-               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30, yawn: 20, meerkat: 20 };
+               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30, yawn: 20, meerkat: 20,
+               crawl: 82, crouch: 82, pounce: 90, held: 165 };
+/* 2026-11-26：主頁那隻貓的三個新動作，glb 裡沒有專屬的動作檔，用現成的拼：
+   - crawl（匍匐前進）：走路的動作檔慢放，再疊一部分「趴著」的姿勢（POSE 的權重）→ 身體壓低、腳半彎著一步一步往前蹭。
+   - crouch（撲之前蹲低、屁股左右扭）：走路停在第一格，疊更多「趴著」，臀部自己左右扭。
+   - pounce（往前撲）：跳下（jumpdown）那支——前腳往前伸、後腳蹬直，剛好就是撲出去的樣子。
+   - held（被提起來）：掛著（hang）那支——前爪抓著、後腳踢；錨點是前爪，lobby.js 給抓點與擺盪角度。 */
+const CLIP = { crawl: 'walk', crouch: 'walk', pounce: 'jumpdown', held: 'hang' };
+const POSE = { crawl: 0.8, crouch: 1.5 };
 const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
 function furMaterial(skinned, h) {
@@ -162,6 +170,7 @@ class Cat3D {
         root.traverse((o) => {
             if (o.isBone && o.name === 'head') this.head = o;
             if (o.isBone && o.name === 'neck') this.neck = o;
+            if (o.isBone && o.name === 'hips') this.hips = o;
             // GLTFLoader 會把名字裡的「.」拿掉：Blender 的 ear.L 在這裡叫 earL
             if (o.isBone && /^ear\.?[LR]$/.test(o.name)) this.ears.push(o);
             if (o.isBone && /^tail[345]$/.test(o.name)) this.tailTip.push(o);
@@ -249,17 +258,18 @@ class Cat3D {
     }
 
     play(name, once, reverse, spd) {
-        const clip = this.clips[name];
+        const cn = CLIP[name] || name, clip = this.clips[cn];
         if (!clip) return;
-        const a = this.actions[name] || (this.actions[name] = this.mixer.clipAction(clip));
+        const a = this.actions[cn] || (this.actions[cn] = this.mixer.clipAction(clip));
         const prev = this.cur;
         a.reset();
         a.setLoop(once ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
         a.clampWhenFinished = true;
         a.timeScale = (reverse ? -1 : 1) / (spd || 1);
         if (reverse) a.time = clip.duration;
+        if (name === 'crouch') { a.timeScale = 0; a.time = clip.duration * 0.15; }
         a.play();
-        if (prev && prev !== a) prev.crossFadeTo(a, /^jump/.test(name) || name === 'hang' ? 0.1 : 0.25, false);
+        if (prev && prev !== a) prev.crossFadeTo(a, /^jump|pounce/.test(name) || name === 'hang' || name === 'held' ? 0.1 : 0.25, false);
         this.cur = a;
     }
 
@@ -282,7 +292,10 @@ class Cat3D {
             const r = el.getBoundingClientRect();
             return { name, ax: r.left + r.width / 2, ay: r.bottom - (GROUND + TUMBLE_C / FRAME_M) * size, size, rot: 0, face: 0, ground: false, tumble: true, tilt: TILT, opacity: parseFloat(cs.opacity) };
         }
-        if (grip && grip.classList && grip.classList.contains('lb-grip')) {
+        if (d.held) {
+            // 被提起來：前爪就是手指抓的地方（lobby.js 算好放在 data-gx／gy），整隻跟著手指擺盪（data-rot）
+            ax = parseFloat(d.gx) || 0; ay = parseFloat(d.gy) || 0; ground = false; rot = parseFloat(d.rot) || 0;
+        } else if (grip && grip.classList && grip.classList.contains('lb-grip')) {
             // 掛在招牌上：前爪就是抓點；整隻跟著招牌晃，再加上自己的擺盪
             const g = grip.getBoundingClientRect(); ax = g.left; ay = g.top; ground = false;
             rot = (parseFloat(getComputedStyle(grip.parentNode).rotate) || 0) + (parseFloat(cs.rotate) || 0);
@@ -310,7 +323,7 @@ class Cat3D {
             /* 省電：角落那隻安靜坐著（沒在走、沒在跳、游標也沒在動）時改成每秒 30 格。
                大廳裡、或牠在動的時候維持 60 格——遊戲感就是靠這個。 */
             this.odd = !this.odd;
-            const calm = this.el.id === 'bcCat' && !/walk|run|stand|jump|land|liedown|loafdown|stretch|scratch|meerkat/.test(s.name) && performance.now() - this.look.t > 3000;
+            const calm = this.el.id === 'bcCat' && !/walk|run|stand|jump|land|liedown|loafdown|stretch|scratch|meerkat|crawl|crouch|pounce|held/.test(s.name) && performance.now() - this.look.t > 3000;
             if (calm && this.odd) return;
             this.draw(s, Math.min(this.clock.getDelta(), 0.08));
         };
@@ -341,9 +354,9 @@ class Cat3D {
         this.tilt.rotation.z = THREE.MathUtils.degToRad(-s.rot);
         // 轉身：慢慢轉過去（走到一半掉頭會看到牠轉身），不是瞬間翻面
         const target = THREE.MathUtils.degToRad(s.face);
-        this.yaw += (target - this.yaw) * Math.min(1, dt * (/^jump/.test(s.name) ? 14 : 6));
+        this.yaw += (target - this.yaw) * Math.min(1, dt * (/^jump|pounce|held/.test(s.name) ? 14 : 6));
         this.turn.rotation.y = Math.PI + this.yaw;   // 模型本來背對鏡頭（Blender 裡面向 +Y）
-        this.shadow.visible = s.ground && !/^jump/.test(s.name);
+        this.shadow.visible = s.ground && !/^jump|pounce/.test(s.name);
         // 上一格加在頭上的轉動先還原，再讓動作覆寫（某些動作沒有頭的軌道時才不會越轉越多）
         if (this.base) { this.neck.quaternion.copy(this.base[0]); this.head.quaternion.copy(this.base[1]); }
         /* 霓虹燈只在夜街上：角落那隻貓待在一般頁面（多半是白天的淺色底），粉紅與青色的燈還開著的話，
@@ -355,11 +368,28 @@ class Cat3D {
         this.hemi.intensity = 0.5 + 0.5 * (1 - this.night);
         RIM.value = 0.15 + 0.85 * this.night;
         SHEEN.value = 0.7 + 0.3 * this.night;
+        this.crouchPose(s.name, dt);
         this.mixer.update(dt);
+        this.wiggle(s.name);
         this.lookAt(s, dt);
         this.fidget(s);
         this.blink(s.name);
         this.renderer.render(this.scene, cam);
+    }
+
+    /* 匍匐、蹲低：在主動作上疊「趴著」的姿勢，權重慢慢進出（不會啪一下壓扁）。 */
+    crouchPose(name, dt) {
+        if (!this.clips.lie) return;
+        const want = POSE[name] || 0;
+        this.poseW = (this.poseW || 0) + (want - (this.poseW || 0)) * Math.min(1, dt * 7);
+        if (!this.lieA) { this.lieA = this.mixer.clipAction(this.clips.lie); this.lieA.setEffectiveWeight(0); this.lieA.play(); }
+        this.lieA.setEffectiveWeight(this.poseW < 0.01 ? 0 : this.poseW);
+    }
+    /* 撲之前屁股左右扭（貓撲之前真的會這樣，在調整後腳）。 */
+    wiggle(name) {
+        if (name !== 'crouch' || !this.hips) return;
+        const a = Math.sin(performance.now() / 1000 * 2 * Math.PI * 3.2) * 0.14;
+        this.hips.quaternion.multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), a));
     }
 
     /* 隧道裡的翻滾（2026-11-17，取代序列圖＋CSS 平面旋轉）。

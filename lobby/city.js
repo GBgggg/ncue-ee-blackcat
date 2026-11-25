@@ -85,6 +85,13 @@
             '<span class="row alt">ALT 240.0 m</span>';
         dock.appendChild(hud);
         placeHud();
+        /* 牆的頂面（2026-11-26）：牆圖是正面看的，只有壓頂的「立面」，貓坐上去像貼在一條線上。
+           在牆頂上方加一條有厚度的頂面（ledge*.webp：壓頂那段水泥壓扁、後緣暗前緣亮），貓踩在它中間偏前（lobby.js 的 bottom()）。
+           z-index 27：在貓（29／30）後面、在內容前面；放在 <body> 底下，不在 #navDock（z-index 40）裡，不然會蓋住貓的腳。 */
+        if (!D.getElementById('cityLedge')) {
+            var lg = D.createElement('div'); lg.id = 'cityLedge'; lg.setAttribute('aria-hidden', 'true');
+            D.body.appendChild(lg);
+        }
         fn = hud.querySelector('b'); spd = hud.querySelector('.spd'); alt = hud.querySelector('.alt');
     }
 

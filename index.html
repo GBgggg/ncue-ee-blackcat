@@ -2675,8 +2675,17 @@
         /* ---- 牆：#navDock 變成貼齊畫面底部、整條的水泥女兒牆 ----
            牆的圖：3008×1344，牆頂（壓頂上緣）在第 384 列（白天那張 377）。顯示 0.2 倍，
            背景往上推「牆頂 × 0.2」，所以 #navDock 的上緣＝牆頂＝貓的地板（lobby.js 的 bottom()）。 */
-        html.city-wall { --wall-h: 112px; }
-        @media (max-width: 767.98px) { html.city-wall { --wall-h: 104px; } }
+        html.city-wall { --wall-h: 112px; --ledge-h: 16px; }
+        @media (max-width: 767.98px) { html.city-wall { --wall-h: 104px; --ledge-h: 14px; } }
+        /* 牆的頂面（city.js 的 #cityLedge）：牆頂上方一條有厚度的水泥面，貓在上面走。 */
+        #cityLedge { display: none; }
+        html.city-wall.nav-bottom #cityLedge { display: block; position: fixed; left: 0; right: 0; z-index: 27; pointer-events: none;
+            height: var(--ledge-h); bottom: calc(var(--wall-h) + env(safe-area-inset-bottom, 0px));
+            background: url(lobby/city/ledge_day.webp) repeat-x 0 0 / 601.6px 100%; }
+        html.dark.city-wall.nav-bottom #cityLedge { background-image: url(lobby/city/ledge.webp); }
+        html.kb-open #cityLedge { display: none !important; }
+        /* 2026-11-26 GB：右下角「回到頂端」的箭頭拿掉（牆上整條都給貓走）。 */
+        html.city-wall #backToTopBtn { display: none !important; }
         html.city-wall.nav-bottom #navDock {
             left: 0; right: 0; bottom: 0; max-width: none; margin: 0;
             height: calc(var(--wall-h) + env(safe-area-inset-bottom, 0px));
@@ -2685,7 +2694,7 @@
             background: #3b4048 url(lobby/city/wall_day.webp) repeat-x 0 -75.4px / 601.6px 268.8px;
         }
         html.dark.city-wall.nav-bottom #navDock { background: #1c2230 url(lobby/city/wall.webp) repeat-x 0 -76.8px / 601.6px 268.8px; }
-        html.city-wall.nav-bottom body { padding-bottom: calc(var(--wall-h) + 16px + env(safe-area-inset-bottom, 0px)); }
+        html.city-wall.nav-bottom body { padding-bottom: calc(var(--wall-h) + var(--ledge-h) + 16px + env(safe-area-inset-bottom, 0px)); }
         html.city-wall.nav-bottom #backToTopBtn { bottom: calc(var(--wall-h) + 14px + env(safe-area-inset-bottom, 0px)); }
         html.city-wall.nav-bottom #toast { bottom: calc(var(--wall-h) + 18px + env(safe-area-inset-bottom, 0px)); }
         html.city-wall.nav-bottom #tourCard.at-bottom { bottom: calc(var(--wall-h) + 16px + env(safe-area-inset-bottom, 0px)); }
@@ -2779,7 +2788,7 @@
         /* 手機、平板：面板在牆頂上面一點，正好是貓走路的地方。city.js 會把它搬到 <body> 底下（不在 #navDock 裡），
            z-index 28 比貓（3D 畫布 29、按鈕 30）低：貓走過去在面板前面，不會被擋住。 */
         @media (max-width: 1023.98px) { html.city-wall.nav-bottom #cityHud { position: fixed; z-index: 28; top: auto; left: 10px;
-                bottom: calc(var(--wall-h) + 8px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px 4px 8px; column-gap: 8px; }
+                bottom: calc(var(--wall-h) + var(--ledge-h) + 8px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px 4px 8px; column-gap: 8px; }
             #cityHud .big { font-size: 22px; } }
         html.kb-open #cityHud { display: none !important; }
 
@@ -8125,6 +8134,19 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-11-26',
+                title: '小黑貓只在牆上活動，還可以把牠拎起來',
+                items: [
+                    ['只待在牆上', '首頁的小黑貓不再跳上課表的格子，只在底部那面牆的牆頂上走來走去、坐著、趴著。'],
+                    ['牆頂有了厚度', '牆的最上面多了一條看得出深度的水泥頂面，小黑貓是踩在頂面上，不會像以前那樣看起來浮在牆的邊線上。'],
+                    ['匍匐前進、往前撲', '小黑貓有時候會壓低身體，慢慢往前蹭一段路，停下來蹲低、屁股扭一扭，然後往前撲出去，撲完再左右看看。'],
+                    ['可以把牠拎起來', '在小黑貓身上按住不放（或按著拖一下），就能把牠拎起來帶著走。牠會用前爪抓著、後腳亂踢，手往旁邊甩的時候身體會跟著晃。放手牠會自己掉回牆上坐好。只點一下還是跟以前一樣摸摸牠。'],
+                    ['只在課表那一頁', '小黑貓只在首頁的課表出現，切到任務、讀書計時這些子分頁，或是其他大分頁的時候，牠會先躲起來，回到課表再從上面掉下來。'],
+                    ['拿掉「回到頂端」的箭頭', '右下角那顆往上的箭頭拿掉了，整面牆都讓給小黑貓走。'],
+                    ['電梯面板不會再擋到貓', '手機上左下角的樓層面板以前會蓋住走過去的小黑貓，現在小黑貓會走在面板前面。'],
+                ]
+            },
             {
                 date: '2026-11-25',
                 title: '背景換成一座會上下移動的城市，分頁掛到底部的牆上',
