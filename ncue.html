@@ -139,6 +139,10 @@
          ★ 五頁都有這兩行（錯題本、電路、文書那三頁多寫一個 data-page），tests/lobby.mjs 比對。 -->
     <link rel="stylesheet" href="lobby/lobby.css">
     <script src="lobby/lobby.js"></script>
+    <!-- 城市背景（8 層的夜城／白天的城，捲動像觀景電梯，分頁掛在底部的女兒牆上）。
+         普通 script 放 <head> 的理由跟 lobby.js 一樣；而且它要在 module 的 placeNav() 第一次跑之前
+         掛上 html.city-wall（電腦的分頁列也搬到牆上）。細節在那支的檔頭。 -->
+    <script src="lobby/city.js"></script>
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
@@ -2625,6 +2629,165 @@
             #cyberFx::before { display: none; }
         }
 
+        /* ==========================================================
+           城市背景＋觀景電梯＋牆上的分頁招牌（2026-11-25，程式在 lobby/city.js）
+           ★ 排在 <style> 最後：要壓過上面「夜城」那段的分頁列與 #navDock 規則（同分時後寫的贏）。
+           ★ 全部掛在 html.city-wall 底下：city.js 沒載到（離線、被擋）時，站上回到原本的樣子。
+           ========================================================== */
+        /* ---- 背景圖層（在 #cyberSky 裡，fixed、z-index:-1，跟舊畫布同一個位置） ---- */
+        #cityBg { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+        .city-lay { position: absolute; top: 0; left: 0; right: 0; background-repeat: no-repeat; opacity: 0;
+            transition: opacity .6s var(--ease); will-change: transform; }
+        .city-lay.in { opacity: 1; }
+        .city-lay.half { right: auto; }
+        .city-lay.half.r { left: auto; right: 0; }
+        .city-lay.sway { animation: citySway 60s var(--ease) infinite; }
+        @keyframes citySway { 0%, 100% { translate: -1.2% 0; } 50% { translate: 1.2% 0; } }
+        /* 圖到了就把舊畫布停掉、藏起來（畫布那段程式看 html.city-on 自己不畫）。 */
+        html.city-on #cyberCanvas { display: none; }
+        /* 內容欄（max-w-6xl＝1152px）後面墊一層半透明的底：直接寫在底上的小字才讀得到。 */
+        #cityVeil { position: absolute; top: 0; bottom: 0; left: 50%; width: min(1152px, 100%); transform: translateX(-50%);
+            background: linear-gradient(180deg, transparent 0, rgba(231, 228, 218, .38) 30%, rgba(231, 228, 218, .5) 60%);
+            -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+                    mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent); }
+        html.dark #cityVeil { background: linear-gradient(180deg, transparent 0, rgba(7, 6, 12, .38) 30%, rgba(7, 6, 12, .5) 60%); }
+
+        /* ---- 電梯：兩側光軌（每層一條刻度，現在樓層停在畫面 45% 高） ---- */
+        .city-rail { position: absolute; top: 0; bottom: 0; width: clamp(16px, 3.2vw, 44px); overflow: hidden;
+            --hud: #1b8cff; background: linear-gradient(90deg, rgba(2, 8, 14, .45), rgba(2, 8, 14, .12)); }
+        html.dark .city-rail { --hud: #5ff6ff; background: linear-gradient(90deg, rgba(2, 8, 14, .7), rgba(2, 8, 14, .3)); }
+        .city-rail.l { left: 0; }
+        .city-rail.r { right: 0; transform: scaleX(-1); }
+        .city-rail::before { content: ""; position: absolute; top: 0; bottom: 0; left: 5px; width: 2px; background: var(--hud); box-shadow: 0 0 8px 2px var(--hud); opacity: .8; }
+        .city-rail::after { content: ""; position: absolute; left: 4px; width: 4px; height: 90px; top: -90px; border-radius: 2px;
+            background: linear-gradient(transparent, #fff, transparent); opacity: 0; }
+        .city-rail.mv::after { animation: cityPulse .5s linear infinite; opacity: .9; }
+        @keyframes cityPulse { to { transform: translateY(calc(100vh + 90px)); } }
+        .city-track { position: absolute; left: 0; right: 0; top: 0; will-change: transform; }
+        .city-tick { position: absolute; left: 5px; height: 0; display: flex; align-items: center; gap: 4px; color: var(--hud);
+            font: 700 11px/1 "Share Tech Mono", ui-monospace, Menlo, Consolas, monospace; }
+        .city-tick::before { content: ""; width: 12px; height: 2px; background: currentColor; box-shadow: 0 0 6px currentColor; }
+        .city-tick.big::before { width: 20px; }
+        .city-rail.r .city-tick span { display: inline-block; transform: scaleX(-1); }
+        .city-tick.now { color: #fff; }
+        @media (max-width: 767.98px) { .city-tick span { display: none !important; } }
+
+        /* ---- 牆：#navDock 變成貼齊畫面底部、整條的水泥女兒牆 ----
+           牆的圖：3008×1344，牆頂（壓頂上緣）在第 384 列（白天那張 377）。顯示 0.2 倍，
+           背景往上推「牆頂 × 0.2」，所以 #navDock 的上緣＝牆頂＝貓的地板（lobby.js 的 bottom()）。 */
+        html.city-wall { --wall-h: 112px; }
+        @media (max-width: 767.98px) { html.city-wall { --wall-h: 104px; } }
+        html.city-wall.nav-bottom #navDock {
+            left: 0; right: 0; bottom: 0; max-width: none; margin: 0;
+            height: calc(var(--wall-h) + env(safe-area-inset-bottom, 0px));
+            padding: 30px 12px env(safe-area-inset-bottom, 0px);
+            border: 0; border-radius: 0; clip-path: none; box-shadow: 0 -2px 10px rgba(0, 0, 0, .25);
+            background: #3b4048 url(lobby/city/wall_day.webp) repeat-x 0 -75.4px / 601.6px 268.8px;
+        }
+        html.dark.city-wall.nav-bottom #navDock { background: #1c2230 url(lobby/city/wall.webp) repeat-x 0 -76.8px / 601.6px 268.8px; }
+        html.city-wall.nav-bottom body { padding-bottom: calc(var(--wall-h) + 16px + env(safe-area-inset-bottom, 0px)); }
+        html.city-wall.nav-bottom #backToTopBtn { bottom: calc(var(--wall-h) + 14px + env(safe-area-inset-bottom, 0px)); }
+        html.city-wall.nav-bottom #toast { bottom: calc(var(--wall-h) + 18px + env(safe-area-inset-bottom, 0px)); }
+        html.city-wall.nav-bottom #tourCard.at-bottom { bottom: calc(var(--wall-h) + 16px + env(safe-area-inset-bottom, 0px)); }
+        /* 電腦的分頁列也在牆上了：頁首那幾條「手機版只留 logo」的規則不適用，站名照樣寫出來，⚙️ 回到右邊。 */
+        @media (min-width: 768px) {
+            html.city-wall.nav-bottom #logoBtn .site-name-text { position: static; width: auto; height: auto; overflow: visible; clip: auto; clip-path: none; white-space: normal; }
+            html.city-wall.nav-bottom #navRow { order: 0; flex: 1 1 auto; justify-content: flex-end; }
+        }
+
+        /* ---- 分頁：掛在牆上的小招牌（夜＝霓虹燈箱，日＝不發光的壓克力燈箱），跟街上的招牌同一套 ----
+           選中的那顆亮燈（.is-ink），其他的燈管熄著。原本那顆會滑的膠囊（#navInk）在牆上不畫。 */
+        html.city-wall.nav-bottom #mainNav { justify-content: center; gap: clamp(6px, 1.4vw, 14px); padding: 0; }
+        html.city-wall.nav-bottom #navInk { display: none; }
+        /* ★ 招牌板是 Gemini 照那面牆畫的素材（lobby/city/sign-*.webp，402×197，外框位置八張都一樣）：
+             熄燈／五種顏色點亮（夜）、一般／選中（日）。用 border-image 九宮格切：外框、螺絲、鐵架照比例，
+             只有中間的面板跟著按鈕寬度伸縮——手機上按鈕比較窄，整張拉扁的話鐵架會變形。
+           ★ 字（站上的分頁名＋假名小字）是網頁疊上去的，招牌板上沒有字，改分頁名稱不必重畫圖。 */
+        html.city-wall.nav-bottom #mainNav .tab-btn {
+            flex: 0 1 auto; min-width: 64px; min-height: 56px; padding: 0 4px !important;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+            border-style: solid; border-width: 14px 11px 12px; border-radius: 0 !important; clip-path: none;
+            border-image: url(lobby/city/sign-off.webp) 50 38 44 fill / 14px 11px 12px stretch;
+            background: transparent !important; box-shadow: none;
+            color: color-mix(in srgb, var(--sign) 45%, #2a2f3a) !important;
+            font: 800 15px/1.05 "Noto Sans TC", sans-serif; letter-spacing: 1px;
+            transition: color var(--dur-base) var(--ease);
+        }
+        html.city-wall.nav-bottom #mainNav .tab-ico { display: none; }
+        html.city-wall.nav-bottom #mainNav .tab-label { font-weight: 800; }
+        /* 假名小字：跟街上的招牌一樣（ホーム、けいかく……）。寫在 CSS，按鈕上本來的字（站上的分頁名）不動。 */
+        html.city-wall.nav-bottom #mainNav .tab-btn::after { content: attr(data-kana); font: 700 9px/1 "Noto Sans JP", "Noto Sans TC", sans-serif; letter-spacing: .5px; opacity: .9; }
+        html.city-wall.nav-bottom #mainNav .tab-btn:hover { color: color-mix(in srgb, var(--sign) 75%, #2a2f3a) !important; }
+        html.city-wall.nav-bottom #mainNav .tab-btn.is-ink {
+            border-image-source: var(--lit);
+            color: #fff !important;
+            animation: cityNeonOn .5s steps(1);
+        }
+        html.city-wall.nav-bottom #mainNav .tab-btn.is-ink::after { color: var(--sign); }
+        @keyframes cityNeonOn { 0% { opacity: .4; } 15% { opacity: 1; } 25% { opacity: .5; } 40% { opacity: 1; } 55% { opacity: .75; } 70%, 100% { opacity: 1; } }
+        html.city-wall.nav-bottom #mainNav .tab-btn:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+        /* 白天：不發光的壓克力燈箱（乳白面板），選中的那塊下緣多一條亮藍色條。 */
+        html:not(.dark).city-wall.nav-bottom #mainNav .tab-btn {
+            border-image-source: url(lobby/city/sign-day.webp);
+            color: color-mix(in srgb, var(--sign) 50%, #3a4150) !important; }
+        html:not(.dark).city-wall.nav-bottom #mainNav .tab-btn:hover { color: color-mix(in srgb, var(--sign) 60%, #1f2530) !important; }
+        html:not(.dark).city-wall.nav-bottom #mainNav .tab-btn.is-ink {
+            border-image-source: url(lobby/city/sign-day_on.webp);
+            color: color-mix(in srgb, var(--sign) 55%, #0b0e14) !important; animation: none; }
+        html:not(.dark).city-wall.nav-bottom #mainNav .tab-btn.is-ink::after { color: inherit; }
+        /* 每個分頁一種霓虹色（兩個產品的分頁都寫上，彰師電子的分頁在 PRODUCT_TABS.ncue）。 */
+        #mainNav .tab-btn { --sign: #5ff6ff; --lit: url(lobby/city/sign-on_cyan.webp); }
+        #mainNav .tab-btn[data-tab="home"]        { --sign: #5ff6ff; --lit: url(lobby/city/sign-on_cyan.webp); }
+        #mainNav .tab-btn[data-tab="plan"]        { --sign: #ff4fd8; --lit: url(lobby/city/sign-on_mag.webp); }
+        #mainNav .tab-btn[data-tab="self-study"]  { --sign: #ffe14f; --lit: url(lobby/city/sign-on_yel.webp); }
+        #mainNav .tab-btn[data-tab="english"]     { --sign: #7cff8a; --lit: url(lobby/city/sign-on_grn.webp); }
+        #mainNav .tab-btn[data-tab="finance"]     { --sign: #ff9a3c; --lit: url(lobby/city/sign-on_org.webp); }
+        #mainNav .tab-btn[data-tab="evaluation"]  { --sign: #ffe14f; --lit: url(lobby/city/sign-on_yel.webp); }
+        #mainNav .tab-btn[data-tab="data"]        { --sign: #5ff6ff; --lit: url(lobby/city/sign-on_cyan.webp); }
+        #mainNav .tab-btn[data-tab="news"]        { --sign: #ff4fd8; --lit: url(lobby/city/sign-on_mag.webp); }
+        #mainNav .tab-btn[data-tab="promote"]     { --sign: #7cff8a; --lit: url(lobby/city/sign-on_grn.webp); }
+        @media (max-width: 767.98px) {
+            html.city-wall.nav-bottom #mainNav { gap: 3px; }
+            html.city-wall.nav-bottom #mainNav .tab-btn { flex: 1 1 0; min-width: 0; padding: 0 1px !important; font-size: 13px; letter-spacing: 0; border-width: 13px 9px 11px; border-image-width: 13px 9px 11px; }
+            html.city-wall.nav-bottom #mainNav .tab-btn::after { font-size: 8px; letter-spacing: 0; }
+        }
+
+        /* ---- 電梯的樓層面板：電腦掛在牆的左邊，手機掛在牆頂上方左邊 ---- */
+        #cityHud { position: absolute; z-index: 1; left: max(12px, 3vw); top: 26px; display: grid; grid-template-columns: auto auto; align-items: center; column-gap: 10px;
+            padding: 6px 14px 6px 10px; pointer-events: none;
+            --hud: #1b8cff; color: var(--hud); background: rgba(236, 244, 255, .85);
+            clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+            box-shadow: inset 0 0 0 1px var(--hud);
+            font: 600 11px/1.15 "Share Tech Mono", ui-monospace, Menlo, Consolas, monospace; letter-spacing: .5px; }
+        html.dark #cityHud { --hud: #5ff6ff; background: rgba(4, 14, 24, .8); }
+        #cityHud::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(95, 246, 255, .07) 2px 3px); }
+        #cityHud .big { grid-row: span 2; display: flex; align-items: baseline; gap: 2px; font: 700 30px/1 "Share Tech Mono", ui-monospace, Menlo, Consolas, monospace; }
+        #cityHud .big small { font-size: 12px; opacity: .8; }
+        #cityHud .row { display: flex; gap: 8px; white-space: nowrap; opacity: .85; }
+        #cityHud .chev { display: flex; flex-direction: column; align-items: center; width: 12px; line-height: .7; font-size: 10px; font-style: normal; opacity: .25; }
+        #cityHud .chev i { font-style: normal; }
+        #cityHud.mv .chev { opacity: 1; }
+        #cityHud.mv .chev i { animation: cityChev .6s linear infinite; }
+        #cityHud.mv .chev i:nth-child(2) { animation-delay: .2s; }
+        #cityHud.mv .chev i:nth-child(3) { animation-delay: .4s; }
+        #cityHud.up .chev { transform: scaleY(-1); }
+        @keyframes cityChev { 0%, 100% { opacity: .2; } 50% { opacity: 1; } }
+        #cityHud.ding { animation: cityDing .7s var(--ease); }
+        @keyframes cityDing { 40% { box-shadow: inset 0 0 0 2px var(--hud), 0 0 18px 6px var(--hud); } }
+        #cityHud { display: none; }
+        html.city-wall.nav-bottom #cityHud { display: grid; }
+        @media (max-width: 1023.98px) { html.city-wall.nav-bottom #cityHud { top: auto; bottom: calc(100% + 8px); left: 10px; padding: 4px 10px 4px 8px; column-gap: 8px; }
+            #cityHud .big { font-size: 22px; } }
+
+        /* ---- 兩道門：減少動態、省電 → 背景完全不動（city.js 也不做視差與慣性） ---- */
+        html.fx-lite .city-lay.sway, html.fx-lite .city-rail.mv::after, html.fx-lite #cityHud .chev i, html.fx-lite #cityHud.ding,
+        html.fx-lite.city-wall.nav-bottom #mainNav .tab-btn.is-ink { animation: none !important; }
+        @media (prefers-reduced-motion: reduce) {
+            .city-lay.sway, .city-rail.mv::after, #cityHud .chev i, #cityHud.ding,
+            html.city-wall.nav-bottom #mainNav .tab-btn.is-ink { animation: none !important; }
+            .city-lay { transition: none; }
+        }
+
     </style>
     <script>
         // 開站前先套用上次使用者選的顯示模式，避免閃爍
@@ -2706,6 +2869,9 @@
 
             function dark() { return root.classList.contains('dark'); }
             function still() { return !dark() || calm.matches || root.classList.contains('fx-lite'); }
+            /* ★ 2026-11-25：城市背景（lobby/city.js）的圖到了就掛 html.city-on，這張畫布從此不畫也不排下一格。
+               圖還沒到（第一次開、離線）之前照常畫——它就是城市背景的降級路徑。 */
+            function off() { return root.classList.contains('city-on'); }
             function rng(seed) {
                 return function () { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
             }
@@ -2907,6 +3073,7 @@
                  *   其他地方（resize、換深淺色）只叫 draw，不另外開一條迴圈——
                  *   兩條迴圈同時跑的症狀是雨下得兩倍快，而且不會報錯。 */
             function draw(now) {
+                if (off()) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, cv.width, cv.height); return; }
                 var dt = Math.min(0.05, (now - last) / 1000 || 0);
                 last = now;
                 ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
@@ -2934,7 +3101,7 @@
             }
             function loop(now) { raf = 0; draw(now); schedule(); }
             function schedule() {
-                if (raf || pending || document.hidden || still()) return;
+                if (raf || pending || document.hidden || still() || off()) return;
                 /* 30 格／秒：等到下一個 33ms 再畫。 */
                 pending = true;
                 setTimeout(function () { pending = false; if (!raf) raf = requestAnimationFrame(loop); },
@@ -2942,6 +3109,7 @@
             }
 
             function resize(force) {
+                if (off()) return;   // 城市背景已經接手，不必重算整座城
                 var w = window.innerWidth, h = window.innerHeight;
                 if (!force && w === W && Math.abs(h - H) < 160) return;   // 網址列伸縮：不重算城市
                 W = w; H = h; DPR = Math.min(window.devicePixelRatio || 1, 1.5);
@@ -2951,6 +3119,7 @@
             }
 
             function refresh() {   // 換了深淺色或特效開關
+                if (off()) { draw(performance.now()); return; }   // 只清掉一次
                 if (bakeDark !== dark()) build();
                 if (!raf && !pending) { last = performance.now(); draw(last); }
                 schedule();
@@ -7953,6 +8122,28 @@
          * ========================================================== */
         const CHANGELOG = [
             {
+                date: '2026-11-25',
+                title: '背景換成一座會上下移動的城市，分頁掛到底部的牆上',
+                items: [
+                    ['一座畫出來的城市', '網站背景換成一整座動畫風的城市：遠遠的天際線、正中間一棟掛著巨大全息廣告的高塔、兩旁是貼滿霓虹招牌的街道，最前面還垂著電線和一串小燈泡。深色模式是晚上，淺色模式是白天，招牌白天不會亮。'],
+                    ['往下捲像坐電梯', '往下捲的時候，整座城市會一層一層往上掠過：越近的大樓走得越快，遠的天空幾乎不動，看起來像坐在大樓外面的玻璃電梯裡。電梯起步和停下來都會慢慢加減速，不會一下子跳過去。'],
+                    ['電梯的樓層顯示', '底部的牆上多了一個電梯的樓層面板：頁面最上面是 60 樓，越往下捲樓層越低，移動時會顯示往上或往下的箭頭和速度，停下來會閃一下。螢幕兩邊的光軌也會跟著掠過一格一格的樓層刻度。'],
+                    ['分頁變成牆上的招牌', '畫面最底下是一面屋頂的水泥牆，分頁按鈕就掛在牆上，像一塊塊霓虹招牌。現在在哪一頁，那塊招牌就亮起來，其他的燈是暗的。電腦版的分頁也從上面移到底部的牆上了。'],
+                    ['小黑貓走在牆頂上', '首頁的小黑貓不再站在一條看不見的線上，而是走在那面牆的牆頂上。'],
+                    ['不想要畫面動的話', '設定裡把「特效」切成「省電」，或手機開了「減少動態」，背景就會停住不動，只留一張靜止的城市。'],
+                ]
+            },
+            {
+                date: '2026-11-25',
+                title: '首頁的小黑貓學會打哈欠、站起來張望',
+                items: [
+                    ['打哈欠', '小黑貓坐著發呆的時候，偶爾會仰起頭打一個大哈欠：嘴巴張到看得到小尖牙和粉紅色的舌頭，眼睛瞇起來、耳朵往後轉，打完再坐好。'],
+                    ['站起來張望', '有時候牠會用後腳站起來，前腳縮在胸前、尾巴貼在地上撐著，像在偷看什麼一樣左右看一看，再坐回去。'],
+                    ['照真的貓做的', '這兩個動作是照真貓的影片一格一格對出來的：站起來的時候腳不會在地上滑、重心一直在腳掌上，看起來不會像要倒。'],
+                    ['原本的動作也坐得更穩', '以前小黑貓坐著的時候前腳其實有一點點浮在地上、屁股也沒坐下去，趴成麵包時還有一隻後腳懸在半空。現在坐著、趴著、伸懶腰都是腳掌踩實的，從坐到趴的時候後腳也會一隻一隻挪，不會兩隻一起飄起來。'],
+                ]
+            },
+            {
                 date: '2026-11-19',
                 title: '開站變快，iPhone 上「登入」按了沒反應也修好了',
                 items: [
@@ -9118,13 +9309,20 @@
             english: 'languages', finance: 'wallet',
             evaluation: 'star', data: 'folder-open', news: 'newspaper', promote: 'trending-up'
         };
+        /* ★ 分頁在底部女兒牆上是一塊塊霓虹招牌（2026-11-25，lobby/city.js），招牌下面那行假名小字寫在這裡，
+           跟背景圖裡街上的招牌同一套字（背景的招牌也只用這幾個詞）。CSS 用 attr(data-kana) 畫出來。
+           跟 TAB_ICON 一樣寫成獨立的表：PRODUCT_TABS 被好幾支測試用 `([tab, label]) =>` 解構。 */
+        const TAB_KANA = {
+            home: 'ホーム', plan: 'けいかく', 'self-study': 'がくしゅう', english: 'えいご', finance: 'かけい',
+            evaluation: 'ひょうか', data: 'しりょう', news: 'ニュース', promote: 'しょうかく'
+        };
         function buildStaticUI() {
             $('mainNav').innerHTML =
                 /* ★ 顏料塊要排在所有按鈕**前面**：它跟按鈕同一個堆疊層級，
                    先出現的畫在下面，字才不會被蓋住（見 CSS 的 .nav-ink）。 */
                 '<span id="navInk" class="nav-ink is-live" aria-hidden="true"></span>' +
                 TABS.map(([tab, label], i) => `
-                <button data-tab="${tab}"
+                <button data-tab="${tab}" data-kana="${escapeHTML(TAB_KANA[tab] || '')}"
                     class="tab-btn whitespace-nowrap flex-1 max-w-[11rem] text-center px-2 md:px-4 py-2 rounded-xl text-[13px] md:text-sm font-bold transition-all ${i === 0 ? NAV_ACTIVE.join(' ') :''}"><i data-lucide="${escapeHTML(TAB_ICON[tab] || 'circle')}" class="tab-ico pointer-events-none" aria-hidden="true"></i><span class="tab-label">${label}</span></button>
             `).join('');
             /* 第一次擺位不要過場：開站時從左邊滑進來很莫名。
@@ -9248,7 +9446,9 @@
         function placeNav(){
             const nav = $('mainNav'), row = $('navRow'), dock = $('navDock');
             if (!nav || !row || !dock) return;
-            const bottom = matchMedia('(max-width: 767.98px)').matches;
+            /* ★ 2026-11-25：有城市背景（html.city-wall，lobby/city.js 在 <head> 掛的）時，電腦的分頁列也搬到底部——
+               底部那面女兒牆就是分頁列，分頁是牆上的招牌。city.js 沒載到就退回原本「只有手機在底部」。 */
+            const bottom = matchMedia('(max-width: 767.98px)').matches || document.documentElement.classList.contains('city-wall');
             document.documentElement.classList.toggle('nav-bottom', bottom);
             if (bottom && nav.parentNode !== dock) dock.appendChild(nav);
             else if (!bottom && nav.parentNode === dock) row.insertBefore(nav, row.firstChild);   // 只有真的搬下去過才搬回來

@@ -113,6 +113,9 @@
         stretch: [30, 2.50],   // 伸懶腰：前腳往前伸、胸口壓低、屁股翹高
         loafdown:[8,  0.67],   // 坐 → 趴成麵包（倒著播就是起來）
         loaf:    [24, 4.00],   // 麵包：前腳收在胸口下，慢慢呼吸
+        /* 2026-11-25：照 GB 拍的兩段影片加的待機動作（素材/大廳/scripts/cat2_yawn.py），都從坐姿開始、回到坐姿。 */
+        yawn:    [30, 2.50],   // 打哈欠：頭往上仰、嘴張到最大（露出犬齒和舌頭）、眼睛瞇起來、耳朵往後
+        meerkat: [40, 3.33],   // 後腳站起來張望：上半身立直、前腳收在胸前、尾巴平貼地上撐著，頭往兩邊看
         /* 2026-10-17：主頁的貓從畫面外跑進來、跑去方框邊邊用（Blender 的 nat_run，跟轉場影片裡衝進店的是同一套）。 */
         run:     [8,  0.33],   // 奔跑的一個循環（每秒 3 步，一步往前 0.42m）
         /* 2026-10-22：跳進洞之後在下墜隧道裡、以及從主頁上方掉下來時用。四腳張開、尾巴往上當舵、耳朵往後貼，輕輕划動。 */
@@ -1087,7 +1090,10 @@
             var base = 12;
             if (dock && H.classList.contains('nav-bottom') && !H.classList.contains('kb-open')) {
                 var r = dock.getBoundingClientRect();
-                if (r.height) base = Math.max(base, W.innerHeight - r.top + 8);
+                /* ★ 2026-11-25：有城市背景時底部那條是一面女兒牆（lobby/city.js），#navDock 的上緣＝牆頂，
+                   貓要踩在牆頂上（往下 3px 是壓頂的上面），不是浮在分頁列上面 8px。 */
+                var lift = H.classList.contains('city-wall') ? -3 : 8;
+                if (r.height) base = Math.max(base, W.innerHeight - r.top + lift);
             }
             return base;
         }
@@ -1271,6 +1277,8 @@
             ['scratch', 7, function () { loopAct('scratch', 1, 2); }],
             ['tilt', 9, function () { onceAct('tilt'); }],
             ['stretch', 8, function () { onceAct('stretch'); }],
+            ['yawn', 8, function () { onceAct('yawn'); }],
+            ['meerkat', 7, function () { onceAct('meerkat'); }],
             ['walk', 16, function () { stroll(); }],
             ['hop', 18, function () { hopAct(); }],
             ['lie', 10, function () { liedown(); }],
@@ -1287,7 +1295,7 @@
         }
         function choose() {
             if (still()) return;
-            preload(['look', 'groom', 'walk', 'run', 'stand', 'jumpup', 'jumpdown', 'land', 'lie', 'liedown', 'sleep', 'wash', 'scratch', 'tilt', 'stretch', 'loaf', 'loafdown'].filter(function (n) { return CAT[n]; }));
+            preload(['look', 'groom', 'walk', 'run', 'stand', 'jumpup', 'jumpdown', 'land', 'lie', 'liedown', 'sleep', 'wash', 'scratch', 'tilt', 'stretch', 'yawn', 'meerkat', 'loaf', 'loafdown'].filter(function (n) { return CAT[n]; }));
             var pool = ACTS.filter(function (a) { return (a[0] === 'hop' || CAT[a[0]]) && (a[0] !== 'loaf' || CAT.loafdown); });
             var tot = 0, w = pool.map(function (a) { var x = a[1] * (recent.indexOf(a[0]) >= 0 ? 0.25 : 1); tot += x; return x; });
             var r = Math.random() * tot, i = 0;
@@ -1375,7 +1383,7 @@
         /* 捲動停下來：在地板上的話，多半跳回畫面中間的方框（使用者要「盡量出現在畫面中」）。睡著、趴著就讓牠待著。 */
         function afterScroll() {
             if (!btn || !shown || air || mv || still() || cur) return;
-            if (!/^(sit|look|groom|wash|tilt|land)$/.test(state) || Math.random() > 0.8) return;
+            if (!/^(sit|look|groom|wash|tilt|yawn|land)$/.test(state) || Math.random() > 0.8) return;
             var t = best(null, lastX, lastY);
             if (t) hop(t, true);
         }
@@ -1434,9 +1442,12 @@
             bubbleT = setTimeout(function () { if (btn) btn.classList.remove('talk'); }, 1600);
             if (still() || air) return;
             /* 摸牠：坐著就跳一下；躺著、睡著就起來；走到一半（或正要走去邊邊跳）就停下來坐好。 */
-            if (/^(sit|look|groom|wash|tilt)$/.test(state)) {
+            if (/^(sit|look|groom|wash|tilt|yawn)$/.test(state)) {
                 state = 'land'; play('land', true); later(function () { sit(); }, CAT.land[1] * 1000 + 60);
-            } else if (state === 'lie' || state === 'sleep') getUp();
+            }
+            /* 站起來張望（meerkat）的時候被摸：只冒對話泡泡、讓牠自己看完坐回去。
+               不能接 land（那是從坐姿跳的，站著的時候切過去會瞬間縮回坐姿），倒著播 meerkat 也不行（倒著是從坐姿開始又站起來一次）。 */
+            else if (state === 'lie' || state === 'sleep') getUp();
             else if (state === 'walk' || state === 'run') {
                 mv = null;
                 state = 'stand'; play('stand', true, true); later(function () { sit(); }, CAT.stand[1] * 1000);

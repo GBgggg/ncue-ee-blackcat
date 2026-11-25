@@ -1,4 +1,4 @@
-/* tw.css：由 tools/mktw.mjs 從 publicnew.html 產生（tailwindcss 3.4.17），不要手改。指紋 80f5c24470c95b5a */
+/* tw.css：由 tools/mktw.mjs 從 publicnew.html 產生（tailwindcss 3.4.17），不要手改。指紋 b8a996c739901356 */
 *, ::before, ::after {
   --tw-border-spacing-x: 0;
   --tw-border-spacing-y: 0;
@@ -627,6 +627,10 @@ video {
 
 .visible {
   visibility: visible;
+}
+
+.static {
+  position: static;
 }
 
 .fixed {

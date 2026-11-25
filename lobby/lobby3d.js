@@ -42,7 +42,7 @@ const TUMBLE_C = 0.17;
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
 const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jumpup: 90, jumpdown: 90, hang: 0,
-               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30 };
+               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30, yawn: 20, meerkat: 20 };
 const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
 function furMaterial(skinned, h) {
@@ -310,7 +310,7 @@ class Cat3D {
             /* 省電：角落那隻安靜坐著（沒在走、沒在跳、游標也沒在動）時改成每秒 30 格。
                大廳裡、或牠在動的時候維持 60 格——遊戲感就是靠這個。 */
             this.odd = !this.odd;
-            const calm = this.el.id === 'bcCat' && !/walk|run|stand|jump|land|liedown|loafdown|stretch|scratch/.test(s.name) && performance.now() - this.look.t > 3000;
+            const calm = this.el.id === 'bcCat' && !/walk|run|stand|jump|land|liedown|loafdown|stretch|scratch|meerkat/.test(s.name) && performance.now() - this.look.t > 3000;
             if (calm && this.odd) return;
             this.draw(s, Math.min(this.clock.getDelta(), 0.08));
         };
@@ -446,7 +446,11 @@ class Cat3D {
         const b = this.blinkKind || (this.blinkKind = { len: 140, two: false });
         let k = 1;
         if (name === 'sleep') k = 0.08;
-        else if (now > this.blinkT) {
+        else if (name === 'yawn' && this.cur && this.clips.yawn) {
+            /* 打哈欠：眼睛跟著嘴巴瞇起來（曲線跟 cat2_yawn.py 的 yawn_curves 一樣；眼皮不在動作檔裡，只能在這裡算） */
+            const u = this.cur.time / this.clips.yawn.duration, sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
+            k = Math.max(0.08, 1 - 0.9 * sm((u - 0.18) / 0.22) * (1 - sm((u - 0.70) / 0.16)));
+        } else if (now > this.blinkT) {
             const u = now - this.blinkT;
             if (b.slow) k = u < b.len ? Math.max(0.08, 1 - 0.92 * Math.sin(Math.PI * u / b.len)) : 1;
             else if (u < b.len || (b.two && u > b.len + 120 && u < 2 * b.len + 120)) k = 0.08;
@@ -484,7 +488,7 @@ class Cat3D {
                 });
             }
         }
-        const calm = /idle|look|groom|lie|sleep|loaf|tilt|wash|scratch/.test(s.name);
+        const calm = /idle|look|groom|lie|sleep|loaf|tilt|wash|scratch|meerkat/.test(s.name);
         if (this.tailTip.length && calm && now > f.tailAt) {
             f.tail = { t0: now, amp: (s.name === 'sleep' ? 0.12 : 0.25) + Math.random() * 0.35, dir: Math.random() < 0.5 ? -1 : 1, hz: 1.2 + Math.random() * 1.3 };
             f.tailAt = now + 2000 + Math.random() * 5000;

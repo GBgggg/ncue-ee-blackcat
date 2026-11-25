@@ -11,7 +11,7 @@
  */
 /* 改了 CORE 就要改版本號，否則 install 時 addAll 的清單不會重跑，
    新加的檔案永遠不會進預快取。 */
-const CACHE = 'blackcat-v201';
+const CACHE = 'blackcat-v203';
 /* ★★ 推播金鑰的快取。下面 activate 那段會刪掉「不是這一版 CACHE」的
    所有快取，**這個一定要排除掉**——洗掉的話，頁面下次訂閱會帶一把新鑰匙
    上去，Worker 認得是舊的那把於是回 403，症狀是
@@ -50,6 +50,11 @@ const CORE = ['./', './index.html', './logomain.jpg', './manifest.json',
                  ★ 即時 3D 的貓（lobby/lobby3d.js、lobby/cat.glb、vendor/three/，合計約 1.4MB）也不進：
                    3D 是加分，離線抓不到時 lobby.js 就留在序列圖貓，不會壞。 */
               './lobby/lobby.js', './lobby/lobby.css',
+              /* ★ 城市背景（2026-11-25）：主站與彰師電子的 <head> 載它（背景圖層、電梯、牆上的分頁）。
+                 不進 CORE 的話離線時分頁列會退回原本的位置——不會壞，但跟線上長得不一樣。
+                 ★ 背景圖（lobby/city/*.webp，夜／日 × 電腦／手機約 7MB，每個人只用其中一套約 2MB）**刻意不進**：
+                   沒抓到時舊的畫布天際線照畫，city.js 等天空那層到了才接手。 */
+              './lobby/city.js',
               /* ★ Tailwind 的樣式（2026-11-12 起是事先算好的檔案，由 tools/mktw.mjs 產生）。
                  主站與彰師電子的排版全靠它：不進 CORE 的話，離線打開就是一整頁沒排版的字。
                  以前掛 cdn.tailwindcss.com 的時候離線本來就是這樣，搬進來之後才進得了 CORE。 */
