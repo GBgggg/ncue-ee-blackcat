@@ -2776,8 +2776,12 @@
         @keyframes cityDing { 40% { box-shadow: inset 0 0 0 2px var(--hud), 0 0 18px 6px var(--hud); } }
         #cityHud { display: none; }
         html.city-wall.nav-bottom #cityHud { display: grid; }
-        @media (max-width: 1023.98px) { html.city-wall.nav-bottom #cityHud { top: auto; bottom: calc(100% + 8px); left: 10px; padding: 4px 10px 4px 8px; column-gap: 8px; }
+        /* 手機、平板：面板在牆頂上面一點，正好是貓走路的地方。city.js 會把它搬到 <body> 底下（不在 #navDock 裡），
+           z-index 28 比貓（3D 畫布 29、按鈕 30）低：貓走過去在面板前面，不會被擋住。 */
+        @media (max-width: 1023.98px) { html.city-wall.nav-bottom #cityHud { position: fixed; z-index: 28; top: auto; left: 10px;
+                bottom: calc(var(--wall-h) + 8px + env(safe-area-inset-bottom, 0px)); padding: 4px 10px 4px 8px; column-gap: 8px; }
             #cityHud .big { font-size: 22px; } }
+        html.kb-open #cityHud { display: none !important; }
 
         /* ---- 兩道門：減少動態、省電 → 背景完全不動（city.js 也不做視差與慣性） ---- */
         html.fx-lite .city-lay.sway, html.fx-lite .city-rail.mv::after, html.fx-lite #cityHud .chev i, html.fx-lite #cityHud.ding,

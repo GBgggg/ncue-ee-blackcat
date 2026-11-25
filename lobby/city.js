@@ -84,6 +84,7 @@
             '<span class="row"><span class="chev"><i>▼</i><i>▼</i><i>▼</i></span><span class="spd">0.0 m/s</span></span>' +
             '<span class="row alt">ALT 240.0 m</span>';
         dock.appendChild(hud);
+        placeHud();
         fn = hud.querySelector('b'); spd = hud.querySelector('.spd'); alt = hud.querySelector('.alt');
     }
 
@@ -106,9 +107,20 @@
         });
     }
 
+    /* 樓層面板掛哪：電腦掛在牆面上（#navDock 裡，貓走不到那裡）；
+       手機、平板它在牆頂上面一點，正好是貓走路的地方——#navDock 整條是 z-index 40、貓是 29／30，
+       面板放在 #navDock 裡面就會把貓擋住（2026-11-25 GB 在手機上看到的）。
+       所以窄畫面搬到 <body> 底下、z-index 28：貓走過去會在面板前面。 */
+    function placeHud() {
+        if (!hud) return;
+        var p = innerWidth < 1024 ? D.body : D.getElementById('navDock');
+        if (p && hud.parentNode !== p) p.appendChild(hud);
+    }
+
     function layout() {
         if (!els.length) return;
         setImages();
+        placeHud();
         var S = SZ[k], vw = innerWidth, vh = innerHeight;
         els.forEach(function (L) {
             var s = Math.max(vw / S[0], vh * (1 + L.ex) / S[1]), w = S[0] * s, h = S[1] * s;
