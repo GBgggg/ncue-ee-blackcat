@@ -23,7 +23,7 @@ import { GLTFLoader } from '../vendor/three/GLTFLoader.js';
 
 /* 毛的層數：手機少一點（每一層都是整隻貓再畫一次）。 */
 const SHELLS = matchMedia('(pointer: coarse)').matches ? 10 : 16;
-const FUR_LEN = 0.0115;           // 公尺；跟 Blender 的毛一樣長（2026-10-16 從 19mm 剪短：短毛黑貓貼身，19mm 的輪廓像一團毛球）
+const FUR_LEN = 0.007;            // 公尺（2026-10-16 從 19mm 剪成 11.5mm；2026-11-26 再剪成 7mm，理由見 furMaterial 裡「毛邊」那段）
 const FRAME_M = 0.8;              // 序列圖一格代表 0.8m 見方
 const GROUND = 0.025;             // 序列圖裡地面在格子底往上 2.5% 的地方（Blender 的 CatCam 量的）
 const TILT = THREE.MathUtils.degToRad(8);   // CatCam 往下看 8°（序列圖與主頁角落那隻用這個）
@@ -41,8 +41,8 @@ const TUMBLE_C = 0.17;
 
 /* 每個動作預設面向哪裡（度）：0＝正對畫面，正的往畫面右邊轉。
    坐著的那幾個照序列圖（Blender 裡轉 200°＝往右偏 20°）；走路與跳改成真的側身。 */
-const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, land: 20, stand: 20, walk: 80, jumpup: 90, jumpdown: 90, hang: 0,
-               tilt: 20, wash: 20, scratch: 20, stretch: 70, loafdown: 22, loaf: 25, run: 85, fall: 30, yawn: 20, meerkat: 20,
+const FACE = { idle: 0, look: 0, groom: 0, lie: 12, liedown: 6, sleep: 12, land: 0, stand: 0, walk: 80, jumpup: 90, jumpdown: 90, hang: 0,
+               tilt: 0, wash: 0, scratch: 0, stretch: 70, loafdown: 4, loaf: 6, run: 85, fall: 30, yawn: 0, meerkat: 0,
                crawl: 82, crouch: 82, pounce: 90, held: 165 };
 /* 2026-11-26：主頁那隻貓的三個新動作，glb 裡沒有專屬的動作檔，用現成的拼：
    - crawl（匍匐前進）：走路的動作檔慢放，再疊一部分「趴著」的姿勢（POSE 的權重）→ 身體壓低、腳半彎著一步一步往前蹭。
@@ -51,6 +51,11 @@ const FACE = { idle: 20, look: 20, groom: 20, lie: 25, liedown: 20, sleep: 25, l
    - held（被提起來）：掛著（hang）那支——前爪抓著、後腳踢；錨點是前爪，lobby.js 給抓點與擺盪角度。 */
 const CLIP = { crawl: 'walk', crouch: 'walk', pounce: 'jumpdown', held: 'hang' };
 const POSE = { crawl: 0.8, crouch: 1.5 };
+/* 坐著的尾巴：哪些動作要擺（權重）、每一節繞貓的垂直軸轉幾弧度、往哪邊（-1＝貓的左邊）。
+   值是在測試頁從正上方看調的：-1 搭這組數字，尾巴從屁股往左側平伸、尾端那一勾被抵掉；轉更多會整條塞到身體底下看不到。 */
+const TAILWRAP = { idle: 1, look: 1, groom: 1, wash: 1, scratch: 0.6, tilt: 1, yawn: 1, land: 0.5, loaf: 1, sleep: 1, lie: 0.7 };
+const TAIL_BEND = [0.25, 0.3, 0.2, 0.1, 0];
+const TAIL_SIDE = -1;
 const LOOKS = { idle: 1, look: 1, lie: 1, land: 1, loaf: 1 };   // 這幾個動作頭可以轉去看游標
 
 function furMaterial(skinned, h) {
@@ -93,20 +98,25 @@ function furMaterial(skinned, h) {
                 if (uH > 0.0) {
                     if (vL < 0.02) discard;                       // 內耳之類不長毛的地方
                     // 一根毛＝一個小格子；越外層留下來的毛越少、越細
-                    vec3 p = vRest * 520.0;
+                    /* ★ 毛邊（2026-11-26 GB：「黑貓身上毛邊」）。以前一根毛的格子是 1.9mm，貓在手機上一公尺才一兩百 px，
+                         一根毛比一個像素還細；外層又只留零星幾根，畫出來是一圈亂跳的雜點、整隻貓像沾了灰，輪廓毛毛躁躁。
+                         改成：毛短一點（FUR_LEN）、格子放大成 3.3mm（一撮一撮的），外層的毛不再細到變成單點
+                         （半徑最多縮到 45%），而且大部分的毛都長到第七成高，輪廓是一圈整齊的短絨，不是零星的刺。 */
+                    vec3 p = vRest * 300.0;
                     vec3 c = floor(p); vec3 f = fract(p) - 0.5;
                     float r = h13(c); furR = r;
                     vec3 j = (vec3(h13(c + 7.1), h13(c + 3.3), h13(c + 5.7)) - 0.5) * 0.5;
                     float d = length(f + j);
-                    float rad = 0.62 * (1.0 - uH) * (0.55 + 0.6 * r);
-                    float cov = smoothstep(rad, rad - 0.14, d) * step(uH, 0.3 + 0.8 * r);
+                    float rad = 0.62 * (1.0 - 0.55 * uH) * (0.7 + 0.4 * r);
+                    float cov = smoothstep(rad, rad - 0.14, d) * step(uH, 0.55 + 0.5 * r);
                     // ★ 硬切，不用半透明：畫布是透明背景，半透明的毛尖會讓底下的街景「加亮」透上來，
                     //   整隻貓泛粉紅（alphaToCoverage 也一樣，寫進畫布的 alpha 還是小於 1）
                     if (cov < 0.45) discard;
                 }`)
             .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
-                // 毛根暗、毛尖亮一點（毛之間互相遮光）
-                diffuseColor.rgb *= mix(0.4, 1.3, uH);`)
+                // 毛根暗、毛尖亮一點（毛之間互相遮光）。2026-11-26 從 0.4～1.3 收成 0.7～1.1：
+                // 差太多的話每一撮毛尖都是一顆比旁邊亮的點，小貓看起來一身雜點（毛邊的另一半）。
+                diffuseColor.rgb *= mix(0.7, 1.1, uH);`)
             .replace('#include <opaque_fragment>', `
                 // 霓虹的邊光：畫面左邊的輪廓偏粉、右邊偏青（跟預算圖那隻、跟夜街的燈一致）
                 vec3 vn = normalize(normal);
@@ -117,7 +127,7 @@ function furMaterial(skinned, h) {
                 // 毛的光澤（Kajiya-Kay）。兩道：窄的一道偏白（毛的表面直接反光）、寬的一道很淡（光鑽進毛裡再出來，讓暗面不是死黑）。
                 #if NUM_DIR_LIGHTS > 0
                 {
-                    vec3 hT = normalize(vHair + vn * (furR - 0.5) * 0.14);
+                    vec3 hT = normalize(vHair);   // 2026-11-26 拿掉每根毛的方向亂數（原本 ±0.07）：亂數讓每根毛各自閃，貓小的時候變成一身白點
                     vec3 sheen = vec3(0.0);
                     for (int i = 0; i < NUM_DIR_LIGHTS; i++) {
                         vec3 hL = directionalLights[i].direction;
@@ -125,12 +135,12 @@ function furMaterial(skinned, h) {
                         float s = sqrt(max(0.0, 1.0 - th * th));
                         // 背光的那一面不亮；第 0 盞是主光，後面兩盞霓虹只給一點（全給的話趴著的貓整片背是粉紅的，2026-10-16 踩過）
                         float lit = smoothstep(-0.15, 0.55, dot(vn, hL)) * (i == 0 ? 1.0 : 0.22);
-                        sheen += directionalLights[i].color * (pow(s, 30.0) * 0.13 + pow(s, 6.0) * 0.02) * lit;
+                        sheen += directionalLights[i].color * (pow(s, 30.0) * 0.07 + pow(s, 6.0) * 0.012) * lit;   // 2026-11-26 沒有亂數之後整片一起亮，強度跟上限都調低，不然像灰貓
                     }
                     /* ★ 每一層的光澤差不多亮（毛根只暗一點）。第一版越外層越亮：最外面幾層只剩最長的那幾根毛，
                          它們比旁邊（已經到頭的毛）亮好幾倍，各自變成一顆顆白點，貓縮小時像沾了一身頭皮屑。
                          再加一個上限，剛好正對光的毛也不會爆掉。 */
-                    outgoingLight += min(sheen * uSheen * mix(0.6, 1.0, uH) * (0.88 + 0.24 * furR), vec3(0.04));
+                    outgoingLight += min(sheen * uSheen * mix(0.75, 1.0, uH), vec3(0.022));
                 }
                 #endif
                 #include <opaque_fragment>`);
@@ -166,7 +176,7 @@ class Cat3D {
         this.clips = {};
         for (const c of gltf.animations) this.clips[c.name.replace(/^cat_/, '')] = c;
         this.actions = {};
-        this.head = null; this.neck = null; this.eyes = []; this.ears = []; this.tailTip = [];
+        this.head = null; this.neck = null; this.eyes = []; this.ears = []; this.tailTip = []; this.tail = [];
         root.traverse((o) => {
             if (o.isBone && o.name === 'head') this.head = o;
             if (o.isBone && o.name === 'neck') this.neck = o;
@@ -174,6 +184,7 @@ class Cat3D {
             // GLTFLoader 會把名字裡的「.」拿掉：Blender 的 ear.L 在這裡叫 earL
             if (o.isBone && /^ear\.?[LR]$/.test(o.name)) this.ears.push(o);
             if (o.isBone && /^tail[345]$/.test(o.name)) this.tailTip.push(o);
+            if (o.isBone && /^tail[1-5]$/.test(o.name)) this.tail[+o.name.slice(4) - 1] = o;
             if (/^Cat3D(Iris|Cornea|Eye)_/.test(o.name)) this.eyes.push(o);
             if (o.isMesh) o.frustumCulled = false;
         });
@@ -191,6 +202,11 @@ class Cat3D {
                     #include <opaque_fragment>`);
             };
             m.customProgramCacheKey = () => 'catcornea';
+        });
+        /* 鬍鬚：一根不到一個像素寬，貓小的時候斷成一串點，在臉旁邊像毛邊（2026-11-26）。調淡成半透明。 */
+        root.traverse((o) => {
+            if (!o.isMesh || !o.material || o.material.name !== 'W_Whisker') return;
+            o.material = o.material.clone(); o.material.transparent = true; o.material.opacity = 0.4; o.material.depthWrite = false;
         });
         this.buildFur(root);
         // 地上的影子：一片放射漸層的圓
@@ -357,6 +373,8 @@ class Cat3D {
         this.yaw += (target - this.yaw) * Math.min(1, dt * (/^jump|pounce|held/.test(s.name) ? 14 : 6));
         this.turn.rotation.y = Math.PI + this.yaw;   // 模型本來背對鏡頭（Blender 裡面向 +Y）
         this.shadow.visible = s.ground && !/^jump|pounce/.test(s.name);
+        /* 主頁那隻在牆頂上：頂面只有約 25cm 深，原本 30cm 深的影子會溢出頂面、掛到牆的正面上，壓扁一點。 */
+        this.shadow.scale.y = this.el && this.el.id === 'bcCat' ? 0.6 : 1;
         // 上一格加在頭上的轉動先還原，再讓動作覆寫（某些動作沒有頭的軌道時才不會越轉越多）
         if (this.base) { this.neck.quaternion.copy(this.base[0]); this.head.quaternion.copy(this.base[1]); }
         /* 霓虹燈只在夜街上：角落那隻貓待在一般頁面（多半是白天的淺色底），粉紅與青色的燈還開著的話，
@@ -370,6 +388,7 @@ class Cat3D {
         SHEEN.value = 0.7 + 0.3 * this.night;
         this.crouchPose(s.name, dt);
         this.mixer.update(dt);
+        this.tailWrap(s.name, dt);
         this.wiggle(s.name);
         this.lookAt(s, dt);
         this.fidget(s);
@@ -385,6 +404,30 @@ class Cat3D {
         if (!this.lieA) { this.lieA = this.mixer.clipAction(this.clips.lie); this.lieA.setEffectiveWeight(0); this.lieA.play(); }
         this.lieA.setEffectiveWeight(this.poseW < 0.01 ? 0 : this.poseW);
     }
+    /* 坐著時把尾巴擺順（2026-11-26 GB：「尾巴奇怪的彎曲」）。
+       動作檔裡坐姿的尾巴往正後方伸出去、後半段再往旁邊折一個鉤（從正上方看最明顯），側身看像一根棍子末端折一下。
+       這裡在動作檔上面疊一個「沿著地面往貓的左邊擺」的轉動，根部那兩節轉最多、尾端不轉，剛好把那個鉤抵掉，
+       尾巴變成從屁股往側邊平順地伸出去，正面看得到一整條。權重慢慢進出，站起來走路時尾巴自己恢復。 */
+    tailWrap(name, dt) {
+        if (this.tail.length < 5 || this.tail.some((b) => !b)) return;
+        const want = TAILWRAP[name] || 0;
+        this.wrapW = (this.wrapW || 0) + (want - (this.wrapW || 0)) * Math.min(1, dt * 3);
+        if (this.wrapW < 0.01) return;
+        /* 繞「貓自己的上方」轉（不是骨頭自己的軸）：尾巴本來平貼在地上，繞垂直軸轉才會一直貼著地面掃過去；
+           用骨頭的本地軸轉的話，尾巴繞到前面時會往下垂、掛在牆邊外面。由根到尖一節一節做，每節都在上一節轉完的位置上再轉。 */
+        const up = new THREE.Vector3(0, 1, 0).applyQuaternion(this.tilt.getWorldQuaternion(new THREE.Quaternion()));
+        const qw = new THREE.Quaternion(), pq = new THREE.Quaternion(), add = new THREE.Quaternion();
+        this.tail[0].parent.updateMatrixWorld(true);
+        TAIL_BEND.forEach((a, i) => {
+            const b = this.tail[i];
+            b.getWorldQuaternion(qw);
+            add.setFromAxisAngle(up, a * this.wrapW * TAIL_SIDE);
+            b.parent.getWorldQuaternion(pq);
+            b.quaternion.copy(pq.invert().multiply(add.clone().multiply(qw)));
+            b.updateMatrixWorld(true);
+        });
+    }
+
     /* 撲之前屁股左右扭（貓撲之前真的會這樣，在調整後腳）。 */
     wiggle(name) {
         if (name !== 'crouch' || !this.hips) return;
@@ -477,9 +520,10 @@ class Cat3D {
         let k = 1;
         if (name === 'sleep') k = 0.08;
         else if (name === 'yawn' && this.cur && this.clips.yawn) {
-            /* 打哈欠：眼睛跟著嘴巴瞇起來（曲線跟 cat2_yawn.py 的 yawn_curves 一樣；眼皮不在動作檔裡，只能在這裡算） */
+            /* 打哈欠：眼睛跟著嘴巴閉起來（曲線跟 Blender 的 cat2_mouth3.py 的 yawn_curves2 一樣；眼皮不在動作檔裡，只能在這裡算）。
+               2026-11-26 第二版：照影片重排，嘴巴張到最大的那一段（0.44～0.66）眼睛整個閉上。 */
             const u = this.cur.time / this.clips.yawn.duration, sm = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x); };
-            k = Math.max(0.08, 1 - 0.9 * sm((u - 0.18) / 0.22) * (1 - sm((u - 0.70) / 0.16)));
+            k = Math.max(0.05, 1 - 0.95 * sm((u - 0.44) / 0.10) * (1 - sm((u - 0.66) / 0.08)));
         } else if (now > this.blinkT) {
             const u = now - this.blinkT;
             if (b.slow) k = u < b.len ? Math.max(0.08, 1 - 0.92 * Math.sin(Math.PI * u / b.len)) : 1;

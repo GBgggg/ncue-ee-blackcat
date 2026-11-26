@@ -795,7 +795,7 @@
             --sys-indigo: #3b2fc9;
             --sys-purple: #8a1fb0;
             /* ---- 霓虹（只拿來畫裝飾：角框、光暈、雜訊、背景）---- */
-            --neon-yellow: #fcee0a;
+            --neon-yellow: #9a7f00;   /* 2026-11-26：淺色底上 #fcee0a 只有 1.05:1（GB：「黃色對比太低幾乎看不到」），改成芥末黃，水泥底 3.05、面板 3.59 */
             --neon-cyan:   #00b8cc;
             --neon-pink:   #e0007a;
             --hud:         rgba(11, 10, 18, 0.85);   /* 卡片四角的 HUD 框 */
@@ -2285,7 +2285,7 @@
         :is(.bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500, .bg-teal-400\/90, .bg-teal-500,
             .bg-emerald-400, .bg-blue-400, .bg-blue-600, .bg-emerald-200, .bg-fuchsia-400,
             .bg-amber-500, .bg-fuchsia-500, .bg-fuchsia-600):not(.border-amber-600):not(.border-fuchsia-600):not(.h-full)
-            :is(select, input, textarea, .bg-white) { color: var(--ink) !important; }
+            :is(select, input, textarea, option, .bg-white) { color: var(--ink) !important; }   /* option：2026-11-26 補，下拉展開的選項是淺底黃字 */
         :is(.bg-emerald-500, .bg-emerald-600, .bg-teal-400, .bg-blue-500, .bg-teal-400\/90, .bg-teal-500,
             .bg-emerald-400, .bg-blue-400, .bg-blue-600, .bg-emerald-200, .bg-fuchsia-400,
             .bg-amber-500, .bg-fuchsia-500, .bg-fuchsia-600):not(.border-amber-600):not(.border-fuchsia-600):not(.h-full)
@@ -2688,8 +2688,13 @@
         #cityLedge { display: none; }
         html.city-wall.nav-bottom #cityLedge { display: block; position: fixed; left: 0; right: 0; z-index: 27; pointer-events: none;
             height: var(--ledge-h); bottom: calc(var(--wall-h) + env(safe-area-inset-bottom, 0px));
-            background: url(lobby/city/ledge_day.webp) repeat-x 0 0 / 601.6px 100%; }
-        html.dark.city-wall.nav-bottom #cityLedge { background-image: url(lobby/city/ledge.webp); }
+            background: var(--ledge-shade), url(lobby/city/ledge_day.webp) repeat-x 0 0 / 601.6px 100%;
+            /* 2026-11-26：頂面的貼圖是把壓頂正面壓扁做的，跟底下牆的正面幾乎一模一樣，看起來像兩條疊在一起的水泥條，
+               不像「從上面看到的平面」。疊一層明暗：後緣（離鏡頭遠、被牆後面的東西擋光）暗、前緣那條稜線亮，
+               眼睛就會把它讀成水平的頂面，貓踩在上面才對得起來（貓的鏡頭角度見 lobby.js 的 wallTilt）。 */
+            --ledge-shade: linear-gradient(180deg, rgba(15, 18, 28, .42), rgba(15, 18, 28, .10) 55%, rgba(255, 255, 255, .06) 85%, rgba(255, 255, 255, .45) 100%); }
+        html.dark.city-wall.nav-bottom #cityLedge { background-image: var(--ledge-shade), url(lobby/city/ledge.webp);
+            --ledge-shade: linear-gradient(180deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .15) 55%, rgba(170, 220, 255, .05) 85%, rgba(170, 220, 255, .30) 100%); }
         html.kb-open #cityLedge { display: none !important; }
         /* 2026-11-26 GB：右下角「回到頂端」的箭頭拿掉（牆上整條都給貓走）。 */
         html.city-wall #backToTopBtn { display: none !important; }
@@ -2872,8 +2877,18 @@
         /* 熄著的燈管 */
         html.city-wall button:where(.bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn), html.city-wall #adminBtn { --neon: #64748b; color: #475569 !important; background: rgba(255, 255, 255, 0.92) !important; }
         html.dark.city-wall button:where(.bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn), html.dark.city-wall #adminBtn { --neon: #5b6b82; color: #cbd5e1 !important; background: rgba(8, 12, 24, 0.55) !important; }
-        /* 裡面的字、圖示跟著燈管的顏色（原本寫死 text-slate-600 之類的） */
-        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) :is(span, i, svg), html.city-wall #adminBtn :is(span, i, svg) { color: inherit !important; }
+        /* 裡面的字、圖示跟著燈管的顏色（原本寫死 text-slate-600 之類的）。
+           ★ 2026-11-26 補 svg *：圖示的線是畫在 svg 裡的 path／rect 上（stroke＝currentColor 吃的是 path 自己的 color），
+             只把 svg 本身改成 inherit 不夠——path 還是會被上面「主要動作色上的字」那條 `… * { color: var(--accent-fill-ink) }` 刷成黃色，
+             淺色模式就是米白底上的亮黃圖示，幾乎看不到（GB：單字庫、內建、查字典那幾顆的圖示）。 */
+        html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) :is(span, i, svg, svg *, b, strong, small, em), html.city-wall #adminBtn :is(span, i, svg, svg *) { color: inherit !important; }
+        /* ★ 2026-11-26：分頁頂端那條標題帶（.bg-slate-900.relative.overflow-hidden:not(#mainHeader)）裡的實心按鈕（新增單字冊、開始測驗、記一筆…）。
+             標題帶自己有一條「實心按鈕上的字跟 --accent-fill-ink」的規則，選擇器裡有 #mainHeader，特異度比上面的燈管規則高；
+             城市背景把按鈕換成淺底燈管之後，字還是那條給的黃（淺色模式 --accent-fill-ink 是黃），米白底上看不到。
+             這裡帶同一個 #mainHeader 再多幾個 class 壓回來：按鈕字＝燈管色，裡面的子元素跟著按鈕。 */
+        html.city-wall .bg-slate-900.relative.overflow-hidden:not(#mainHeader) button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { color: color-mix(in srgb, var(--neon) 80%, #0b1220) !important; }
+        html.dark.city-wall .bg-slate-900.relative.overflow-hidden:not(#mainHeader) button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) { color: color-mix(in srgb, var(--neon) 45%, #fff) !important; }
+        html.city-wall .bg-slate-900.relative.overflow-hidden:not(#mainHeader) button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn) * { color: inherit !important; }
         /* 滑過去：燈亮一點（熄著的那種會微微亮起來）；按下去往下沉 1px；不能按：整顆褪色 */
         html.city-wall button:where(.bg-emerald-500, .bg-slate-900, .bg-teal-400, .bg-teal-500, .bg-sky-500, .bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600, .bg-violet-500, .bg-violet-600, .bg-fuchsia-500, .bg-amber-400, .bg-amber-500, .bg-red-500, .bg-rose-500, .bg-slate-100, .bg-slate-200, .bg-slate-700, .bg-white.border, .bg-white.border-2, .border-2.border-slate-200, .text-slate-400[class*="hover:bg-slate-100"][class*="py-"]):not(.rounded-full):not(.text-left):not(.justify-between):not(.tab-btn):hover, html.city-wall #adminBtn:hover {
             background: color-mix(in srgb, var(--neon) 18%, rgba(255, 255, 255, 0.94)) !important;
@@ -8227,6 +8242,36 @@
          *    2026-08-26 之前那七十六筆技術版原文封存在 docs/更新紀錄-技術版.md。
          * ========================================================== */
         const CHANGELOG = [
+            {
+                date: '2026-11-26',
+                title: '進站的大廳重畫了',
+                items: [
+                    ['更精緻的地面', '第一次進站看到的那片有五個洞的地面重畫了：下過雨的柏油路、水窪倒映著每個洞的霓虹光、地上的箭頭、人孔蓋、水溝蓋、碎石，跟網站背景那座城市是同一種畫風。'],
+                    ['洞還在原來的地方', '五個洞的顏色和大概位置都沒變，上面的名字也跟著對齊。'],
+                ]
+            },
+            {
+                date: '2026-11-26',
+                title: '小黑貓打哈欠重做了，是真的張開嘴',
+                items: [
+                    ['真的嘴巴', '以前打哈欠只是在嘴巴的位置貼一張圖。現在嘴裡是立體的：看得到上顎、喉嚨，上下各有尖尖的犬齒和一排小門牙，還有一條會動的粉紅舌頭。'],
+                    ['照真的貓拍的', '動作照一段真的黑貓打哈欠影片重排：嘴巴一張開舌頭就伸出來，蓋過下巴往下垂，張到最大時頭往後仰、眼睛閉起來、耳朵往後壓，然後舌頭收回去、嘴巴闔上，最後舌尖再伸出來舔一下嘴巴。'],
+                    ['正面打給你看', '打哈欠的時候是正對著你的，嘴巴裡面看得清楚。'],
+                ]
+            },
+            {
+                date: '2026-11-26',
+                title: '小黑貓變得更自然，白天的黃色看得清楚了',
+                items: [
+                    ['黃色看得到了', '白天（淺色模式）有些按鈕裡的小圖示、標題底下那條彩色裝飾線是亮黃色的，疊在米白色的底上幾乎看不見。現在圖示跟著按鈕的顏色走，裝飾線的黃改成深一點的芥末黃。'],
+                    ['坐著會看著你', '小黑貓坐著、發呆、理毛的時候改成正面朝向你，不再側著身子；走路的時候才側身。'],
+                    ['尾巴不再怪怪的', '坐著時尾巴末端原本會折成一個奇怪的鉤子，現在尾巴會順順地平放在身體旁邊。'],
+                    ['毛不再毛毛躁躁', '以前貓身上一顆顆亮點、輪廓一圈雜毛，看起來像沾了灰。現在毛短一點、亮光柔一點，是一隻乾淨的黑貓。'],
+                    ['打哈欠看得到舌頭', '打哈欠時嘴巴張得更大，粉紅色的舌頭露得出來。'],
+                    ['動作放慢', '坐著、理毛、伸懶腰、散步這些動作都放慢了，不會像快轉一樣。'],
+                    ['跟牆對得起來', '貓的拍攝角度改成跟底部那面牆一樣，從稍微上面一點往下看，腳穩穩踩在牆頂上；牆頂也加了明暗，看得出是一個平面。'],
+                ]
+            },
             {
                 date: '2026-11-26',
                 title: '全站換成日本字型，白天的大標題更清楚',
